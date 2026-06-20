@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3 uid="uid://bak47weapon01"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_ak47_body"]
+size = Vector3(0.08, 0.1, 0.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ak47_barrel"]
+size = Vector3(0.04, 0.04, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ak47_mag"]
+size = Vector3(0.06, 0.18, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ak47_dark"]
+albedo_color = Color(0.15, 0.15, 0.18, 1)
+metallic = 0.6
+roughness = 0.4
+
+[node name="AK47" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("BoxMesh_ak47_body")
+material_override = SubResource("StandardMaterial3D_ak47_dark")
+
+[node name="Barrel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.4)
+mesh = SubResource("BoxMesh_ak47_barrel")
+material_override = SubResource("StandardMaterial3D_ak47_dark")
+
+[node name="Magazine" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.13, 0.05)
+mesh = SubResource("BoxMesh_ak47_mag")
+material_override = SubResource("StandardMaterial3D_ak47_dark")
+
+[node name="MuzzleFlash" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.6)
+visible = false
+
+[node name="Label3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+visible = false

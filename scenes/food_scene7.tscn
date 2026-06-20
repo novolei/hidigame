@@ -1,0 +1,295 @@
+[gd_scene format=3 uid="uid://btspwpb5xjqnp"]
+
+[ext_resource type="Material" uid="uid://mwjxjakpho40" path="res://Low Poly Food Asset Pack/Kyle Fuji/Materials/M_marble.tres" id="1_v2spe"]
+[ext_resource type="PackedScene" uid="uid://dctx7sbnoqhyc" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/banana.tscn" id="4_lcnwl"]
+[ext_resource type="PackedScene" uid="uid://di434u3wyq5pn" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/plate.tscn" id="4_vn1aw"]
+[ext_resource type="PackedScene" uid="uid://bhsyy64fc1ujw" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/banana_bunch.tscn" id="5_0ad50"]
+[ext_resource type="PackedScene" uid="uid://cn6k7aoialhqf" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/burger.tscn" id="5_nk01m"]
+[ext_resource type="PackedScene" uid="uid://pj1tqjoale5s" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/broccoli.tscn" id="6_686f4"]
+[ext_resource type="PackedScene" uid="uid://dlnows4vpshsb" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/fries.tscn" id="6_p75fm"]
+[ext_resource type="PackedScene" uid="uid://bckrt0ajnw7db" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/pizza_pepperoni.tscn" id="7_b4qfr"]
+[ext_resource type="PackedScene" uid="uid://cpjhge18lw2ua" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/carrot.tscn" id="7_ylvrp"]
+[ext_resource type="PackedScene" uid="uid://bfjfuvx2ldwm2" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/coconut.tscn" id="8_eul5v"]
+[ext_resource type="PackedScene" uid="uid://bpexo8ja3ky8o" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/dish.tscn" id="8_u5v0u"]
+[ext_resource type="PackedScene" uid="uid://bpni38pxht376" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/corn.tscn" id="9_02bf2"]
+[ext_resource type="PackedScene" uid="uid://bgdrimfm1mm03" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/hot_dog.tscn" id="9_leb30"]
+[ext_resource type="PackedScene" uid="uid://px0xcycocbfj" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/pizza_cheese.tscn" id="10_ve461"]
+[ext_resource type="PackedScene" uid="uid://bm32nu4ew23ov" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/cucumber.tscn" id="10_wvidt"]
+[ext_resource type="PackedScene" uid="uid://dxss65xqajsum" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/eggplant.tscn" id="11_qiai3"]
+[ext_resource type="PackedScene" uid="uid://c52p0ccansnb4" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/pizza_pepperoni_full.tscn" id="11_xtwm2"]
+[ext_resource type="PackedScene" uid="uid://csly7dcq1atdc" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/pizza_cheese_full.tscn" id="12_kiqiv"]
+[ext_resource type="PackedScene" uid="uid://dem65xjvr3ep8" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/mushroom.tscn" id="12_u4m0t"]
+[ext_resource type="PackedScene" uid="uid://xwa17g0crs8s" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/pineapple.tscn" id="13_bxya3"]
+[ext_resource type="PackedScene" uid="uid://boagfyaobstr" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_1_chocolate.tscn" id="13_h7uxb"]
+[ext_resource type="PackedScene" uid="uid://ccb3v38byv4fm" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/watermelon_slice.tscn" id="14_laktt"]
+[ext_resource type="PackedScene" uid="uid://cxiuvtgur2s25" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_1_strawberry.tscn" id="14_xnesm"]
+[ext_resource type="PackedScene" uid="uid://skhwxaihy3mx" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_1_white.tscn" id="15_jh235"]
+[ext_resource type="PackedScene" uid="uid://bpvj4gq161mlj" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/lemon.tscn" id="15_vrylr"]
+[ext_resource type="PackedScene" uid="uid://cqp84l344blcj" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_2_chocolate.tscn" id="16_7qxj6"]
+[ext_resource type="PackedScene" uid="uid://biy640as7cvdy" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/lime.tscn" id="16_stf7o"]
+[ext_resource type="PackedScene" uid="uid://diy18731prce6" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/orange.tscn" id="17_fi252"]
+[ext_resource type="PackedScene" uid="uid://b46who0dsohlh" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_2_strawberry.tscn" id="17_twjfs"]
+[ext_resource type="PackedScene" uid="uid://co33ls1ertce" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/scoop_2_white.tscn" id="18_3x4lo"]
+[ext_resource type="PackedScene" uid="uid://8tj1yxp05mji" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/onion_red.tscn" id="18_w6ycs"]
+[ext_resource type="PackedScene" uid="uid://6bnyvi3jux5y" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/onion_white.tscn" id="19_exkxo"]
+[ext_resource type="PackedScene" uid="uid://bgvt8g2qqu4hr" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/ice_cream_chocolate_cone.tscn" id="19_nv21j"]
+[ext_resource type="PackedScene" uid="uid://pmkjsy2iixlc" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/ice_cream_strawberry_cone.tscn" id="20_ohr1o"]
+[ext_resource type="PackedScene" uid="uid://djc5c1oyajhky" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/watermelon.tscn" id="20_tiaew"]
+[ext_resource type="PackedScene" uid="uid://b1fe3jaawmcog" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/ice_cream_vanilla_cone.tscn" id="21_1eupc"]
+[ext_resource type="PackedScene" uid="uid://bcrlnqn78bgp4" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/tomato.tscn" id="21_jjgdw"]
+[ext_resource type="PackedScene" uid="uid://mm84upwiu3pr" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/potato.tscn" id="22_2hkv1"]
+[ext_resource type="PackedScene" uid="uid://bplbhlq6jqjtj" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/apple.tscn" id="23_fpwlm"]
+[ext_resource type="PackedScene" uid="uid://bd750jord84kw" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/bowl.tscn" id="24_jn4qu"]
+[ext_resource type="PackedScene" uid="uid://c5rfs43j3v4oi" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/bowl_full.tscn" id="25_8ilhd"]
+[ext_resource type="PackedScene" uid="uid://dfv1ff1bhrxxn" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/bowl_half.tscn" id="26_3pig4"]
+[ext_resource type="PackedScene" uid="uid://b2k38waupx2xp" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/dish_full.tscn" id="29_sv8lt"]
+[ext_resource type="PackedScene" uid="uid://dxn7lpef1s2tf" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Plates and Dishes/sushi_block.tscn" id="30_lypkf"]
+[ext_resource type="PackedScene" uid="uid://i3kskxwmyh4w" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_salmon_nigiri.tscn" id="31_a5e40"]
+[ext_resource type="PackedScene" uid="uid://bq1d6any327jc" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_shiromi_nigiri.tscn" id="32_hg24k"]
+[ext_resource type="PackedScene" uid="uid://dqffgxs5rfncw" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_tuna_nigiri.tscn" id="33_fnojk"]
+[ext_resource type="PackedScene" uid="uid://dq4w2158ofwws" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_shrimp_nigiri.tscn" id="34_iocsc"]
+[ext_resource type="PackedScene" uid="uid://dwi8idqw4utnm" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_shiromi_maki.tscn" id="35_31rna"]
+[ext_resource type="PackedScene" uid="uid://x5qvy76c3ok5" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_salmon_maki.tscn" id="36_2ey2d"]
+[ext_resource type="PackedScene" uid="uid://bggn06w354kvl" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Sushi/sushi_tuna_maki.tscn" id="37_1gxef"]
+[ext_resource type="PackedScene" uid="uid://conasnuwf8wed" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/drumstick.tscn" id="38_0rqjp"]
+[ext_resource type="PackedScene" uid="uid://cipnk7up4ofs1" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/meat_haunch.tscn" id="39_5jpg4"]
+[ext_resource type="PackedScene" uid="uid://di4vpmce4ecn8" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/steak.tscn" id="40_6wr2x"]
+[ext_resource type="PackedScene" uid="uid://cgdoiq1xbrrog" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/egg.tscn" id="41_6kyu2"]
+[ext_resource type="PackedScene" uid="uid://d1bs5rh4lxa3" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/egg_cooked.tscn" id="42_3weh7"]
+[ext_resource type="PackedScene" uid="uid://gdcfiypidkka" path="res://World Environments/daylight_sun.tscn" id="57_lcnwl"]
+[ext_resource type="PackedScene" uid="uid://wv5rrjf8ay6a" path="res://World Environments/daylight_world_environment.tscn" id="58_0ad50"]
+[ext_resource type="PackedScene" uid="uid://ruiphn4wlnup" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/zucchini.tscn" id="59_0ad50"]
+[ext_resource type="PackedScene" uid="uid://scy5a7eo76p4" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_cola.tscn" id="60_ylvrp"]
+[ext_resource type="PackedScene" uid="uid://jn6x4tfmlsv7" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_beer.tscn" id="61_eul5v"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_8nv5e"]
+
+[node name="FoodScene" type="Node3D"]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1.3155448, 0, 0, 0, 1, 0, 0, 0, 1.8788544, 0, 0, 0)
+material_override = ExtResource("1_v2spe")
+mesh = SubResource("PlaneMesh_8nv5e")
+
+[node name="SpotLight3D" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0.7604271, -1.9809146e-08)
+shadow_enabled = true
+
+[node name="SpotLight3D4" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.021238327, 1.0496525, -0.8105388)
+shadow_enabled = true
+
+[node name="SpotLight3D7" type="SpotLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, -0.097627744, 1.1545206, 0.9384729)
+shadow_enabled = true
+
+[node name="SpotLight3D2" type="SpotLight3D" parent="."]
+transform = Transform3D(0.48296288, -0.25881907, 0.8365164, -0.86602545, -4.3711392e-08, 0.49999997, -0.12940948, -0.9659259, -0.2241439, 1.0669825, 0.40789893, -0.327811)
+light_energy = 0.5
+
+[node name="SpotLight3D3" type="SpotLight3D" parent="."]
+transform = Transform3D(0.48296288, 0.25881904, 0.8365164, -0.86602545, -1.738512e-08, 0.5, 0.12940952, -0.9659259, 0.22414386, 1.0669825, 0.40789893, 0.4560567)
+light_energy = 0.5
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.023598105, -0.81342775, 0.5811872, 0, 0.5813491, 0.8136543, -0.9997215, -0.019200701, 0.013718736, 0.60722065, 0.5832157, 0.12681371)
+visible = false
+
+[node name="banana2" parent="." instance=ExtResource("4_lcnwl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.029648885, 0, -0.14870265)
+
+[node name="banana_bunch2" parent="." instance=ExtResource("5_0ad50")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15200761, 0, -0.15126678)
+
+[node name="broccoli5" parent="." instance=ExtResource("6_686f4")]
+transform = Transform3D(0.5361595, 0.6957085, 0.47804046, -0.12888391, 0.6271509, -0.7681606, -0.8342194, 0.3502449, 0.4259185, 0.036711603, 0, 0.050359912)
+
+[node name="broccoli6" parent="." instance=ExtResource("6_686f4")]
+transform = Transform3D(0.88694316, -0.2735567, -0.37215397, -0.12888391, 0.6271509, -0.7681606, 0.44353217, 0.7292794, 0.52099, 0.038117588, 0, 0.013859905)
+
+[node name="broccoli7" parent="." instance=ExtResource("6_686f4")]
+transform = Transform3D(-0.39289534, 0.6789355, 0.6202256, -0.12888391, 0.6271509, -0.7681606, -0.9105066, -0.3817438, -0.1589008, 0.07181424, 0, 0.06914275)
+
+[node name="broccoli8" parent="." instance=ExtResource("6_686f4")]
+transform = Transform3D(-0.98788494, -0.14872286, 0.044327706, -0.12888391, 0.6271509, -0.7681606, 0.08644291, -0.7645673, -0.63872087, 0.07456195, 0, 0.038559668)
+
+[node name="carrot2" parent="." instance=ExtResource("7_ylvrp")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.023920834, -1.4901161e-08, -0.12179097)
+
+[node name="coconut2" parent="." instance=ExtResource("8_eul5v")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.02478379, 0, 0.15793145)
+
+[node name="corn2" parent="." instance=ExtResource("9_02bf2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.081302404, 0, -0.11497957)
+
+[node name="cucumber2" parent="." instance=ExtResource("10_wvidt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15047425, 1.4901161e-08, -0.13149627)
+
+[node name="eggplant2" parent="." instance=ExtResource("11_qiai3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1423142, 0, 0.17905724)
+
+[node name="mushroom6" parent="." instance=ExtResource("12_u4m0t")]
+transform = Transform3D(0.9996789, -0.02048367, -0.014916699, 0, 0.5886745, -0.8083702, 0.02533947, 0.8081106, 0.5884855, 0.2139484, 0, 0.12535414)
+
+[node name="mushroom7" parent="." instance=ExtResource("12_u4m0t")]
+transform = Transform3D(-0.92865443, -0.2998621, -0.21836674, 9.3102354e-10, 0.58867455, -0.8083703, 0.3709465, -0.75069654, -0.54667515, 0.23955834, 0, 0.10966339)
+
+[node name="mushroom8" parent="." instance=ExtResource("12_u4m0t")]
+transform = Transform3D(0.999679, -0.02048367, -0.014916702, -0.0065583354, -0.77777046, 0.6285144, -0.02447605, -0.6282147, -0.7776551, 0.25037575, 0.024852365, 0.14323431)
+
+[node name="mushroom9" parent="." instance=ExtResource("12_u4m0t")]
+transform = Transform3D(-0.024476094, -0.62821466, -0.77765507, -0.0065583326, -0.77777034, 0.62851435, -0.99967897, 0.02048372, 0.014916717, 0.20930862, 0.024852365, 0.10764056)
+
+[node name="mushroom10" parent="." instance=ExtResource("12_u4m0t")]
+transform = Transform3D(0.52178407, 0.6896026, 0.50218517, 9.3102354e-10, 0.58867455, -0.8083703, -0.85307777, 0.42179465, 0.307161, 0.22746125, 0, 0.15931249)
+
+[node name="pineapple" parent="." instance=ExtResource("13_bxya3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.050115943, 0, 0.3054718)
+
+[node name="watermelon_slice2" parent="." instance=ExtResource("14_laktt")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -0.15376441, 0, 0.09492508)
+
+[node name="lemon2" parent="." instance=ExtResource("15_vrylr")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.064557225, 0, 0.14067954)
+
+[node name="lime2" parent="." instance=ExtResource("16_stf7o")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.07438031, 0, 0.25539544)
+
+[node name="orange2" parent="." instance=ExtResource("17_fi252")]
+transform = Transform3D(1, 0, 0, 0, 0.99982035, 0.01895314, 0, -0.01895314, 0.99982035, 0.09261003, -0.0048769712, 0.35573092)
+
+[node name="onion_red2" parent="." instance=ExtResource("18_w6ycs")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2127372, 0, 0.25239372)
+
+[node name="onion_white2" parent="." instance=ExtResource("19_exkxo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.21403965, 0, 0.36731985)
+
+[node name="watermelon2" parent="." instance=ExtResource("20_tiaew")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.07544178, 0, -0.40240246)
+
+[node name="tomato2" parent="." instance=ExtResource("21_jjgdw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13125196, 0, -0.3148874)
+
+[node name="potato2" parent="." instance=ExtResource("22_2hkv1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.044842094, 0, -0.3095375)
+
+[node name="apple" parent="." instance=ExtResource("23_fpwlm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.035830945, 0, 0.027443185)
+
+[node name="bowl" parent="." instance=ExtResource("24_jn4qu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35541254, -5.9604645e-08, 0.5232337)
+
+[node name="bowl_full" parent="." instance=ExtResource("25_8ilhd")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.32257122, -5.9604645e-08, 0.8359393)
+
+[node name="bowl_half" parent="." instance=ExtResource("26_3pig4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3729249, -5.9604645e-08, 0.19430816)
+
+[node name="plate" parent="." instance=ExtResource("4_vn1aw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3936467, 0, -0.4611054)
+
+[node name="dish" parent="." instance=ExtResource("8_u5v0u")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.37327638, 0, -0.12394631)
+
+[node name="dish_full" parent="." instance=ExtResource("29_sv8lt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.36946654, 0, -0.8004118)
+
+[node name="sushi_block" parent="." instance=ExtResource("30_lypkf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.40088618, 0.001254838, 0)
+
+[node name="salmon_nigiri" parent="." instance=ExtResource("31_a5e40")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4682895, 0.029254839, 0.032401435)
+
+[node name="shiromi_nigiri" parent="." instance=ExtResource("32_hg24k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.42689675, 0.029254839, 0.032401435)
+
+[node name="tuna_nigiri" parent="." instance=ExtResource("33_fnojk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.33318824, 0.029254839, 0.032401435)
+
+[node name="shrimp_nigiri" parent="." instance=ExtResource("34_iocsc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.37887084, 0.029254839, 0.032401435)
+
+[node name="shiromi_maki" parent="." instance=ExtResource("35_31rna")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.40088618, 0.029254839, -0.039024897)
+
+[node name="salmon_maki" parent="." instance=ExtResource("36_2ey2d")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4523301, 0.029254839, -0.039024897)
+
+[node name="tuna_maki" parent="." instance=ExtResource("37_1gxef")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35592318, 0.029254839, -0.039024897)
+
+[node name="drumstick" parent="." instance=ExtResource("38_0rqjp")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.29478532, 0, -0.21974833)
+
+[node name="meat_haunch" parent="." instance=ExtResource("39_5jpg4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.07736972, 0, -0.5527889)
+
+[node name="steak" parent="." instance=ExtResource("40_6wr2x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3890614, 0, -0.23733206)
+
+[node name="egg" parent="." instance=ExtResource("41_6kyu2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28356546, 0, -0.43374753)
+
+[node name="egg_cooked" parent="." instance=ExtResource("42_3weh7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.39137578, 0, -0.39289963)
+
+[node name="burger" parent="." instance=ExtResource("5_nk01m")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.33681017, 0, -0.5467889)
+
+[node name="fries" parent="." instance=ExtResource("6_p75fm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.24160537, 0, -0.68790615)
+
+[node name="hot_dog" parent="." instance=ExtResource("9_leb30")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19128144, 0, -0.50670743)
+
+[node name="pizza_cheese" parent="." instance=ExtResource("10_ve461")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.33981606, 0, 0.13208278)
+
+[node name="pizza_pepperoni" parent="." instance=ExtResource("7_b4qfr")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.47898462, 0, 0.13034339)
+
+[node name="pizza_cheese_full" parent="." instance=ExtResource("12_kiqiv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.41159612, 0, 0.7356619)
+
+[node name="pizza_pepperoni_full" parent="." instance=ExtResource("11_xtwm2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4189412, 0, 0.42451495)
+
+[node name="ice_cream_chocolate_cone" parent="." instance=ExtResource("19_nv21j")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.054934084, 0, 0.5281069)
+
+[node name="ice_cream_strawberry_cone" parent="." instance=ExtResource("20_ohr1o")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.01570189, 0, 0.6715932)
+
+[node name="ice_cream_vanilla_cone" parent="." instance=ExtResource("21_1eupc")]
+transform = Transform3D(0.99997383, 0.004921809, -0.005323165, -0.0049217385, 0.9999879, 2.6199912e-05, 0.0053232294, 0, 0.99998593, -0.0074344687, 0.00024480125, 0.83310926)
+
+[node name="scoop_1_chocolate" parent="." instance=ExtResource("13_h7uxb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.07892066, 0, 0.530817)
+
+[node name="scoop_1_strawberry" parent="." instance=ExtResource("14_xnesm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08702481, 5.9604645e-08, 0.6865654)
+
+[node name="scoop_1_white" parent="." instance=ExtResource("15_jh235")]
+transform = Transform3D(0.99997383, 0.004921809, -0.005323165, -0.0049217385, 0.9999879, 2.6199912e-05, 0.0053232294, 0, 0.99998593, 0.09204046, -0.00024480122, 0.86257994)
+
+[node name="scoop_2_chocolate" parent="." instance=ExtResource("16_7qxj6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.20963043, 0, 0.5155772)
+
+[node name="scoop_2_strawberry" parent="." instance=ExtResource("17_twjfs")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.21126896, 0, 0.6620878)
+
+[node name="scoop_2_white" parent="." instance=ExtResource("18_3x4lo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.21994391, -5.9604645e-08, 0.82992995)
+
+[node name="DirectionalLight3D" parent="." instance=ExtResource("57_lcnwl")]
+
+[node name="WorldEnvironment" parent="." instance=ExtResource("58_0ad50")]
+
+[node name="zucchini" parent="." instance=ExtResource("59_0ad50")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23181108, 0, -0.12671106)
+
+[node name="soda_can_cola" parent="." instance=ExtResource("60_ylvrp")]
+transform = Transform3D(0.6271749, 0, -0.77887845, 0, 1, 0, 0.77887845, 0, 0.6271749, -0.07470924, 0, -0.6152823)
+
+[node name="soda_can_beer" parent="." instance=ExtResource("61_eul5v")]
+transform = Transform3D(0.5836263, 0, -0.8120224, 0, 1, 0, 0.8120224, 0, 0.5836263, -0.06557676, -5.9604645e-08, -0.7298949)

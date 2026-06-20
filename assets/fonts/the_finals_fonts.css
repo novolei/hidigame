@@ -1,0 +1,99 @@
+﻿@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLGT9V1s.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: italic;
+  font-weight: 400;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memUYa2wxmKQyNkiV50dulWP7s95AqZTzZHcVdxWI9WH-pKBSosxkw.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: italic;
+  font-weight: 500;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memUYa2wxmKQyNkiV50dulWP7s95AqZTzZHcVdxWI9WH-pKBeIsxkw.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: italic;
+  font-weight: 600;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memUYa2wxmKQyNkiV50dulWP7s95AqZTzZHcVdxWI9WH-pKBlIwxkw.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: italic;
+  font-weight: 700;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memUYa2wxmKQyNkiV50dulWP7s95AqZTzZHcVdxWI9WH-pKBrYwxkw.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA72jCosg.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA74TFosg.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira';
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: normal;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/saira/v23/memWYa2wxmKQyPMrZX79wwYZQMhsyuShhKMjjbU9uXuA773Fosg.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira Condensed';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sairacondensed/v12/EJRLQgErUN8XuHNEtX81i9TmEkrnCclg8A.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira Condensed';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sairacondensed/v12/EJRLQgErUN8XuHNEtX81i9TmEkrnUchg8A.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sairacondensed/v12/EJRLQgErUN8XuHNEtX81i9TmEkrnGc5g8A.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira Extra Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sairaextracondensed/v15/-nFiOHYr-vcC7h8MklGBkrvmUG9rbpkisrTT7w.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Saira Extra Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/sairaextracondensed/v15/-nFvOHYr-vcC7h8MklGBkrvmUG9rbpkisrTrU23R3A.ttf) format('truetype');
+}
+

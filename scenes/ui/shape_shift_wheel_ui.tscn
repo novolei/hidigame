@@ -1,0 +1,74 @@
+[gd_scene format=3 uid="uid://f2adar825rem"]
+
+[ext_resource type="Script" path="res://scripts/shape_shift_wheel_ui.gd" id="1_wheel_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wheel"]
+bg_color = Color(0.1, 0.1, 0.15, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.5, 0.7, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="ShapeShiftWheelUI" type="Control"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -200.0
+offset_right = 400.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_wheel_script")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wheel")
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Header" type="VBoxContainer" parent="Panel/MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Panel/MarginContainer/Header"]
+layout_mode = 2
+text = "选择身体形态 (Q 切换)"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="CooldownLabel" type="Label" parent="Panel/MarginContainer/Header"]
+layout_mode = 2
+text = "冷却: 就绪"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="GridContainer" type="GridContainer" parent="Panel/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+columns = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
