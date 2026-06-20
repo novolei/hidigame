@@ -11,7 +11,9 @@ func _run() -> void:
 	I18n.set_language_setting("en")
 	_reset_network_state()
 	_test_lobby_id_password()
+	_test_host_room_metadata()
 	await _test_lobby_ui_state()
+	await _test_landing_join_form()
 	await _test_level_start_match_path()
 	_test_auto_assign_by_hunter_count()
 
@@ -28,10 +30,13 @@ func _reset_network_state() -> void:
 	if Network.multiplayer.multiplayer_peer:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
 	Network.players.clear()
 	Network.lobby_config = {
 		"max_players": 24,
 		"lobby_id": "",
+		"room_name": "Private Match",
+		"steam_lobby_id": "",
 		"map": "Warehouse",
 		"variant": "Default",
 		"condition": "Normal",
@@ -51,6 +56,23 @@ func _test_lobby_id_password() -> void:
 	_expect(not Network.is_lobby_id_valid("ZZZZ"), "Wrong Lobby ID should be rejected")
 	Network.lobby_config["lobby_id"] = ""
 	_expect(Network.is_lobby_id_valid(""), "Empty server Lobby ID should allow test/dev joins")
+
+
+func _test_host_room_metadata() -> void:
+	_reset_network_state()
+	Network.server_port = 19089
+	var host_error = Network.start_host("Bili", "blue", Network.Role.CHAMELEON, "Bili Room", "ab-12")
+	_expect(host_error == OK, "Host should start with room metadata")
+	if host_error != OK:
+		return
+	_expect(str(Network.lobby_config.get("room_name", "")) == "Bili Room", "Host should store room name")
+	_expect(str(Network.lobby_config.get("lobby_id", "")) == "AB12", "Host should normalize lobby password")
+	_expect(Network.is_room_name_valid("bili room"), "Room name should be case-insensitive")
+	_expect(not Network.is_room_name_valid("Other Room"), "Wrong room name should be rejected")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
 
 
 func _test_lobby_ui_state() -> void:
@@ -122,8 +144,48 @@ func _test_lobby_ui_state() -> void:
 	await get_tree().process_frame
 
 
+func _test_landing_join_form() -> void:
+	_reset_network_state()
+	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
+	var ui: MainMenuUI = ui_scene.instantiate()
+	get_tree().root.add_child(ui)
+	await get_tree().process_frame
+
+	var join_result := {
+		"count": 0,
+		"address": "",
+		"lobby_id": "",
+		"room_name": "",
+	}
+	ui.join_pressed.connect(func(_nickname, _skin, address, lobby_id, _role, room_name):
+		join_result["count"] = int(join_result["count"]) + 1
+		join_result["address"] = address
+		join_result["lobby_id"] = lobby_id
+		join_result["room_name"] = room_name
+	)
+
+	ui.address_input.text = "Bili Room"
+	ui.join_lobby_input.text = ""
+	ui._on_join_pressed()
+	_expect(int(join_result["count"]) == 0, "Join should require Lobby ID/password")
+	ui.join_lobby_input.text = "abcd"
+	ui._on_lobby_password_text_changed(ui.join_lobby_input.text)
+	_expect(ui.get_join_target() == "Bili Room", "Join target field should keep room name")
+	_expect(ui.get_lobby_password() == "ABCD", "Join password getter should normalize text")
+	_expect(ui._validate_join_request(), "Join validation should pass with room name and password")
+	ui._on_join_pressed()
+	_expect(int(join_result["count"]) == 1, "Join should emit when target and password are present")
+	_expect(str(join_result["address"]) == Network.SERVER_ADDRESS, "Room-name joins should fall back to localhost before Steam lookup")
+	_expect(str(join_result["lobby_id"]) == "ABCD", "Join should normalize Lobby ID/password")
+	_expect(str(join_result["room_name"]) == "Bili Room", "Join should pass room name separately")
+
+	ui.queue_free()
+	await get_tree().process_frame
+
+
 func _test_level_start_match_path() -> void:
 	_reset_network_state()
+	Network.server_port = 19092
 	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
 	var level = level_scene.instantiate()
 	get_tree().root.add_child(level)
@@ -158,6 +220,7 @@ func _test_level_start_match_path() -> void:
 	if Network.multiplayer.multiplayer_peer:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
 	await get_tree().process_frame
 
 

@@ -11,6 +11,7 @@ extends Node
 
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
+var server_port: int = SERVER_PORT
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
 
 # -----------------------------------------------------------------------------
@@ -45,7 +46,8 @@ var player_info: Dictionary = {
 	"nick": "host",
 	"skin": Character.SkinColor.BLUE,
 	"role": Role.NONE,
-	"role_locked": false
+	"role_locked": false,
+	"join_room_name": ""
 }
 
 # -----------------------------------------------------------------------------
@@ -54,6 +56,8 @@ var player_info: Dictionary = {
 var lobby_config: Dictionary = {
 	"max_players": 24,
 	"lobby_id": "",
+	"room_name": "Private Match",
+	"steam_lobby_id": "",
 	"map": "Warehouse",
 	"variant": "Default",
 	"condition": "Normal",
@@ -138,9 +142,9 @@ func _ready() -> void:
 # 连接管理
 # =============================================================================
 
-func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE):
+func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = ""):
 	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_server(SERVER_PORT, MAX_PLAYERS)
+	var error = peer.create_server(server_port, MAX_PLAYERS)
 	if error:
 		return error
 	multiplayer.multiplayer_peer = peer
@@ -153,21 +157,28 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	player_info["role"] = host_role
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = ""
+	player_info["join_room_name"] = ""
 
 	players.clear()
-	lobby_config["lobby_id"] = _generate_lobby_id()
+	lobby_config["room_name"] = _normalize_room_name(room_name, nickname)
+	lobby_config["lobby_id"] = _normalize_lobby_password(lobby_password)
+	if str(lobby_config["lobby_id"]).is_empty():
+		lobby_config["lobby_id"] = _generate_lobby_id()
+	lobby_config["steam_lobby_id"] = ""
 	lobby_config["role_locked"] = false
 
 	if DisplayServer.get_name() == "headless":
-		return
+		return OK
 
 	players[1] = player_info.duplicate()
 	player_connected.emit(1, players[1])
+	return OK
 
 
-func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE):
+func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = ""):
 	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_client(address, SERVER_PORT)
+	address = _normalize_join_address(address)
+	var error = peer.create_client(address, server_port)
 	if error:
 		return error
 
@@ -183,6 +194,7 @@ func join_game(nickname: String, skin_color_str: String, address: String = SERVE
 	player_info["role"] = client_role
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = lobby_id.strip_edges().to_upper()
+	player_info["join_room_name"] = room_name.strip_edges()
 
 
 # =============================================================================
@@ -472,6 +484,11 @@ func _register_player(new_player_info):
 			push_warning("Peer " + str(new_player_id) + " joined with wrong lobby id")
 			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
 			return
+		var provided_room_name = str(new_player_info.get("join_room_name", ""))
+		if not is_room_name_valid(provided_room_name):
+			push_warning("Peer " + str(new_player_id) + " joined with wrong room name")
+			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
+			return
 	if not players.has(new_player_id):
 		players[new_player_id] = new_player_info.duplicate()
 	else:
@@ -572,6 +589,37 @@ func get_my_role() -> int:
 func is_lobby_id_valid(provided_id: String) -> bool:
 	var expected_id = str(lobby_config.get("lobby_id", "")).strip_edges().to_upper()
 	return expected_id == "" or provided_id.strip_edges().to_upper() == expected_id
+
+
+func is_room_name_valid(provided_room_name: String) -> bool:
+	var expected_name := str(lobby_config.get("room_name", "")).strip_edges().to_lower()
+	var received_name := provided_room_name.strip_edges().to_lower()
+	return received_name.is_empty() or expected_name.is_empty() or received_name == expected_name
+
+
+func _normalize_room_name(room_name: String, fallback_nick: String = "Host") -> String:
+	var normalized := room_name.strip_edges()
+	if normalized.is_empty():
+		var host_name := fallback_nick.strip_edges()
+		normalized = ("%s's Room" % host_name) if not host_name.is_empty() else "Private Match"
+	return normalized.substr(0, 32)
+
+
+func _normalize_lobby_password(value: String) -> String:
+	var normalized := value.strip_edges().to_upper()
+	if normalized.is_empty():
+		return ""
+	var output := ""
+	for i in range(normalized.length()):
+		var ch := normalized.substr(i, 1)
+		if ch.is_valid_identifier() or ch.is_valid_int():
+			output += ch
+	return output.substr(0, 8)
+
+
+func _normalize_join_address(address: String) -> String:
+	var normalized := address.strip_edges()
+	return normalized if not normalized.is_empty() else SERVER_ADDRESS
 
 
 func _generate_lobby_id() -> String:

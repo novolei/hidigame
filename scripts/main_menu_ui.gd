@@ -1,8 +1,8 @@
 extends Control
 class_name MainMenuUI
 
-signal host_pressed(nickname: String, skin: String, role: int)
-signal join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int)
+signal host_pressed(nickname: String, skin: String, role: int, room_name: String, lobby_password: String)
+signal join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String)
 signal quit_pressed
 signal start_match_pressed(config: Dictionary)
 signal auto_assign_pressed(config: Dictionary)
@@ -21,8 +21,13 @@ var lobby_chat_messages: Array[Dictionary] = []
 
 var nick_input: LineEdit
 var skin_input: LineEdit
+var room_name_input: LineEdit
 var address_input: LineEdit
 var join_lobby_input: LineEdit
+var join_status_label: Label
+var steam_status_label: Label
+var host_button: Button
+var join_button: Button
 var language_option: OptionButton
 var landing_role_buttons: Array[Button] = []
 
@@ -57,6 +62,7 @@ func _ready() -> void:
 	_load_fonts()
 	_build_styles()
 	I18n.locale_changed.connect(_on_locale_changed)
+	SteamBridge.availability_changed.connect(_on_steam_availability_changed)
 	_select_role(Network.Role.CHAMELEON)
 	show_landing()
 
@@ -180,8 +186,37 @@ func get_skin() -> String:
 	return skin_input.text.strip_edges().to_lower() if skin_input else ""
 
 
+func get_room_name() -> String:
+	return room_name_input.text.strip_edges() if room_name_input else ""
+
+
 func get_address() -> String:
+	var target := get_join_target()
+	return target if _looks_like_network_address(target) else Network.SERVER_ADDRESS
+
+
+func get_join_target() -> String:
 	return address_input.text.strip_edges() if address_input else ""
+
+
+func get_join_room_name() -> String:
+	var target := get_join_target()
+	return "" if _looks_like_network_address(target) else target
+
+
+func get_lobby_password() -> String:
+	return join_lobby_input.text.strip_edges().to_upper() if join_lobby_input else ""
+
+
+func get_connection_summary() -> Dictionary:
+	var target := get_join_target()
+	return {
+		"target": target,
+		"address": get_address(),
+		"room_name": get_join_room_name(),
+		"lobby_id": get_lobby_password(),
+		"uses_room_lookup": not _looks_like_network_address(target),
+	}
 
 
 func _load_fonts() -> void:
@@ -314,21 +349,21 @@ func _build_language_bar() -> void:
 func _build_landing_ui() -> void:
 	var center = VBoxContainer.new()
 	center.set_anchors_preset(Control.PRESET_CENTER)
-	center.custom_minimum_size = _sv(720, 560)
-	center.offset_left = -_s(360)
-	center.offset_top = -_s(280)
-	center.offset_right = _s(360)
-	center.offset_bottom = _s(280)
-	center.add_theme_constant_override("separation", _s(14))
+	center.custom_minimum_size = _sv(780, 590)
+	center.offset_left = -_s(390)
+	center.offset_top = -_s(350)
+	center.offset_right = _s(390)
+	center.offset_bottom = _s(240)
+	center.add_theme_constant_override("separation", _s(10))
 	center.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(center)
 
-	var title = _label(I18n.t("app.title"), 74, true)
+	var title = _label(I18n.t("app.title"), 64, true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color.WHITE)
 	center.add_child(title)
 
-	var subtitle = _label(I18n.t("app.subtitle"), 30, true)
+	var subtitle = _label(I18n.t("app.subtitle"), 25, true)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_color_override("font_color", Color(1.0, 0.76, 0.13, 1))
 	center.add_child(subtitle)
@@ -339,25 +374,45 @@ func _build_landing_ui() -> void:
 	center.add_child(card)
 
 	var form = VBoxContainer.new()
-	form.add_theme_constant_override("separation", _s(10))
+	form.add_theme_constant_override("separation", _s(7))
 	card.add_child(form)
 
 	nick_input = _line_edit(I18n.t("placeholder.nick"))
 	skin_input = _line_edit(I18n.t("placeholder.skin"))
-	address_input = _line_edit(I18n.t("placeholder.ip"))
+	room_name_input = _line_edit(I18n.t("placeholder.room_name"))
+	address_input = _line_edit(I18n.t("placeholder.join_target"))
 	join_lobby_input = _line_edit(I18n.t("placeholder.lobby"))
+	room_name_input.max_length = 32
+	address_input.max_length = 64
+	join_lobby_input.max_length = 8
+	address_input.text_changed.connect(func(_text): _refresh_landing_join_state())
+	join_lobby_input.text_changed.connect(_on_lobby_password_text_changed)
+
+	form.add_child(_section_label(I18n.t("player_setup")))
 	form.add_child(_field_row(I18n.t("nickname"), nick_input))
 	form.add_child(_field_row(I18n.t("skin"), skin_input))
-	form.add_child(_field_row(I18n.t("server_ip"), address_input))
-	form.add_child(_field_row(I18n.t("lobby_id"), join_lobby_input))
+	form.add_child(_thin_separator())
+	form.add_child(_section_label(I18n.t("room_setup")))
+	form.add_child(_field_row(I18n.t("room_name"), room_name_input))
+	form.add_child(_field_row(I18n.t("join_target"), address_input))
+	form.add_child(_field_row(I18n.t("lobby_password"), join_lobby_input))
+
+	steam_status_label = _muted_label("", 15)
+	form.add_child(steam_status_label)
+	_refresh_steam_status()
+
+	join_status_label = _muted_label("", 15)
+	join_status_label.visible = false
+	form.add_child(join_status_label)
 
 	var roles = HBoxContainer.new()
 	roles.add_theme_constant_override("separation", _s(10))
 	roles.alignment = BoxContainer.ALIGNMENT_CENTER
+	form.add_child(_section_label(I18n.t("choose_side")))
 	for data in _role_data():
 		var btn = _button(data["label"], false)
 		btn.toggle_mode = true
-		btn.custom_minimum_size = _sv(180, 44)
+		btn.custom_minimum_size = _sv(180, 40)
 		var role_id: int = data["role"]
 		btn.pressed.connect(func(): _select_role(role_id))
 		roles.add_child(btn)
@@ -369,20 +424,23 @@ func _build_landing_ui() -> void:
 	buttons.add_theme_constant_override("separation", _s(12))
 	form.add_child(buttons)
 
-	var host = _button(I18n.t("host_lobby"), true)
-	host.custom_minimum_size = _sv(180, 52)
-	host.pressed.connect(_on_host_pressed)
-	buttons.add_child(host)
+	host_button = _button(I18n.t("host_lobby"), true)
+	host_button.custom_minimum_size = _sv(180, 48)
+	host_button.icon = _icon_texture("res://addons/at-icons/control/server.svg", "#15110d", _s(22))
+	host_button.pressed.connect(_on_host_pressed)
+	buttons.add_child(host_button)
 
-	var join = _button(I18n.t("join_lobby"), false)
-	join.custom_minimum_size = _sv(180, 52)
-	join.pressed.connect(_on_join_pressed)
-	buttons.add_child(join)
+	join_button = _button(I18n.t("join_lobby"), false)
+	join_button.custom_minimum_size = _sv(180, 48)
+	join_button.icon = _icon_texture("res://addons/at-icons/control/globe.svg", "#ffffff", _s(22))
+	join_button.pressed.connect(_on_join_pressed)
+	buttons.add_child(join_button)
 
 	var quit = _button(I18n.t("quit"), false)
-	quit.custom_minimum_size = _sv(120, 52)
+	quit.custom_minimum_size = _sv(120, 48)
 	quit.pressed.connect(func(): quit_pressed.emit())
 	buttons.add_child(quit)
+	_refresh_landing_join_state()
 	_update_role_buttons(landing_role_buttons)
 
 
@@ -825,6 +883,7 @@ func _update_config_controls(config: Dictionary) -> void:
 func _collect_lobby_config() -> Dictionary:
 	return {
 		"lobby_id": current_lobby_id,
+		"room_name": str(Network.lobby_config.get("room_name", get_room_name())),
 		"map": _get_option_value(map_option, "Warehouse"),
 		"variant": _get_option_value(variant_option, "Default"),
 		"condition": _get_option_value(condition_option, "Normal"),
@@ -841,11 +900,81 @@ func _on_config_changed() -> void:
 
 
 func _on_host_pressed() -> void:
-	host_pressed.emit(get_nickname(), get_skin(), selected_role)
+	_set_join_status("")
+	host_pressed.emit(get_nickname(), get_skin(), selected_role, get_room_name(), get_lobby_password())
 
 
 func _on_join_pressed() -> void:
-	join_pressed.emit(get_nickname(), get_skin(), get_address(), join_lobby_input.text.strip_edges(), selected_role)
+	if not _validate_join_request():
+		return
+	_set_join_status(I18n.t("join_status.connecting"), false)
+	join_pressed.emit(get_nickname(), get_skin(), get_address(), get_lobby_password(), selected_role, get_join_room_name())
+
+
+func _refresh_landing_join_state() -> void:
+	if not join_status_label:
+		return
+	if get_join_target().is_empty() and get_lobby_password().is_empty():
+		_set_join_status("")
+	elif get_join_target().is_empty():
+		_set_join_status(I18n.t("join_status.need_target"), true)
+	elif get_lobby_password().is_empty():
+		_set_join_status(I18n.t("join_status.need_password"), true)
+	else:
+		var key := "join_status.ready_address" if _looks_like_network_address(get_join_target()) else "join_status.ready_room"
+		_set_join_status(I18n.t(key), false)
+
+
+func _refresh_steam_status() -> void:
+	if not steam_status_label:
+		return
+	var text_key := "steam_status.ready" if SteamBridge.is_available() else "steam_status.offline"
+	steam_status_label.text = I18n.t(text_key)
+	steam_status_label.add_theme_color_override("font_color", Color(0.650, 0.820, 1.0, 1) if SteamBridge.is_available() else Color(0.78, 0.79, 0.84, 1))
+
+
+func _on_steam_availability_changed(_available: bool, _message: String) -> void:
+	_refresh_steam_status()
+
+
+func _on_lobby_password_text_changed(text: String) -> void:
+	var normalized := text.to_upper()
+	if text != normalized and join_lobby_input:
+		var caret := join_lobby_input.caret_column
+		join_lobby_input.text = normalized
+		join_lobby_input.caret_column = min(caret, normalized.length())
+	_refresh_landing_join_state()
+
+
+func _validate_join_request() -> bool:
+	if get_join_target().is_empty():
+		_set_join_status(I18n.t("join_status.need_target"), true)
+		if address_input:
+			address_input.grab_focus()
+		return false
+	if get_lobby_password().is_empty():
+		_set_join_status(I18n.t("join_status.need_password"), true)
+		if join_lobby_input:
+			join_lobby_input.grab_focus()
+		return false
+	return true
+
+
+func _set_join_status(text: String, is_error: bool = false) -> void:
+	if not join_status_label:
+		return
+	join_status_label.text = text
+	join_status_label.visible = not text.is_empty()
+	join_status_label.add_theme_color_override("font_color", Color(1.0, 0.590, 0.220, 1) if is_error else Color(0.760, 0.850, 1.0, 1))
+
+
+func _looks_like_network_address(value: String) -> bool:
+	var target := value.strip_edges().to_lower()
+	if target.is_empty():
+		return false
+	if target == "localhost" or target == "127.0.0.1" or target == "::1":
+		return true
+	return target.contains(".") or target.contains(":")
 
 
 func _select_role(role: int) -> void:

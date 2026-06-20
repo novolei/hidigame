@@ -9,6 +9,7 @@ func _ready() -> void:
 
 func _capture() -> void:
 	I18n.set_language_setting("en")
+	_disable_boot_splash()
 	Network.players = {
 		1: _player("Host", Network.Role.CHAMELEON),
 		2: _player("Bili.Waytoon", Network.Role.HUNTER),
@@ -39,6 +40,12 @@ func _capture() -> void:
 	image.save_png(OUTPUT_PATH)
 	print("[LobbyVisualSnapshot] saved ", OUTPUT_PATH)
 	get_tree().quit(0)
+
+
+func _disable_boot_splash() -> void:
+	var splash := get_node_or_null("/root/BootSplashPlus")
+	if splash:
+		splash.queue_free()
 
 
 func _player(nick: String, role: int) -> Dictionary:

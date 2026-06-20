@@ -39,6 +39,7 @@ enum GameState {
 var game_state: GameState = GameState.LOBBY
 var chat_visible = false
 var inventory_visible = false
+var pending_steam_join := {}
 
 # 准备阶段倒计时
 var prep_timer: Timer = null
@@ -100,6 +101,8 @@ func _ready():
 	Network.server_disconnected.connect(_on_server_disconnected)
 	Network.lobby_config_updated.connect(func(_config): _refresh_lobby_ui())
 	Network.start_match_requested.connect(_server_start_from_lobby)
+	SteamBridge.lobby_created.connect(_on_steam_lobby_created)
+	SteamBridge.lobby_lookup_completed.connect(_on_steam_lobby_lookup_completed)
 
 	# 客户端也监听角色变化(用于 UI 更新)
 	Network.player_role_changed.connect(_on_player_role_changed)
@@ -138,24 +141,72 @@ func _process(delta):
 # -----------------------------------------------------------------------------
 # 主菜单回调
 # -----------------------------------------------------------------------------
-func _on_host_pressed(nickname: String, skin: String, role: int):
-	var error = Network.start_host(nickname, skin, role)
+func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = ""):
+	var error = Network.start_host(nickname, skin, role, room_name, lobby_password)
 	if error:
 		push_warning("Could not host lobby. ENet error: " + str(error))
 		return
+	if SteamBridge.is_available():
+		SteamBridge.create_lobby(
+			str(Network.lobby_config.get("room_name", room_name)),
+			str(Network.lobby_config.get("lobby_id", lobby_password)),
+			Network.SERVER_ADDRESS,
+			int(Network.lobby_config.get("max_players", Network.MAX_PLAYERS))
+		)
 	main_menu.show_lobby(str(Network.lobby_config.get("lobby_id", "")), true)
 	_set_hud_visible(false)
 	_refresh_lobby_ui()
 
 
-func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int):
-	var error = Network.join_game(nickname, skin, address, lobby_id, role)
+func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = ""):
+	if not room_name.strip_edges().is_empty() and SteamBridge.is_available():
+		pending_steam_join = {
+			"nickname": nickname,
+			"skin": skin,
+			"address": address,
+			"lobby_id": lobby_id,
+			"role": role,
+			"room_name": room_name,
+		}
+		if SteamBridge.find_lobby(room_name, lobby_id):
+			return
+	_join_lobby_direct(nickname, skin, address, lobby_id, role, room_name)
+
+
+func _join_lobby_direct(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "") -> void:
+	var error = Network.join_game(nickname, skin, address, lobby_id, role, room_name)
 	if error:
 		push_warning("Could not join lobby. ENet error: " + str(error))
 		return
 	main_menu.show_lobby(lobby_id.strip_edges().to_upper(), false)
 	_set_hud_visible(false)
 	_refresh_lobby_ui()
+
+
+func _on_steam_lobby_created(success: bool, steam_lobby_id: String, message: String) -> void:
+	print("[SteamBridge] ", message, " id=", steam_lobby_id)
+	if success:
+		Network.lobby_config["steam_lobby_id"] = steam_lobby_id
+		_refresh_lobby_ui()
+
+
+func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String) -> void:
+	print("[SteamBridge] ", message, " room=", room_name, " id=", steam_lobby_id)
+	if pending_steam_join.is_empty():
+		return
+	var join_data := pending_steam_join.duplicate()
+	pending_steam_join.clear()
+	if found and not steam_lobby_id.is_empty():
+		SteamBridge.join_lobby(steam_lobby_id)
+	var join_address := address if found and not address.strip_edges().is_empty() else str(join_data.get("address", Network.SERVER_ADDRESS))
+	_join_lobby_direct(
+		str(join_data.get("nickname", "")),
+		str(join_data.get("skin", "")),
+		join_address,
+		lobby_password if found else str(join_data.get("lobby_id", "")),
+		int(join_data.get("role", Network.Role.NONE)),
+		room_name if found else str(join_data.get("room_name", ""))
+	)
 
 
 func _on_server_disconnected() -> void:
