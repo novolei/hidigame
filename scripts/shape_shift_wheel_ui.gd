@@ -66,8 +66,9 @@ func _populate_buttons() -> void:
 	for i in range(shape_system.get_preset_count()):
 		var preset = shape_system.get_preset(i)
 		var btn = Button.new()
-		btn.text = "[%d] %s\nh=%.1f w=%.1f" % [i + 1, preset["name"], preset["height"], preset["width"]]
-		btn.custom_minimum_size = Vector2(180, 60)
+		var tags: String = " ".join(PackedStringArray(preset.get("tags", [])))
+		btn.text = "[%d] %s\n%s" % [i + 1, preset["name"], tags]
+		btn.custom_minimum_size = Vector2(190, 64)
 		btn.focus_mode = Control.FOCUS_NONE
 		var idx = i
 		btn.pressed.connect(func(): _on_preset_clicked(idx))

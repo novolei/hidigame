@@ -16,81 +16,63 @@ class_name ShapeShiftSystem
 # -----------------------------------------------------------------------------
 const SHIFT_COOLDOWN: float = 6.0       # v0.3 锁定
 const SHIFT_TRANSITION_TIME: float = 2.0  # 平滑过渡时长
+const REPLICATE_RANGE: float = 4.5
 
-# 形态预设库(对应 GDD §3.6.1 的"参考物体")
-# 注意:这些是身体参数,不是变成物体本身!
+# 伪装物件预设库(POC):先用程序化 mesh 做可玩的最小闭环。
 const PRESET_LIBRARY := [
 	{
-		"id": "tall_slim",
-		"name": "瘦高 (路灯模拟)",
-		"height": 1.5,
-		"width": 0.4,
-		"head": 0.3,
-		"limb": 0.8,
-		"tags": ["#tall", "#slim"],
+		"id": "crate",
+		"name": "木箱",
+		"mesh": "box",
+		"size": Vector3(1.25, 1.0, 1.25),
+		"offset": Vector3(0.0, 0.52, 0.0),
+		"color": Color(0.56, 0.36, 0.18, 1.0),
+		"tags": ["#box", "#cover"],
 	},
 	{
-		"id": "short_chubby",
-		"name": "矮胖 (垃圾桶模拟)",
-		"height": 0.6,
-		"width": 1.4,
-		"head": 1.2,
-		"limb": 1.0,
-		"tags": ["#short", "#chubby"],
+		"id": "barrel",
+		"name": "铁桶",
+		"mesh": "cylinder",
+		"size": Vector3(0.95, 1.35, 0.95),
+		"offset": Vector3(0.0, 0.68, 0.0),
+		"color": Color(0.26, 0.30, 0.35, 1.0),
+		"tags": ["#round", "#metal"],
 	},
 	{
-		"id": "cube",
-		"name": "立方 (纸箱模拟)",
-		"height": 1.0,
-		"width": 1.0,
-		"head": 0.9,
-		"limb": 0.7,
-		"tags": ["#cube", "#box"],
+		"id": "ball",
+		"name": "圆球",
+		"mesh": "sphere",
+		"size": Vector3(1.15, 1.15, 1.15),
+		"offset": Vector3(0.0, 0.58, 0.0),
+		"color": Color(0.86, 0.73, 0.27, 1.0),
+		"tags": ["#round", "#small"],
 	},
 	{
-		"id": "streamline",
-		"name": "流线 (长椅模拟)",
-		"height": 0.8,
-		"width": 1.2,
-		"head": 0.9,
-		"limb": 0.9,
-		"tags": ["#stream", "#low"],
+		"id": "cactus",
+		"name": "仙人掌",
+		"mesh": "cactus",
+		"size": Vector3(0.78, 1.75, 0.78),
+		"offset": Vector3(0.0, 0.88, 0.0),
+		"color": Color(0.18, 0.48, 0.29, 1.0),
+		"tags": ["#plant", "#tall"],
 	},
 	{
-		"id": "flat",
-		"name": "扁平 (阴影模拟)",
-		"height": 0.4,
-		"width": 1.5,
-		"head": 0.5,
-		"limb": 0.6,
-		"tags": ["#flat", "#low"],
+		"id": "barricade",
+		"name": "矮路障",
+		"mesh": "box",
+		"size": Vector3(1.8, 0.62, 0.5),
+		"offset": Vector3(0.0, 0.32, 0.0),
+		"color": Color(0.84, 0.50, 0.12, 1.0),
+		"tags": ["#low", "#wide"],
 	},
 	{
-		"id": "humanoid",
-		"name": "标准人形",
-		"height": 1.0,
-		"width": 1.0,
-		"head": 1.0,
-		"limb": 1.0,
-		"tags": ["#normal"],
-	},
-	{
-		"id": "tall_humanoid",
-		"name": "修长人形",
-		"height": 1.2,
-		"width": 0.9,
-		"head": 0.9,
-		"limb": 1.1,
-		"tags": ["#tall"],
-	},
-	{
-		"id": "wide_humanoid",
-		"name": "宽厚人形",
-		"height": 1.0,
-		"width": 1.3,
-		"head": 1.1,
-		"limb": 1.0,
-		"tags": ["#wide"],
+		"id": "human",
+		"name": "解除伪装",
+		"mesh": "none",
+		"size": Vector3.ONE,
+		"offset": Vector3.ZERO,
+		"color": Color.WHITE,
+		"tags": ["#reset"],
 	},
 ]
 
@@ -98,7 +80,7 @@ const PRESET_LIBRARY := [
 # 状态
 # -----------------------------------------------------------------------------
 var shift_owner: CharacterBody3D = null
-var current_preset_index: int = 5  # 默认 humanoid
+var current_preset_index: int = 5  # 默认解除伪装
 var is_shifting: bool = false
 var cooldown_remaining: float = 0.0
 var wheel_open: bool = false
@@ -163,11 +145,46 @@ func try_shift(preset_index: int) -> bool:
 	current_preset_index = preset_index
 	is_shifting = true
 	shift_started.emit(preset_index, preset)
-	print("[ShapeShift] Shifting to ", preset["name"], " (h=", preset["height"], " w=", preset["width"], ")")
+	print("[ShapeShift] Shifting to prop ", preset["name"])
 
-	# 平滑过渡动画
 	_animate_to_preset(preset)
 	return true
+
+
+func has_nearby_replicable_prop() -> bool:
+	return _find_nearest_replicable_prop() != null
+
+
+func try_replicate_nearby_prop() -> bool:
+	var prop = _find_nearest_replicable_prop()
+	if not prop:
+		shift_failed.emit("no_nearby_prop")
+		return false
+	if is_shifting:
+		shift_failed.emit("already_shifting")
+		return false
+	if cooldown_remaining > 0.0:
+		shift_failed.emit("cooldown")
+		return false
+	if not prop.has_method("get_disguise_preset"):
+		shift_failed.emit("invalid_prop")
+		return false
+
+	var preset: Dictionary = prop.get_disguise_preset()
+	current_preset_index = -1
+	is_shifting = true
+	shift_started.emit(current_preset_index, preset)
+	print("[ShapeShift] Replicating nearby prop ", preset.get("name", "prop"))
+	_animate_to_preset(preset)
+	return true
+
+
+func has_nearby_fruit() -> bool:
+	return has_nearby_replicable_prop()
+
+
+func try_shift_nearby_fruit() -> bool:
+	return try_replicate_nearby_prop()
 
 
 func _animate_to_preset(preset: Dictionary) -> void:
@@ -175,22 +192,9 @@ func _animate_to_preset(preset: Dictionary) -> void:
 		is_shifting = false
 		return
 
-	# 创建 tween 做平滑变形(2s)
-	var tween = shift_owner.create_tween()
-	tween.set_parallel(true)
-
-	# player.scale 的 x = width, y = height, z = width(对称宽度)
-	var target_scale = Vector3(preset["width"], preset["height"], preset["width"])
-	tween.tween_property(shift_owner, "scale", target_scale, SHIFT_TRANSITION_TIME)
-
-	# 头/四肢缩放(简化为对 body 子节点生效)
-	# 实际 player.tscn 的 body 是 _body 节点(Node3D)
-	if shift_owner.has_node("_body"):
-		var body_node = shift_owner.get_node("_body")
-		var body_target_scale = Vector3(preset["limb"], preset["head"], preset["limb"])
-		tween.tween_property(body_node, "scale", body_target_scale, SHIFT_TRANSITION_TIME)
-
-	await tween.finished
+	if shift_owner.has_method("apply_prop_disguise"):
+		shift_owner.apply_prop_disguise.rpc(preset)
+	await shift_owner.get_tree().create_timer(SHIFT_TRANSITION_TIME).timeout
 
 	is_shifting = false
 	cooldown_remaining = SHIFT_COOLDOWN
@@ -203,10 +207,8 @@ func _apply_preset_immediate(preset_index: int) -> void:
 	var preset = get_preset(preset_index)
 	if not shift_owner:
 		return
-	shift_owner.scale = Vector3(preset["width"], preset["height"], preset["width"])
-	if shift_owner.has_node("_body"):
-		var body_node = shift_owner.get_node("_body")
-		body_node.scale = Vector3(preset["limb"], preset["head"], preset["limb"])
+	if shift_owner.has_method("apply_prop_disguise"):
+		shift_owner.apply_prop_disguise(preset)
 
 
 # =============================================================================
@@ -236,8 +238,27 @@ func get_cooldown_remaining() -> float:
 
 
 func get_current_preset() -> Dictionary:
+	if current_preset_index < 0:
+		return {"id": "map_prop", "name": "Prop Replica", "tags": ["#prop"]}
 	return get_preset(current_preset_index)
 
 
 func is_shift_ready() -> bool:
 	return cooldown_remaining <= 0.0 and not is_shifting
+
+
+func _find_nearest_replicable_prop() -> Node3D:
+	if not shift_owner or not shift_owner.is_inside_tree():
+		return null
+
+	var nearest: Node3D = null
+	var nearest_dist := INF
+	var origin := shift_owner.global_position
+	for node in shift_owner.get_tree().get_nodes_in_group("replicable_props"):
+		if not node is Node3D:
+			continue
+		var dist := origin.distance_to((node as Node3D).global_position)
+		if dist <= REPLICATE_RANGE and dist < nearest_dist:
+			nearest = node
+			nearest_dist = dist
+	return nearest

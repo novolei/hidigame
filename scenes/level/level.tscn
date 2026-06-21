@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dugaivbj1o66n"]
+[gd_scene load_steps=21 format=3 uid="uid://dugaivbj1o66n"]
 
 [ext_resource type="Script" uid="uid://d0dgljwwl463n" path="res://scripts/level.gd" id="1_e1sh7"]
 [ext_resource type="PackedScene" uid="uid://cffjduipbb3s5" path="res://scenes/level/player.tscn" id="1_uvcbi"]
@@ -7,6 +7,9 @@
 [ext_resource type="PackedScene" uid="uid://ccencq0lcd3ph" path="res://scenes/ui/multiplayer_chat_ui.tscn" id="5_x9g3h"]
 [ext_resource type="PackedScene" uid="uid://bx7mq8t8hjn7q" path="res://scenes/ui/main_menu_ui.tscn" id="6_x9g3h"]
 [ext_resource type="PackedScene" uid="uid://bshapeshiftwheel01" path="res://scenes/ui/shape_shift_wheel_ui.tscn" id="7_wheel"]
+[ext_resource type="PackedScene" path="res://level/level.tscn" id="8_gdquest"]
+[ext_resource type="Shader" uid="uid://cdlt3ujrpad32" path="res://level/sky_with_stars.tres" id="9_starsky"]
+[ext_resource type="Texture2D" uid="uid://ca3jtautvrj1u" path="res://level/moon.png" id="10_moon"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_r5xs5"]
 size = Vector2(90, 90)
@@ -17,8 +20,63 @@ albedo_color = Color(0, 0.321569, 0.172549, 1)
 [sub_resource type="BoxShape3D" id="BoxShape3D_x3h1o"]
 size = Vector3(90, 0.05, 90)
 
+[sub_resource type="Curve" id="Curve_star_gradient"]
+_data = [Vector2(0.18, 0.0), 0.0, 0.0, 0, 0, Vector2(0.68, 1.0), 0.36, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_star_gradient"]
+curve = SubResource("Curve_star_gradient")
+
+[sub_resource type="Gradient" id="Gradient_star_mask"]
+offsets = PackedFloat32Array(0.78, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_stars"]
+frequency = 0.3589
+fractal_octaves = 4
+cellular_distance_function = 2
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_stars"]
+width = 1024
+height = 1024
+generate_mipmaps = false
+seamless = true
+color_ramp = SubResource("Gradient_star_mask")
+noise = SubResource("FastNoiseLite_stars")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_star_sky"]
+shader = ExtResource("9_starsky")
+shader_parameter/top_color = Color(0.08, 0.1, 0.26, 1)
+shader_parameter/bottom_color = Color(0.5, 0.2, 0.08, 1)
+shader_parameter/moon_direction = Vector3(-1.095, 0.68, 1)
+shader_parameter/moon_size = 0.045
+shader_parameter/gradient_curve = SubResource("CurveTexture_star_gradient")
+shader_parameter/noise_texture = SubResource("NoiseTexture2D_stars")
+shader_parameter/moon_texture = ExtResource("10_moon")
+
+[sub_resource type="Sky" id="Sky_star_sky"]
+sky_material = SubResource("ShaderMaterial_star_sky")
+
 [sub_resource type="Environment" id="Environment_qb4jd"]
+background_mode = 2
+sky = SubResource("Sky_star_sky")
+ambient_light_source = 3
+ambient_light_color = Color(0.42, 0.48, 0.72, 1)
+ambient_light_energy = 0.85
+ambient_light_sky_contribution = 0.35
+tonemap_mode = 2
+tonemap_exposure = 1.05
+tonemap_white = 0.95
+glow_enabled = true
+glow_intensity = 0.55
+glow_strength = 0.18
+glow_bloom = 0.08
+glow_hdr_threshold = 0.45
 fog_enabled = true
+fog_light_color = Color(0.12, 0.16, 0.28, 1)
+fog_density = 0.003
+fog_aerial_perspective = 0.28
+fog_sky_affect = 0.15
 
 [node name="Level" type="Node3D"]
 script = ExtResource("1_e1sh7")
@@ -41,8 +99,13 @@ environment = SubResource("Environment_qb4jd")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="Environment"]
 transform = Transform3D(1, 0, 0, 0, -0.5, 0.866025, 0, -0.866025, -0.5, 0, 4, 0)
+light_color = Color(0.72, 0.78, 1, 1)
+light_energy = 0.72
 shadow_enabled = true
 shadow_blur = 0.5
+
+[node name="GDQuestControllerArena" parent="Environment" instance=ExtResource("8_gdquest")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, 18)
 
 [node name="PlayersContainer" type="Node3D" parent="."]
 

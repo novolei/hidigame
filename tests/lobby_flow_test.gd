@@ -15,6 +15,7 @@ func _run() -> void:
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
 	await _test_level_start_match_path()
+	await _test_single_player_character_test_start()
 	_test_auto_assign_by_hunter_count()
 
 	if failures.is_empty():
@@ -41,6 +42,8 @@ func _reset_network_state() -> void:
 		"variant": "Default",
 		"condition": "Normal",
 		"game_show": "None",
+		"gravity_mps2": 9.8,
+		"low_gravity_events": true,
 		"match_duration_sec": 600,
 		"prep_duration_sec": 120,
 		"host_hunter_count": -1,
@@ -61,12 +64,13 @@ func _test_lobby_id_password() -> void:
 func _test_host_room_metadata() -> void:
 	_reset_network_state()
 	Network.server_port = 19089
-	var host_error = Network.start_host("Bili", "blue", Network.Role.CHAMELEON, "Bili Room", "ab-12")
+	var host_error = Network.start_host("Bili", "blue", Network.Role.CHAMELEON, "Bili Room", "ab-12", "gdbot")
 	_expect(host_error == OK, "Host should start with room metadata")
 	if host_error != OK:
 		return
 	_expect(str(Network.lobby_config.get("room_name", "")) == "Bili Room", "Host should store room name")
 	_expect(str(Network.lobby_config.get("lobby_id", "")) == "AB12", "Host should normalize lobby password")
+	_expect(str(Network.player_info.get("character_model", "")) == "gdbot", "Host should store selected character model")
 	_expect(Network.is_room_name_valid("bili room"), "Room name should be case-insensitive")
 	_expect(not Network.is_room_name_valid("Other Room"), "Wrong room name should be rejected")
 	if Network.multiplayer.multiplayer_peer:
@@ -134,7 +138,7 @@ func _test_lobby_ui_state() -> void:
 
 	I18n.set_language_setting("zh")
 	await get_tree().process_frame
-	_expect(ui.players_hint_label.text == I18n.t("teams_ready"), "Language setting should relabel active lobby UI")
+	_expect(ui.players_hint_label.text == I18n.t("single_player_test_ready"), "Language setting should relabel active solo-test lobby UI")
 	I18n.set_language_setting("en")
 	await get_tree().process_frame
 
@@ -156,12 +160,19 @@ func _test_landing_join_form() -> void:
 		"address": "",
 		"lobby_id": "",
 		"room_name": "",
+		"character_model": "",
 	}
-	ui.join_pressed.connect(func(_nickname, _skin, address, lobby_id, _role, room_name):
+	if ui.character_option:
+		for index in range(ui.character_option.item_count):
+			if str(ui.character_option.get_item_metadata(index)) == "sophia":
+				ui.character_option.select(index)
+				break
+	ui.join_pressed.connect(func(_nickname, _skin, address, lobby_id, _role, room_name, character_model):
 		join_result["count"] = int(join_result["count"]) + 1
 		join_result["address"] = address
 		join_result["lobby_id"] = lobby_id
 		join_result["room_name"] = room_name
+		join_result["character_model"] = character_model
 	)
 
 	ui.address_input.text = "Bili Room"
@@ -178,6 +189,7 @@ func _test_landing_join_form() -> void:
 	_expect(str(join_result["address"]) == Network.SERVER_ADDRESS, "Room-name joins should fall back to localhost before Steam lookup")
 	_expect(str(join_result["lobby_id"]) == "ABCD", "Join should normalize Lobby ID/password")
 	_expect(str(join_result["room_name"]) == "Bili Room", "Join should pass room name separately")
+	_expect(str(join_result["character_model"]) == "sophia", "Join should pass selected character model")
 
 	ui.queue_free()
 	await get_tree().process_frame
@@ -198,6 +210,7 @@ func _test_level_start_match_path() -> void:
 		"match_duration_sec": 300,
 		"prep_duration_sec": 60,
 		"host_hunter_count": 1,
+		"gravity_mps2": 14.7,
 	}, true)
 	Network.players = {
 		1: _player("Host", Network.Role.CHAMELEON),
@@ -213,6 +226,42 @@ func _test_level_start_match_path() -> void:
 	_expect(int(round(level.prep_remaining)) == 60, "Start Match should use configured hide prep time")
 	_expect(Network.get_hunters().size() == 1, "Start Match should keep one configured Hunter")
 	_expect(Network.get_props().size() == 1, "Start Match should keep one Prop")
+	level._apply_configured_gravity()
+	_expect(absf(level.active_gravity_mps2 - 14.7) < 0.01, "Level should apply configured lobby gravity")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
+func _test_single_player_character_test_start() -> void:
+	_reset_network_state()
+	Network.server_port = 19093
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	Network.players = {
+		1: _player("Solo", Network.Role.NONE),
+	}
+	level.main_menu.show_lobby("SOLO", true)
+	level.main_menu.update_lobby(Network.players, Network.lobby_config)
+	_expect(not level.main_menu.start_button.disabled, "Single-player character test should allow Start Match")
+	_expect(level.main_menu.players_hint_label.text == I18n.t("single_player_test_ready"), "Single-player test should show explicit lobby hint")
+
+	await level._on_start_match_pressed(Network.lobby_config.duplicate())
+	await get_tree().process_frame
+
+	_expect(level.game_state == 1, "Single-player test should enter PREP")
+	_expect(Network.players[1]["role"] == Network.Role.CHAMELEON, "Single-player test should auto fallback to Chameleon")
+	_expect(Network.get_props().size() == 1, "Single-player test should count the solo player as a prop")
 
 	level.set_process(false)
 	level.queue_free()
@@ -260,6 +309,7 @@ func _player(nick: String, role: int) -> Dictionary:
 		"role": role,
 		"role_locked": false,
 		"join_lobby_id": "",
+		"character_model": CharacterSkinCatalog.DEFAULT_ID,
 	}
 
 

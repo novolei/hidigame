@@ -95,6 +95,8 @@ func _build_screen() -> void:
 		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen_root.add_child(overlay)
 
+	_add_style_accents(screen_root)
+
 	var logo_path := String(ProjectSettings.get_setting(PLUS_LOGO_IMAGE, "")).strip_edges()
 	if _is_resource_file(logo_path):
 		_add_logo(screen_root, logo_path)
@@ -165,15 +167,82 @@ func _add_fallback_logo(parent: Control) -> void:
 	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	parent.add_child(holder)
 
-	var label := Label.new()
-	logo_node = label
-	label.modulate.a = clampf(float(ProjectSettings.get_setting(PLUS_LOGO_OPACITY, 1.0)), 0.0, 1.0)
-	label.text = "Boot Splash+"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 56)
-	label.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
-	holder.add_child(label)
+	var stack := VBoxContainer.new()
+	logo_node = stack
+	stack.modulate.a = clampf(float(ProjectSettings.get_setting(PLUS_LOGO_OPACITY, 1.0)), 0.0, 1.0)
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 4)
+	holder.add_child(stack)
+
+	var kicker := Label.new()
+	kicker.text = "LOADING ARENA"
+	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kicker.add_theme_font_override("font", _load_splash_font("res://assets/fonts/SairaCondensed-Bold.woff2"))
+	kicker.add_theme_font_size_override("font_size", 24)
+	kicker.add_theme_color_override("font_color", Color(0.82, 0.62, 0.20, 1.0))
+	kicker.add_theme_constant_override("outline_size", 6)
+	kicker.add_theme_color_override("font_outline_color", Color(0.07, 0.07, 0.09, 0.95))
+	stack.add_child(kicker)
+
+	var title := Label.new()
+	title.text = "PHANTOM HUNT"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", _load_splash_font("res://assets/fonts/SairaExtraCondensed-Bold.woff2"))
+	title.add_theme_font_size_override("font_size", 92)
+	title.add_theme_color_override("font_color", Color(0.98, 0.98, 0.96, 1.0))
+	title.add_theme_constant_override("outline_size", 10)
+	title.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.07, 0.96))
+	stack.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "PRIVATE MATCH"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_override("font", _load_splash_font("res://assets/fonts/SairaCondensed-Medium.woff2"))
+	subtitle.add_theme_font_size_override("font_size", 26)
+	subtitle.add_theme_color_override("font_color", Color(0.86, 0.90, 0.96, 0.92))
+	stack.add_child(subtitle)
+
+
+func _add_style_accents(parent: Control) -> void:
+	var top_bar := ColorRect.new()
+	top_bar.color = Color(0.06, 0.06, 0.08, 0.52)
+	top_bar.anchor_left = 0.0
+	top_bar.anchor_right = 1.0
+	top_bar.anchor_top = 0.0
+	top_bar.anchor_bottom = 0.0
+	top_bar.offset_bottom = 72.0
+	parent.add_child(top_bar)
+
+	var bottom_bar := ColorRect.new()
+	bottom_bar.color = Color(0.06, 0.06, 0.08, 0.72)
+	bottom_bar.anchor_left = 0.0
+	bottom_bar.anchor_right = 1.0
+	bottom_bar.anchor_top = 1.0
+	bottom_bar.anchor_bottom = 1.0
+	bottom_bar.offset_top = -108.0
+	parent.add_child(bottom_bar)
+
+	var accent := ColorRect.new()
+	accent.color = Color(0.82, 0.62, 0.20, 1.0)
+	accent.anchor_left = 0.5
+	accent.anchor_right = 0.5
+	accent.anchor_top = 0.5
+	accent.anchor_bottom = 0.5
+	accent.offset_left = -132.0
+	accent.offset_right = 132.0
+	accent.offset_top = 68.0
+	accent.offset_bottom = 76.0
+	parent.add_child(accent)
+
+
+func _load_splash_font(path: String) -> Font:
+	var font := ResourceLoader.load(path)
+	if font is Font:
+		return font
+	var default_theme := ThemeDB.get_default_theme()
+	if default_theme:
+		return default_theme.get_font("font", "Label")
+	return null
 
 
 func _add_progress_bar(parent: Control) -> void:

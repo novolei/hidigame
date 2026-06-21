@@ -1,8 +1,8 @@
 extends Control
 class_name MainMenuUI
 
-signal host_pressed(nickname: String, skin: String, role: int, room_name: String, lobby_password: String)
-signal join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String)
+signal host_pressed(nickname: String, skin: String, role: int, room_name: String, lobby_password: String, character_model: String)
+signal join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String, character_model: String)
 signal quit_pressed
 signal start_match_pressed(config: Dictionary)
 signal auto_assign_pressed(config: Dictionary)
@@ -17,10 +17,12 @@ var lobby_visible := false
 var current_lobby_id := "----"
 var is_host_lobby := false
 var lobby_chat_visible := false
+var settings_visible := false
 var lobby_chat_messages: Array[Dictionary] = []
 
 var nick_input: LineEdit
 var skin_input: LineEdit
+var character_option: OptionButton
 var room_name_input: LineEdit
 var address_input: LineEdit
 var join_lobby_input: LineEdit
@@ -29,6 +31,9 @@ var steam_status_label: Label
 var host_button: Button
 var join_button: Button
 var language_option: OptionButton
+var settings_panel: PanelContainer
+var fov_slider: HSlider
+var fov_value_label: Label
 var landing_role_buttons: Array[Button] = []
 
 var lobby_id_input: LineEdit
@@ -37,6 +42,7 @@ var map_option: OptionButton
 var variant_option: OptionButton
 var condition_option: OptionButton
 var game_show_option: OptionButton
+var gravity_option: OptionButton
 var duration_option: OptionButton
 var prep_option: OptionButton
 var hunter_count_option: OptionButton
@@ -78,7 +84,14 @@ func _notification(what: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not lobby_visible or not visible:
+	if not visible:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE and settings_visible:
+			_set_settings_visible(false)
+			accept_event()
+			return
+	if not lobby_visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and lobby_chat_visible:
@@ -184,6 +197,12 @@ func get_nickname() -> String:
 
 func get_skin() -> String:
 	return skin_input.text.strip_edges().to_lower() if skin_input else ""
+
+
+func get_character_model() -> String:
+	if character_option and character_option.selected >= 0:
+		return CharacterSkinCatalog.normalize(str(character_option.get_item_metadata(character_option.selected)))
+	return CharacterSkinCatalog.DEFAULT_ID
 
 
 func get_room_name() -> String:
@@ -298,6 +317,7 @@ func _build_ui() -> void:
 	else:
 		_build_landing_ui()
 	_build_language_bar()
+	_build_settings_panel()
 
 
 func _build_stage_background() -> void:
@@ -316,7 +336,7 @@ func _build_stage_background() -> void:
 func _build_language_bar() -> void:
 	var bar = HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	bar.offset_left = -_s(340)
+	bar.offset_left = -_s(392)
 	bar.offset_top = _s(8)
 	bar.offset_right = -_s(18)
 	bar.offset_bottom = _s(42)
@@ -344,6 +364,97 @@ func _build_language_bar() -> void:
 		I18n.set_language_setting(str(language_option.get_item_metadata(index)))
 	)
 	bar.add_child(language_option)
+
+	var settings_button = _icon_button("res://addons/at-icons/control/cog.svg")
+	settings_button.custom_minimum_size = _sv(36, 32)
+	settings_button.tooltip_text = I18n.t("settings")
+	settings_button.pressed.connect(func(): _set_settings_visible(not settings_visible))
+	bar.add_child(settings_button)
+
+
+func _build_settings_panel() -> void:
+	settings_panel = PanelContainer.new()
+	settings_panel.name = "SettingsPanel"
+	settings_panel.visible = settings_visible
+	settings_panel.add_theme_stylebox_override("panel", _styles["panel_dark"])
+	settings_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	settings_panel.offset_left = -_s(390)
+	settings_panel.offset_top = _s(52)
+	settings_panel.offset_right = -_s(18)
+	settings_panel.offset_bottom = _s(224)
+	add_child(settings_panel)
+
+	var box = VBoxContainer.new()
+	box.add_theme_constant_override("separation", _s(10))
+	settings_panel.add_child(box)
+
+	var header = HBoxContainer.new()
+	header.add_theme_constant_override("separation", _s(8))
+	box.add_child(header)
+	header.add_child(_icon("res://addons/at-icons/control/sliders.svg", 20, "#ffc529"))
+	var title = _label(I18n.t("settings"), 24, true)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var close_button = _icon_button("res://addons/at-icons/control/arrow_x.svg")
+	close_button.custom_minimum_size = _sv(34, 32)
+	close_button.pressed.connect(func(): _set_settings_visible(false))
+	header.add_child(close_button)
+
+	var row = VBoxContainer.new()
+	row.add_theme_constant_override("separation", _s(6))
+	box.add_child(row)
+
+	var label_row = HBoxContainer.new()
+	label_row.add_theme_constant_override("separation", _s(8))
+	row.add_child(label_row)
+	var fov_label = _section_label(I18n.t("camera_fov"))
+	fov_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label_row.add_child(fov_label)
+	fov_value_label = _muted_label("", 18)
+	fov_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label_row.add_child(fov_value_label)
+
+	fov_slider = HSlider.new()
+	fov_slider.min_value = GameSettings.MIN_FOV
+	fov_slider.max_value = GameSettings.MAX_FOV
+	fov_slider.step = 1.0
+	fov_slider.value = GameSettings.camera_fov
+	fov_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fov_slider.custom_minimum_size = _sv(0, 34)
+	fov_slider.value_changed.connect(_on_fov_slider_changed)
+	row.add_child(fov_slider)
+	_update_fov_value_label()
+
+	var actions = HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", _s(10))
+	box.add_child(actions)
+	var reset_button = _button(I18n.t("reset"), false)
+	reset_button.custom_minimum_size = _sv(120, 36)
+	reset_button.pressed.connect(func():
+		GameSettings.reset_camera_fov()
+		if fov_slider:
+			fov_slider.value = GameSettings.camera_fov
+		_update_fov_value_label()
+	)
+	actions.add_child(reset_button)
+
+
+func _set_settings_visible(value: bool) -> void:
+	settings_visible = value
+	_build_ui()
+	if lobby_visible:
+		update_lobby(Network.players, Network.lobby_config)
+
+
+func _on_fov_slider_changed(value: float) -> void:
+	GameSettings.set_camera_fov(value)
+	_update_fov_value_label()
+
+
+func _update_fov_value_label() -> void:
+	if fov_value_label:
+		fov_value_label.text = I18n.tf("camera_fov_value", [roundi(GameSettings.camera_fov)])
 
 
 func _build_landing_ui() -> void:
@@ -379,6 +490,7 @@ func _build_landing_ui() -> void:
 
 	nick_input = _line_edit(I18n.t("placeholder.nick"))
 	skin_input = _line_edit(I18n.t("placeholder.skin"))
+	character_option = _character_option()
 	room_name_input = _line_edit(I18n.t("placeholder.room_name"))
 	address_input = _line_edit(I18n.t("placeholder.join_target"))
 	join_lobby_input = _line_edit(I18n.t("placeholder.lobby"))
@@ -391,6 +503,7 @@ func _build_landing_ui() -> void:
 	form.add_child(_section_label(I18n.t("player_setup")))
 	form.add_child(_field_row(I18n.t("nickname"), nick_input))
 	form.add_child(_field_row(I18n.t("skin"), skin_input))
+	form.add_child(_field_row(I18n.t("character_model"), character_option))
 	form.add_child(_thin_separator())
 	form.add_child(_section_label(I18n.t("room_setup")))
 	form.add_child(_field_row(I18n.t("room_name"), room_name_input))
@@ -526,6 +639,7 @@ func _build_match_details_panel() -> Control:
 	variant_option = _option(["Default", "Low Ammo", "Fast Hunt"], "variant")
 	condition_option = _option(["Normal", "Rain", "Night"], "condition")
 	game_show_option = _option(["None", "Airdrop Show", "Chaos Show"], "game_show")
+	gravity_option = _option([4.9, 9.8, 14.7], "gravity")
 	duration_option = _option([300, 600, 900], "duration")
 	prep_option = _option([30, 60, 120], "prep")
 	hunter_count_option = _option([-1, 1, 2, 3, 4, 5, 6, 7, 8], "hunters")
@@ -534,6 +648,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(_option_group(I18n.t("variant"), variant_option))
 	box.add_child(_option_group(I18n.t("condition"), condition_option))
 	box.add_child(_option_group(I18n.t("game_show"), game_show_option))
+	box.add_child(_option_group(I18n.t("gravity"), gravity_option))
 	box.add_child(_option_group(I18n.t("duration"), duration_option))
 	box.add_child(_option_group(I18n.t("hunter_count"), hunter_count_option))
 	box.add_child(_option_group(I18n.t("hide_prep"), prep_option))
@@ -863,10 +978,9 @@ func _on_team_panel_input(event: InputEvent, role: int) -> void:
 
 func _update_start_button(players: Dictionary) -> void:
 	if players_hint_label:
-		players_hint_label.text = I18n.t("players_needed") if players.size() < 2 else I18n.t("teams_ready")
+		players_hint_label.text = I18n.t(Network.lobby_start_hint_key(players))
 	if start_button:
-		var assigned = Network.get_hunters().size() > 0 and Network.get_props().size() > 0
-		start_button.disabled = not is_host_lobby or players.size() < 2 or not assigned
+		start_button.disabled = not is_host_lobby or not Network.can_start_lobby_match(players)
 		start_button.text = I18n.tf("start_match_count", [players.size(), int(Network.lobby_config.get("max_players", 24))])
 
 
@@ -875,6 +989,7 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(variant_option, str(config.get("variant", "Default")), 0)
 	_set_option_by_value(condition_option, str(config.get("condition", "Normal")), 0)
 	_set_option_by_value(game_show_option, str(config.get("game_show", "None")), 0)
+	_set_option_by_value(gravity_option, float(config.get("gravity_mps2", 9.8)), 1)
 	_set_option_by_value(duration_option, int(config.get("match_duration_sec", 600)), 1)
 	_set_option_by_value(prep_option, int(config.get("prep_duration_sec", 120)), 2)
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
@@ -888,6 +1003,8 @@ func _collect_lobby_config() -> Dictionary:
 		"variant": _get_option_value(variant_option, "Default"),
 		"condition": _get_option_value(condition_option, "Normal"),
 		"game_show": _get_option_value(game_show_option, "None"),
+		"gravity_mps2": float(_get_option_value(gravity_option, 9.8)),
+		"low_gravity_events": _get_option_value(game_show_option, "None") == "Chaos Show",
 		"match_duration_sec": int(_get_option_value(duration_option, 600)),
 		"prep_duration_sec": int(_get_option_value(prep_option, 120)),
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
@@ -901,14 +1018,14 @@ func _on_config_changed() -> void:
 
 func _on_host_pressed() -> void:
 	_set_join_status("")
-	host_pressed.emit(get_nickname(), get_skin(), selected_role, get_room_name(), get_lobby_password())
+	host_pressed.emit(get_nickname(), get_skin(), selected_role, get_room_name(), get_lobby_password(), get_character_model())
 
 
 func _on_join_pressed() -> void:
 	if not _validate_join_request():
 		return
 	_set_join_status(I18n.t("join_status.connecting"), false)
-	join_pressed.emit(get_nickname(), get_skin(), get_address(), get_lobby_password(), selected_role, get_join_room_name())
+	join_pressed.emit(get_nickname(), get_skin(), get_address(), get_lobby_password(), selected_role, get_join_room_name(), get_character_model())
 
 
 func _refresh_landing_join_state() -> void:
@@ -999,7 +1116,7 @@ func _role_data() -> Array:
 	]
 
 
-func _field_row(label_text: String, field: LineEdit) -> Control:
+func _field_row(label_text: String, field: Control) -> Control:
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", _s(12))
 	var label = _label(label_text, 22, true)
@@ -1049,6 +1166,23 @@ func _option_button() -> OptionButton:
 	if _use_brand_font() and _font_body:
 		option.add_theme_font_override("font", _font_body)
 	_configure_option_popup(option)
+	return option
+
+
+func _character_option() -> OptionButton:
+	var option := _option_button()
+	for model in CharacterSkinCatalog.all():
+		var label_key := str(model.get("label_key", ""))
+		var translated := I18n.t(label_key)
+		var label := translated if translated != label_key else str(model.get("label", ""))
+		option.add_item(label)
+		option.set_item_metadata(option.item_count - 1, model.get("id", CharacterSkinCatalog.DEFAULT_ID))
+		if model.get("id", CharacterSkinCatalog.DEFAULT_ID) == CharacterSkinCatalog.DEFAULT_ID:
+			option.select(option.item_count - 1)
+	_refresh_option_popup_checks(option)
+	option.item_selected.connect(func(_idx):
+		_refresh_option_popup_checks(option)
+	)
 	return option
 
 
@@ -1112,7 +1246,7 @@ func _get_option_value(option: OptionButton, fallback):
 
 
 func _set_config_enabled(enabled: bool) -> void:
-	var options = [map_option, variant_option, condition_option, game_show_option, duration_option, prep_option, hunter_count_option]
+	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option]
 	for option in options:
 		if option:
 			option.disabled = not enabled

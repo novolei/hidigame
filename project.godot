@@ -44,6 +44,17 @@ config/tags=PackedStringArray("3d", "network")
 run/main_scene="res://scenes/level/level.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.png"
+boot_splash+/timing/minimum_display_time_seconds=1.4
+boot_splash+/timing/fade_in_time=0.08
+boot_splash+/timing/fade_out_time=0.28
+boot_splash+/background/color=Color(0.45, 0.51, 0.59, 1)
+boot_splash+/background/overlay_color=Color(0.12, 0.14, 0.18, 0.28)
+boot_splash+/logo/animation=4
+boot_splash+/logo/animation_duration=0.55
+boot_splash+/progress_bar/width_percent=42.0
+boot_splash+/progress_bar/height_px=9
+boot_splash+/progress_bar/color=Color(0.82, 0.62, 0.2, 1)
+boot_splash+/progress_bar/background_color=Color(0.07, 0.07, 0.09, 0.82)
 
 [autoload]
 
@@ -52,6 +63,7 @@ ItemDatabase="*res://scripts/item_database.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 I18n="*res://scripts/i18n.gd"
 SteamBridge="*res://scripts/steam_bridge.gd"
+GameSettings="*res://scripts/game_settings.gd"
 BootSplashPlus="*uid://bfmnwl86vfxe1"
 SimpleGrass="*uid://bfq0snth8sj3h"
 
@@ -137,6 +149,7 @@ shape_shift={
 3d_render/layer_17="SimpleGrassTextured interactive layer"
 3d_physics/layer_1="player"
 3d_physics/layer_2="world"
+3d_physics/layer_3="props"
 
 [shader_globals]
 

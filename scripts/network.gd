@@ -12,6 +12,7 @@ extends Node
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
 var server_port: int = SERVER_PORT
+const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
 
 # -----------------------------------------------------------------------------
@@ -45,6 +46,7 @@ var players: Dictionary = {}
 var player_info: Dictionary = {
 	"nick": "host",
 	"skin": Character.SkinColor.BLUE,
+	"character_model": CharacterSkinCatalog.DEFAULT_ID,
 	"role": Role.NONE,
 	"role_locked": false,
 	"join_room_name": ""
@@ -62,6 +64,8 @@ var lobby_config: Dictionary = {
 	"variant": "Default",
 	"condition": "Normal",
 	"game_show": "None",
+	"gravity_mps2": 9.8,
+	"low_gravity_events": true,
 	"match_duration_sec": 600,       # 10 分钟默认
 	"prep_duration_sec": 120,        # 120 秒默认
 	"host_hunter_count": -1,         # -1 表示按 1:3 自动
@@ -87,6 +91,42 @@ signal start_match_requested()                       # host 点击开始
 # -----------------------------------------------------------------------------
 # 阶段同步 RPC(server → 所有 client,通知阶段变化)
 # -----------------------------------------------------------------------------
+func can_start_lobby_match(lobby_players: Dictionary = {}) -> bool:
+	var source := lobby_players if not lobby_players.is_empty() else players
+	var active_count := _active_player_count(source)
+	if DEV_ALLOW_SINGLE_PLAYER_START and active_count == 1:
+		return true
+	return source.size() >= 2 and _role_count(source, Role.HUNTER) > 0 and _prop_role_count(source) > 0
+
+
+func lobby_start_hint_key(lobby_players: Dictionary = {}) -> String:
+	var source := lobby_players if not lobby_players.is_empty() else players
+	var active_count := _active_player_count(source)
+	if DEV_ALLOW_SINGLE_PLAYER_START and active_count == 1:
+		return "single_player_test_ready"
+	return "players_needed" if source.size() < 2 else "teams_ready"
+
+
+func _active_player_count(lobby_players: Dictionary) -> int:
+	var count := 0
+	for info in lobby_players.values():
+		if int(info.get("role", Role.NONE)) != Role.SPECTATOR:
+			count += 1
+	return count
+
+
+func _role_count(lobby_players: Dictionary, target_role: int) -> int:
+	var count := 0
+	for info in lobby_players.values():
+		if int(info.get("role", Role.NONE)) == target_role:
+			count += 1
+	return count
+
+
+func _prop_role_count(lobby_players: Dictionary) -> int:
+	return _role_count(lobby_players, Role.CHAMELEON) + _role_count(lobby_players, Role.STALKER)
+
+
 @rpc("authority", "call_local", "reliable")
 func _rpc_prep_phase_started(remaining_sec: float):
 	print("[Network] RPC prep_phase_started RECEIVED, remaining=", remaining_sec)
@@ -142,7 +182,7 @@ func _ready() -> void:
 # 连接管理
 # =============================================================================
 
-func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = ""):
+func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
 	var peer = ENetMultiplayerPeer.new()
 	var error = peer.create_server(server_port, MAX_PLAYERS)
 	if error:
@@ -154,6 +194,7 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 
 	player_info["nick"] = nickname
 	player_info["skin"] = skin_str_to_e(skin_color_str)
+	player_info["character_model"] = normalize_character_model(character_model)
 	player_info["role"] = host_role
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = ""
@@ -175,7 +216,7 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	return OK
 
 
-func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = ""):
+func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
 	var peer = ENetMultiplayerPeer.new()
 	address = _normalize_join_address(address)
 	var error = peer.create_client(address, server_port)
@@ -191,6 +232,7 @@ func join_game(nickname: String, skin_color_str: String, address: String = SERVE
 
 	player_info["nick"] = nickname
 	player_info["skin"] = skin_enum
+	player_info["character_model"] = normalize_character_model(character_model)
 	player_info["role"] = client_role
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = lobby_id.strip_edges().to_upper()
@@ -478,6 +520,7 @@ func _on_player_connected(id):
 @rpc("any_peer", "reliable")
 func _register_player(new_player_info):
 	var new_player_id = multiplayer.get_remote_sender_id()
+	new_player_info["character_model"] = normalize_character_model(str(new_player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
 	if multiplayer.is_server():
 		var provided_id = str(new_player_info.get("join_lobby_id", "")).to_upper()
 		if not is_lobby_id_valid(provided_id):
@@ -544,6 +587,10 @@ func skin_str_to_e(s):
 		"green": return Character.SkinColor.GREEN
 		"red": return Character.SkinColor.RED
 		_: return Character.SkinColor.BLUE
+
+
+func normalize_character_model(model_id: String) -> String:
+	return CharacterSkinCatalog.normalize(model_id)
 
 
 func role_to_string(r: int) -> String:

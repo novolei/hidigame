@@ -1,16 +1,13 @@
 extends Node3D
 # =============================================================================
-# Level — Prop Hunt 主场景管理器(v0.3.3)
+# Level 鈥?Prop Hunt 涓诲満鏅鐞嗗櫒(v0.3.3)
 #
-# 状态机:
-#   LOBBY → 等待玩家加入 → 玩家选职业
-#   PREP   → 120s 倒计时,Hunter 在准备室,Props 在战场
-#   PLAY   → 比赛开始,Hunter 解锁,所有人进入主战场
-#   END    → 胜负结算
+# 鐘舵€佹満:
+#   LOBBY 鈫?绛夊緟鐜╁鍔犲叆 鈫?鐜╁閫夎亴涓?#   PREP   鈫?120s 鍊掕鏃?Hunter 鍦ㄥ噯澶囧,Props 鍦ㄦ垬鍦?#   PLAY   鈫?姣旇禌寮€濮?Hunter 瑙ｉ攣,鎵€鏈変汉杩涘叆涓绘垬鍦?#   END    鈫?鑳滆礋缁撶畻
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# 节点引用
+# 鑺傜偣寮曠敤
 # -----------------------------------------------------------------------------
 @onready var players_container: Node3D = $PlayersContainer
 @onready var main_menu: MainMenuUI = $MainMenuUI
@@ -19,21 +16,22 @@ extends Node3D
 @onready var multiplayer_chat: MultiplayerChatUI = $MultiplayerChatUI
 @onready var inventory_ui: InventoryUI = $InventoryUI
 
-# 准备室节点(新增 v0.3.3 — TASK-1.3 实施时创建)
+# 鍑嗗瀹よ妭鐐?鏂板 v0.3.3 鈥?TASK-1.3 瀹炴柦鏃跺垱寤?
 @onready var preparation_room: Node3D = $PreparationRoom if has_node("PreparationRoom") else null
 
-# 准备阶段倒计时 HUD(在 CanvasLayer 下,确保最上层渲染)
+# 鍑嗗闃舵鍊掕鏃?HUD(鍦?CanvasLayer 涓?纭繚鏈€涓婂眰娓叉煋)
 @onready var prep_timer_label: Label = $HUDCanvas/PrepTimerLabel if has_node("HUDCanvas/PrepTimerLabel") else null
 var status_label: Label = null
+var combat_feedback_label: Label = null
 
 # -----------------------------------------------------------------------------
-# 状态
+# Game state
 # -----------------------------------------------------------------------------
 enum GameState {
-	LOBBY,        # 玩家加入 + 选职业
-	PREP,         # 120s 准备阶段
-	PLAY,         # 比赛阶段
-	END           # 结算
+	LOBBY,
+	PREP,
+	PLAY,
+	END,
 }
 
 var game_state: GameState = GameState.LOBBY
@@ -41,32 +39,46 @@ var chat_visible = false
 var inventory_visible = false
 var pending_steam_join := {}
 
-# 准备阶段倒计时
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
 
-# 比赛阶段倒计时
 var match_timer: Timer = null
 var match_remaining: float = 0.0
+var base_gravity_mps2: float = 9.8
+var active_gravity_mps2: float = 9.8
+var gravity_event_remaining: float = 0.0
+var low_gravity_check_remaining: float = 0.0
+var gravity_event_label := ""
 
 # -----------------------------------------------------------------------------
-# Spawn 位置配置
+# Spawn 浣嶇疆閰嶇疆
 # -----------------------------------------------------------------------------
-const PROP_SPAWN_RADIUS: float = 10.0      # 主战场 Prop 出生半径
-const HUNTER_SPAWN_RADIUS: float = 5.0     # 准备室 Hunter 出生半径
-const HUNTER_ROOM_OFFSET: Vector3 = Vector3(0, 0, -80)  # 准备室相对主战场偏移
+const PROP_SPAWN_RADIUS: float = 10.0      # 涓绘垬鍦?Prop 鍑虹敓鍗婂緞
+const HUNTER_SPAWN_RADIUS: float = 5.0     # 鍑嗗瀹?Hunter 鍑虹敓鍗婂緞
+const HUNTER_ROOM_OFFSET: Vector3 = Vector3(0, 0, -80)  # 鍑嗗瀹ょ浉瀵逛富鎴樺満鍋忕Щ
 
-# 弹药包散落配置(v0.3.3)
+# 寮硅嵂鍖呮暎钀介厤缃?v0.3.3)
 const AMMO_PACK_COUNT_SMALL_8: int = 8
 const AMMO_PACK_COUNT_MEDIUM_8: int = 4
 const AMMO_PACK_COUNT_LARGE_8: int = 2
 const AMMO_PACK_COUNT_SMALL_24: int = 22
 const AMMO_PACK_COUNT_MEDIUM_24: int = 12
 const AMMO_PACK_COUNT_LARGE_24: int = 5
-const AMMO_PACK_MAP_RADIUS: float = 35.0  # 弹药包散落半径
-
+const MAP_PROP_COUNT_8: int = 52
+const MAP_PROP_COUNT_24: int = 120
+const MAP_PROP_MAP_RADIUS: float = 34.0
+const MAP_PROP_MIN_DISTANCE: float = 2.4
+const MAP_PROP_MIN_SCALE_MULTIPLIER: float = 4.0
+const MAP_PROP_MAX_SCALE_MULTIPLIER: float = 6.0
+const MAP_PROP_MIN_COLLISION_RADIUS: float = 0.16
+const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
+const LOW_GRAVITY_MULTIPLIER := 0.42
+const LOW_GRAVITY_EVENT_DURATION := 24.0
+const LOW_GRAVITY_CHECK_INTERVAL := 18.0
+const LOW_GRAVITY_EVENT_CHANCE := 0.34
+const AMMO_PACK_MAP_RADIUS: float = 35.0  # 寮硅嵂鍖呮暎钀藉崐寰?
 # -----------------------------------------------------------------------------
-# 生命周期
+# 鐢熷懡鍛ㄦ湡
 # -----------------------------------------------------------------------------
 func _ready():
 	if DisplayServer.get_name() == "headless":
@@ -90,7 +102,7 @@ func _ready():
 	if multiplayer_chat:
 		multiplayer_chat.message_sent.connect(_on_chat_message_sent)
 
-	# 服务器逻辑
+	# 鏈嶅姟鍣ㄩ€昏緫
 	if multiplayer.is_server():
 		Network.player_connected.connect(_on_player_connected)
 		multiplayer.peer_disconnected.connect(_remove_player)
@@ -104,28 +116,28 @@ func _ready():
 	SteamBridge.lobby_created.connect(_on_steam_lobby_created)
 	SteamBridge.lobby_lookup_completed.connect(_on_steam_lobby_lookup_completed)
 
-	# 客户端也监听角色变化(用于 UI 更新)
+	# 瀹㈡埛绔篃鐩戝惉瑙掕壊鍙樺寲(鐢ㄤ簬 UI 鏇存柊)
 	Network.player_role_changed.connect(_on_player_role_changed)
 
-	# 监听准备阶段信号
+	# 鐩戝惉鍑嗗闃舵淇″彿
 	Network.prep_phase_started.connect(_on_prep_phase_started)
 	Network.prep_phase_ended.connect(_on_prep_phase_ended)
 	Network.match_started.connect(_on_match_started)
 	I18n.locale_changed.connect(func(_locale): _update_status_hud())
 
-	# 准备室位置偏移(关键:避免与主地图地板重合)
+	# 鍑嗗瀹や綅缃亸绉?鍏抽敭:閬垮厤涓庝富鍦板浘鍦版澘閲嶅悎)
 	if preparation_room:
 		preparation_room.position = HUNTER_ROOM_OFFSET
 		_set_preparation_gate_open(false)
 
 	_ensure_status_hud()
 
-	# Debug: 确认 HUD 节点找到
+	# Debug: 纭 HUD 鑺傜偣鎵惧埌
 	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
 
 
 func _process(delta):
-	# 更新倒计时显示(任何状态)
+	# 鏇存柊鍊掕鏃舵樉绀?浠讳綍鐘舵€?
 	if game_state == GameState.PREP:
 		prep_remaining = max(0.0, prep_remaining - delta)
 		_update_prep_ui()
@@ -133,16 +145,17 @@ func _process(delta):
 			_server_end_prep_phase()
 	elif game_state == GameState.PLAY:
 		match_remaining = max(0.0, match_remaining - delta)
+		_process_gravity_events(delta)
 		if multiplayer.is_server() and match_remaining <= 0.0:
 			_server_end_match()
 	_update_status_hud()
+	_update_mouse_capture()
 
 
 # -----------------------------------------------------------------------------
-# 主菜单回调
-# -----------------------------------------------------------------------------
-func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = ""):
-	var error = Network.start_host(nickname, skin, role, room_name, lobby_password)
+# 涓昏彍鍗曞洖璋?# -----------------------------------------------------------------------------
+func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+	var error = Network.start_host(nickname, skin, role, room_name, lobby_password, character_model)
 	if error:
 		push_warning("Could not host lobby. ENet error: " + str(error))
 		return
@@ -158,7 +171,7 @@ func _on_host_pressed(nickname: String, skin: String, role: int, room_name: Stri
 	_refresh_lobby_ui()
 
 
-func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = ""):
+func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
 	if not room_name.strip_edges().is_empty() and SteamBridge.is_available():
 		pending_steam_join = {
 			"nickname": nickname,
@@ -167,14 +180,15 @@ func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id:
 			"lobby_id": lobby_id,
 			"role": role,
 			"room_name": room_name,
+			"character_model": character_model,
 		}
 		if SteamBridge.find_lobby(room_name, lobby_id):
 			return
-	_join_lobby_direct(nickname, skin, address, lobby_id, role, room_name)
+	_join_lobby_direct(nickname, skin, address, lobby_id, role, room_name, character_model)
 
 
-func _join_lobby_direct(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "") -> void:
-	var error = Network.join_game(nickname, skin, address, lobby_id, role, room_name)
+func _join_lobby_direct(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
+	var error = Network.join_game(nickname, skin, address, lobby_id, role, room_name, character_model)
 	if error:
 		push_warning("Could not join lobby. ENet error: " + str(error))
 		return
@@ -205,7 +219,8 @@ func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: S
 		join_address,
 		lobby_password if found else str(join_data.get("lobby_id", "")),
 		int(join_data.get("role", Network.Role.NONE)),
-		room_name if found else str(join_data.get("room_name", ""))
+		room_name if found else str(join_data.get("room_name", "")),
+		str(join_data.get("character_model", CharacterSkinCatalog.DEFAULT_ID))
 	)
 
 
@@ -217,11 +232,12 @@ func _on_server_disconnected() -> void:
 
 
 func _hide_menu_after_spawn() -> void:
-	# 等 2 帧确保 player 节点完成 add_child + _ready
+	# 绛?2 甯х‘淇?player 鑺傜偣瀹屾垚 add_child + _ready
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if main_menu and is_instance_valid(main_menu):
 		main_menu.hide_menu()
+	_update_mouse_capture()
 
 
 func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
@@ -231,7 +247,7 @@ func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
 
 
 # -----------------------------------------------------------------------------
-# 服务器:玩家连接 / 角色 / spawn
+# 鏈嶅姟鍣?鐜╁杩炴帴 / 瑙掕壊 / spawn
 # -----------------------------------------------------------------------------
 func _on_player_connected(peer_id, player_info):
 	if multiplayer.is_server():
@@ -240,17 +256,17 @@ func _on_player_connected(peer_id, player_info):
 
 
 func _on_player_role_changed(peer_id: int, new_role: int):
-	# 所有端都响应(server + client)
+	# 鎵€鏈夌閮藉搷搴?server + client)
 	var player_node = players_container.get_node_or_null(str(peer_id))
 	if player_node and player_node.has_method("_sync_role_from_network"):
 		player_node._sync_role_from_network()
-	# 立即 reposition(关键修复:之前只在 server 端 reposition,client 端不动)
+	# 绔嬪嵆 reposition(鍏抽敭淇:涔嬪墠鍙湪 server 绔?reposition,client 绔笉鍔?
 	_try_reposition_player(peer_id)
 	_refresh_lobby_ui()
 
 
 func _on_roles_assigned():
-	# 所有端都 reposition(角色分配完成后统一处理)
+	# 鎵€鏈夌閮?reposition(瑙掕壊鍒嗛厤瀹屾垚鍚庣粺涓€澶勭悊)
 	print("[Level] Roles assigned, repositioning all players")
 	for pid in Network.players.keys():
 		_try_reposition_player(pid)
@@ -274,28 +290,30 @@ func _add_player(id: int, player_info: Dictionary):
 
 	var skin_enum = player_info["skin"]
 	player.set_player_skin(skin_enum)
+	if player.has_method("set_character_model"):
+		player.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
 
-	# 立即尝试按角色定位(角色已分配的情况)
-	# 客户端可能在节点 spawn 时还不知道角色(role=NONE),后续通过 _on_player_role_changed 再次定位
+	# 绔嬪嵆灏濊瘯鎸夎鑹插畾浣?瑙掕壊宸插垎閰嶇殑鎯呭喌)
+	# 瀹㈡埛绔彲鑳藉湪鑺傜偣 spawn 鏃惰繕涓嶇煡閬撹鑹?role=NONE),鍚庣画閫氳繃 _on_player_role_changed 鍐嶆瀹氫綅
 	_try_reposition_player(id)
 
 
 func _try_reposition_player(pid: int) -> bool:
-	"""按角色把 player 放到正确位置。所有端都生效(server + client)"""
+	"""鎸夎鑹叉妸 player 鏀惧埌姝ｇ‘浣嶇疆銆傛墍鏈夌閮界敓鏁?server + client)"""
 	if not players_container.has_node(str(pid)):
 		return false
 	var player_node = players_container.get_node(str(pid))
 	var info = Network.players.get(pid, {})
 	var role = info.get("role", Network.Role.NONE)
 
-	# 角色未分配,不做 reposition
+	# 瑙掕壊鏈垎閰?涓嶅仛 reposition
 	if role == Network.Role.NONE:
 		return false
 
 	var new_pos = get_spawn_point_for_role(role, pid)
 	player_node.global_position = new_pos
 
-	# Hunter 在 PREP 阶段锁定
+	# Hunter 鍦?PREP 闃舵閿佸畾
 	if role == Network.Role.HUNTER and game_state == GameState.PREP:
 		if player_node.has_method("set_prep_locked"):
 			player_node.set_prep_locked(true)
@@ -307,28 +325,27 @@ func _try_reposition_player(pid: int) -> bool:
 
 
 func _reposition_player_by_role(pid: int):
-	# 已废弃,使用 _try_reposition_player
+	# 宸插簾寮?浣跨敤 _try_reposition_player
 	_try_reposition_player(pid)
 
 
 func get_spawn_point_for_role(role: int, pid: int) -> Vector3:
 	match role:
 		Network.Role.HUNTER:
-			# 准备室位置(相对于主战场)
-			var slot = pid % 8  # 8 个 Hunter 出生点
+			# 鍑嗗瀹や綅缃?鐩稿浜庝富鎴樺満)
+			var slot = pid % 8
 			var angle = slot * (TAU / 8.0)
 			return HUNTER_ROOM_OFFSET + Vector3(cos(angle) * HUNTER_SPAWN_RADIUS, 0, sin(angle) * HUNTER_SPAWN_RADIUS)
 		Network.Role.CHAMELEON, Network.Role.STALKER:
-			# 主战场出生区
+			# 涓绘垬鍦哄嚭鐢熷尯
 			var angle = randf() * TAU
 			return Vector3(cos(angle) * PROP_SPAWN_RADIUS, 0, sin(angle) * PROP_SPAWN_RADIUS)
 		_:
-			# 未分配角色:暂时放主战场中心
+			# 鏈垎閰嶈鑹?鏆傛椂鏀句富鎴樺満涓績
 			return Vector3.ZERO
 
 
 func get_spawn_point() -> Vector3:
-	# 兼容原模板接口
 	var spawn_point = Vector2.from_angle(randf() * 2 * PI) * 10
 	return Vector3(spawn_point.x, 0, spawn_point.y)
 
@@ -346,7 +363,7 @@ func _on_quit_pressed() -> void:
 
 
 # =============================================================================
-# 准备阶段管理(服务器)
+# 鍑嗗闃舵绠＄悊(鏈嶅姟鍣?
 # =============================================================================
 
 func _server_schedule_prep_phase() -> void:
@@ -355,23 +372,21 @@ func _server_schedule_prep_phase() -> void:
 	if game_state != GameState.LOBBY:
 		return
 
-	# 5s 缓冲(等所有玩家就绪)
+	# 5s 缂撳啿(绛夋墍鏈夌帺瀹跺氨缁?
 	await get_tree().create_timer(5.0).timeout
 
-	# v0.3.3 修复:允许单人 host 也能触发 prep phase(用于开发测试)
-	# 多人时 (>1) 走正常流程,单人时 (==1) 走开发模式
+	# v0.3.3 淇:鍏佽鍗曚汉 host 涔熻兘瑙﹀彂 prep phase(鐢ㄤ簬寮€鍙戞祴璇?
 	if Network.players.size() < 1:
 		print("[Level] No players, aborting prep phase")
 		return
 	if Network.players.size() == 1:
-		print("[Level] Single player mode — proceeding with 1 player (dev test)")
+		print("[Level] Single player mode - proceeding with 1 player (dev test)")
 
-	# 执行 1:3 自动分配
+	# 鎵ц 1:3 鑷姩鍒嗛厤
 	Network.server_auto_balance_roles(true)
-	# 等角色分配广播
 	await get_tree().process_frame
 
-	# 进入准备阶段
+	# 杩涘叆鍑嗗闃舵
 	_server_start_prep_phase()
 
 
@@ -403,12 +418,13 @@ func _server_start_from_lobby() -> void:
 		return
 	if game_state != GameState.LOBBY:
 		return
-	if Network.players.size() < 2:
-		print("[Level] Need at least 2 players to start from lobby")
+	if not Network.can_start_lobby_match():
+		print("[Level] Lobby is not ready to start")
 		return
 	Network.server_auto_balance_roles(true)
 	await get_tree().process_frame
 	main_menu.hide_menu()
+	_update_mouse_capture()
 	_server_start_prep_phase()
 
 
@@ -416,18 +432,19 @@ func _server_start_prep_phase() -> void:
 	game_state = GameState.PREP
 	prep_remaining = float(Network.lobby_config.get("prep_duration_sec", 120))
 	_set_preparation_gate_open(false)
+	_server_spawn_map_props()
 	print("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
 
-	# 锁定所有 Hunter
+	# 閿佸畾鎵€鏈?Hunter
 	for pid in Network.get_hunters():
 		if players_container.has_node(str(pid)):
 			var p = players_container.get_node(str(pid))
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(true)
-			# 移动到准备室位置
+			# 绉诲姩鍒板噯澶囧浣嶇疆
 			p.global_position = get_spawn_point_for_role(Network.Role.HUNTER, pid)
 
-	# 在 server 本地立即更新 HUD
+	# 鍦?server 鏈湴绔嬪嵆鏇存柊 HUD
 	print("[Level] SERVER: prep_timer_label = ", prep_timer_label)
 	if prep_timer_label:
 		prep_timer_label.visible = true
@@ -443,14 +460,14 @@ func _server_end_prep_phase() -> void:
 	prep_remaining = 0.0
 	_set_preparation_gate_open(true)
 
-	# 解锁所有 Hunter,移动到主战场入口
-	var entrance_offset = Vector3(0, 0, 30)  # 主战场入口
+	# 瑙ｉ攣鎵€鏈?Hunter,绉诲姩鍒颁富鎴樺満鍏ュ彛
+	var entrance_offset = Vector3(0, 0, 30)
 	for pid in Network.get_hunters():
 		if players_container.has_node(str(pid)):
 			var p = players_container.get_node(str(pid))
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(false)
-			# 移动到主战场入口
+			# 绉诲姩鍒颁富鎴樺満鍏ュ彛
 			p.global_position = entrance_offset + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5))
 
 	print("[Level] Prep phase ended, match started")
@@ -460,21 +477,116 @@ func _server_end_prep_phase() -> void:
 
 func _server_start_match() -> void:
 	match_remaining = float(Network.lobby_config.get("match_duration_sec", 600))
+	_apply_configured_gravity()
+	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
 	Network.server_broadcast_match_started()
-	# 生成弹药包
 	_server_spawn_ammo_packs()
 
 
 func _server_end_match() -> void:
 	game_state = GameState.END
 	match_remaining = 0.0
+	_apply_configured_gravity()
 	print("[Level] Match ended")
-	# TODO: 结算胜负(PoC-1 简化,后续 PoC 加)
+	# TODO: 缁撶畻鑳滆礋(PoC-1 绠€鍖?鍚庣画 PoC 鍔?
 
 
 # =============================================================================
-# 弹药包生成(服务器,PoC-2)
+# 寮硅嵂鍖呯敓鎴?鏈嶅姟鍣?PoC-2)
 # =============================================================================
+
+func _server_spawn_map_props() -> void:
+	if not multiplayer.is_server():
+		return
+
+	var total: int = max(Network.players.size(), 1)
+	var prop_count: int = MAP_PROP_COUNT_8
+	if total > 8:
+		var ratio: float = min(float(total) / 24.0, 1.0)
+		prop_count = int(round(lerpf(float(MAP_PROP_COUNT_8), float(MAP_PROP_COUNT_24), ratio)))
+
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.randomize()
+	var container: Node3D = _get_or_create_map_prop_container()
+	var used_positions: Array[Vector3] = []
+	var spawn_data: Array = []
+
+	for i in range(prop_count):
+		var prop: Dictionary = FruitPropCatalog.random_entry(rng)
+		var pos: Vector3 = _get_random_map_prop_position(used_positions, MAP_PROP_MIN_DISTANCE, rng)
+		var size_multiplier := rng.randf_range(MAP_PROP_MIN_SCALE_MULTIPLIER, MAP_PROP_MAX_SCALE_MULTIPLIER)
+		var base_scale: Vector3 = prop.get("scale", Vector3.ONE)
+		var data: Dictionary = {
+			"name": "MapProp_%03d_%s" % [i, str(prop.get("id", "prop")).to_upper()],
+			"id": str(prop.get("id", "apple")),
+			"display_name": str(prop.get("name", "Prop")),
+			"category": str(prop.get("category", "prop")),
+			"scene": str(prop.get("scene", "res://Prefabs/Fruits/apple.tscn")),
+			"material": str(prop.get("material", "res://Materials/M_fruit.tres")),
+			"scale": base_scale * size_multiplier,
+			"radius": clampf(0.055 * size_multiplier, MAP_PROP_MIN_COLLISION_RADIUS, MAP_PROP_MAX_COLLISION_RADIUS),
+			"size_multiplier": size_multiplier,
+			"position": pos,
+			"rotation_y": rng.randf_range(-PI, PI),
+		}
+		_spawn_one_map_prop(container, data)
+		spawn_data.append(data)
+		used_positions.append(pos)
+
+	print("[Level] Spawning map props: ", spawn_data.size())
+	_rpc_spawn_map_props.rpc(spawn_data)
+
+
+func _get_random_map_prop_position(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
+	for attempt in range(32):
+		var angle := rng.randf() * TAU
+		var radius := rng.randf_range(4.0, MAP_PROP_MAP_RADIUS)
+		var pos := Vector3(cos(angle) * radius, 0.08, sin(angle) * radius)
+		var ok := true
+		for u in used:
+			if pos.distance_to(u) < min_dist:
+				ok = false
+				break
+		if ok:
+			return pos
+	return Vector3(rng.randf_range(-8.0, 8.0), 0.08, rng.randf_range(-8.0, 8.0))
+
+
+func _get_or_create_map_prop_container() -> Node3D:
+	var existing = get_node_or_null("MapPropContainer")
+	if existing:
+		for child in existing.get_children():
+			child.free()
+		return existing
+	var container := Node3D.new()
+	container.name = "MapPropContainer"
+	add_child(container)
+	return container
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_map_props(spawn_data: Array) -> void:
+	var container = _get_or_create_map_prop_container()
+	for data in spawn_data:
+		_spawn_one_map_prop(container, data)
+
+
+func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
+	var node := FruitProp.new()
+	node.name = str(data.get("name", "MapProp"))
+	container.add_child(node, true)
+	node.apply_data({
+		"id": str(data.get("id", "apple")),
+		"name": str(data.get("display_name", data.get("name", "Prop"))),
+		"category": str(data.get("category", "prop")),
+		"scene": str(data.get("scene", "res://Prefabs/Fruits/apple.tscn")),
+		"material": str(data.get("material", "res://Materials/M_fruit.tres")),
+		"scale": data.get("scale", Vector3.ONE),
+		"radius": float(data.get("radius", 0.65)),
+		"position": data.get("position", Vector3.ZERO),
+		"rotation_y": float(data.get("rotation_y", 0.0)),
+	})
+
 
 func _server_spawn_ammo_packs() -> void:
 	if not multiplayer.is_server():
@@ -485,13 +597,12 @@ func _server_spawn_ammo_packs() -> void:
 	var medium_n: int
 	var large_n: int
 
-	# 根据人数确定弹药包数量
 	if total <= 8:
 		small_n = AMMO_PACK_COUNT_SMALL_8
 		medium_n = AMMO_PACK_COUNT_MEDIUM_8
 		large_n = AMMO_PACK_COUNT_LARGE_8
 	else:
-		# 24 人上限按比例
+		# 24 浜轰笂闄愭寜姣斾緥
 		var ratio = float(total) / 24.0
 		small_n = int(round(AMMO_PACK_COUNT_SMALL_24 * ratio))
 		medium_n = int(round(AMMO_PACK_COUNT_MEDIUM_24 * ratio))
@@ -502,7 +613,7 @@ func _server_spawn_ammo_packs() -> void:
 	var ammo_scene = preload("res://scripts/ammo_pickup.gd")
 	var container = _get_or_create_ammo_container()
 
-	# 随机散落(避免重叠)
+	# 闅忔満鏁ｈ惤(閬垮厤閲嶅彔)
 	var used_positions: Array[Vector3] = []
 	var min_distance = 5.0
 	var spawn_data: Array = []
@@ -547,7 +658,7 @@ func _get_random_ammo_position(used: Array[Vector3], min_dist: float) -> Vector3
 				break
 		if ok:
 			return pos
-	# 兜底:返回中心附近
+	# 鍏滃簳:杩斿洖涓績闄勮繎
 	return Vector3(randf_range(-5, 5), 0.5, randf_range(-5, 5))
 
 
@@ -581,7 +692,7 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 	node.set("ammo_type", type)
 	node.collision_layer = 4  # ammo layer
 
-	# 视觉
+	# 瑙嗚
 	var mesh_inst = MeshInstance3D.new()
 	mesh_inst.name = "Mesh"
 	var box_mesh = BoxMesh.new()
@@ -601,17 +712,17 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 	mesh_inst.set_surface_override_material(0, mat)
 	node.add_child(mesh_inst)
 
-	# 标签
+	# 鏍囩
 	var label = Label3D.new()
 	label.name = "Label"
 	label.text = ["+30", "+60", "MAX"][type]
 	label.position = Vector3(0, 0.4, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	# Label3D 不支持 modulate(3D 节点),用 modulate 通过材质或 outline_colors
+	# Label3D 涓嶆敮鎸?modulate(3D 鑺傜偣),鐢?modulate 閫氳繃鏉愯川鎴?outline_colors
 	label.outline_modulate = mat.albedo_color
 	node.add_child(label)
 
-	# 碰撞
+	# 纰版挒
 	var coll = CollisionShape3D.new()
 	var sphere = SphereShape3D.new()
 	sphere.radius = 0.8
@@ -623,7 +734,7 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 
 
 # =============================================================================
-# 客户端:阶段事件回调
+# 瀹㈡埛绔?闃舵浜嬩欢鍥炶皟
 # =============================================================================
 
 func _on_prep_phase_started(remaining: float) -> void:
@@ -633,8 +744,9 @@ func _on_prep_phase_started(remaining: float) -> void:
 	if main_menu:
 		main_menu.hide_menu()
 	_set_hud_visible(true)
+	_update_mouse_capture()
 	print("[Level] Client received: prep phase started, ", remaining, "s remaining")
-	# 显示倒计时 HUD
+	# 鏄剧ず鍊掕鏃?HUD
 	print("[Level] prep_timer_label = ", prep_timer_label, " is_inside_tree = ", prep_timer_label != null and prep_timer_label.is_inside_tree())
 	if prep_timer_label:
 		prep_timer_label.visible = true
@@ -651,7 +763,7 @@ func _on_prep_phase_ended() -> void:
 	game_state = GameState.PLAY
 	_set_hud_visible(true)
 	_set_preparation_gate_open(true)
-	# 隐藏倒计时 HUD
+	# 闅愯棌鍊掕鏃?HUD
 	if prep_timer_label:
 		prep_timer_label.visible = false
 	for pid in Network.get_hunters():
@@ -663,6 +775,85 @@ func _on_prep_phase_ended() -> void:
 func _on_match_started() -> void:
 	game_state = GameState.PLAY
 	match_remaining = float(Network.lobby_config.get("match_duration_sec", 600))
+	_apply_configured_gravity()
+	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
+
+
+func _process_gravity_events(delta: float) -> void:
+	if gravity_event_remaining > 0.0:
+		gravity_event_remaining = max(0.0, gravity_event_remaining - delta)
+		if gravity_event_remaining <= 0.0:
+			gravity_event_label = ""
+			_apply_configured_gravity()
+	if not multiplayer.is_server():
+		return
+	if not bool(Network.lobby_config.get("low_gravity_events", false)):
+		return
+	if str(Network.lobby_config.get("game_show", "None")) != "Chaos Show":
+		return
+	if gravity_event_remaining > 0.0:
+		return
+	low_gravity_check_remaining = max(0.0, low_gravity_check_remaining - delta)
+	if low_gravity_check_remaining > 0.0:
+		return
+	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
+	if randf() <= LOW_GRAVITY_EVENT_CHANCE:
+		_server_start_low_gravity_event()
+
+
+func _server_start_low_gravity_event() -> void:
+	if not multiplayer.is_server():
+		return
+	var event_gravity := clampf(base_gravity_mps2 * LOW_GRAVITY_MULTIPLIER, 2.0, base_gravity_mps2)
+	_apply_gravity_event.rpc(event_gravity, LOW_GRAVITY_EVENT_DURATION, I18n.t("gravity_event.low"))
+
+
+@rpc("authority", "call_local", "reliable")
+func _apply_gravity_event(gravity_value: float, duration: float, label: String) -> void:
+	gravity_event_remaining = maxf(duration, 0.0)
+	gravity_event_label = label
+	_apply_gravity(gravity_value)
+	show_combat_feedback(label, Color(0.45, 0.82, 1.0, 1.0), 1.6)
+
+
+func _apply_configured_gravity() -> void:
+	base_gravity_mps2 = clampf(float(Network.lobby_config.get("gravity_mps2", 9.8)), 2.0, 20.0)
+	gravity_event_remaining = 0.0
+	gravity_event_label = ""
+	_apply_gravity(base_gravity_mps2)
+
+
+func _apply_gravity(gravity_value: float) -> void:
+	active_gravity_mps2 = clampf(gravity_value, 1.5, 24.0)
+	ProjectSettings.set_setting("physics/3d/default_gravity", active_gravity_mps2)
+	_apply_gravity_to_players()
+	_apply_gravity_to_props()
+
+
+func _apply_gravity_to_players() -> void:
+	if not players_container:
+		return
+	for player in players_container.get_children():
+		if _node_has_property(player, "gravity"):
+			player.set("gravity", active_gravity_mps2)
+
+
+func _apply_gravity_to_props() -> void:
+	var tree := get_tree()
+	if not tree:
+		return
+	for prop in tree.get_nodes_in_group("map_props"):
+		if prop is RigidBody3D:
+			(prop as RigidBody3D).sleeping = false
+
+
+func _node_has_property(node: Object, property_name: String) -> bool:
+	if not node:
+		return false
+	for property in node.get_property_list():
+		if str(property.get("name", "")) == property_name:
+			return true
+	return false
 
 
 func _update_prep_ui() -> void:
@@ -672,7 +863,7 @@ func _update_prep_ui() -> void:
 	var mins = secs / 60
 	var sec = secs % 60
 	prep_timer_label.text = "%s: %02d:%02d" % [I18n.t("prep_remaining"), mins, sec]
-	# 最后 10 秒变红色
+	# 鏈€鍚?10 绉掑彉绾㈣壊
 	if secs <= 10:
 		prep_timer_label.modulate = Color(1.5, 0.3, 0.3, 1)
 	else:
@@ -697,16 +888,34 @@ func _ensure_status_hud() -> void:
 		return
 	var hud = $HUDCanvas
 	status_label = hud.get_node_or_null("StatusLabel")
-	if status_label:
-		return
-	status_label = Label.new()
-	status_label.name = "StatusLabel"
-	status_label.position = Vector2(16, 16)
-	status_label.add_theme_font_size_override("font_size", 20)
-	status_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
-	status_label.add_theme_constant_override("shadow_offset_x", 2)
-	status_label.add_theme_constant_override("shadow_offset_y", 2)
-	hud.add_child(status_label)
+	if not status_label:
+		status_label = Label.new()
+		status_label.name = "StatusLabel"
+		status_label.position = Vector2(16, 16)
+		status_label.add_theme_font_size_override("font_size", 20)
+		status_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+		status_label.add_theme_constant_override("shadow_offset_x", 2)
+		status_label.add_theme_constant_override("shadow_offset_y", 2)
+		hud.add_child(status_label)
+
+	combat_feedback_label = hud.get_node_or_null("CombatFeedbackLabel")
+	if not combat_feedback_label:
+		combat_feedback_label = Label.new()
+		combat_feedback_label.name = "CombatFeedbackLabel"
+		combat_feedback_label.anchors_preset = Control.PRESET_CENTER_TOP
+		combat_feedback_label.anchor_left = 0.5
+		combat_feedback_label.anchor_right = 0.5
+		combat_feedback_label.offset_left = -260
+		combat_feedback_label.offset_top = 92
+		combat_feedback_label.offset_right = 260
+		combat_feedback_label.offset_bottom = 142
+		combat_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		combat_feedback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		combat_feedback_label.add_theme_font_size_override("font_size", 28)
+		combat_feedback_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+		combat_feedback_label.add_theme_constant_override("outline_size", 6)
+		combat_feedback_label.visible = false
+		hud.add_child(combat_feedback_label)
 	_update_status_hud()
 
 
@@ -715,6 +924,8 @@ func _set_hud_visible(visible_value: bool) -> void:
 		prep_timer_label.visible = visible_value and game_state == GameState.PREP
 	if status_label:
 		status_label.visible = visible_value
+	if combat_feedback_label:
+		combat_feedback_label.visible = false
 
 
 func _update_status_hud() -> void:
@@ -735,6 +946,9 @@ func _update_status_hud() -> void:
 		lines.append("%s: %ds" % [I18n.t("prep_remaining"), int(ceil(prep_remaining))])
 	elif game_state == GameState.PLAY:
 		lines.append("%s: %ds" % [I18n.t("match_remaining"), int(ceil(match_remaining))])
+	lines.append("%s: %.1f m/s²" % [I18n.t("gravity_status"), active_gravity_mps2])
+	if gravity_event_remaining > 0.0:
+		lines.append("%s: %ds" % [gravity_event_label, int(ceil(gravity_event_remaining))])
 	var local_player = _get_local_player()
 	if local_player:
 		if local_player.has_method("get_health"):
@@ -743,6 +957,25 @@ func _update_status_hud() -> void:
 			var weapon: WeaponSystem = local_player.get_node("WeaponSystem")
 			lines.append("%s: %d / %d" % [I18n.t("ammo"), weapon.current_magazine, weapon.total_ammo])
 	status_label.text = "\n".join(lines)
+
+
+func show_combat_feedback(text: String, color: Color = Color(1, 0.86, 0.25, 1), duration: float = 0.85) -> void:
+	if not combat_feedback_label:
+		_ensure_status_hud()
+	if not combat_feedback_label:
+		return
+	combat_feedback_label.text = text
+	combat_feedback_label.modulate = color
+	combat_feedback_label.visible = true
+	var tween := create_tween()
+	tween.tween_property(combat_feedback_label, "modulate:a", color.a, 0.01)
+	tween.tween_interval(duration)
+	tween.tween_property(combat_feedback_label, "modulate:a", 0.0, 0.22)
+	tween.finished.connect(func():
+		if combat_feedback_label:
+			combat_feedback_label.visible = false
+			combat_feedback_label.modulate.a = color.a
+	)
 
 
 func _localized_role(role: int) -> String:
@@ -757,8 +990,37 @@ func _localized_role(role: int) -> String:
 			return "-"
 
 
+func _should_capture_mouse() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	if main_menu and main_menu.is_menu_visible():
+		return false
+	if multiplayer_chat and multiplayer_chat.is_chat_visible():
+		return false
+	if inventory_visible:
+		return false
+	return game_state == GameState.PREP or game_state == GameState.PLAY
+
+
+func _capture_game_mouse() -> void:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _release_game_mouse() -> void:
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _update_mouse_capture() -> void:
+	if _should_capture_mouse():
+		_capture_game_mouse()
+	else:
+		_release_game_mouse()
+
+
 # =============================================================================
-# MULTIPLAYER CHAT(保留原逻辑)
+# MULTIPLAYER CHAT(淇濈暀鍘熼€昏緫)
 # =============================================================================
 
 func toggle_chat():
@@ -766,6 +1028,7 @@ func toggle_chat():
 		return
 	multiplayer_chat.toggle_chat()
 	chat_visible = multiplayer_chat.is_chat_visible()
+	_update_mouse_capture()
 
 
 func is_chat_visible() -> bool:
@@ -773,6 +1036,8 @@ func is_chat_visible() -> bool:
 
 
 func _input(event):
+	if event is InputEventMouseButton and event.pressed and _should_capture_mouse():
+		_capture_game_mouse()
 	if event.is_action_pressed("toggle_chat"):
 		toggle_chat()
 	elif chat_visible and multiplayer_chat.message.has_focus():
@@ -786,7 +1051,7 @@ func _input(event):
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_F2:
 		_debug_print_inventory()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_F5:
-		# Dev cheat:host 单人时强制触发 prep phase(用于 UI 测试)
+		# Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase(鐢ㄤ簬 UI 娴嬭瘯)
 		_debug_force_prep_phase()
 
 
@@ -815,7 +1080,7 @@ func msg_rpc(nick, msg):
 
 
 # =============================================================================
-# INVENTORY(保留原逻辑)
+# INVENTORY(淇濈暀鍘熼€昏緫)
 # =============================================================================
 
 func toggle_inventory():
@@ -829,6 +1094,7 @@ func toggle_inventory():
 		inventory_ui.open_inventory(local_player)
 	else:
 		inventory_ui.close_inventory()
+	_update_mouse_capture()
 
 
 func is_inventory_visible() -> bool:
@@ -850,6 +1116,7 @@ func _notification(what):
 
 func _on_inventory_closed():
 	inventory_visible = false
+	_update_mouse_capture()
 
 
 func update_local_inventory_display():
@@ -889,7 +1156,7 @@ func _debug_print_inventory():
 		print("No inventory found for local player")
 
 
-# Dev cheat:host 单人时强制触发 prep phase
+# Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase
 func _debug_force_prep_phase() -> void:
 	if not multiplayer.is_server():
 		print("[Debug] Only server can force prep phase")

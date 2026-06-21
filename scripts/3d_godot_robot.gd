@@ -1,7 +1,7 @@
 extends Node3D
 class_name Body
 
-const LERP_VELOCITY: float = 0.15
+const LERP_VELOCITY: float = 0.22
 
 @export_category("Objects")
 @export var _character: CharacterBody3D = null

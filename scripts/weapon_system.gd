@@ -24,6 +24,8 @@ const RELOAD_TIME: float = 2.5
 const MAX_RANGE: float = 60.0
 const DAMAGE_FALLOFF_RANGE: float = 60.0
 const DAMAGE_FALLOFF_FACTOR: float = 0.5
+const SCAN_RANGE: float = 14.0
+const SCAN_COOLDOWN: float = 4.0
 
 const MELEE_DAMAGE: float = 10.0  # 弹药耗尽时切近战
 
@@ -36,6 +38,7 @@ var is_firing: bool = false
 var is_reloading: bool = false
 var fire_cooldown: float = 0.0
 var last_fire_time: float = 0.0
+var scan_cooldown: float = 0.0
 
 # 武器所有者(通常是 Hunter player)— 注意:Node3D 有内置 owner 属性,避免重名
 var shooter_node: Node3D = null
@@ -64,6 +67,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if fire_cooldown > 0.0:
 		fire_cooldown -= delta
+	if scan_cooldown > 0.0:
+		scan_cooldown = max(0.0, scan_cooldown - delta)
 
 
 func initialize(owner_node: Node3D, owner_camera: Camera3D = null) -> void:
@@ -117,6 +122,18 @@ func request_reload() -> void:
 		_request_reload_rpc.rpc_id(1)
 
 
+func request_scan() -> void:
+	if scan_cooldown > 0.0:
+		_show_feedback_on_owner("SCAN %.1fs" % scan_cooldown, Color(0.65, 0.78, 1.0, 1.0), 0.55)
+		return
+
+	scan_cooldown = SCAN_COOLDOWN
+	if multiplayer.is_server():
+		_server_scan(owner_peer_id)
+	else:
+		_request_scan_rpc.rpc_id(1)
+
+
 # 服务器发起:加载弹药(从弹药包)
 func server_add_ammo(amount: int) -> bool:
 	if not multiplayer.is_server():
@@ -148,6 +165,14 @@ func _request_fire_rpc(aim_dir: Vector3, shooter_pos: Vector3):
 	_server_fire(sender_id, aim_dir, shooter_pos)
 
 
+@rpc("any_peer", "call_local", "reliable")
+func _request_scan_rpc():
+	if not multiplayer.is_server():
+		return
+	var sender_id = multiplayer.get_remote_sender_id()
+	_server_scan(sender_id)
+
+
 func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> void:
 	if not multiplayer.is_server():
 		return
@@ -176,10 +201,14 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 	var hit_target = null
 	var is_headshot = false
 	var damage_dealt = DAMAGE_PER_BULLET
+	var feedback_text := "MISS"
+	var feedback_color := Color(0.75, 0.78, 0.86, 1.0)
 
 	if result:
 		hit_position = result.position
 		hit_target = result.collider
+		feedback_text = "IMPACT"
+		feedback_color = Color(0.95, 0.72, 0.28, 1.0)
 
 		# 检查是否爆头
 		if hit_target and hit_target.has_method("is_head_shot") and hit_target.is_head_shot():
@@ -194,13 +223,52 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 		# 击中 Props 玩家
 		if hit_target and hit_target.is_in_group("players") and hit_target.has_method("take_damage"):
 			hit_target.take_damage(damage_dealt, sender_id, is_headshot)
+			if hit_target.has_method("is_disguised") and hit_target.is_disguised():
+				feedback_text = "DISGUISE HIT -%d" % int(round(damage_dealt))
+				feedback_color = Color(0.18, 1.0, 0.86, 1.0)
+			else:
+				feedback_text = "HIT -%d" % int(round(damage_dealt))
+				feedback_color = Color(1.0, 0.86, 0.25, 1.0)
 
 	# 广播弹道视觉(给所有客户端显示弹道光线)
 	_broadcast_tracer.rpc(shooter_pos, hit_position)
 
 	ammo_changed.emit(current_magazine, total_ammo)
 	_sync_ammo_to_owner()
+	_show_feedback_on_owner(feedback_text, feedback_color, 0.72)
 	weapon_fired.emit(hit_position, hit_target, is_headshot)
+
+
+func _server_scan(sender_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if sender_id != owner_peer_id:
+		push_warning("Peer " + str(sender_id) + " tried to scan with weapon owned by " + str(owner_peer_id))
+		return
+
+	var origin := _get_shooter_position()
+	var nearest_target: Node3D = null
+	var nearest_distance := INF
+	for node in get_tree().get_nodes_in_group("players"):
+		if node == shooter_node:
+			continue
+		if not node is Node3D:
+			continue
+		if not node.has_method("is_prop") or not node.is_prop():
+			continue
+		var distance := origin.distance_to((node as Node3D).global_position)
+		if distance <= SCAN_RANGE and distance < nearest_distance:
+			nearest_target = node
+			nearest_distance = distance
+
+	if nearest_target:
+		var is_disguise: bool = nearest_target.has_method("is_disguised") and nearest_target.is_disguised()
+		if is_disguise:
+			_show_feedback_on_owner("DISGUISE SIGNAL %.1fm" % nearest_distance, Color(0.18, 1.0, 0.86, 1.0), 1.1)
+		else:
+			_show_feedback_on_owner("PROP SIGNAL %.1fm" % nearest_distance, Color(0.65, 0.78, 1.0, 1.0), 1.0)
+	else:
+		_show_feedback_on_owner("SCAN CLEAR", Color(0.75, 0.78, 0.86, 1.0), 0.75)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -291,6 +359,25 @@ func _sync_reload_to_owner(reloading: bool) -> void:
 		_sync_reload(reloading)
 	else:
 		_sync_reload.rpc_id(owner_peer_id, reloading)
+
+
+@rpc("authority", "call_local", "reliable")
+func _client_weapon_feedback(text: String, color: Color, duration: float = 0.85) -> void:
+	var level = get_tree().get_current_scene()
+	if level and level.has_method("show_combat_feedback"):
+		level.show_combat_feedback(text, color, duration)
+	else:
+		print("[WeaponFeedback] ", text)
+
+
+func _show_feedback_on_owner(text: String, color: Color = Color.WHITE, duration: float = 0.85) -> void:
+	if not multiplayer.is_server():
+		_client_weapon_feedback(text, color, duration)
+		return
+	if owner_peer_id == 1:
+		_client_weapon_feedback(text, color, duration)
+	else:
+		_client_weapon_feedback.rpc_id(owner_peer_id, text, color, duration)
 
 
 func _show_tracer(start: Vector3, end: Vector3) -> void:
