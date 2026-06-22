@@ -60,6 +60,14 @@ const MODELS := [
 		"scale": Vector3(0.80, 0.80, 0.80),
 		"offset": Vector3(0, 0.0, 0),
 	},
+	{
+		"id": "gingerbread",
+		"label": "Gingerbread",
+		"label_key": "character.gingerbread",
+		"scene": "res://assets/characters/gingerbread/gingerbread_animated_skin.tscn",
+		"scale": Vector3(0.90, 0.90, 0.90),
+		"offset": Vector3(0, 0.0, 0),
+	},
 ]
 
 

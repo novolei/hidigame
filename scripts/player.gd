@@ -35,6 +35,7 @@ const PROP_PUSH_FORWARD_REACH := 0.34
 const WORLD_COLLISION_MASK := 2
 const PROP_DISGUISE_GROUND_SNAP_UP := 2.5
 const PROP_DISGUISE_GROUND_SNAP_DOWN := 8.0
+const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
 
 enum SkinColor { BLUE, YELLOW, GREEN, RED }
 
@@ -91,6 +92,17 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 var can_double_jump = true
 var has_double_jumped = false
 var health: float = 100.0
+var _camouflage_brush_locked := false
+var _camouflage_paint_texture: Texture2D = null
+var _camouflage_paint_textures: Dictionary = {}
+var _camouflage_surface_materials: Dictionary = {}
+var _camouflage_paint_layer_materials: Dictionary = {}
+var _camouflage_source_material_infos: Dictionary = {}
+var _camouflage_brush_base_color := Color(0.42, 0.95, 0.72, 1.0)
+var _camouflage_paint_exact_color_match := false
+var _camouflage_paint_roughness := 1.0
+var _camouflage_paint_metallic := 0.0
+var _camouflage_paused_animation_players: Dictionary = {}
 
 signal health_changed(value: float)
 
@@ -142,7 +154,7 @@ func _check_role_after_assignment() -> void:
 	_sync_role_from_network()
 	if is_hunter() and (is_multiplayer_authority() or multiplayer.is_server()) and not has_node("WeaponSystem"):
 		_setup_hunter_weapon()
-	elif is_chameleon() and is_multiplayer_authority() and not has_node("PaintSystem"):
+	elif is_chameleon() and is_multiplayer_authority() and not has_node("CamouflageSystem"):
 		_setup_chameleon_systems()
 	elif is_stalker() and not has_node("ShadowVisibilitySystem"):
 		_setup_stalker_systems()
@@ -152,8 +164,8 @@ func _check_role_after_assignment() -> void:
 # 钘忓尶鑰呯郴缁熷垵濮嬪寲(PoC-3)
 # =============================================================================
 
-var paint_system: PaintSystem = null
 var shape_system: ShapeShiftSystem = null
+var camouflage_system: CamouflageSystem = null
 var shadow_visibility = null
 var _stalker_original_material_overrides := {}
 var _stalker_ghost_material: ShaderMaterial = null
@@ -165,14 +177,14 @@ func _setup_chameleon_systems() -> void:
 	if not is_chameleon() or not is_multiplayer_authority():
 		return
 
-	# 鍠锋秱绯荤粺
-	if not has_node("PaintSystem"):
-		var ps = preload("res://scripts/paint_system.gd").new()
-		ps.name = "PaintSystem"
-		add_child(ps)
-		var cam = $SpringArmOffset/SpringArm3D/Camera3D
-		ps.initialize(self, cam)
-		paint_system = ps
+	# 环境取色伪装系统(Godot 4.7 DrawableTexture2D)
+	if not has_node("CamouflageSystem"):
+		var cs = preload("res://scripts/camouflage_system.gd").new()
+		cs.name = "CamouflageSystem"
+		add_child(cs)
+		var camera_node = $SpringArmOffset/SpringArm3D/Camera3D
+		cs.initialize(self, camera_node)
+		camouflage_system = cs
 
 	# 鍙樺舰绯荤粺
 	if not has_node("ShapeShiftSystem"):
@@ -441,16 +453,22 @@ func _handle_hunter_input(event: InputEvent) -> void:
 
 
 func _handle_chameleon_input(event: InputEvent) -> void:
-	if not paint_system or not shape_system:
+	if not camouflage_system and not shape_system:
 		return
 
+	if camouflage_system and camouflage_system.is_brush_mode():
+		if camouflage_system.handle_brush_input(event):
+			get_viewport().set_input_as_handled()
+		return
 
-	# 鍠锋秱:鍙抽敭鎸変綇(鍦?_process_input_held 涓寔缁娴?
-	if event.is_action_pressed("paint_trigger"):
-		paint_system.start_paint()
+	# Environment blend: C toggles the paintable camouflage tool.
+	if event.is_action_pressed("camouflage_absorb") and camouflage_system:
+		camouflage_system.toggle_skill()
+		get_viewport().set_input_as_handled()
+		return
 
 	# 鍙樺舰杞洏:Q 鍒囨崲寮€/鍏?
-	if event.is_action_pressed("shape_shift"):
+	if event.is_action_pressed("shape_shift") and shape_system:
 		if shape_system.has_method("has_nearby_replicable_prop") and shape_system.has_nearby_replicable_prop():
 			shape_system.try_replicate_nearby_prop()
 			return
@@ -479,11 +497,8 @@ func _process_input_held():
 
 	# Chameleon 鎸佺画鍠锋秱
 	if is_chameleon():
-		if paint_system and Input.is_action_pressed("paint_trigger"):
-			if not paint_system.is_painting:
-				paint_system.start_paint()
-		elif paint_system and paint_system.is_painting:
-			paint_system.stop_paint()
+		if camouflage_system and camouflage_system.is_brush_mode():
+			return
 
 
 # 鏌ユ壘 level 涓殑鍙樺舰杞洏 UI
@@ -522,7 +537,7 @@ func _on_role_changed(peer_id: int, new_role: int) -> void:
 		# 濡傛灉鏄?Hunter 涓旇繕娌℃寕姝﹀櫒,琛ユ寕
 		if new_role == Network.Role.HUNTER and (is_multiplayer_authority() or multiplayer.is_server()) and not has_node("WeaponSystem"):
 			_setup_hunter_weapon()
-		elif new_role == Network.Role.CHAMELEON and is_multiplayer_authority() and not has_node("PaintSystem"):
+		elif new_role == Network.Role.CHAMELEON and is_multiplayer_authority() and not has_node("CamouflageSystem"):
 			_setup_chameleon_systems()
 		elif new_role == Network.Role.STALKER:
 			_setup_stalker_systems()
@@ -579,8 +594,63 @@ func _find_meshes(node: Node, result: Array[MeshInstance3D]) -> void:
 	for child in node.get_children():
 		_find_meshes(child, result)
 
+
+func _set_active_skin_animation_paused(paused: bool) -> void:
+	if paused:
+		if not _active_skin_node or not is_instance_valid(_active_skin_node):
+			return
+		if _active_skin_node.has_method("set_animation_paused"):
+			_active_skin_node.call("set_animation_paused", true)
+		var players: Array[AnimationPlayer] = []
+		_find_animation_players(_active_skin_node, players)
+		for animation_player in players:
+			var key := animation_player.get_instance_id()
+			if not _camouflage_paused_animation_players.has(key):
+				_camouflage_paused_animation_players[key] = {
+					"player": animation_player,
+					"speed_scale": animation_player.speed_scale,
+				}
+			animation_player.speed_scale = 0.0
+		return
+
+	for key in _camouflage_paused_animation_players.keys():
+		var pause_info := _camouflage_paused_animation_players[key] as Dictionary
+		var animation_player := pause_info.get("player", null) as AnimationPlayer
+		if animation_player and is_instance_valid(animation_player):
+			animation_player.speed_scale = float(pause_info.get("speed_scale", 1.0))
+	_camouflage_paused_animation_players.clear()
+	if _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.has_method("set_animation_paused"):
+		_active_skin_node.call("set_animation_paused", false)
+
+
+func _find_animation_players(node: Node, result: Array[AnimationPlayer]) -> void:
+	if node is AnimationPlayer:
+		result.append(node as AnimationPlayer)
+	for child in node.get_children():
+		_find_animation_players(child, result)
+
+
+func _force_active_skin_skeleton_update() -> void:
+	if _active_skin_node and is_instance_valid(_active_skin_node):
+		_force_skeleton_update_recursive(_active_skin_node)
+	_force_skeleton_update_recursive(_body)
+
+
+func _force_skeleton_update_recursive(node: Node) -> void:
+	if not node:
+		return
+	if node is Skeleton3D:
+		(node as Skeleton3D).force_update_all_bone_transforms()
+	for child in node.get_children():
+		_force_skeleton_update_recursive(child)
+
 func _physics_process(delta):
 	if not is_multiplayer_authority(): return
+
+	if _camouflage_brush_locked:
+		freeze()
+		move_and_slide()
+		return
 
 	# 鍑嗗闃舵 Hunter 閿佸畾(涓嶈兘绉诲姩)
 	if is_hunter() and prep_phase_locked:
@@ -795,6 +865,602 @@ func set_player_skin(skin_name: SkinColor) -> void:
 	set_mesh_texture(_chest_mesh, texture)
 	set_mesh_texture(_face_mesh, texture)
 	set_mesh_texture(_limbs_head_mesh, texture)
+
+
+func submit_camouflage_palette(palette: Array, confidence: float) -> void:
+	var clean_palette := _sanitize_camouflage_palette(palette)
+	var clean_confidence := clampf(confidence, 0.0, 1.0)
+	if multiplayer.is_server():
+		_apply_camouflage_palette.rpc(clean_palette, clean_confidence)
+	else:
+		_request_camouflage_palette.rpc_id(1, clean_palette, clean_confidence)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_camouflage_palette(palette: Array, confidence: float) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		push_warning("Client " + str(sender) + " tried to camouflage player " + str(get_multiplayer_authority()))
+		return
+	if not is_chameleon():
+		return
+	_apply_camouflage_palette.rpc(_sanitize_camouflage_palette(palette), clampf(confidence, 0.0, 1.0))
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _apply_camouflage_palette(palette: Array, confidence: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	var clean_palette := _sanitize_camouflage_palette(palette)
+	var texture := CamouflageSystem.create_camouflage_texture(clean_palette, get_instance_id())
+	_apply_camouflage_texture_to_character(texture, clean_palette[0], confidence)
+	var level = get_tree().get_current_scene() if get_tree() else null
+	if level and is_multiplayer_authority() and level.has_method("show_combat_feedback"):
+		level.show_combat_feedback("环境融合 %d%%" % int(round(confidence * 100.0)), clean_palette[0], 0.9)
+
+
+func set_camouflage_brush_locked(locked: bool) -> void:
+	_camouflage_brush_locked = locked
+	_set_active_skin_animation_paused(locked)
+	if locked:
+		_force_active_skin_skeleton_update()
+	if locked:
+		freeze()
+
+
+func is_camouflage_brushing() -> bool:
+	return _camouflage_brush_locked
+
+
+func adjust_camouflage_brush_rotation(delta_yaw: float) -> void:
+	if not _camouflage_brush_locked or not _body:
+		return
+	_body.rotation.y = wrapf(_body.rotation.y + delta_yaw, -PI, PI)
+
+
+func adjust_camouflage_camera_orbit(relative: Vector2) -> void:
+	if not _camouflage_brush_locked or not _spring_arm_offset:
+		return
+	if _spring_arm_offset.has_method("orbit_camera"):
+		_spring_arm_offset.call("orbit_camera", relative)
+
+
+func adjust_camouflage_camera_zoom(step_count: float) -> void:
+	if not _camouflage_brush_locked or not _spring_arm_offset:
+		return
+	if _spring_arm_offset.has_method("zoom_camera_for_camouflage"):
+		_spring_arm_offset.call("zoom_camera_for_camouflage", step_count)
+		return
+	if _spring_arm_offset.has_method("zoom_camera"):
+		_spring_arm_offset.call("zoom_camera", step_count)
+
+
+func set_camouflage_paint_material_controls(exact_color_match: bool, roughness: float, metallic: float) -> void:
+	_camouflage_paint_exact_color_match = exact_color_match
+	_camouflage_paint_roughness = clampf(roughness, 0.0, 1.0)
+	_camouflage_paint_metallic = clampf(metallic, 0.0, 1.0)
+	for material in _camouflage_paint_layer_materials.values():
+		if material is ShaderMaterial and is_instance_valid(material):
+			_configure_camouflage_paint_layer_controls(material as ShaderMaterial)
+
+
+func submit_camouflage_brush_start(base_color: Color) -> void:
+	base_color.a = 1.0
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_start_camouflage_brush_visual.rpc(base_color)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_start_camouflage_brush_visual(base_color)
+	else:
+		_request_camouflage_brush_start.rpc_id(1, base_color)
+
+
+func submit_camouflage_brush_stroke(
+	uv: Vector2,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_position: Vector3 = Vector3.ZERO,
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0
+) -> void:
+	color.a = 1.0
+	var clean_uv := Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0))
+	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
+	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+	else:
+		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+
+
+func submit_camouflage_brush_stroke_batch(
+	uvs: PackedVector2Array,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_positions: PackedVector3Array = PackedVector3Array(),
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0,
+	brush_radii: PackedFloat32Array = PackedFloat32Array(),
+	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
+	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	if uvs.is_empty():
+		return
+	color.a = 1.0
+	var clean_uvs := PackedVector2Array()
+	for uv in uvs:
+		clean_uvs.append(Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0)))
+	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
+	var clean_radii := _sanitize_camouflage_brush_radii(brush_radii, clean_uvs.size(), clean_radius)
+	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, clean_uvs.size())
+	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
+	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+	else:
+		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+
+
+func _should_apply_camouflage_brush_without_server_peer() -> bool:
+	return not _has_active_camouflage_multiplayer_peer()
+
+
+func _has_active_camouflage_multiplayer_peer() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null:
+		return false
+	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_camouflage_brush_start(base_color: Color) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if not is_chameleon():
+		return
+	base_color.a = 1.0
+	_start_camouflage_brush_visual.rpc(base_color)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _request_camouflage_brush_stroke(
+	uv: Vector2,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_position: Vector3 = Vector3.ZERO,
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0
+) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	color.a = 1.0
+	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_brush_stroke.rpc(
+		Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0)),
+		color,
+		_sanitize_camouflage_brush_radius(brush_radius),
+		angle,
+		world_position,
+		clean_normal,
+		target_mesh_path,
+		target_surface
+	)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _request_camouflage_brush_stroke_batch(
+	uvs: PackedVector2Array,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_positions: PackedVector3Array = PackedVector3Array(),
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0,
+	brush_radii: PackedFloat32Array = PackedFloat32Array(),
+	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
+	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	color.a = 1.0
+	var clean_uvs := PackedVector2Array()
+	for uv in uvs:
+		clean_uvs.append(Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0)))
+	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
+	var clean_radii := _sanitize_camouflage_brush_radii(brush_radii, clean_uvs.size(), clean_radius)
+	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, clean_uvs.size())
+	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
+	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_brush_stroke_batch.rpc(
+		clean_uvs,
+		color,
+		clean_radius,
+		angle,
+		world_positions,
+		clean_normal,
+		target_mesh_path,
+		target_surface,
+		clean_radii,
+		clean_uv_clip.get("triangles", PackedVector2Array()),
+		clean_uv_clip.get("counts", PackedInt32Array()),
+		clean_uv_footprint_metrics
+	)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _start_camouflage_brush_visual(base_color: Color) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	base_color.a = 1.0
+	_camouflage_brush_base_color = base_color
+	_camouflage_paint_textures.clear()
+	_camouflage_surface_materials.clear()
+	_camouflage_paint_layer_materials.clear()
+	_camouflage_source_material_infos.clear()
+	_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(base_color)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _apply_camouflage_brush_stroke(
+	uv: Vector2,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_position: Vector3 = Vector3.ZERO,
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0
+) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	color.a = 1.0
+	if not _camouflage_paint_texture:
+		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
+	if target_mesh_path.is_empty():
+		var global_painted := CamouflageSystem.paint_brush_on_texture(_camouflage_paint_texture, uv, color, brush_radius, angle)
+		if global_painted != _camouflage_paint_texture:
+			_camouflage_paint_texture = global_painted
+		_apply_camouflage_texture_to_character(_camouflage_paint_texture, color, 1.0)
+		return
+	var mesh_instance := get_node_or_null(target_mesh_path) as MeshInstance3D
+	if not mesh_instance:
+		return
+	var surface := _normalize_camouflage_target_surface(mesh_instance, target_surface)
+	var target_texture := _get_camouflage_target_texture(target_mesh_path, surface)
+	var painted := CamouflageSystem.paint_brush_on_texture(target_texture, uv, color, brush_radius, angle)
+	_camouflage_paint_textures[_camouflage_texture_key(target_mesh_path, surface)] = painted
+	_apply_camouflage_texture_to_mesh_surface(target_mesh_path, surface, painted, color, 1.0)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _apply_camouflage_brush_stroke_batch(
+	uvs: PackedVector2Array,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_positions: PackedVector3Array = PackedVector3Array(),
+	world_normal: Vector3 = Vector3.UP,
+	target_mesh_path: String = "",
+	target_surface: int = 0,
+	brush_radii: PackedFloat32Array = PackedFloat32Array(),
+	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
+	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	if uvs.is_empty():
+		return
+	color.a = 1.0
+	if not _camouflage_paint_texture:
+		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
+	var clean_radii := _sanitize_camouflage_brush_radii(brush_radii, uvs.size(), brush_radius)
+	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, uvs.size())
+	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, uvs.size())
+	if target_mesh_path.is_empty():
+		var global_painted := CamouflageSystem.paint_brush_strokes_on_texture(_camouflage_paint_texture, uvs, color, brush_radius, angle, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+		if global_painted != _camouflage_paint_texture:
+			_camouflage_paint_texture = global_painted
+		_apply_camouflage_texture_to_character(_camouflage_paint_texture, color, 1.0)
+		return
+	var mesh_instance := get_node_or_null(target_mesh_path) as MeshInstance3D
+	if not mesh_instance:
+		return
+	var surface := _normalize_camouflage_target_surface(mesh_instance, target_surface)
+	var target_texture := _get_camouflage_target_texture(target_mesh_path, surface)
+	var painted := CamouflageSystem.paint_brush_strokes_on_texture(target_texture, uvs, color, brush_radius, angle, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+	_camouflage_paint_textures[_camouflage_texture_key(target_mesh_path, surface)] = painted
+	_apply_camouflage_texture_to_mesh_surface(target_mesh_path, surface, painted, color, 1.0)
+
+
+func _get_camouflage_target_texture(target_mesh_path: String, target_surface: int) -> Texture2D:
+	var key := _camouflage_texture_key(target_mesh_path, target_surface)
+	if _camouflage_paint_textures.has(key):
+		return _camouflage_paint_textures[key] as Texture2D
+	var texture := CamouflageSystem.create_paint_layer_canvas()
+	_camouflage_paint_textures[key] = texture
+	return texture
+
+
+func _camouflage_texture_key(target_mesh_path: String, target_surface: int) -> String:
+	return "%s:%d" % [target_mesh_path, target_surface]
+
+
+func _normalize_camouflage_target_surface(mesh_instance: MeshInstance3D, target_surface: int) -> int:
+	return clampi(target_surface, 0, _get_mesh_surface_count(mesh_instance) - 1)
+
+
+func _apply_camouflage_texture_to_mesh_surface(
+	target_mesh_path: String,
+	target_surface: int,
+	texture: Texture2D,
+	primary_color: Color,
+	confidence: float
+) -> void:
+	var mesh_instance := get_node_or_null(target_mesh_path) as MeshInstance3D
+	if not mesh_instance:
+		return
+	var surface := _normalize_camouflage_target_surface(mesh_instance, target_surface)
+	var key := _camouflage_texture_key(target_mesh_path, surface)
+	var source_info := _get_camouflage_surface_source_info(mesh_instance, surface, key)
+	var material := _ensure_camouflage_paint_layer_material(mesh_instance, surface, key, source_info)
+	_configure_camouflage_paint_layer_controls(material)
+	var display_strength := clampf(confidence, 0.0, 1.0)
+	var bound_texture = material.get_meta("camouflage_bound_paint_texture") if material.has_meta("camouflage_bound_paint_texture") else null
+	if bound_texture != texture:
+		material.set_shader_parameter("paint_texture", texture)
+		material.set_meta("camouflage_bound_paint_texture", texture)
+	var bound_strength := float(material.get_meta("camouflage_bound_paint_strength")) if material.has_meta("camouflage_bound_paint_strength") else -1.0
+	if absf(bound_strength - display_strength) > 0.001:
+		material.set_shader_parameter("paint_display_strength", display_strength)
+		material.set_meta("camouflage_bound_paint_strength", display_strength)
+
+
+func _apply_camouflage_texture_to_character(texture: Texture2D, primary_color: Color, confidence: float) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_camouflage_meshes(meshes)
+	for mesh_instance in meshes:
+		var surface_count := _get_mesh_surface_count(mesh_instance)
+		for surface in range(surface_count):
+			var material := _ensure_unique_standard_material(mesh_instance, surface)
+			_configure_camouflage_display_material(material)
+			material.albedo_texture = texture
+			material.albedo_color = Color.WHITE
+
+
+func _collect_camouflage_meshes(result: Array[MeshInstance3D]) -> void:
+	for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+		if mesh and is_instance_valid(mesh) and mesh.visible and mesh.is_visible_in_tree():
+			result.append(mesh)
+	if _active_skin_node and is_instance_valid(_active_skin_node):
+		_find_meshes(_active_skin_node, result)
+
+
+func _configure_camouflage_display_material(material: StandardMaterial3D) -> void:
+	if not material:
+		return
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.disable_receive_shadows = true
+	material.roughness = 1.0
+	material.metallic = 0.0
+
+
+func _get_mesh_surface_count(mesh_instance: MeshInstance3D) -> int:
+	var count := mesh_instance.get_surface_override_material_count()
+	if count <= 0 and mesh_instance.mesh:
+		count = mesh_instance.mesh.get_surface_count()
+	return max(1, count)
+
+
+func _get_mesh_surface_material(mesh_instance: MeshInstance3D, surface: int) -> Material:
+	if not mesh_instance:
+		return null
+	var material := mesh_instance.get_surface_override_material(surface)
+	if not material:
+		material = mesh_instance.material_override
+	if not material and mesh_instance.mesh and surface < mesh_instance.mesh.get_surface_count():
+		material = mesh_instance.mesh.surface_get_material(surface)
+	return material
+
+
+func _get_material_base_color(material: Material) -> Color:
+	if material is StandardMaterial3D:
+		var color := (material as StandardMaterial3D).albedo_color
+		color.a = 1.0
+		return color
+	return Color.WHITE
+
+
+func _get_material_albedo_texture(material: Material) -> Texture2D:
+	if material is StandardMaterial3D:
+		return (material as StandardMaterial3D).albedo_texture
+	return null
+
+
+func _get_camouflage_surface_source_info(mesh_instance: MeshInstance3D, surface: int, key: String) -> Dictionary:
+	if _camouflage_source_material_infos.has(key):
+		return _camouflage_source_material_infos[key] as Dictionary
+	var material := _get_mesh_surface_material(mesh_instance, surface)
+	if material is ShaderMaterial and bool((material as ShaderMaterial).get_meta("camouflage_paint_layer", false)):
+		var shader_material := material as ShaderMaterial
+		var existing_info := {
+			"base_color": shader_material.get_shader_parameter("base_color") as Color,
+			"base_texture": shader_material.get_shader_parameter("base_texture") as Texture2D,
+			"use_base_texture": bool(shader_material.get_shader_parameter("use_base_texture")),
+		}
+		_camouflage_source_material_infos[key] = existing_info
+		return existing_info
+	var source_texture := _get_material_albedo_texture(material)
+	var source_info := {
+		"base_color": _get_material_base_color(material),
+		"base_texture": source_texture,
+		"use_base_texture": source_texture != null,
+	}
+	_camouflage_source_material_infos[key] = source_info
+	return source_info
+
+
+func _ensure_camouflage_paint_layer_material(
+	mesh_instance: MeshInstance3D,
+	surface: int,
+	key: String,
+	source_info: Dictionary
+) -> ShaderMaterial:
+	if _camouflage_paint_layer_materials.has(key):
+		var cached_material := _camouflage_paint_layer_materials[key] as ShaderMaterial
+		if cached_material and is_instance_valid(cached_material):
+			mesh_instance.set_surface_override_material(surface, cached_material)
+			return cached_material
+
+	var material := _get_mesh_surface_material(mesh_instance, surface)
+	if material is ShaderMaterial and bool((material as ShaderMaterial).get_meta("camouflage_paint_layer", false)):
+		_camouflage_paint_layer_materials[key] = material
+		return material as ShaderMaterial
+
+	var shader_material := ShaderMaterial.new()
+	shader_material.shader = CAMOUFLAGE_PAINT_LAYER_SHADER
+	shader_material.resource_local_to_scene = true
+	shader_material.set_meta("camouflage_paint_layer", true)
+	shader_material.set_shader_parameter("base_color", source_info.get("base_color", Color.WHITE))
+	var source_texture := source_info.get("base_texture", null) as Texture2D
+	if source_texture:
+		shader_material.set_shader_parameter("base_texture", source_texture)
+	shader_material.set_shader_parameter("use_base_texture", bool(source_info.get("use_base_texture", false)))
+	_configure_camouflage_paint_layer_controls(shader_material)
+	mesh_instance.set_surface_override_material(surface, shader_material)
+	_camouflage_paint_layer_materials[key] = shader_material
+	return shader_material
+
+
+func _configure_camouflage_paint_layer_controls(material: ShaderMaterial) -> void:
+	if not material:
+		return
+	material.set_shader_parameter("paint_exact_color_match", _camouflage_paint_exact_color_match)
+	material.set_shader_parameter("paint_roughness", _camouflage_paint_roughness)
+	material.set_shader_parameter("paint_metallic", _camouflage_paint_metallic)
+
+
+func _ensure_unique_standard_material(mesh_instance: MeshInstance3D, surface: int) -> StandardMaterial3D:
+	if not mesh_instance:
+		return StandardMaterial3D.new()
+	var cache_key := _camouflage_texture_key(str(get_path_to(mesh_instance)), surface) if mesh_instance.is_inside_tree() else "%d:%d" % [mesh_instance.get_instance_id(), surface]
+	if _camouflage_surface_materials.has(cache_key):
+		var cached_material := _camouflage_surface_materials[cache_key] as StandardMaterial3D
+		if cached_material and is_instance_valid(cached_material):
+			mesh_instance.set_surface_override_material(surface, cached_material)
+			return cached_material
+
+	var material := _get_mesh_surface_material(mesh_instance, surface)
+	if material is StandardMaterial3D and bool((material as StandardMaterial3D).get_meta("camouflage_unique_surface", false)):
+		_camouflage_surface_materials[cache_key] = material
+		return material as StandardMaterial3D
+
+	var standard: StandardMaterial3D = null
+	if material is StandardMaterial3D:
+		standard = (material as StandardMaterial3D).duplicate()
+	else:
+		standard = StandardMaterial3D.new()
+	standard.resource_local_to_scene = true
+	standard.set_meta("camouflage_unique_surface", true)
+	mesh_instance.set_surface_override_material(surface, standard)
+	_camouflage_surface_materials[cache_key] = standard
+	return standard
+
+
+func _sanitize_camouflage_palette(palette: Array) -> Array:
+	var clean: Array[Color] = []
+	for value in palette:
+		if value is Color:
+			var color := value as Color
+			color.a = 1.0
+			clean.append(color)
+	if clean.is_empty():
+		clean.append(Color(0.5, 0.58, 0.48, 1.0))
+	while clean.size() < 4:
+		var base: Color = clean[0]
+		clean.append(base.lightened(0.12 * float(clean.size())))
+	return clean.slice(0, 4)
+
+
+func _sanitize_camouflage_brush_radii(
+	brush_radii: PackedFloat32Array,
+	expected_count: int,
+	fallback_radius: float
+) -> PackedFloat32Array:
+	var clean := PackedFloat32Array()
+	if brush_radii.size() != expected_count:
+		return clean
+	for radius in brush_radii:
+		clean.append(_sanitize_camouflage_brush_radius(radius))
+	return clean
+
+
+func _sanitize_camouflage_uv_clip_data(
+	uv_clip_triangles: PackedVector2Array,
+	uv_clip_triangle_counts: PackedInt32Array,
+	expected_stamp_count: int
+) -> Dictionary:
+	var clean_triangles := PackedVector2Array()
+	var clean_counts := PackedInt32Array()
+	if uv_clip_triangle_counts.size() != expected_stamp_count:
+		return {"triangles": clean_triangles, "counts": clean_counts}
+	var read_index := 0
+	for count_value in uv_clip_triangle_counts:
+		var count := clampi(int(count_value), 0, CamouflageSystem.BRUSH_UV_CLIP_MAX_TRIANGLES)
+		if read_index + count * 3 > uv_clip_triangles.size():
+			return {"triangles": PackedVector2Array(), "counts": PackedInt32Array()}
+		clean_counts.append(count)
+		for _triangle in range(count):
+			for _corner in range(3):
+				var uv := uv_clip_triangles[read_index]
+				clean_triangles.append(Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0)))
+				read_index += 1
+	if read_index != uv_clip_triangles.size():
+		return {"triangles": PackedVector2Array(), "counts": PackedInt32Array()}
+	return {"triangles": clean_triangles, "counts": clean_counts}
+
+
+func _sanitize_camouflage_uv_footprint_metrics(
+	uv_footprint_metrics: PackedFloat32Array,
+	expected_stamp_count: int
+) -> PackedFloat32Array:
+	var clean := PackedFloat32Array()
+	if uv_footprint_metrics.size() != expected_stamp_count * 3:
+		return clean
+	for value in uv_footprint_metrics:
+		clean.append(clampf(value, -100000000.0, 100000000.0))
+	return clean
+
+
+func _sanitize_camouflage_brush_radius(radius: float) -> float:
+	return clampf(radius, CamouflageSystem.BRUSH_PRECISION_SAMPLE_MIN_RADIUS, CamouflageSystem.BRUSH_MAX_RADIUS)
 
 
 func set_character_model(model_id: String) -> void:
@@ -1296,13 +1962,11 @@ func _play_skin_action(action: String) -> void:
 				_active_skin_node.call("idle")
 
 
-func set_mesh_texture(mesh_instance: MeshInstance3D, texture: CompressedTexture2D) -> void:
+func set_mesh_texture(mesh_instance: MeshInstance3D, texture: Texture2D) -> void:
 	if mesh_instance:
-		var material := mesh_instance.get_surface_override_material(0)
-		if material and material is StandardMaterial3D:
-			var new_material := material
-			new_material.albedo_texture = texture
-			mesh_instance.set_surface_override_material(0, new_material)
+		var material := _ensure_unique_standard_material(mesh_instance, 0)
+		material.albedo_texture = texture
+		material.albedo_color = Color.WHITE
 
 # Inventory Network Functions - Server authoritative, client-specific
 @rpc("any_peer", "call_local", "reliable")

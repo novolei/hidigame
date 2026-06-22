@@ -1,39 +1,21 @@
-[gd_scene format=3 uid="uid://bak47weapon01"]
+[gd_scene load_steps=4 format=3 uid="uid://bak47weapon01"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ak47_dark"]
-albedo_color = Color(0.15, 0.15, 0.18, 1)
-metallic = 0.6
-roughness = 0.4
+[ext_resource type="PackedScene" path="res://assets/unity_migrated/low_poly_weapons_vol1/Models/AK74.glb" id="1_ak74"]
+[ext_resource type="Material" path="res://Materials/M_unity_weapon.tres" id="2_weapon_mat"]
+[ext_resource type="Script" path="res://scripts/unity_visual_helper.gd" id="3_visual_helper"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_ak47_body"]
-size = Vector3(0.08, 0.1, 0.6)
+[node name="AK47" type="Node3D"]
+script = ExtResource("3_visual_helper")
+material_override = ExtResource("2_weapon_mat")
+disable_collision_objects = true
 
-[sub_resource type="BoxMesh" id="BoxMesh_ak47_barrel"]
-size = Vector3(0.04, 0.04, 0.4)
+[node name="AK74Visual" parent="." instance=ExtResource("1_ak74")]
+transform = Transform3D(0.045, 0, 0, 0, 0.045, 0, 0, 0, 0.045, 0, -0.04, 0)
 
-[sub_resource type="BoxMesh" id="BoxMesh_ak47_mag"]
-size = Vector3(0.06, 0.18, 0.1)
-
-[node name="AK47" type="Node3D" unique_id=1291635570]
-
-[node name="Body" type="MeshInstance3D" parent="." unique_id=876514318]
-material_override = SubResource("StandardMaterial3D_ak47_dark")
-mesh = SubResource("BoxMesh_ak47_body")
-
-[node name="Barrel" type="MeshInstance3D" parent="." unique_id=391523939]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.4)
-material_override = SubResource("StandardMaterial3D_ak47_dark")
-mesh = SubResource("BoxMesh_ak47_barrel")
-
-[node name="Magazine" type="MeshInstance3D" parent="." unique_id=1379428615]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.13, 0.05)
-material_override = SubResource("StandardMaterial3D_ak47_dark")
-mesh = SubResource("BoxMesh_ak47_mag")
-
-[node name="MuzzleFlash" type="MeshInstance3D" parent="." unique_id=1236796382]
+[node name="MuzzleFlash" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.6)
 visible = false
 
-[node name="Label3D" type="Label3D" parent="." unique_id=516267831]
+[node name="Label3D" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
 visible = false

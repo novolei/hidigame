@@ -1,0 +1,3591 @@
+{
+  "source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelMoon.prefab",
+  "generated_at": "2026-06-21T03:21:55.242Z",
+  "object_count": 136,
+  "material_guid_names": {
+    "19f1ed20a8d2df946b5acdf7729f85f0": "MoonCrator",
+    "2adca53f00baf334aa34ff0eea351a62": "RockStoneBeige",
+    "ec589a6713edc96499d941b21343565e": "OilDrums_2",
+    "c6fc29d379b32be418c1261b64f8b47e": "MoonCliffs",
+    "63657fd3af2ee4a4d8ec1b203282f46a": "MoonRock",
+    "78630095e2f77d04ea99b56faf896276": "Pink",
+    "ced395ad3dc1d074d99d6b7ccafb09c7": "OilDrums",
+    "e7df269b1d6121e4787b2f27aab18dbe": "BuildingMetal",
+    "7471dc33846f1ba4796a5df18ee898bd": "MoonGround"
+  },
+  "objects": [
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "MoonBuilding01",
+      "mesh_guid": "d5d5206b2809a404cbcad5fed610b8f6",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding01.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon04.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon03.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CliffMoon.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon01.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Flag",
+      "mesh_guid": "9cd0a71b39d86ba46a1c6548b46ef39c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Flag.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Flag.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/FlagMoon.prefab"
+    },
+    {
+      "name": "Flag",
+      "mesh_guid": "9cd0a71b39d86ba46a1c6548b46ef39c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Flag.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Flag.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/FlagMoon.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon01.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CliffMoon.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CliffMoon.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Crater02",
+      "mesh_guid": "66a3547c47831f44da94c6bd726715b4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon02.prefab"
+    },
+    {
+      "name": "MoonBuilding01",
+      "mesh_guid": "d5d5206b2809a404cbcad5fed610b8f6",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding01.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon04.prefab"
+    },
+    {
+      "name": "CratorRocket",
+      "mesh_guid": "841a9e865e6ad374f98a3c92f84ff6ab",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorRocket.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorRocket.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        6.657902999999986e-8,
+        0,
+        0,
+        0.9999999999999978
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocketMoon.prefab",
+      "transform_id": "820092346659073965"
+    },
+    {
+      "name": "CratorRocket",
+      "mesh_guid": "841a9e865e6ad374f98a3c92f84ff6ab",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorRocket.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorRocket.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        -0.74224097,
+        4.2799177,
+        -0.3527078
+      ],
+      "rotation": [
+        -0.10437229161120112,
+        0.8663803433743636,
+        -0.022290174344094714,
+        0.48784697753092204
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocketMoon.prefab",
+      "transform_id": "19767421679759017"
+    },
+    {
+      "name": "CratorRocket",
+      "mesh_guid": "841a9e865e6ad374f98a3c92f84ff6ab",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorRocket.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorRocket.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        -0.74224097,
+        4.2799177,
+        -0.3527078
+      ],
+      "rotation": [
+        -0.0719422024519025,
+        0.016391795558657968,
+        0.0788338586867809,
+        0.9941533338822968
+      ],
+      "scale": [
+        1.000001,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocketMoon.prefab",
+      "transform_id": "1606279064229530740"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Column01",
+      "mesh_guid": "8d8760d4504814540ba00eaa1d1f43ac",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column01.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/ColumnMoon01.prefab"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        7.786941237084812e-8,
+        0.29363356631502696,
+        -2.3919490885217406e-8,
+        0.9559180554488508
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "37810361246581934"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        -0.067426756,
+        1.2449304,
+        4.6153526
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "2334462656476359120"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e",
+        "e7df269b1d6121e4787b2f27aab18dbe"
+      ],
+      "position": [
+        -0.47209716,
+        3.4476972,
+        8.743842
+      ],
+      "rotation": [
+        1.34364239272271e-7,
+        0.3045421983505716,
+        -4.296024476732339e-8,
+        0.9524988448411793
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5833559861086734598"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        -0.67859864,
+        3.3690066,
+        6.7828355
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5769430785585657332"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        1.0048953908311307e-7,
+        -0.5575366549129226,
+        1.0338936905665445e-7,
+        0.830152322425522
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "7649611440194282461"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "3015454013019176342"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.62167966,
+        0.0786911,
+        9.799125
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "1497269100817829088"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        -2.1759651703971584e-10,
+        0.9999964323520377,
+        -8.14600526354081e-8,
+        -0.0026711950864189123
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "9070682316958961077"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        -0.067426756,
+        1.2800268,
+        4.6153526
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "8716373276519389524"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "e7df269b1d6121e4787b2f27aab18dbe",
+        "78630095e2f77d04ea99b56faf896276",
+        "e7df269b1d6121e4787b2f27aab18dbe"
+      ],
+      "position": [
+        -0.11158691,
+        0.91788864,
+        10.187766
+      ],
+      "rotation": [
+        1.418948762581906e-7,
+        0.7071067311865292,
+        -1.4189484625818929e-7,
+        0.7071068311865337
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "3851889657433882979"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        -0.01751709,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865475,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "8287148943641195597"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        -0.7071067811865475,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "6746376488480823828"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        1.3409583883092625e-7,
+        0.5517048951901289,
+        -5.2969933538197766e-8,
+        0.8340393927286816
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5779270951441931996"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        9.829031519494943e-8,
+        0.9561884418965082,
+        -1.1743534023292175e-7,
+        0.29275188058064533
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5608057510079578231"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon02.prefab"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        7.786941237084812e-8,
+        0.29363356631502696,
+        -2.3919490885217406e-8,
+        0.9559180554488508
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "37810361246581934"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        -0.067426756,
+        1.2449304,
+        4.6153526
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "2334462656476359120"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e",
+        "e7df269b1d6121e4787b2f27aab18dbe"
+      ],
+      "position": [
+        -0.47209716,
+        3.4476972,
+        8.743842
+      ],
+      "rotation": [
+        1.34364239272271e-7,
+        0.3045421983505716,
+        -4.296024476732339e-8,
+        0.9524988448411793
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5833559861086734598"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        -0.67859864,
+        3.3690066,
+        6.7828355
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5769430785585657332"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        1.0048953908311307e-7,
+        -0.5575366549129226,
+        1.0338936905665445e-7,
+        0.830152322425522
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "7649611440194282461"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "3015454013019176342"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.62167966,
+        0.0786911,
+        9.799125
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "1497269100817829088"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        -2.1759651703971584e-10,
+        0.9999964323520377,
+        -8.14600526354081e-8,
+        -0.0026711950864189123
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "9070682316958961077"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        -0.067426756,
+        1.2800268,
+        4.6153526
+      ],
+      "rotation": [
+        8.146033999999973e-8,
+        0,
+        0,
+        0.9999999999999967
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "8716373276519389524"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "e7df269b1d6121e4787b2f27aab18dbe",
+        "78630095e2f77d04ea99b56faf896276",
+        "e7df269b1d6121e4787b2f27aab18dbe"
+      ],
+      "position": [
+        -0.11158691,
+        0.91788864,
+        10.187766
+      ],
+      "rotation": [
+        1.418948762581906e-7,
+        0.7071067311865292,
+        -1.4189484625818929e-7,
+        0.7071068311865337
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "3851889657433882979"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        -0.01751709,
+        0
+      ],
+      "rotation": [
+        -0.7071067811865475,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "8287148943641195597"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        -0.7071067811865475,
+        0,
+        0,
+        0.7071067811865475
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "6746376488480823828"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        1.3409583883092625e-7,
+        0.5517048951901289,
+        -5.2969933538197766e-8,
+        0.8340393927286816
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5779270951441931996"
+    },
+    {
+      "name": "MoonBuilding02",
+      "mesh_guid": "699a3bcfb11461045a9ef6b14cd6796c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding02.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0.0000024414062,
+        0.3475676,
+        1.5294482
+      ],
+      "rotation": [
+        9.829031519494943e-8,
+        0.9561884418965082,
+        -1.1743534023292175e-7,
+        0.29275188058064533
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon03.prefab",
+      "transform_id": "5608057510079578231"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "Column02",
+      "mesh_guid": "74d835b756ff5654f8060c76cbcb4e19",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column02.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/ColumnMoon02.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CliffMoon.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "Crater02",
+      "mesh_guid": "66a3547c47831f44da94c6bd726715b4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon02.prefab"
+    },
+    {
+      "name": "Flag",
+      "mesh_guid": "9cd0a71b39d86ba46a1c6548b46ef39c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Flag.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Flag.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/FlagMoon.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "7471dc33846f1ba4796a5df18ee898bd"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/DunesMoon01.prefab"
+    },
+    {
+      "name": "MoonBuilding01",
+      "mesh_guid": "d5d5206b2809a404cbcad5fed610b8f6",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding01.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon04.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "Crater02",
+      "mesh_guid": "66a3547c47831f44da94c6bd726715b4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon02.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "7471dc33846f1ba4796a5df18ee898bd"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/DunesMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "RadarSphere",
+      "mesh_guid": "90bf84fcb963f4647a128f298f55f5ad",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RadarSphere.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RadarSphere.glb",
+      "material_guids": [
+        "78630095e2f77d04ea99b56faf896276"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RadarSphereMoon.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon02.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Crater02",
+      "mesh_guid": "66a3547c47831f44da94c6bd726715b4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Crater02",
+      "mesh_guid": "66a3547c47831f44da94c6bd726715b4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon02",
+      "mesh_guid": "6a1803915aa630c4e91ea797cf46861f",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon02.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "c6fc29d379b32be418c1261b64f8b47e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/RocksMoon03.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "63657fd3af2ee4a4d8ec1b203282f46a"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/ConcreteMoon.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath02",
+      "mesh_guid": "fc497057c379ad944808238c78d4f830",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath02.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle02.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "RockyPath",
+      "mesh_guid": "c530d9543836c5544850c1b703a2ccd8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RockyPath.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RockyPath.glb",
+      "material_guids": [
+        "2adca53f00baf334aa34ff0eea351a62"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Jungle/RockyPathJungle01.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CraterMoon01.prefab"
+    },
+    {
+      "name": "CratorsMoon01",
+      "mesh_guid": "e4a9e22c76cecf04dac0913a2c714b20",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/CratorsMoon01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/CratorsMoon01.glb",
+      "material_guids": [
+        "19f1ed20a8d2df946b5acdf7729f85f0"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/CratorsMoon01.prefab"
+    },
+    {
+      "name": "MoonBuilding01",
+      "mesh_guid": "d5d5206b2809a404cbcad5fed610b8f6",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/MoonBuilding01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/MoonBuilding01.glb",
+      "material_guids": [
+        "ec589a6713edc96499d941b21343565e"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Moon/BuildingMoon04.prefab"
+    }
+  ]
+}

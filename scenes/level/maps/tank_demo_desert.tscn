@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://d3trtduyx7cce"]
+
+[ext_resource type="Script" uid="uid://cvt8fskxlbhhu" path="res://scripts/tank_demo_map.gd" id="1_map"]
+[ext_resource type="PackedScene" uid="uid://u3rl30ysc0f5" path="res://assets/untitled/untitled.fbx" id="2_ck7dq"]
+
+[node name="TankDemoDesert" type="Node3D" unique_id=1531754476]
+script = ExtResource("1_map")
+
+[node name="untitled" parent="." unique_id=895258421 instance=ExtResource("2_ck7dq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 43.299103, 0)

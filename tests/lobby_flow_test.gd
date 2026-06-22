@@ -12,6 +12,7 @@ func _run() -> void:
 	_reset_network_state()
 	_test_lobby_id_password()
 	_test_host_room_metadata()
+	_test_host_port_fallback_when_default_is_busy()
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
 	await _test_level_start_match_path()
@@ -38,6 +39,7 @@ func _reset_network_state() -> void:
 		"lobby_id": "",
 		"room_name": "Private Match",
 		"steam_lobby_id": "",
+		"host_port": Network.SERVER_PORT,
 		"map": "Warehouse",
 		"variant": "Default",
 		"condition": "Normal",
@@ -76,6 +78,26 @@ func _test_host_room_metadata() -> void:
 	if Network.multiplayer.multiplayer_peer:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+
+
+func _test_host_port_fallback_when_default_is_busy() -> void:
+	_reset_network_state()
+	var blocker := ENetMultiplayerPeer.new()
+	var blocked_port := 19100
+	var block_error := blocker.create_server(blocked_port, Network.MAX_PLAYERS)
+	_expect(block_error == OK, "Fallback test should reserve the first host port")
+	if block_error != OK:
+		return
+	Network.server_port = blocked_port
+	var host_error = Network.start_host("FallbackHost", "blue", Network.Role.CHAMELEON, "Fallback Room", "fp-01", "gdbot")
+	_expect(host_error == OK, "Host should start on a fallback port when the requested port is busy")
+	_expect(Network.server_port == blocked_port + 1, "Host should advance to the next available fallback port")
+	_expect(int(Network.lobby_config.get("host_port", -1)) == Network.server_port, "Lobby config should publish the actual host port")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	blocker.close()
 	Network.server_port = Network.SERVER_PORT
 
 

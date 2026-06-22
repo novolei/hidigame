@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/unity_migrated/tanks_complete/Art/Textures/rock 02.png" id="1_rock"]
+
+[resource]
+albedo_texture = ExtResource("1_rock")
+roughness = 0.84
+metallic = 0.0

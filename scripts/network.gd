@@ -11,6 +11,7 @@ extends Node
 
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
+const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
@@ -66,6 +67,7 @@ var lobby_config: Dictionary = {
 	"lobby_id": "",
 	"room_name": "Private Match",
 	"steam_lobby_id": "",
+	"host_port": SERVER_PORT,
 	"map": "Warehouse",
 	"variant": "Default",
 	"condition": "Normal",
@@ -188,9 +190,11 @@ func _ready() -> void:
 # 连接管理
 # =============================================================================
 
-func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = "", character_model: String = DEFAULT_CHARACTER_MODEL):
+func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+	_close_current_peer()
 	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_server(server_port, MAX_PLAYERS)
+	var requested_port := server_port
+	var error := _create_host_peer_with_port_fallback(peer, requested_port)
 	if error:
 		return error
 	multiplayer.multiplayer_peer = peer
@@ -213,6 +217,7 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 		lobby_config["lobby_id"] = _generate_lobby_id()
 	lobby_config["steam_lobby_id"] = ""
 	lobby_config["role_locked"] = false
+	lobby_config["host_port"] = server_port
 
 	if DisplayServer.get_name() == "headless":
 		return OK
@@ -222,7 +227,30 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	return OK
 
 
-func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = DEFAULT_CHARACTER_MODEL):
+func _create_host_peer_with_port_fallback(peer: ENetMultiplayerPeer, requested_port: int) -> int:
+	var first_port := requested_port if requested_port > 0 else SERVER_PORT
+	for offset in range(HOST_PORT_FALLBACK_ATTEMPTS):
+		var candidate_port := first_port + offset
+		var error := peer.create_server(candidate_port, MAX_PLAYERS)
+		if error == OK:
+			if candidate_port != requested_port:
+				print("[Network] Default host port unavailable; using fallback port ", candidate_port)
+			server_port = candidate_port
+			return OK
+		if offset == 0:
+			print("[Network] Could not create ENet host on port ", candidate_port, ": ", error)
+		else:
+			print("[Network] Could not create ENet host fallback port ", candidate_port, ": ", error)
+	return ERR_CANT_CREATE
+
+
+func _close_current_peer() -> void:
+	if multiplayer.multiplayer_peer:
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = null
+
+
+func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
 	var peer = ENetMultiplayerPeer.new()
 	address = _normalize_join_address(address)
 	var error = peer.create_client(address, server_port)
