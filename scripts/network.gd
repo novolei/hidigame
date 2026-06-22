@@ -15,6 +15,12 @@ const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
+const DEFAULT_CHARACTER_MODEL := "godot_robot"
+const SKIN_BLUE := 0
+const SKIN_YELLOW := 1
+const SKIN_GREEN := 2
+const SKIN_RED := 3
+const CharacterSkinCatalogScript := preload("res://scripts/character_skin_catalog.gd")
 
 # -----------------------------------------------------------------------------
 # 角色枚举(全局共享,Character / Player / Network 都用这个)
@@ -46,8 +52,8 @@ var players: Dictionary = {}
 
 var player_info: Dictionary = {
 	"nick": "host",
-	"skin": Character.SkinColor.BLUE,
-	"character_model": CharacterSkinCatalog.DEFAULT_ID,
+	"skin": SKIN_BLUE,
+	"character_model": DEFAULT_CHARACTER_MODEL,
 	"role": Role.NONE,
 	"role_locked": false,
 	"join_room_name": ""
@@ -548,7 +554,7 @@ func _on_player_connected(id):
 @rpc("any_peer", "reliable")
 func _register_player(new_player_info):
 	var new_player_id = multiplayer.get_remote_sender_id()
-	new_player_info["character_model"] = normalize_character_model(str(new_player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	new_player_info["character_model"] = normalize_character_model(str(new_player_info.get("character_model", DEFAULT_CHARACTER_MODEL)))
 	if multiplayer.is_server():
 		var provided_id = str(new_player_info.get("join_lobby_id", "")).to_upper()
 		if not is_lobby_id_valid(provided_id):
@@ -610,15 +616,15 @@ func _on_server_disconnected():
 
 func skin_str_to_e(s):
 	match s.to_lower():
-		"blue": return Character.SkinColor.BLUE
-		"yellow": return Character.SkinColor.YELLOW
-		"green": return Character.SkinColor.GREEN
-		"red": return Character.SkinColor.RED
-		_: return Character.SkinColor.BLUE
+		"blue": return SKIN_BLUE
+		"yellow": return SKIN_YELLOW
+		"green": return SKIN_GREEN
+		"red": return SKIN_RED
+		_: return SKIN_BLUE
 
 
 func normalize_character_model(model_id: String) -> String:
-	return CharacterSkinCatalog.normalize(model_id)
+	return CharacterSkinCatalogScript.normalize(model_id)
 
 
 func role_to_string(r: int) -> String:
