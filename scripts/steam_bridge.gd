@@ -2,7 +2,7 @@ extends Node
 
 signal availability_changed(available: bool, message: String)
 signal lobby_created(success: bool, lobby_id: String, message: String)
-signal lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String)
+signal lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String, host_port: int)
 
 const DEFAULT_LOBBY_TYPE_PUBLIC := 2
 const DEFAULT_LOBBY_MEMBER_LIMIT := 24
@@ -35,7 +35,7 @@ func can_use_lobbies() -> bool:
 	return available and _steam and _steam.has_method("createLobby") and _steam.has_method("requestLobbyList")
 
 
-func create_lobby(room_name: String, lobby_password: String, host_address: String, max_players: int = DEFAULT_LOBBY_MEMBER_LIMIT) -> bool:
+func create_lobby(room_name: String, lobby_password: String, host_address: String, max_players: int = DEFAULT_LOBBY_MEMBER_LIMIT, host_port: int = -1) -> bool:
 	if not can_use_lobbies():
 		lobby_created.emit(false, "", "Steam is unavailable; using direct host mode.")
 		return false
@@ -43,6 +43,7 @@ func create_lobby(room_name: String, lobby_password: String, host_address: Strin
 		"room_name": room_name,
 		"lobby_password": lobby_password,
 		"host_address": host_address,
+		"host_port": host_port if host_port > 0 else Network.server_port,
 		"max_players": max_players,
 	}
 	_steam.call("createLobby", DEFAULT_LOBBY_TYPE_PUBLIC, max_players)
@@ -51,7 +52,7 @@ func create_lobby(room_name: String, lobby_password: String, host_address: Strin
 
 func find_lobby(room_name: String, lobby_password: String) -> bool:
 	if not can_use_lobbies():
-		lobby_lookup_completed.emit(false, "", room_name, lobby_password, "", "Steam is unavailable; using direct host mode.")
+		lobby_lookup_completed.emit(false, "", room_name, lobby_password, "", "Steam is unavailable; using direct host mode.", -1)
 		return false
 	pending_lookup = {
 		"room_name": room_name.strip_edges(),
@@ -128,10 +129,11 @@ func _on_lobby_match_list(lobbies) -> void:
 		var password := _get_lobby_data(lobby_id, "lobby_id")
 		if room_name.strip_edges().to_lower() == wanted_room and password.strip_edges().to_upper() == wanted_password:
 			var address := _get_lobby_data(lobby_id, "host_address")
-			lobby_lookup_completed.emit(true, address, room_name, password, str(lobby_id), "Steam lobby found.")
+			var host_port := int(_get_lobby_data(lobby_id, "host_port"))
+			lobby_lookup_completed.emit(true, address, room_name, password, str(lobby_id), "Steam lobby found.", host_port)
 			pending_lookup.clear()
 			return
-	lobby_lookup_completed.emit(false, "", str(pending_lookup.get("room_name", "")), wanted_password, "", "No matching Steam lobby found.")
+	lobby_lookup_completed.emit(false, "", str(pending_lookup.get("room_name", "")), wanted_password, "", "No matching Steam lobby found.", -1)
 	pending_lookup.clear()
 
 
@@ -142,6 +144,7 @@ func _set_current_lobby_data() -> void:
 	_steam.call("setLobbyData", lobby_int, "room_name", str(pending_host_data.get("room_name", "")))
 	_steam.call("setLobbyData", lobby_int, "lobby_id", str(pending_host_data.get("lobby_password", "")))
 	_steam.call("setLobbyData", lobby_int, "host_address", str(pending_host_data.get("host_address", Network.SERVER_ADDRESS)))
+	_steam.call("setLobbyData", lobby_int, "host_port", str(pending_host_data.get("host_port", Network.server_port)))
 	_steam.call("setLobbyData", lobby_int, "steam_id", steam_id)
 	_steam.call("setLobbyData", lobby_int, "version", str(ProjectSettings.get_setting("application/config/version", "dev")))
 	if _steam.has_method("setLobbyJoinable"):

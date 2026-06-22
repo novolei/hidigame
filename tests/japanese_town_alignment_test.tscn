@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bwllicfbeuobv"]
+
+[ext_resource type="Script" path="res://tests/japanese_town_alignment_test.gd" id="1_script"]
+
+[node name="JapaneseTownAlignmentTest" type="Node3D"]
+script = ExtResource("1_script")

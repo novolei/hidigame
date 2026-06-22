@@ -9,6 +9,9 @@ const PITCH_MAX: float = deg_to_rad(38.0)
 const CAMERA_ZOOM_MIN: float = 3.6
 const CAMERA_ZOOM_MAX: float = 7.0
 const CAMERA_ZOOM_STEP: float = 0.45
+const CAMOUFLAGE_CAMERA_ZOOM_MIN: float = 0.85
+const CAMOUFLAGE_CAMERA_ZOOM_MAX: float = 8.5
+const CAMOUFLAGE_CAMERA_ZOOM_STEP: float = 0.72
 const CAMERA_ZOOM_SMOOTHING: float = 12.0
 const FOV_SMOOTHING: float = 10.0
 
@@ -48,19 +51,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion:
-		var mouse_event := event as InputEventMouseMotion
-		rotate_y(-mouse_event.relative.x * MOUSE_YAW_SENSIBILITY)
-		_spring_arm.rotate_x(-mouse_event.relative.y * MOUSE_PITCH_SENSIBILITY)
-		_spring_arm.rotation.x = clampf(_spring_arm.rotation.x, PITCH_MIN, PITCH_MAX)
+		orbit_camera((event as InputEventMouseMotion).relative)
 	elif event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
 		if not button_event.pressed:
 			return
 		if button_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_target_spring_length = max(CAMERA_ZOOM_MIN, _target_spring_length - CAMERA_ZOOM_STEP)
+			zoom_camera(-1.0)
 		elif button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_target_spring_length = min(CAMERA_ZOOM_MAX, _target_spring_length + CAMERA_ZOOM_STEP)
+			zoom_camera(1.0)
 
 
 func _on_fov_changed(value: float) -> void:
 	_target_fov = value
+
+
+func orbit_camera(relative: Vector2) -> void:
+	if not _spring_arm:
+		return
+	rotate_y(-relative.x * MOUSE_YAW_SENSIBILITY)
+	_spring_arm.rotate_x(-relative.y * MOUSE_PITCH_SENSIBILITY)
+	_spring_arm.rotation.x = clampf(_spring_arm.rotation.x, PITCH_MIN, PITCH_MAX)
+
+
+func zoom_camera(step_count: float) -> void:
+	if not _spring_arm:
+		return
+	_zoom_camera_with_limits(step_count, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX, CAMERA_ZOOM_STEP)
+
+
+func zoom_camera_for_camouflage(step_count: float) -> void:
+	if not _spring_arm:
+		return
+	_zoom_camera_with_limits(step_count, CAMOUFLAGE_CAMERA_ZOOM_MIN, CAMOUFLAGE_CAMERA_ZOOM_MAX, CAMOUFLAGE_CAMERA_ZOOM_STEP)
+
+
+func _zoom_camera_with_limits(step_count: float, min_length: float, max_length: float, step_size: float) -> void:
+	_target_spring_length = clampf(
+		_target_spring_length + step_count * step_size,
+		min_length,
+		max_length
+	)

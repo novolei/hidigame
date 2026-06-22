@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://7f0u66kdwihc"]
+
+[ext_resource type="Script" uid="uid://cvt8fskxlbhhu" path="res://scripts/tank_demo_map.gd" id="1_map"]
+
+[node name="TankDemoMoon" type="Node3D" unique_id=788306170]
+script = ExtResource("1_map")
+map_id = "moon"

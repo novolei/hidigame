@@ -635,7 +635,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(players_hint_label)
 	box.add_child(_thin_separator())
 
-	map_option = _option(["Warehouse", "Street Block", "Training Yard"], "map")
+	map_option = _option(["Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "garden", "Japanese Town Street"], "map")
 	variant_option = _option(["Default", "Low Ammo", "Fast Hunt"], "variant")
 	condition_option = _option(["Normal", "Rain", "Night"], "condition")
 	game_show_option = _option(["None", "Airdrop Show", "Chaos Show"], "game_show")
