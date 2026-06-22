@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=4]
+
+[ext_resource type="Script" path="res://tests/stalker_shadow_visibility_test.gd" id="1_stalker_shadow"]
+
+[node name="StalkerShadowVisibilityTest" type="Node3D"]
+script = ExtResource("1_stalker_shadow")

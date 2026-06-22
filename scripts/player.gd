@@ -121,6 +121,8 @@ func _ready():
 	# Hunter 鐜╁:鏈湴绔礋璐ｈ緭鍏?瑙嗚,鏈嶅姟鍣ㄧ璐熻矗鏉冨▉寮硅嵂/鍛戒腑鐘舵€併€?
 	if is_hunter() and (is_local_player or multiplayer.is_server()):
 		_setup_hunter_weapon()
+	elif is_stalker():
+		_setup_stalker_systems()
 	else:
 		# 瑙掕壊鍚庡垎閰?寤跺悗鎸傝浇
 		call_deferred("_check_role_after_assignment")
@@ -142,6 +144,8 @@ func _check_role_after_assignment() -> void:
 		_setup_hunter_weapon()
 	elif is_chameleon() and is_multiplayer_authority() and not has_node("PaintSystem"):
 		_setup_chameleon_systems()
+	elif is_stalker() and not has_node("ShadowVisibilitySystem"):
+		_setup_stalker_systems()
 
 
 # =============================================================================
@@ -150,6 +154,12 @@ func _check_role_after_assignment() -> void:
 
 var paint_system: PaintSystem = null
 var shape_system: ShapeShiftSystem = null
+var shadow_visibility = null
+var _stalker_original_material_overrides := {}
+var _stalker_ghost_material: ShaderMaterial = null
+var _stalker_glass_material: ShaderMaterial = null
+var _stalker_visual_mode := "normal"
+var _stalker_visual_alpha := -1.0
 
 func _setup_chameleon_systems() -> void:
 	if not is_chameleon() or not is_multiplayer_authority():
@@ -173,6 +183,187 @@ func _setup_chameleon_systems() -> void:
 		shape_system = ss
 
 	print("[Player] Chameleon systems initialized")
+
+
+func _setup_stalker_systems() -> void:
+	if not is_stalker():
+		return
+
+	if not has_node("ShadowVisibilitySystem"):
+		var system := preload("res://scripts/shadow_visibility_system.gd").new()
+		system.name = "ShadowVisibilitySystem"
+		add_child(system)
+
+	shadow_visibility = get_node_or_null("ShadowVisibilitySystem")
+	if shadow_visibility:
+		shadow_visibility.initialize(self)
+		if not shadow_visibility.visibility_changed.is_connected(_on_stalker_visibility_changed):
+			shadow_visibility.visibility_changed.connect(_on_stalker_visibility_changed)
+	_refresh_stalker_visibility_view(true)
+
+
+func _teardown_stalker_systems() -> void:
+	_restore_stalker_materials()
+	if shadow_visibility and is_instance_valid(shadow_visibility):
+		shadow_visibility.queue_free()
+	shadow_visibility = null
+	_stalker_visual_mode = "normal"
+	_stalker_visual_alpha = -1.0
+
+
+func _on_stalker_visibility_changed(_level: int, _alpha: float, _blocked_rays: int) -> void:
+	_refresh_stalker_visibility_view(true)
+
+
+func get_stalker_visual_mode() -> String:
+	return _stalker_visual_mode
+
+
+func _refresh_stalker_visibility_view(force: bool = false) -> void:
+	if not is_stalker():
+		return
+	if not shadow_visibility:
+		shadow_visibility = get_node_or_null("ShadowVisibilitySystem")
+		if not shadow_visibility:
+			return
+
+	var shadow_alpha: float = float(shadow_visibility.get_visibility_alpha())
+	var next_mode := _get_stalker_visual_mode_for_viewer(shadow_alpha)
+	if not force and next_mode == _stalker_visual_mode and is_equal_approx(shadow_alpha, _stalker_visual_alpha):
+		return
+
+	_stalker_visual_mode = next_mode
+	_stalker_visual_alpha = shadow_alpha
+
+	match next_mode:
+		"ghost":
+			_apply_stalker_material(_get_stalker_ghost_material(_ghost_alpha_from_shadow(shadow_alpha)))
+		"glass":
+			_apply_stalker_material(_get_stalker_glass_material(_glass_alpha_from_shadow(shadow_alpha)))
+		_:
+			_restore_stalker_materials()
+
+	_update_stalker_nickname_visibility(shadow_alpha)
+
+
+func _get_stalker_visual_mode_for_viewer(shadow_alpha: float) -> String:
+	if shadow_alpha >= 0.99:
+		return "normal"
+	if is_multiplayer_authority():
+		return "ghost"
+
+	var viewer_role := _get_local_viewer_role()
+	if viewer_role == Network.Role.HUNTER:
+		return "glass"
+	return "ghost"
+
+
+func _get_local_viewer_role() -> int:
+	var local_id := multiplayer.get_unique_id()
+	if Network.players.has(local_id):
+		return int(Network.players[local_id].get("role", Network.Role.NONE))
+	return Network.Role.NONE
+
+
+func _ghost_alpha_from_shadow(shadow_alpha: float) -> float:
+	return clampf(lerpf(0.24, 0.72, shadow_alpha), 0.24, 0.72)
+
+
+func _glass_alpha_from_shadow(shadow_alpha: float) -> float:
+	return clampf(lerpf(0.10, 0.28, shadow_alpha), 0.10, 0.28)
+
+
+func _apply_stalker_material(material: Material) -> void:
+	var meshes := _get_stalker_visual_meshes()
+	for mesh in meshes:
+		var id := mesh.get_instance_id()
+		if not _stalker_original_material_overrides.has(id):
+			_stalker_original_material_overrides[id] = mesh.material_override
+		mesh.material_override = material
+
+
+func _restore_stalker_materials() -> void:
+	var meshes := _get_stalker_visual_meshes()
+	for mesh in meshes:
+		var id := mesh.get_instance_id()
+		if _stalker_original_material_overrides.has(id):
+			mesh.material_override = _stalker_original_material_overrides[id]
+		else:
+			mesh.material_override = null
+	if nickname:
+		nickname.visible = true
+
+
+func _get_stalker_visual_meshes() -> Array[MeshInstance3D]:
+	var meshes: Array[MeshInstance3D] = []
+	if _body:
+		_find_meshes(_body, meshes)
+	return meshes
+
+
+func _update_stalker_nickname_visibility(shadow_alpha: float) -> void:
+	if not nickname:
+		return
+	var viewer_role := _get_local_viewer_role()
+	nickname.visible = shadow_alpha >= 0.99 or viewer_role != Network.Role.HUNTER
+
+
+func _get_stalker_ghost_material(alpha: float) -> ShaderMaterial:
+	if not _stalker_ghost_material:
+		var shader := Shader.new()
+		shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha, cull_disabled, specular_schlick_ggx;
+
+uniform vec4 tint : source_color = vec4(0.55, 0.82, 1.0, 1.0);
+uniform float alpha = 0.35;
+
+void fragment() {
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.0);
+	ALBEDO = tint.rgb;
+	ALPHA = clamp(alpha + fresnel * 0.20, 0.0, 0.9);
+	EMISSION = tint.rgb * (0.12 + fresnel * 0.35);
+	ROUGHNESS = 0.18;
+	METALLIC = 0.0;
+	SPECULAR = 0.75;
+}
+"""
+		_stalker_ghost_material = ShaderMaterial.new()
+		_stalker_ghost_material.resource_local_to_scene = true
+		_stalker_ghost_material.shader = shader
+	_stalker_ghost_material.set_shader_parameter("alpha", alpha)
+	return _stalker_ghost_material
+
+
+func _get_stalker_glass_material(alpha: float) -> ShaderMaterial:
+	if not _stalker_glass_material:
+		var shader := Shader.new()
+		shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha, cull_disabled, specular_schlick_ggx;
+
+uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
+uniform vec4 edge_tint : source_color = vec4(0.70, 0.92, 1.0, 1.0);
+uniform float alpha = 0.12;
+uniform float refraction_strength = 0.026;
+
+void fragment() {
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.5);
+	vec2 wobble = NORMAL.xy * refraction_strength * (0.35 + fresnel);
+	vec3 refracted = texture(screen_texture, SCREEN_UV + wobble).rgb;
+	ALBEDO = mix(refracted, edge_tint.rgb, fresnel * 0.65);
+	ALPHA = clamp(alpha + fresnel * 0.32, 0.04, 0.48);
+	EMISSION = edge_tint.rgb * fresnel * 0.45;
+	ROUGHNESS = 0.015;
+	METALLIC = 0.0;
+	SPECULAR = 1.0;
+}
+"""
+		_stalker_glass_material = ShaderMaterial.new()
+		_stalker_glass_material.resource_local_to_scene = true
+		_stalker_glass_material.shader = shader
+	_stalker_glass_material.set_shader_parameter("alpha", alpha)
+	return _stalker_glass_material
 
 
 # =============================================================================
@@ -326,11 +517,15 @@ func _on_role_changed(peer_id: int, new_role: int) -> void:
 	if peer_id == str(name).to_int():
 		role = new_role
 		print("[Player ", name, "] Role updated to ", Network.role_to_string(new_role))
+		if new_role != Network.Role.STALKER and shadow_visibility:
+			_teardown_stalker_systems()
 		# 濡傛灉鏄?Hunter 涓旇繕娌℃寕姝﹀櫒,琛ユ寕
 		if new_role == Network.Role.HUNTER and (is_multiplayer_authority() or multiplayer.is_server()) and not has_node("WeaponSystem"):
 			_setup_hunter_weapon()
 		elif new_role == Network.Role.CHAMELEON and is_multiplayer_authority() and not has_node("PaintSystem"):
 			_setup_chameleon_systems()
+		elif new_role == Network.Role.STALKER:
+			_setup_stalker_systems()
 
 
 # =============================================================================
@@ -433,6 +628,8 @@ func _physics_process(delta):
 	_update_movement_audio(delta, was_on_floor)
 
 func _process(delta):
+	if is_stalker():
+		_refresh_stalker_visibility_view(false)
 	if not is_multiplayer_authority(): return
 	_check_fall_and_respawn()
 	# Hunter 鎸佺画寮€鐏娴?
