@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://dputpp88r2xka"]
+
+[ext_resource type="PackedScene" uid="uid://bfqtdgskjxp0i" path="res://assets/maps/stylized_little_japanese_town_street_glb/stylized_little_japanese_town_street.glb" id="1_scene"]
+[ext_resource type="Script" uid="uid://dw6l7c6801w3p" path="res://scripts/imported_static_map.gd" id="2_script"]
+
+[node name="JapaneseTownStreetMapRoot" type="Node3D" unique_id=2129711565]
+script = ExtResource("2_script")
+collision_include_name_tokens = Array[String](["Podklad"])
+add_flat_gameplay_floor = true
+flat_gameplay_floor_size = Vector2(92, 92)
+visual_root_path = NodePath("JapaneseTownStreet")
+align_spawn_surface_to_world_ground = true
+
+[node name="JapaneseTownStreet" parent="." unique_id=34431413 instance=ExtResource("1_scene")]
+transform = Transform3D(0.06, 0, 0, 0, 0.06, 0, 0, 0, 0.06, 0, 0, 0)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=495752542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -19.580414, 54.279495, 48.717346)
+light_energy = 1.423

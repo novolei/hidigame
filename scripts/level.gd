@@ -72,6 +72,18 @@ const MAP_PROP_MIN_SCALE_MULTIPLIER: float = 4.0
 const MAP_PROP_MAX_SCALE_MULTIPLIER: float = 6.0
 const MAP_PROP_MIN_COLLISION_RADIUS: float = 0.16
 const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
+const UNITY_DECOR_COUNT_8: int = 18
+const UNITY_DECOR_COUNT_24: int = 42
+const UNITY_DECOR_MIN_DISTANCE: float = 4.0
+const UNITY_DECOR_COLLISION_LAYER: int = 2
+const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
+const TANK_DEMO_MAP_SCENES := {
+	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
+	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
+	"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
+	"garden": "res://scenes/level/maps/garden.tscn",
+	"Japanese Town Street": "res://scenes/level/maps/japanese_town_street.tscn",
+}
 const LOW_GRAVITY_MULTIPLIER := 0.42
 const LOW_GRAVITY_EVENT_DURATION := 24.0
 const LOW_GRAVITY_CHECK_INTERVAL := 18.0
@@ -111,7 +123,11 @@ func _ready():
 	Network.player_connected.connect(_refresh_lobby_ui)
 	Network.player_disconnected.connect(func(_pid): _refresh_lobby_ui())
 	Network.server_disconnected.connect(_on_server_disconnected)
-	Network.lobby_config_updated.connect(func(_config): _refresh_lobby_ui())
+	Network.lobby_config_updated.connect(func(_config):
+		_refresh_lobby_ui()
+		if game_state == GameState.LOBBY:
+			_apply_selected_map_scene()
+	)
 	Network.start_match_requested.connect(_server_start_from_lobby)
 	SteamBridge.lobby_created.connect(_on_steam_lobby_created)
 	SteamBridge.lobby_lookup_completed.connect(_on_steam_lobby_lookup_completed)
@@ -130,10 +146,45 @@ func _ready():
 		preparation_room.position = HUNTER_ROOM_OFFSET
 		_set_preparation_gate_open(false)
 
+	_apply_selected_map_scene()
 	_ensure_status_hud()
 
 	# Debug: 纭 HUD 鑺傜偣鎵惧埌
 	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
+
+
+func _apply_selected_map_scene() -> void:
+	var environment := get_node_or_null("Environment") as Node3D
+	if not environment:
+		return
+	var existing := environment.get_node_or_null("TankDemoMapRoot")
+	if existing:
+		existing.free()
+
+	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	var gdquest_arena := environment.get_node_or_null("GDQuestControllerArena") as Node3D
+	var is_tank_demo_map := TANK_DEMO_MAP_SCENES.has(selected_map)
+	if gdquest_arena:
+		gdquest_arena.visible = not is_tank_demo_map
+
+	var floor_body := environment.get_node_or_null("Floor") as CollisionObject3D
+	if floor_body:
+		floor_body.visible = not is_tank_demo_map
+		floor_body.collision_layer = 0 if is_tank_demo_map else 2
+
+	if not is_tank_demo_map:
+		return
+
+	var packed := load(str(TANK_DEMO_MAP_SCENES[selected_map]))
+	if not packed is PackedScene:
+		push_warning("Configured map scene did not load: " + str(TANK_DEMO_MAP_SCENES[selected_map]))
+		return
+	var map_root := (packed as PackedScene).instantiate() as Node3D
+	if not map_root:
+		push_warning("Configured map scene did not instantiate: " + selected_map)
+		return
+	map_root.name = "TankDemoMapRoot"
+	environment.add_child(map_root)
 
 
 func _process(delta):
@@ -164,7 +215,8 @@ func _on_host_pressed(nickname: String, skin: String, role: int, room_name: Stri
 			str(Network.lobby_config.get("room_name", room_name)),
 			str(Network.lobby_config.get("lobby_id", lobby_password)),
 			Network.SERVER_ADDRESS,
-			int(Network.lobby_config.get("max_players", Network.MAX_PLAYERS))
+			int(Network.lobby_config.get("max_players", Network.MAX_PLAYERS)),
+			int(Network.lobby_config.get("host_port", Network.server_port))
 		)
 	main_menu.show_lobby(str(Network.lobby_config.get("lobby_id", "")), true)
 	_set_hud_visible(false)
@@ -204,7 +256,7 @@ func _on_steam_lobby_created(success: bool, steam_lobby_id: String, message: Str
 		_refresh_lobby_ui()
 
 
-func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String) -> void:
+func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String, host_port: int = -1) -> void:
 	print("[SteamBridge] ", message, " room=", room_name, " id=", steam_lobby_id)
 	if pending_steam_join.is_empty():
 		return
@@ -212,6 +264,8 @@ func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: S
 	pending_steam_join.clear()
 	if found and not steam_lobby_id.is_empty():
 		SteamBridge.join_lobby(steam_lobby_id)
+	if found and host_port > 0:
+		Network.server_port = host_port
 	var join_address := address if found and not address.strip_edges().is_empty() else str(join_data.get("address", Network.SERVER_ADDRESS))
 	_join_lobby_direct(
 		str(join_data.get("nickname", "")),
@@ -339,15 +393,30 @@ func get_spawn_point_for_role(role: int, pid: int) -> Vector3:
 		Network.Role.CHAMELEON, Network.Role.STALKER:
 			# 涓绘垬鍦哄嚭鐢熷尯
 			var angle = randf() * TAU
-			return Vector3(cos(angle) * PROP_SPAWN_RADIUS, 0, sin(angle) * PROP_SPAWN_RADIUS)
+			return get_grounded_spawn_position(Vector3(cos(angle) * PROP_SPAWN_RADIUS, 0, sin(angle) * PROP_SPAWN_RADIUS))
 		_:
 			# 鏈垎閰嶈鑹?鏆傛椂鏀句富鎴樺満涓績
-			return Vector3.ZERO
+			return get_grounded_spawn_position(Vector3.ZERO)
 
 
 func get_spawn_point() -> Vector3:
 	var spawn_point = Vector2.from_angle(randf() * 2 * PI) * 10
-	return Vector3(spawn_point.x, 0, spawn_point.y)
+	return get_grounded_spawn_position(Vector3(spawn_point.x, 0, spawn_point.y))
+
+
+func get_grounded_spawn_position(base_position: Vector3) -> Vector3:
+	if not is_inside_tree():
+		return base_position
+	var from := base_position + Vector3.UP * 60.0
+	var to := base_position + Vector3.DOWN * 120.0
+	var query := PhysicsRayQueryParameters3D.create(from, to, 2)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return base_position
+	var hit_position: Vector3 = hit.get("position", base_position)
+	return Vector3(base_position.x, hit_position.y, base_position.z)
 
 
 func _remove_player(id):
@@ -433,6 +502,7 @@ func _server_start_prep_phase() -> void:
 	prep_remaining = float(Network.lobby_config.get("prep_duration_sec", 120))
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
+	_server_spawn_unity_decorations()
 	print("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
 
 	# 閿佸畾鎵€鏈?Hunter
@@ -468,7 +538,7 @@ func _server_end_prep_phase() -> void:
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(false)
 			# 绉诲姩鍒颁富鎴樺満鍏ュ彛
-			p.global_position = entrance_offset + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5))
+			p.global_position = get_grounded_spawn_position(entrance_offset + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)))
 
 	print("[Level] Prep phase ended, match started")
 	Network.server_broadcast_prep_ended()
@@ -586,6 +656,213 @@ func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
 		"position": data.get("position", Vector3.ZERO),
 		"rotation_y": float(data.get("rotation_y", 0.0)),
 	})
+
+
+func _server_spawn_unity_decorations() -> void:
+	if not multiplayer.is_server():
+		return
+
+	var total: int = max(Network.players.size(), 1)
+	var decor_count := UNITY_DECOR_COUNT_8
+	if total > 8:
+		var ratio: float = min(float(total) / 24.0, 1.0)
+		decor_count = int(round(lerpf(float(UNITY_DECOR_COUNT_8), float(UNITY_DECOR_COUNT_24), ratio)))
+
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var container := _get_or_create_unity_decor_container()
+	var used_positions: Array[Vector3] = []
+	var spawn_data: Array = []
+
+	for i in range(decor_count):
+		var decor: Dictionary = UnityAssetCatalog.random_decoration(rng)
+		var pos := _get_random_map_prop_position(used_positions, UNITY_DECOR_MIN_DISTANCE, rng)
+		var data := {
+			"name": "UnityDecor_%03d_%s" % [i, str(decor.get("id", "decor")).to_upper()],
+			"id": str(decor.get("id", "decor")),
+			"display_name": str(decor.get("name", "Decoration")),
+			"scene": str(decor.get("scene", "")),
+			"material": str(decor.get("material", "")),
+			"force_material": bool(decor.get("force_material", false)),
+			"node_materials": decor.get("node_materials", {}),
+			"scale": decor.get("scale", Vector3.ONE),
+			"position": pos,
+			"rotation_y": rng.randf_range(-PI, PI),
+		}
+		_spawn_one_unity_decoration(container, data)
+		spawn_data.append(data)
+		used_positions.append(pos)
+
+	print("[Level] Spawning Unity decorations: ", spawn_data.size())
+	_rpc_spawn_unity_decorations.rpc(spawn_data)
+
+
+func _get_or_create_unity_decor_container() -> Node3D:
+	var existing = get_node_or_null("UnityDecorContainer")
+	if existing:
+		for child in existing.get_children():
+			child.free()
+		return existing
+	var container := Node3D.new()
+	container.name = "UnityDecorContainer"
+	add_child(container)
+	return container
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_unity_decorations(spawn_data: Array) -> void:
+	var container := _get_or_create_unity_decor_container()
+	for data in spawn_data:
+		_spawn_one_unity_decoration(container, data)
+
+
+func _spawn_one_unity_decoration(container: Node3D, data: Dictionary) -> void:
+	var scene_path := str(data.get("scene", ""))
+	var packed := load(scene_path)
+	if not packed is PackedScene:
+		push_warning("Unity decoration scene did not load: " + scene_path)
+		return
+
+	var node := (packed as PackedScene).instantiate() as Node3D
+	if not node:
+		push_warning("Unity decoration scene did not instantiate as Node3D: " + scene_path)
+		return
+
+	node.name = str(data.get("name", "UnityDecor"))
+	container.add_child(node, true)
+	node.scale = data.get("scale", Vector3.ONE)
+	node.rotation.y = float(data.get("rotation_y", 0.0))
+	node.global_position = data.get("position", Vector3.ZERO)
+	_apply_material_to_visual_tree(node, str(data.get("material", "")), bool(data.get("force_material", false)), false)
+	_apply_named_material_overrides(node, data.get("node_materials", {}))
+	_align_visual_bottom_to_ground(node, float(node.global_position.y))
+	_disable_imported_collision_objects(node)
+	_add_decoration_collision_body(container, node)
+
+
+func _apply_material_to_visual_tree(node: Node, material_path: String, force_material: bool = false, disable_collisions: bool = false) -> void:
+	var material: Material = null
+	if not material_path.is_empty():
+		var loaded := load(material_path)
+		if loaded is Material:
+			material = loaded as Material
+	if node is MeshInstance3D and material:
+		var mesh_instance := node as MeshInstance3D
+		if force_material or not _mesh_instance_has_material(mesh_instance):
+			mesh_instance.material_override = material
+	if disable_collisions:
+		if node is CollisionShape3D:
+			(node as CollisionShape3D).disabled = true
+		elif node is CollisionObject3D:
+			(node as CollisionObject3D).collision_layer = 0
+			(node as CollisionObject3D).collision_mask = 0
+	for child in node.get_children():
+		_apply_material_to_visual_tree(child, material_path, force_material, disable_collisions)
+
+
+func _mesh_instance_has_material(mesh_instance: MeshInstance3D) -> bool:
+	if mesh_instance.material_override:
+		return true
+	var override_count := mesh_instance.get_surface_override_material_count()
+	for i in range(override_count):
+		if mesh_instance.get_surface_override_material(i):
+			return true
+	if mesh_instance.mesh:
+		for i in range(mesh_instance.mesh.get_surface_count()):
+			if mesh_instance.mesh.surface_get_material(i):
+				return true
+	return false
+
+
+func _apply_named_material_overrides(node: Node, node_materials) -> void:
+	if node_materials is Dictionary and node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		var material_map: Dictionary = node_materials
+		for node_name in material_map.keys():
+			if mesh_instance.name.contains(str(node_name)):
+				var material_path := str(material_map[node_name])
+				var loaded := load(material_path)
+				if loaded is Material:
+					mesh_instance.material_override = loaded as Material
+				break
+	for child in node.get_children():
+		_apply_named_material_overrides(child, node_materials)
+
+
+func _disable_imported_collision_objects(node: Node) -> void:
+	if node is CollisionShape3D:
+		(node as CollisionShape3D).disabled = true
+	elif node is CollisionObject3D:
+		(node as CollisionObject3D).collision_layer = 0
+		(node as CollisionObject3D).collision_mask = 0
+	for child in node.get_children():
+		_disable_imported_collision_objects(child)
+
+
+func _add_decoration_collision_body(container: Node3D, visual_node: Node3D) -> void:
+	var bounds := _calculate_visual_bounds(visual_node)
+	if bounds.size == Vector3.ZERO:
+		return
+	var body := StaticBody3D.new()
+	body.name = visual_node.name + "_Collision"
+	body.collision_layer = UNITY_DECOR_COLLISION_LAYER
+	body.collision_mask = 0
+	container.add_child(body, true)
+	body.global_position = bounds.get_center()
+
+	var shape_node := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(
+		maxf(bounds.size.x + UNITY_DECOR_COLLISION_PADDING.x, 0.25),
+		maxf(bounds.size.y + UNITY_DECOR_COLLISION_PADDING.y, 0.25),
+		maxf(bounds.size.z + UNITY_DECOR_COLLISION_PADDING.z, 0.25)
+	)
+	shape_node.shape = shape
+	body.add_child(shape_node)
+
+
+func _align_visual_bottom_to_ground(node: Node3D, ground_y: float) -> void:
+	var bounds := _calculate_visual_bounds(node)
+	if bounds.size == Vector3.ZERO:
+		return
+	node.global_position.y += ground_y - bounds.position.y
+
+
+func _calculate_visual_bounds(root: Node3D) -> AABB:
+	var meshes: Array[MeshInstance3D] = []
+	_find_mesh_instances(root, meshes)
+	var has_bounds := false
+	var bounds := AABB()
+	for mesh_instance in meshes:
+		if not mesh_instance.mesh:
+			continue
+		var local_bounds := _transform_aabb(mesh_instance.global_transform, mesh_instance.get_aabb())
+		if not has_bounds:
+			bounds = local_bounds
+			has_bounds = true
+		else:
+			bounds = bounds.merge(local_bounds)
+	return bounds if has_bounds else AABB()
+
+
+func _find_mesh_instances(node: Node, result: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D:
+		result.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_find_mesh_instances(child, result)
+
+
+func _transform_aabb(transform: Transform3D, box: AABB) -> AABB:
+	var min_corner := Vector3(INF, INF, INF)
+	var max_corner := Vector3(-INF, -INF, -INF)
+	for x in [0.0, 1.0]:
+		for y in [0.0, 1.0]:
+			for z in [0.0, 1.0]:
+				var point := box.position + Vector3(box.size.x * x, box.size.y * y, box.size.z * z)
+				var transformed := transform * point
+				min_corner = min_corner.min(transformed)
+				max_corner = max_corner.max(transformed)
+	return AABB(min_corner, max_corner - min_corner)
 
 
 func _server_spawn_ammo_packs() -> void:
@@ -998,6 +1275,9 @@ func _should_capture_mouse() -> bool:
 	if multiplayer_chat and multiplayer_chat.is_chat_visible():
 		return false
 	if inventory_visible:
+		return false
+	var local_player = _get_local_player()
+	if local_player and local_player.has_method("is_camouflage_brushing") and local_player.is_camouflage_brushing():
 		return false
 	return game_state == GameState.PREP or game_state == GameState.PLAY
 

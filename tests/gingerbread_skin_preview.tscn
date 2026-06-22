@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://dmln5e4t84k4x"]
+
+[ext_resource type="PackedScene" path="res://assets/characters/gingerbread/gingerbread_animated_skin.tscn" id="1_lvxah"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_wh3ak"]
+sky_top_color = Color(0.38, 0.45, 0.55, 1)
+sky_horizon_color = Color(0.65, 0.67, 0.7, 1)
+ground_bottom_color = Color(0.2, 0.17, 0.13, 1)
+ground_horizon_color = Color(0.65, 0.67, 0.7, 1)
+
+[sub_resource type="Sky" id="Sky_7q5b2"]
+sky_material = SubResource("ProceduralSkyMaterial_wh3ak")
+
+[sub_resource type="Environment" id="Environment_p5isv"]
+background_mode = 1
+background_color = Color(1, 0.96862745, 0.91764706, 1)
+sky = SubResource("Sky_7q5b2")
+ambient_light_source = 1
+ambient_light_color = Color(1, 0.9098039, 0.7764706, 1)
+ambient_light_energy = 0.8
+
+[node name="GingerbreadPreview" type="Node3D" unique_id=1684673200]
+
+[node name="GingerbreadSkin" parent="." unique_id=1389505145 instance=ExtResource("1_lvxah")]
+transform = Transform3D(0.84, 0, 0, 0, 0.84, 0, 0, 0, 0.84, 0, 0, 0)
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1888140440]
+transform = Transform3D(0.88294756, 0.26927784, -0.3845686, 0, 0.81915206, 0.57357645, 0.46947157, -0.50643796, 0.72326833, 0, 0, 0)
+light_energy = 2.4
+
+[node name="FillLight" type="OmniLight3D" parent="." unique_id=493971651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.6, 2)
+light_energy = 0.7
+
+[node name="PreviewCamera" type="Camera3D" parent="." unique_id=574818509]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 3.5)
+current = true
+fov = 34.0
+
+[node name="PreviewEnvironment" type="WorldEnvironment" parent="." unique_id=1161119027]
+environment = SubResource("Environment_p5isv")

@@ -447,8 +447,9 @@ static func get_server_command(refresh: bool = false) -> Array[String]:
 		## otherwise uvx installs the exact version fresh. Keeps plugin and
 		## server version in lockstep without needing `--refresh-package` on
 		## every spawn. See issue #133.
-		print("MCP | using uvx (godot-ai==%s)%s" % [version, " [refresh]" if refresh else ""])
+		print("MCP | using uvx (godot-ai==%s, system certs)%s" % [version, " [refresh]" if refresh else ""])
 		var cmd: Array[String] = [uvx]
+		cmd.append("--system-certs")
 		if refresh:
 			cmd.append("--refresh")
 		cmd.append_array(["--from", "godot-ai==%s" % version, "godot-ai"])

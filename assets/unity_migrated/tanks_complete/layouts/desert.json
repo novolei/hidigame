@@ -1,0 +1,2885 @@
+{
+  "source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+  "generated_at": "2026-06-21T03:21:55.057Z",
+  "object_count": 108,
+  "material_guid_names": {
+    "65b34bd0b696fd64c809daa8ff1aac63": "Brown",
+    "c39933e60e73205419d1f79a2af1fdac": "Green_4",
+    "3ce81f985292a6048b1983593b944b37": "YellowMid",
+    "df3167d6df0aba54bba9a1a40f79c38f": "YellowLight",
+    "c0d660c0333c4224098a02ecd84d6232": "White",
+    "fe45be4ed17b56849afc17904e9a1028": "BuildingStone",
+    "306d0bfefa4ca494faae1b7f01978af4": "SandRock",
+    "b3a1f2f69b4c3a84cba5446e31e87c20": "OilDrums_3",
+    "00b91d76f655eaf488c0ca8bdd181a07": "BuildingWhite",
+    "64f19a33efad19940a21774215e4c745": "YellowBright",
+    "afcd8de4d9da6a045bd09b4f5cc84fa9": "Water",
+    "ced395ad3dc1d074d99d6b7ccafb09c7": "OilDrums",
+    "e7df269b1d6121e4787b2f27aab18dbe": "BuildingMetal",
+    "8409077f9ff512c4988a0ecd4bdf6827": "RockBrown"
+  },
+  "objects": [
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -32.86,
+        0,
+        28.88
+      ],
+      "rotation": [
+        -0.055421898862319546,
+        -0.40769701163094496,
+        0.08704932821308324,
+        0.9072673113759487
+      ],
+      "scale": [
+        0.7892891,
+        0.7892894,
+        0.78928924
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "2686698620936156614"
+    },
+    {
+      "name": "Cactus",
+      "mesh_guid": "00b5a8045a3c3914bb0dfdf2d62f05c9",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cactus.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cactus.glb",
+      "material_guids": [
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        29.31,
+        0.03508423,
+        -29.55
+      ],
+      "rotation": [
+        0,
+        0.8417945421885958,
+        0,
+        0.5397980629286216
+      ],
+      "scale": [
+        0.6597152,
+        0.65971524,
+        0.65971524
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "4116767952886676964"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        -3.07,
+        0,
+        -12.44
+      ],
+      "rotation": [
+        0,
+        -0.5254717268973017,
+        0,
+        0.8508110625935511
+      ],
+      "scale": [
+        0.7284909,
+        0.7284909,
+        0.7284908
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "3026852043686074210"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        11.7,
+        0.09,
+        37.28
+      ],
+      "rotation": [
+        0,
+        -0.7854842725569161,
+        0,
+        0.6188816183776445
+      ],
+      "scale": [
+        1.2462989,
+        1.246299,
+        1.2462989
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "7801677375864001445"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -39.53,
+        -0.09216833,
+        29.14
+      ],
+      "rotation": [
+        -0.011754976359477656,
+        0.40965962767786707,
+        -0.10000527455076634,
+        0.9066640805963616
+      ],
+      "scale": [
+        0.6401694,
+        0.64016944,
+        0.6401694
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "8367202260815536391"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -20.69,
+        0,
+        -20.46
+      ],
+      "rotation": [
+        -0.08272882121790893,
+        -0.3820685479147513,
+        0.03688606386782268,
+        0.9196841768381947
+      ],
+      "scale": [
+        0.7321415,
+        0.73214144,
+        0.7321415
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "2849054333311131150"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -8.7,
+        0,
+        -37.01
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "765246910730460545"
+    },
+    {
+      "name": "Cactus",
+      "mesh_guid": "00b5a8045a3c3914bb0dfdf2d62f05c9",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cactus.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cactus.glb",
+      "material_guids": [
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        40.92,
+        0.03508423,
+        -34.46
+      ],
+      "rotation": [
+        0,
+        0.2493207506993417,
+        0,
+        -0.968420963874036
+      ],
+      "scale": [
+        0.7792892,
+        0.7792893,
+        0.7792893
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "2981948321708105980"
+    },
+    {
+      "name": "Cactus",
+      "mesh_guid": "00b5a8045a3c3914bb0dfdf2d62f05c9",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cactus.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cactus.glb",
+      "material_guids": [
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        33.31,
+        0.03508423,
+        -26.29
+      ],
+      "rotation": [
+        0,
+        0.770941236351348,
+        0,
+        0.6369062804628755
+      ],
+      "scale": [
+        0.54937345,
+        0.5493734,
+        0.5493735
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "5322769939559743679"
+    },
+    {
+      "name": "Cactus",
+      "mesh_guid": "00b5a8045a3c3914bb0dfdf2d62f05c9",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cactus.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cactus.glb",
+      "material_guids": [
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        20.51,
+        0.03508423,
+        -46.71
+      ],
+      "rotation": [
+        0,
+        0.847731567494238,
+        0,
+        -0.530425479661151
+      ],
+      "scale": [
+        0.52563244,
+        0.5256324,
+        0.52563244
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "1713353721481548235"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        -3.1,
+        0,
+        36.77
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "707369814729966489"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -35.9,
+        -0.09216833,
+        27.95
+      ],
+      "rotation": [
+        -0.16712161223580485,
+        -0.4247707502658498,
+        -0.03943252416802981,
+        0.888867398704683
+      ],
+      "scale": [
+        0.51932436,
+        0.51932436,
+        0.5193243
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "957815391519535341"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        42.76,
+        0.09,
+        26.14
+      ],
+      "rotation": [
+        0,
+        -0.7854842725569161,
+        0,
+        0.6188816183776445
+      ],
+      "scale": [
+        1.0541922,
+        1.0541918,
+        1.0541922
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "4750209585264695861"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -18.08,
+        0,
+        -13.94
+      ],
+      "rotation": [
+        0.12529295709013408,
+        -0.38062715116012574,
+        -0.04959729184812783,
+        0.914857778752888
+      ],
+      "scale": [
+        0.7646098,
+        0.76460963,
+        0.76460975
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "4962931564485582242"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        1.78,
+        0,
+        41.66
+      ],
+      "rotation": [
+        0,
+        -0.8371025627310396,
+        0,
+        0.5470459756447588
+      ],
+      "scale": [
+        0.9075736,
+        0.9075737,
+        0.9075736
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "8763996877422879073"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        -11.478972,
+        0.089999914,
+        30.930504
+      ],
+      "rotation": [
+        0,
+        -0.33298415747200094,
+        0,
+        0.9429324211589405
+      ],
+      "scale": [
+        1.2462995,
+        1.246299,
+        1.2462995
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "2487137926109040255"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        14.71,
+        0,
+        4.38
+      ],
+      "rotation": [
+        0,
+        -0.585919860438438,
+        0,
+        0.8103690006063912
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "8243878159338210263"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        -1.74,
+        0,
+        -17.99
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "2998649040423380592"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -7.59,
+        0,
+        -38.74
+      ],
+      "rotation": [
+        -0.055421898862319546,
+        -0.40769701163094496,
+        0.08704932821308324,
+        0.9072673113759487
+      ],
+      "scale": [
+        0.7084451,
+        0.70844525,
+        0.7084452
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "1845831801866271316"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        13.08,
+        0,
+        36.3
+      ],
+      "rotation": [
+        -0.0008478049874199243,
+        -0.9969524852068131,
+        0.07723511885395386,
+        0.010943485837616103
+      ],
+      "scale": [
+        0.81305695,
+        0.81305695,
+        0.81305707
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "5222934799199929587"
+    },
+    {
+      "name": "Tree",
+      "mesh_guid": "50912a5d3c9322a46afa5ca162962a5c",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Tree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Tree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63"
+      ],
+      "position": [
+        -2.3,
+        0,
+        43.87
+      ],
+      "rotation": [
+        -0.06607368325895081,
+        0.3212876466714673,
+        -0.02247830806749336,
+        0.9444062908215558
+      ],
+      "scale": [
+        0.7927631,
+        0.7927632,
+        0.79276305
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "5160195480850678185"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -19.76,
+        0,
+        -29.22
+      ],
+      "rotation": [
+        0,
+        -0.9611294472697319,
+        0,
+        0.27609814485247824
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "3080018186386397999"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -12.77,
+        0,
+        -31.07
+      ],
+      "rotation": [
+        -0.06831272457264458,
+        -0.09620301235679818,
+        0.05948131527428834,
+        0.9912317212479536
+      ],
+      "scale": [
+        0.7321415,
+        0.7321414,
+        0.7321415
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "1552797134108740027"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [
+        "65b34bd0b696fd64c809daa8ff1aac63",
+        "c39933e60e73205419d1f79a2af1fdac"
+      ],
+      "position": [
+        -20.45,
+        0,
+        -19.21
+      ],
+      "rotation": [
+        0,
+        -0.6390076693214183,
+        0,
+        0.769200363070903
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "H:/Downaloads/godot-3d-multiplayer-template/assets/unity_migrated/tanks_complete/Prefabs/Levels/LevelDesert.prefab",
+      "transform_id": "5242386848834550376"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand01.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Cow",
+      "mesh_guid": "961487dad48770a4d867fcbcca1e5950",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cow.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cow.glb",
+      "material_guids": [
+        "c0d660c0333c4224098a02ecd84d6232"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Cow.prefab"
+    },
+    {
+      "name": "OilStorage",
+      "mesh_guid": "e307cb54b57a59342868ad47d1ed0c30",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/OilStorage.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/OilStorage.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OilStorage.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Column01",
+      "mesh_guid": "8d8760d4504814540ba00eaa1d1f43ac",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand01.prefab"
+    },
+    {
+      "name": "Ruins01",
+      "mesh_guid": "8c99ccdf18f6a404f84ffd08488298d8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Ruins01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Ruins01.glb",
+      "material_guids": [
+        "fe45be4ed17b56849afc17904e9a1028"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RuinsSand.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CraterSand01.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CliffSand.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CraterSand01.prefab"
+    },
+    {
+      "name": "Column01",
+      "mesh_guid": "8d8760d4504814540ba00eaa1d1f43ac",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand01.prefab"
+    },
+    {
+      "name": "PumpJack",
+      "mesh_guid": "d7962f90116a5c94d9a7a2b2e4fbc1b2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PumpJack.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PumpJack.glb",
+      "material_guids": [
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        "fe45be4ed17b56849afc17904e9a1028"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/PumpJackSand.prefab"
+    },
+    {
+      "name": "Building01",
+      "mesh_guid": "f698f69d64c51f8438d853e5c274e5fc",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building01.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        "64f19a33efad19940a21774215e4c745",
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        null,
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand01.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Column01",
+      "mesh_guid": "8d8760d4504814540ba00eaa1d1f43ac",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column01.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand01.prefab"
+    },
+    {
+      "name": "PalmTree01",
+      "mesh_guid": "a4e851f7b5669ff4699137bd0d9569d1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OasisSandTrees.prefab"
+    },
+    {
+      "name": "PalmTree01",
+      "mesh_guid": "a4e851f7b5669ff4699137bd0d9569d1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OasisSandTrees.prefab"
+    },
+    {
+      "name": "Oasis",
+      "mesh_guid": "964dd72faf636f14ab531117be5200dd",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Oasis.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Oasis.glb",
+      "material_guids": [
+        "afcd8de4d9da6a045bd09b4f5cc84fa9"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OasisSandTrees.prefab"
+    },
+    {
+      "name": "PalmTree",
+      "mesh_guid": "a1194fc0a76098e499948ecf77b6acdf",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PalmTree.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PalmTree.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OasisSandTrees.prefab"
+    },
+    {
+      "name": "Building02",
+      "mesh_guid": "7fa610bf2b9bccd48a9b3a6d79f90a37",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building02.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        null,
+        "64f19a33efad19940a21774215e4c745",
+        null,
+        "3ce81f985292a6048b1983593b944b37",
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand02.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "PumpJack",
+      "mesh_guid": "d7962f90116a5c94d9a7a2b2e4fbc1b2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PumpJack.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PumpJack.glb",
+      "material_guids": [
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        "fe45be4ed17b56849afc17904e9a1028"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/PumpJackSand.prefab"
+    },
+    {
+      "name": "Column02",
+      "mesh_guid": "74d835b756ff5654f8060c76cbcb4e19",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column02.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand02.prefab"
+    },
+    {
+      "name": "Refinery",
+      "mesh_guid": "6e4d8dfe03882c54380948659f725233",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Refinery.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Refinery.glb",
+      "material_guids": [
+        "64f19a33efad19940a21774215e4c745",
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        null,
+        "e7df269b1d6121e4787b2f27aab18dbe"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RefinerySand.prefab"
+    },
+    {
+      "name": "Column02",
+      "mesh_guid": "74d835b756ff5654f8060c76cbcb4e19",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column02.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand02.prefab"
+    },
+    {
+      "name": "Cow",
+      "mesh_guid": "961487dad48770a4d867fcbcca1e5950",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cow.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cow.glb",
+      "material_guids": [
+        "c0d660c0333c4224098a02ecd84d6232"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Cow.prefab"
+    },
+    {
+      "name": "PumpJack",
+      "mesh_guid": "d7962f90116a5c94d9a7a2b2e4fbc1b2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/PumpJack.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/PumpJack.glb",
+      "material_guids": [
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        "fe45be4ed17b56849afc17904e9a1028"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/PumpJackSand.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CliffSand.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Building01",
+      "mesh_guid": "f698f69d64c51f8438d853e5c274e5fc",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building01.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        "64f19a33efad19940a21774215e4c745",
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        null,
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand01.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Helipad",
+      "mesh_guid": "614b6b69c0bbcd945bb2f83eb02a3436",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Helipad.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Helipad.glb",
+      "material_guids": [
+        "fe45be4ed17b56849afc17904e9a1028",
+        "64f19a33efad19940a21774215e4c745",
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        "8409077f9ff512c4988a0ecd4bdf6827"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/HelipadSand.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CliffSand.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Building02",
+      "mesh_guid": "7fa610bf2b9bccd48a9b3a6d79f90a37",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building02.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        null,
+        "64f19a33efad19940a21774215e4c745",
+        null,
+        "3ce81f985292a6048b1983593b944b37",
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand02.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Cliff",
+      "mesh_guid": "12783825d19a606449c1d81b822fb4a2",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Cliff.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Cliff.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CliffSand.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Rocks02",
+      "mesh_guid": "8f90bdc8aeb4bad4db0cb091100a44f4",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks02.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand02.prefab"
+    },
+    {
+      "name": "Building01",
+      "mesh_guid": "f698f69d64c51f8438d853e5c274e5fc",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building01.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        "64f19a33efad19940a21774215e4c745",
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        null,
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand01.prefab"
+    },
+    {
+      "name": "Ruins01",
+      "mesh_guid": "8c99ccdf18f6a404f84ffd08488298d8",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Ruins01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Ruins01.glb",
+      "material_guids": [
+        "fe45be4ed17b56849afc17904e9a1028"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RuinsSand.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand01.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand01.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CraterSand01.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Building02",
+      "mesh_guid": "7fa610bf2b9bccd48a9b3a6d79f90a37",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building02.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        null,
+        "64f19a33efad19940a21774215e4c745",
+        null,
+        "3ce81f985292a6048b1983593b944b37",
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand02.prefab"
+    },
+    {
+      "name": "Building01",
+      "mesh_guid": "f698f69d64c51f8438d853e5c274e5fc",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Building01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Building01.glb",
+      "material_guids": [
+        "00b91d76f655eaf488c0ca8bdd181a07",
+        "64f19a33efad19940a21774215e4c745",
+        "b3a1f2f69b4c3a84cba5446e31e87c20",
+        null,
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/BuildingSand01.prefab"
+    },
+    {
+      "name": "RadarSphere",
+      "mesh_guid": "90bf84fcb963f4647a128f298f55f5ad",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/RadarSphere.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/RadarSphere.glb",
+      "material_guids": [
+        "ced395ad3dc1d074d99d6b7ccafb09c7"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RadarSphereSand.prefab"
+    },
+    {
+      "name": "Rocks01",
+      "mesh_guid": "2964d4e5af87e5245bdd71b73e9b92f1",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks01.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand01.prefab"
+    },
+    {
+      "name": "Rocks03",
+      "mesh_guid": "fd0d7091fe3f1d24e81321bc2e4209df",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Rocks03.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Rocks03.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/RocksSand03.prefab"
+    },
+    {
+      "name": "Crater01",
+      "mesh_guid": "aef18f364fed1a64ba495d15dcee610d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Crater01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Crater01.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/CraterSand01.prefab"
+    },
+    {
+      "name": "Column02",
+      "mesh_guid": "74d835b756ff5654f8060c76cbcb4e19",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Column02.FBX",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Column02.glb",
+      "material_guids": [
+        "306d0bfefa4ca494faae1b7f01978af4"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ColumnSand02.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Dunes01",
+      "mesh_guid": "1b0f8caf6ec3ed644bf9751040d84dcb",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes01.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes01.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes01.prefab"
+    },
+    {
+      "name": "Concrete",
+      "mesh_guid": "a678ab9f67b4ce84093be35214bdb92d",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Concrete.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Concrete.glb",
+      "material_guids": [
+        "3ce81f985292a6048b1983593b944b37"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/ConcreteSand.prefab"
+    },
+    {
+      "name": "Dunes02",
+      "mesh_guid": "38b4fea28f58d3641980a70a5188e750",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/Dunes02.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/Dunes02.glb",
+      "material_guids": [
+        "df3167d6df0aba54bba9a1a40f79c38f"
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/Dunes02.prefab"
+    },
+    {
+      "name": "BustedTank",
+      "mesh_guid": "8c6d26fe262194242becdec17209d306",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/BustedTank.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/BustedTank.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Miscellaneous/BustedTank.prefab"
+    },
+    {
+      "name": "OilStorage",
+      "mesh_guid": "e307cb54b57a59342868ad47d1ed0c30",
+      "source_asset": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Art/Models/Environment/OilStorage.fbx",
+      "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Environment/OilStorage.glb",
+      "material_guids": [],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "prefab_source": "C:/Users/aresr/Tanks Complete Project/Assets/_Tanks/Prefabs/Environment/Desert/OilStorage.prefab"
+    }
+  ]
+}

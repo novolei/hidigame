@@ -105,7 +105,7 @@ static func execute_windows_powershell(script: String, output: Array) -> int:
 	for exe in windows_powershell_candidates():
 		output.clear()
 		var exit_code := OS.execute(exe, args, output, true)
-		if exit_code == 0:
+		if exit_code != -1:
 			return exit_code
 	return -1
 

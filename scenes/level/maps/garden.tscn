@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://ch0ep4mbl35b1"]
+
+[ext_resource type="PackedScene" path="res://assets/Map/Map.gltf" id="1_map"]
+[ext_resource type="Script" path="res://scripts/garden_map.gd" id="2_script"]
+
+[node name="GardenMapRoot" type="Node3D"]
+script = ExtResource("2_script")
+
+[node name="Map" parent="." instance=ExtResource("1_map")]
