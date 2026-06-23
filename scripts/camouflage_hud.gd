@@ -6,6 +6,10 @@ const STATUS_ACTIVE := "Click scene color"
 const STATUS_PAINT := "Paint with LMB"
 const STATUS_NO_SURFACE := "Aim at your body"
 const STATUS_PREPARING := "Preparing paint surface"
+const STATUS_ANCHOR := "Anchor surface"
+const STATUS_SCULPT := "Sculpt shell"
+const STATUS_SHAPE_LOCKED := "Shape committed"
+const STATUS_SCULPT_CAPTION := "Tab Paint/Sculpt  1 Add 2 Remove 3 Smooth 4 Stretch 5 Flatten  R Restore"
 const LOBBY_HUD_STATUS_FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const LOBBY_HUD_VALUE_FONT_PATH := "res://assets/fonts/Saira-9.woff2"
 const LOBBY_HUD_ITALIC_SKEW := -0.18
@@ -56,6 +60,11 @@ var _value_font: Font
 var _exact_color_match := false
 var _paint_roughness := 1.0
 var _paint_metallic := 0.0
+var _sculpt_state := ""
+var _sculpt_mode := ""
+var _sculpt_tool := ""
+var _sculpt_brush_radius := 0.0
+var _shape_commit_cooldown := 0.0
 
 
 func _ready() -> void:
@@ -87,6 +96,8 @@ func set_skill_active(active: bool, has_color: bool, color: Color, radius: float
 	_brush_radius = radius
 	_brush_angle = angle
 	_status = STATUS_PAINT if has_color else STATUS_ACTIVE
+	if not active:
+		_clear_sculpt_status()
 	visible = active
 	queue_redraw()
 
@@ -136,6 +147,18 @@ func set_material_controls(exact_color_match: bool, roughness: float, metallic: 
 	queue_redraw()
 
 
+func set_sculpt_status(sculpt_state: String, edit_mode: String, tool_name: String, commit_cooldown: float, sculpt_radius: float = 0.0) -> void:
+	if sculpt_state.is_empty() or sculpt_state == "inactive":
+		_clear_sculpt_status()
+	else:
+		_sculpt_state = sculpt_state
+		_sculpt_mode = edit_mode
+		_sculpt_tool = tool_name
+		_sculpt_brush_radius = maxf(0.0, sculpt_radius)
+		_shape_commit_cooldown = maxf(0.0, commit_cooldown)
+	queue_redraw()
+
+
 func _draw() -> void:
 	if not _skill_active:
 		return
@@ -166,6 +189,13 @@ func _draw_status(center: Vector2) -> void:
 	var caption_text := STATUS_CONTROL_CAPTION
 	var value_text := "%.0f" % _brush_radius
 	var unit_text := "PX"
+	if _has_sculpt_status():
+		status_text = _sculpt_status_text()
+		control_text = _sculpt_control_text()
+		caption_text = STATUS_SCULPT_CAPTION
+		if _sculpt_mode == "sculpt" and _sculpt_brush_radius > 0.0:
+			value_text = "%.2f" % _sculpt_brush_radius
+			unit_text = "M"
 	var status_font := _get_status_font()
 	var value_font := _get_value_font()
 	var status_size := status_font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, STATUS_FONT_SIZE)
@@ -224,7 +254,51 @@ func _draw_status(center: Vector2) -> void:
 
 
 func _should_draw_crosshair() -> bool:
-	return _skill_active and not _has_surface_lock
+	return _skill_active and not _has_surface_lock and not (_has_sculpt_status() and _sculpt_mode == "sculpt")
+
+
+func _has_sculpt_status() -> bool:
+	return not _sculpt_state.is_empty() and _sculpt_state != "inactive"
+
+
+func _clear_sculpt_status() -> void:
+	_sculpt_state = ""
+	_sculpt_mode = ""
+	_sculpt_tool = ""
+	_sculpt_brush_radius = 0.0
+	_shape_commit_cooldown = 0.0
+
+
+func _sculpt_status_text() -> String:
+	if _shape_commit_cooldown > 0.0:
+		return STATUS_SHAPE_LOCKED
+	if _sculpt_state == "anchor_pick":
+		return STATUS_ANCHOR
+	if _sculpt_mode == "sculpt":
+		return STATUS_SCULPT
+	return STATUS_PAINT
+
+
+func _sculpt_control_text() -> String:
+	var mode_text := _sculpt_mode.to_upper()
+	if mode_text.is_empty():
+		mode_text = "PAINT"
+	var tool_text := _sculpt_tool_label(_sculpt_tool)
+	if _sculpt_mode != "sculpt":
+		tool_text = "COLOR"
+	if _shape_commit_cooldown > 0.0:
+		return "%s  %s  CD %.1fs" % [mode_text, tool_text, _shape_commit_cooldown]
+	return "%s  %s" % [mode_text, tool_text]
+
+
+func _sculpt_tool_label(tool_name: String) -> String:
+	match tool_name.to_lower():
+		"flatten", "flat", "press", "plane":
+			return "FLATTEN"
+		"remove", "erase", "cut", "carve":
+			return "CUT"
+		_:
+			return "SMART SHAPE"
 
 
 func _load_lobby_fonts() -> void:

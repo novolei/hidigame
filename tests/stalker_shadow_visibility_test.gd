@@ -66,7 +66,7 @@ func _run() -> void:
 		_expect(system.get_visibility_alpha() >= 0.99, "Clear local light should reveal a Stalker even under a roof")
 		player._refresh_stalker_visibility_view(true)
 		_expect(player.get_stalker_visual_mode() == "normal", "Revealed Stalker should restore normal materials")
-		_expect(player.nickname.visible, "Revealed Stalker should show the nameplate again")
+		_expect(not player.nickname.visible, "Hunter clients should not see remote Prop/Stalker nameplates even after reveal")
 		reveal_light.queue_free()
 		await get_tree().process_frame
 

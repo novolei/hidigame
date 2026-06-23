@@ -18,6 +18,9 @@ const GROUND_DECELERATION := 24.0
 const AIR_ACCELERATION := 7.0
 const AIR_DECELERATION := 2.4
 const TURN_INPUT_DEADZONE := 0.05
+const SCULPT_FREE_FLY_ACCELERATION := 26.0
+const SCULPT_FREE_FLY_DECELERATION := 30.0
+const SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR := 0.72
 const FOOTSTEP_WALK_INTERVAL := 0.38
 const FOOTSTEP_SPRINT_INTERVAL := 0.24
 const FOOTSTEP_MIN_SPEED := 0.6
@@ -35,6 +38,18 @@ const PROP_PUSH_FORWARD_REACH := 0.34
 const WORLD_COLLISION_MASK := 2
 const PROP_DISGUISE_GROUND_SNAP_UP := 2.5
 const PROP_DISGUISE_GROUND_SNAP_DOWN := 8.0
+const HUNTER_PROP_SENSE_GLOW_RANGE := 4.8
+const HUNTER_PROP_SENSE_AUDIO_RANGE := 32.0
+const HUNTER_PROP_SENSE_BEEP_SAMPLE_RATE := 22050
+const HUNTER_PROP_SENSE_BEEP_SECONDS := 0.24
+const HUNTER_PROP_SENSE_PING_TOP_EXTRA := 0.95
+const HUNTER_PROP_SENSE_PING_MIN_HEIGHT := 2.4
+const HUNTER_PROP_SENSE_PING_RING_SPACING := 0.46
+const HUNTER_PROP_SENSE_PING_MIN_RINGS := 4
+const HUNTER_PROP_SENSE_PING_MAX_RINGS := 9
+const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
+const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
+const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
 const CHAMELEON_GPU_PBR_OVERLAY_SHADER := preload("res://shaders/chameleon_gpu_pbr_overlay.gdshader")
 const CAMOUFLAGE_GPU_OVERLAY_LAYER := 20
@@ -42,6 +57,20 @@ const CAMOUFLAGE_GPU_ATLAS_SIZE := 2048
 const CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT := Vector2i(512, 512)
 const CAMOUFLAGE_GPU_BRUSH_TIME := 0.035
 const CAMOUFLAGE_GPU_MAX_QUEUED_STROKES := 96
+const ENVIRONMENT_PROP_PAINT_SYNC_SIZE := 512
+const ENVIRONMENT_PROP_PAINT_MAX_SURFACES := 16
+const ENVIRONMENT_PROP_PAINT_MAX_BYTES_PER_SURFACE := 524288
+const ENVIRONMENT_PROP_PAINT_MAX_TOTAL_BYTES := 2097152
+const SCULPT_TOOL_ADD := "add"
+const SCULPT_TOOL_REMOVE := "remove"
+const SCULPT_TOOL_SMOOTH := "smooth"
+const SCULPT_TOOL_STRETCH := "stretch"
+const SCULPT_TOOL_FLATTEN := "flatten"
+const SCULPT_TOOL_SMART := "smart"
+const SCULPT_MIN_WORLD_RADIUS := 0.08
+const SCULPT_MAX_WORLD_RADIUS := 0.46
+const SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS := SCULPT_MAX_WORLD_RADIUS * 1.6
+const SCULPT_DEFAULT_WORLD_RADIUS := 0.22
 
 enum SkinColor { BLUE, YELLOW, GREEN, RED }
 
@@ -80,8 +109,12 @@ var _prop_disguise_node: Node3D = null
 var _prop_disguise_tween: Tween = null
 var _is_prop_disguised := false
 var _current_disguise_name := ""
+var _prop_disguise_is_q_scene_replica := false
 var _prop_disguise_base_position := Vector3.ZERO
 var _prop_disguise_height_offset := 0.0
+var _prop_death_visual_hidden := false
+var _is_dead := false
+var _death_effect_played := false
 var _jump_audio: AudioStreamPlayer3D = null
 var _land_audio: AudioStreamPlayer3D = null
 var _step_audio: AudioStreamPlayer3D = null
@@ -117,6 +150,8 @@ var _camouflage_gpu_stroke_queue: Array[Dictionary] = []
 var _camouflage_gpu_draw_timer := 0.0
 var _camouflage_gpu_unavailable := false
 var _camouflage_paused_animation_players: Dictionary = {}
+var _chameleon_sculpt_shell_active := false
+var _last_sculpt_batch_msec := 0
 var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
@@ -183,14 +218,31 @@ func _check_role_after_assignment() -> void:
 
 var shape_system: ShapeShiftSystem = null
 var camouflage_system: CamouflageSystem = null
+var chameleon_sculpt_system: Node = null
+var chameleon_environment_blend_system: Node = null
 var shadow_visibility = null
 var stalker_grapple_system = null
 var hunter_flashlight_system = null
+var hunter_prop_sense_system = null
+var hunter_auto_turret_system = null
 var _stalker_original_material_overrides := {}
 var _stalker_ghost_material: ShaderMaterial = null
 var _stalker_glass_material: ShaderMaterial = null
 var _stalker_visual_mode := "normal"
 var _stalker_visual_alpha := -1.0
+var _hunter_prop_sense_revealed := false
+var _hunter_prop_sense_visual_active := false
+var _hunter_prop_sense_intensity := 0.0
+var _hunter_prop_sense_beep_interval := 1.0
+var _hunter_prop_sense_beep_timer := 0.0
+var _hunter_prop_sense_outline_material: ShaderMaterial = null
+var _hunter_prop_sense_outline_nodes := {}
+var _hunter_prop_sense_glow_light: OmniLight3D = null
+var _hunter_prop_sense_audio: AudioStreamPlayer3D = null
+var _hunter_prop_sense_beep_stream: AudioStreamWAV = null
+var _hunter_prop_sense_ping_spawned := false
+var _hunter_prop_sense_ping_marker: Node3D = null
+var _hunter_prop_sense_ping_tween: Tween = null
 
 func _setup_chameleon_systems() -> void:
 	if not is_chameleon() or not is_multiplayer_authority():
@@ -204,6 +256,21 @@ func _setup_chameleon_systems() -> void:
 		var camera_node = $SpringArmOffset/SpringArm3D/Camera3D
 		cs.initialize(self, camera_node)
 		camouflage_system = cs
+	else:
+		camouflage_system = get_node_or_null("CamouflageSystem") as CamouflageSystem
+
+	if not has_node("ChameleonEnvironmentBlendSystem"):
+		var blend := preload("res://scripts/chameleon_environment_blend_system.gd").new()
+		blend.name = "ChameleonEnvironmentBlendSystem"
+		add_child(blend)
+		var blend_camera = $SpringArmOffset/SpringArm3D/Camera3D
+		blend.initialize(self, blend_camera, camouflage_system)
+		chameleon_environment_blend_system = blend
+	else:
+		chameleon_environment_blend_system = get_node_or_null("ChameleonEnvironmentBlendSystem")
+
+	if camouflage_system and chameleon_environment_blend_system and camouflage_system.has_method("set_environment_blend_system"):
+		camouflage_system.call("set_environment_blend_system", chameleon_environment_blend_system)
 
 	# 鍙樺舰绯荤粺
 	if not has_node("ShapeShiftSystem"):
@@ -346,8 +413,7 @@ func _restore_stalker_materials() -> void:
 			mesh.material_override = _stalker_original_material_overrides[id]
 		else:
 			mesh.material_override = null
-	if nickname:
-		nickname.visible = true
+	_refresh_nickname_visibility()
 
 
 func _stalker_visual_meshes_have_material(material: Material) -> bool:
@@ -384,11 +450,50 @@ func _find_visible_meshes(node: Node, result: Array[MeshInstance3D]) -> void:
 		_find_visible_meshes(child, result)
 
 
+func get_chameleon_sculpt_source_meshes() -> Array[MeshInstance3D]:
+	var meshes: Array[MeshInstance3D] = []
+	if _active_skin_node and is_instance_valid(_active_skin_node):
+		_find_meshes(_active_skin_node, meshes)
+	elif _robot_visual_root:
+		_find_meshes(_robot_visual_root, meshes)
+	return meshes
+
+
+func get_chameleon_sculpt_model_id() -> String:
+	return character_model_id
+
+
 func _update_stalker_nickname_visibility(shadow_alpha: float) -> void:
+	_refresh_nickname_visibility(shadow_alpha)
+
+
+func _refresh_nickname_visibility(stalker_shadow_alpha: float = -1.0) -> void:
 	if not nickname:
 		return
+	nickname.visible = _should_show_nickname_for_local_viewer(stalker_shadow_alpha)
+
+
+func _should_show_nickname_for_local_viewer(stalker_shadow_alpha: float = -1.0) -> bool:
+	var local_id := multiplayer.get_unique_id()
+	if get_multiplayer_authority() == local_id:
+		return true
 	var viewer_role := _get_local_viewer_role()
-	nickname.visible = shadow_alpha >= 0.99 or viewer_role != Network.Role.HUNTER
+	if _is_cross_team_nameplate_hidden(viewer_role, role):
+		return false
+	if role == Network.Role.STALKER and viewer_role == Network.Role.HUNTER:
+		var effective_shadow_alpha := stalker_shadow_alpha
+		if effective_shadow_alpha < 0.0 and shadow_visibility and shadow_visibility.has_method("get_visibility_alpha"):
+			effective_shadow_alpha = float(shadow_visibility.get_visibility_alpha())
+		return effective_shadow_alpha >= 0.99
+	return true
+
+
+func _is_cross_team_nameplate_hidden(viewer_role: int, target_role: int) -> bool:
+	if viewer_role == Network.Role.HUNTER:
+		return target_role == Network.Role.CHAMELEON or target_role == Network.Role.STALKER
+	if target_role == Network.Role.HUNTER:
+		return viewer_role == Network.Role.CHAMELEON or viewer_role == Network.Role.STALKER
+	return false
 
 
 func _get_stalker_ghost_material(alpha: float) -> ShaderMaterial:
@@ -471,6 +576,8 @@ func _setup_hunter_systems() -> void:
 	if is_multiplayer_authority() or multiplayer.is_server():
 		_setup_hunter_weapon()
 	_setup_hunter_flashlight()
+	_setup_hunter_prop_sense()
+	_setup_hunter_auto_turret()
 
 
 func _setup_hunter_weapon() -> void:
@@ -517,6 +624,42 @@ func _teardown_hunter_flashlight() -> void:
 	if hunter_flashlight_system and is_instance_valid(hunter_flashlight_system):
 		hunter_flashlight_system.queue_free()
 	hunter_flashlight_system = null
+
+
+func _setup_hunter_prop_sense() -> void:
+	if not is_hunter() or not is_multiplayer_authority():
+		return
+	if not has_node("HunterPropSenseSystem"):
+		var sense := preload("res://scripts/hunter_prop_sense_system.gd").new()
+		sense.name = "HunterPropSenseSystem"
+		add_child(sense)
+	hunter_prop_sense_system = get_node_or_null("HunterPropSenseSystem")
+	if hunter_prop_sense_system:
+		hunter_prop_sense_system.initialize(self)
+
+
+func _teardown_hunter_prop_sense() -> void:
+	if hunter_prop_sense_system and is_instance_valid(hunter_prop_sense_system):
+		hunter_prop_sense_system.queue_free()
+	hunter_prop_sense_system = null
+
+
+func _setup_hunter_auto_turret() -> void:
+	if not is_hunter():
+		return
+	if not has_node("HunterAutoTurretSystem"):
+		var turret := preload("res://scripts/hunter_auto_turret_system.gd").new()
+		turret.name = "HunterAutoTurretSystem"
+		add_child(turret)
+	hunter_auto_turret_system = get_node_or_null("HunterAutoTurretSystem")
+	if hunter_auto_turret_system:
+		hunter_auto_turret_system.initialize(self)
+
+
+func _teardown_hunter_auto_turret() -> void:
+	if hunter_auto_turret_system and is_instance_valid(hunter_auto_turret_system):
+		hunter_auto_turret_system.queue_free()
+	hunter_auto_turret_system = null
 
 
 func _on_ammo_changed(current_magazine: int, total_ammo: int) -> void:
@@ -660,6 +803,10 @@ func _on_role_changed(peer_id: int, new_role: int) -> void:
 			_teardown_stalker_systems()
 		if new_role != Network.Role.HUNTER and hunter_flashlight_system:
 			_teardown_hunter_flashlight()
+		if new_role != Network.Role.HUNTER and hunter_prop_sense_system:
+			_teardown_hunter_prop_sense()
+		if new_role != Network.Role.HUNTER and hunter_auto_turret_system:
+			_teardown_hunter_auto_turret()
 		# 濡傛灉鏄?Hunter 涓旇繕娌℃寕姝﹀櫒,琛ユ寕
 		if new_role == Network.Role.HUNTER:
 			_setup_hunter_systems()
@@ -777,6 +924,11 @@ func _force_skeleton_update_recursive(node: Node) -> void:
 func _physics_process(delta):
 	if not is_multiplayer_authority(): return
 
+	if _camouflage_brush_locked and _chameleon_sculpt_shell_active:
+		_process_sculpt_free_fly(delta)
+		move_and_slide()
+		return
+
 	if _camouflage_brush_locked:
 		freeze()
 		move_and_slide()
@@ -831,6 +983,9 @@ func _process(delta):
 	_process_camouflage_gpu_painter(delta)
 	if is_stalker():
 		_refresh_stalker_visibility_view(false)
+	else:
+		_refresh_nickname_visibility()
+	_process_hunter_prop_sense_feedback(delta)
 	if not is_multiplayer_authority():
 		_animate_remote_skin_from_network_motion(delta)
 		return
@@ -880,6 +1035,28 @@ func _move(delta: float) -> void:
 
 	if has_move_input:
 		_apply_body_rotation(velocity)
+
+
+func _process_sculpt_free_fly(delta: float) -> void:
+	var input_direction := Input.get_vector(
+		"move_left", "move_right",
+		"move_forward", "move_backward"
+	)
+	var camera_basis := _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
+	var forward := -camera_basis.z.normalized()
+	var right := camera_basis.x.normalized()
+	var direction := right * input_direction.x + forward * -input_direction.y
+	if Input.is_action_pressed("jump"):
+		direction += Vector3.UP * SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR
+	if Input.is_physical_key_pressed(KEY_CTRL):
+		direction -= Vector3.UP * SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR
+	if direction.length_squared() > 1.0:
+		direction = direction.normalized()
+	var speed := SPRINT_SPEED if Input.is_action_pressed("shift") else NORMAL_SPEED
+	var target_velocity := direction * speed
+	var acceleration := SCULPT_FREE_FLY_ACCELERATION if direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE else SCULPT_FREE_FLY_DECELERATION
+	velocity = velocity.move_toward(target_velocity, acceleration * delta)
+	_current_speed = velocity.length()
 
 
 func _apply_prop_collision_impacts(impact_velocity: Vector3) -> bool:
@@ -969,6 +1146,8 @@ func is_running() -> bool:
 		return false
 
 func _check_fall_and_respawn():
+	if _is_dead:
+		return
 	if global_transform.origin.y < -15.0:
 		_respawn()
 
@@ -1042,6 +1221,321 @@ func set_camouflage_brush_locked(locked: bool) -> void:
 		_force_active_skin_skeleton_update()
 	if locked:
 		freeze()
+
+
+func deactivate_camouflage_skill() -> void:
+	if camouflage_system:
+		camouflage_system.deactivate_skill()
+
+
+func set_environment_blend_preview_active(active: bool) -> void:
+	_set_character_visual_visible(not active)
+
+
+func create_environment_prop_preview_node(preset: Dictionary) -> Node3D:
+	var clean := ChameleonPropCatalog.normalize_preset(preset)
+	var preview := _build_prop_disguise_node(clean)
+	if preview:
+		_disable_prop_collisions(preview)
+	return preview
+
+
+func capture_environment_prop_paint_payload(preview_root: Node3D) -> Dictionary:
+	if not preview_root or not is_instance_valid(preview_root):
+		return {}
+	var surfaces := []
+	var total_bytes := 0
+	var meshes: Array[MeshInstance3D] = []
+	_find_meshes(preview_root, meshes)
+	for mesh_instance in meshes:
+		if surfaces.size() >= ENVIRONMENT_PROP_PAINT_MAX_SURFACES:
+			break
+		var relative_path := str(preview_root.get_path_to(mesh_instance))
+		var surface_count := _get_mesh_surface_count(mesh_instance)
+		for surface in range(surface_count):
+			if surfaces.size() >= ENVIRONMENT_PROP_PAINT_MAX_SURFACES:
+				break
+			var key := _camouflage_texture_key(str(get_path_to(mesh_instance)), surface)
+			if not _camouflage_paint_textures.has(key):
+				continue
+			var texture := _camouflage_paint_textures[key] as Texture2D
+			var image := texture.get_image() if texture else null
+			if not image or image.is_empty() or not _image_has_visible_alpha(image):
+				continue
+			var sync_image := image.duplicate()
+			if sync_image.get_width() != ENVIRONMENT_PROP_PAINT_SYNC_SIZE or sync_image.get_height() != ENVIRONMENT_PROP_PAINT_SYNC_SIZE:
+				sync_image.resize(ENVIRONMENT_PROP_PAINT_SYNC_SIZE, ENVIRONMENT_PROP_PAINT_SYNC_SIZE, Image.INTERPOLATE_LANCZOS)
+			var png_bytes: PackedByteArray = sync_image.save_png_to_buffer()
+			if png_bytes.is_empty() or png_bytes.size() > ENVIRONMENT_PROP_PAINT_MAX_BYTES_PER_SURFACE:
+				continue
+			if total_bytes + png_bytes.size() > ENVIRONMENT_PROP_PAINT_MAX_TOTAL_BYTES:
+				break
+			total_bytes += png_bytes.size()
+			surfaces.append({
+				"mesh_path": relative_path,
+				"surface": surface,
+				"png": png_bytes,
+			})
+	if surfaces.is_empty():
+		return {}
+	return {
+		"version": 1,
+		"texture_size": ENVIRONMENT_PROP_PAINT_SYNC_SIZE,
+		"base_color": Color(0.96, 0.94, 0.9, 1.0),
+		"roughness": _camouflage_paint_roughness,
+		"metallic": _camouflage_paint_metallic,
+		"specular": _camouflage_paint_specular,
+		"surfaces": surfaces,
+	}
+
+
+func clear_environment_prop_paint_buffers() -> void:
+	for key in _camouflage_paint_textures.keys():
+		if _is_environment_prop_preview_mesh_path(str(key)):
+			_camouflage_paint_textures.erase(key)
+	for key in _camouflage_paint_layer_materials.keys():
+		if _is_environment_prop_preview_mesh_path(str(key)):
+			_camouflage_paint_layer_materials.erase(key)
+	for key in _camouflage_source_material_infos.keys():
+		if _is_environment_prop_preview_mesh_path(str(key)):
+			_camouflage_source_material_infos.erase(key)
+
+
+func request_environment_prop_disguise(preset: Dictionary) -> void:
+	if not is_chameleon():
+		return
+	var clean := ChameleonPropCatalog.normalize_preset(preset)
+	clean = _sanitize_environment_prop_disguise_preset(clean)
+	if _has_active_camouflage_multiplayer_peer():
+		apply_prop_disguise.rpc(clean)
+	else:
+		apply_prop_disguise(clean)
+
+
+func set_chameleon_sculpt_shell_active(active: bool, restore_transform: Transform3D = Transform3D.IDENTITY) -> void:
+	_chameleon_sculpt_shell_active = active
+	if active:
+		_set_character_visual_visible(false)
+		if _collision_shape:
+			_collision_shape.disabled = true
+		freeze()
+		return
+	if restore_transform != Transform3D.IDENTITY:
+		global_position = restore_transform.origin
+	velocity = Vector3.ZERO
+	if _collision_shape:
+		_collision_shape.disabled = false
+	_set_character_visual_visible(true)
+	_force_active_skin_skeleton_update()
+
+
+func submit_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: Vector3) -> void:
+	if not is_chameleon():
+		return
+	var clean_normal := normal.normalized() if normal.length_squared() > 0.001 else Vector3.UP
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_apply_chameleon_sculpt_shell_state.rpc(active, anchor, clean_normal)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_apply_chameleon_sculpt_shell_state(active, anchor, clean_normal)
+	else:
+		_request_chameleon_sculpt_shell_state.rpc_id(1, active, anchor, clean_normal)
+
+
+func submit_sculpt_stroke_batch(
+	tool_names: PackedStringArray,
+	world_positions: PackedVector3Array,
+	radii: PackedFloat32Array,
+	strengths: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	if not is_chameleon():
+		return
+	var clean := _sanitize_sculpt_stroke_batch(tool_names, world_positions, radii, strengths)
+	if clean.is_empty():
+		return
+	var clean_tools: PackedStringArray = clean.get("tools", PackedStringArray())
+	var clean_positions: PackedVector3Array = clean.get("positions", PackedVector3Array())
+	var clean_radii: PackedFloat32Array = clean.get("radii", PackedFloat32Array())
+	var clean_strengths: PackedFloat32Array = clean.get("strengths", PackedFloat32Array())
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_apply_sculpt_stroke_batch.rpc(clean_tools, clean_positions, clean_radii, clean_strengths)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_apply_sculpt_stroke_batch(clean_tools, clean_positions, clean_radii, clean_strengths)
+	else:
+		_request_sculpt_stroke_batch.rpc_id(1, clean_tools, clean_positions, clean_radii, clean_strengths)
+
+
+func apply_chameleon_sculpt_counterplay_reset(world_position: Vector3, world_radius: float, amount: float = 0.35) -> void:
+	if not is_chameleon():
+		return
+	var clean_radius := clampf(world_radius, SCULPT_MIN_WORLD_RADIUS, SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS)
+	var clean_amount := clampf(amount, 0.0, 1.0)
+	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		_apply_chameleon_sculpt_counterplay_reset.rpc(world_position, clean_radius, clean_amount)
+	elif _should_apply_camouflage_brush_without_server_peer():
+		_apply_chameleon_sculpt_counterplay_reset(world_position, clean_radius, clean_amount)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: Vector3) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if not is_chameleon():
+		return
+	_apply_chameleon_sculpt_shell_state.rpc(active, anchor, normal.normalized() if normal.length_squared() > 0.001 else Vector3.UP)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _apply_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	_ensure_chameleon_sculpt_system_for_replication()
+	if not chameleon_sculpt_system:
+		return
+	if active:
+		if chameleon_sculpt_system.has_method("activate"):
+			chameleon_sculpt_system.call("activate")
+		chameleon_sculpt_system.set("anchor_position", anchor)
+		chameleon_sculpt_system.set("anchor_normal", normal.normalized() if normal.length_squared() > 0.001 else Vector3.UP)
+		chameleon_sculpt_system.call("_place_shell_at_anchor")
+	else:
+		if chameleon_sculpt_system.has_method("restore_real_body"):
+			chameleon_sculpt_system.call("restore_real_body")
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _request_sculpt_stroke_batch(
+	tool_names: PackedStringArray,
+	world_positions: PackedVector3Array,
+	radii: PackedFloat32Array,
+	strengths: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if not is_chameleon():
+		return
+	var now := Time.get_ticks_msec()
+	if now - _last_sculpt_batch_msec < 20:
+		return
+	_last_sculpt_batch_msec = now
+	var clean := _sanitize_sculpt_stroke_batch(tool_names, world_positions, radii, strengths)
+	if clean.is_empty():
+		return
+	_apply_sculpt_stroke_batch.rpc(
+		clean.get("tools", PackedStringArray()),
+		clean.get("positions", PackedVector3Array()),
+		clean.get("radii", PackedFloat32Array()),
+		clean.get("strengths", PackedFloat32Array())
+	)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _apply_sculpt_stroke_batch(
+	tool_names: PackedStringArray,
+	world_positions: PackedVector3Array,
+	radii: PackedFloat32Array,
+	strengths: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	if not is_chameleon():
+		return
+	_ensure_chameleon_sculpt_system_for_replication()
+	if not chameleon_sculpt_system:
+		return
+	if not chameleon_sculpt_system.has_method("validate_sculpt_stroke_batch") or not bool(chameleon_sculpt_system.call("validate_sculpt_stroke_batch", tool_names, world_positions, radii)):
+		return
+	chameleon_sculpt_system.call("apply_sculpt_stroke_batch", tool_names, world_positions, radii, strengths)
+
+
+@rpc("authority", "call_local", "reliable")
+func _apply_chameleon_sculpt_counterplay_reset(world_position: Vector3, world_radius: float, amount: float = 0.35) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and not multiplayer.is_server():
+		return
+	if not is_chameleon():
+		return
+	var system: Node = _ensure_chameleon_sculpt_system_for_replication()
+	if system and system.has_method("apply_counterplay_soft_reset"):
+		system.call(
+			"apply_counterplay_soft_reset",
+			world_position,
+			clampf(world_radius, SCULPT_MIN_WORLD_RADIUS, SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS),
+			clampf(amount, 0.0, 1.0)
+		)
+
+
+func _sanitize_sculpt_stroke_batch(
+	tool_names: PackedStringArray,
+	world_positions: PackedVector3Array,
+	radii: PackedFloat32Array,
+	strengths: PackedFloat32Array = PackedFloat32Array()
+) -> Dictionary:
+	var count := mini(tool_names.size(), world_positions.size())
+	if count <= 0 or count > 16:
+		return {}
+	var clean_tools := PackedStringArray()
+	var clean_positions := PackedVector3Array()
+	var clean_radii := PackedFloat32Array()
+	var clean_strengths := PackedFloat32Array()
+	for i in range(count):
+		var tool_name := _normalize_sculpt_tool_name(tool_names[i])
+		if tool_name.is_empty():
+			return {}
+		var radius: float = SCULPT_DEFAULT_WORLD_RADIUS
+		if i < radii.size():
+			radius = radii[i]
+		if radius < SCULPT_MIN_WORLD_RADIUS or radius > SCULPT_MAX_WORLD_RADIUS:
+			return {}
+		clean_tools.append(tool_name)
+		clean_positions.append(world_positions[i])
+		clean_radii.append(radius)
+		clean_strengths.append(clampf(strengths[i] if i < strengths.size() else 1.0, 0.0, 2.0))
+	var system: Node = _ensure_chameleon_sculpt_system_for_replication()
+	if system and (not system.has_method("validate_sculpt_stroke_batch") or not bool(system.call("validate_sculpt_stroke_batch", clean_tools, clean_positions, clean_radii))):
+		return {}
+	return {
+		"tools": clean_tools,
+		"positions": clean_positions,
+		"radii": clean_radii,
+		"strengths": clean_strengths,
+	}
+
+
+func _normalize_sculpt_tool_name(tool_name: String) -> String:
+	match str(tool_name).to_lower():
+		SCULPT_TOOL_FLATTEN, "flat", "press", "plane":
+			return SCULPT_TOOL_FLATTEN
+		SCULPT_TOOL_REMOVE, "erase", "cut", "carve":
+			return SCULPT_TOOL_REMOVE
+		SCULPT_TOOL_SMART, SCULPT_TOOL_ADD, SCULPT_TOOL_SMOOTH, SCULPT_TOOL_STRETCH, "auto", "polish", "shape", "push", "pull", "grab":
+			return SCULPT_TOOL_SMART
+	return ""
+
+
+func _ensure_chameleon_sculpt_system_for_replication() -> Node:
+	if chameleon_sculpt_system and is_instance_valid(chameleon_sculpt_system):
+		return chameleon_sculpt_system
+	var existing: Node = get_node_or_null("ChameleonSculptSystem")
+	if existing:
+		chameleon_sculpt_system = existing
+		return chameleon_sculpt_system
+	var sculpt := preload("res://scripts/chameleon_sculpt_system.gd").new()
+	sculpt.name = "ChameleonSculptSystem"
+	add_child(sculpt)
+	var camera_node := $SpringArmOffset/SpringArm3D/Camera3D if has_node("SpringArmOffset/SpringArm3D/Camera3D") else null
+	sculpt.initialize(self, camera_node if is_multiplayer_authority() else null)
+	chameleon_sculpt_system = sculpt
+	if camouflage_system and camouflage_system.has_method("set_sculpt_system"):
+		camouflage_system.call("set_sculpt_system", chameleon_sculpt_system)
+	return chameleon_sculpt_system
 
 
 func is_camouflage_brushing() -> bool:
@@ -1394,13 +1888,23 @@ func _get_camouflage_target_texture(target_mesh_path: String, target_surface: in
 	var key := _camouflage_texture_key(target_mesh_path, target_surface)
 	if _camouflage_paint_textures.has(key):
 		return _camouflage_paint_textures[key] as Texture2D
-	var texture := CamouflageSystem.create_paint_layer_canvas()
+	var texture := _create_environment_prop_sync_canvas() if _is_environment_prop_preview_mesh_path(target_mesh_path) else CamouflageSystem.create_paint_layer_canvas()
 	_camouflage_paint_textures[key] = texture
 	return texture
 
 
 func _camouflage_texture_key(target_mesh_path: String, target_surface: int) -> String:
 	return "%s:%d" % [target_mesh_path, target_surface]
+
+
+func _is_environment_prop_preview_mesh_path(target_mesh_path: String) -> bool:
+	return target_mesh_path.find("EnvironmentBlendPreview") >= 0
+
+
+func _create_environment_prop_sync_canvas() -> Texture2D:
+	var image := Image.create(CamouflageSystem.TEXTURE_SIZE, CamouflageSystem.TEXTURE_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	return ImageTexture.create_from_image(image)
 
 
 func _normalize_camouflage_target_surface(mesh_instance: MeshInstance3D, target_surface: int) -> int:
@@ -1975,12 +2479,14 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 		clear_prop_disguise()
 		return
 
-	var effective_preset := preset.duplicate(true)
+	var effective_preset := _sanitize_environment_prop_disguise_preset(preset)
+	_clear_hunter_prop_sense_feedback()
 	_clear_prop_disguise_node()
 	_prop_disguise_node = _build_prop_disguise_node(effective_preset)
 	if not _prop_disguise_node:
 		return
 
+	_prop_death_visual_hidden = false
 	_prop_disguise_node.name = "PropDisguise"
 	_prop_disguise_height_offset = 0.0
 	_body.add_child(_prop_disguise_node)
@@ -1991,6 +2497,7 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 	_set_character_visual_visible(false)
 	_is_prop_disguised = true
 	_current_disguise_name = str(effective_preset.get("name", "Prop"))
+	_prop_disguise_is_q_scene_replica = bool(effective_preset.get("q_scene_prop_replica", false)) or str(effective_preset.get("disguise_source", "")) == "nearby_scene_prop_q"
 	_apply_prop_disguise_collision(effective_preset)
 	_snap_prop_disguise_to_floor()
 	_play_prop_disguise_land_animation(effective_preset)
@@ -2000,10 +2507,13 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func clear_prop_disguise() -> void:
+	_clear_hunter_prop_sense_feedback()
 	_clear_prop_disguise_node()
+	_prop_death_visual_hidden = false
 	_set_character_visual_visible(true)
 	_is_prop_disguised = false
 	_current_disguise_name = ""
+	_prop_disguise_is_q_scene_replica = false
 	_prop_disguise_base_position = Vector3.ZERO
 	_prop_disguise_height_offset = 0.0
 	_restore_default_collision_shape()
@@ -2016,6 +2526,127 @@ func is_disguised() -> bool:
 
 func get_disguise_name() -> String:
 	return _current_disguise_name
+
+
+func is_hunter_prop_sense_target() -> bool:
+	return is_chameleon() and _is_prop_disguised and _prop_disguise_is_q_scene_replica
+
+
+func set_hunter_prop_sense_revealed(revealed: bool, intensity: float = 1.0, beep_interval: float = 1.0, visual_active: bool = true) -> void:
+	if revealed and (not is_hunter_prop_sense_target() or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node)):
+		revealed = false
+	if not revealed:
+		_clear_hunter_prop_sense_feedback()
+		return
+	var was_revealed := _hunter_prop_sense_revealed
+	_hunter_prop_sense_revealed = true
+	_hunter_prop_sense_visual_active = visual_active
+	_hunter_prop_sense_intensity = clampf(intensity, 0.0, 1.0)
+	_hunter_prop_sense_beep_interval = clampf(beep_interval, 0.24, 2.1)
+	_ensure_hunter_prop_sense_feedback()
+	_update_hunter_prop_sense_feedback_transform()
+	if not was_revealed and not _hunter_prop_sense_ping_spawned:
+		_spawn_hunter_prop_sense_ping_marker()
+
+
+func is_hunter_prop_sense_revealed() -> bool:
+	return _hunter_prop_sense_revealed
+
+
+func is_hunter_prop_sense_visual_active() -> bool:
+	return _hunter_prop_sense_visual_active
+
+
+func get_hunter_prop_sense_outline_count() -> int:
+	var count := 0
+	for outline_id in _hunter_prop_sense_outline_nodes.keys():
+		var outline = _hunter_prop_sense_outline_nodes[outline_id]
+		if outline and is_instance_valid(outline):
+			count += 1
+	return count
+
+
+func get_hunter_prop_sense_position() -> Vector3:
+	if not _body or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
+		return global_position + Vector3.UP
+	var bounds := _calculate_prop_disguise_bounds_in_body_space()
+	if bounds.size == Vector3.ZERO:
+		return global_position + Vector3.UP
+	var center := _body.to_global(bounds.position + bounds.size * 0.5)
+	return Vector3(global_position.x, center.y, global_position.z)
+
+
+func get_hunter_prop_sense_ping_position() -> Vector3:
+	var span := _get_hunter_prop_sense_ping_vertical_span()
+	return Vector3(global_position.x, span.y, global_position.z)
+
+
+func get_hunter_prop_sense_ping_base_position() -> Vector3:
+	var span := _get_hunter_prop_sense_ping_vertical_span()
+	return Vector3(global_position.x, span.x, global_position.z)
+
+
+func _get_hunter_prop_sense_ping_vertical_span() -> Vector2:
+	var bottom_y := global_position.y + 0.08
+	var top_y := global_position.y + HUNTER_PROP_SENSE_PING_MIN_HEIGHT
+	if _body and _prop_disguise_node and is_instance_valid(_prop_disguise_node):
+		var bounds := _calculate_prop_disguise_bounds_in_body_space()
+		if bounds.size != Vector3.ZERO:
+			var center_x := bounds.position.x + bounds.size.x * 0.5
+			var center_z := bounds.position.z + bounds.size.z * 0.5
+			var bottom_center := _body.to_global(Vector3(center_x, bounds.position.y, center_z))
+			var top_center := _body.to_global(Vector3(center_x, bounds.position.y + bounds.size.y, center_z))
+			bottom_y = maxf(bottom_y, bottom_center.y + 0.08)
+			top_y = maxf(top_y, top_center.y + HUNTER_PROP_SENSE_PING_TOP_EXTRA)
+	if top_y < bottom_y + 1.2:
+		top_y = bottom_y + 1.2
+	return Vector2(bottom_y, top_y)
+
+
+func has_hunter_prop_sense_audio() -> bool:
+	return _hunter_prop_sense_audio != null and is_instance_valid(_hunter_prop_sense_audio) and _hunter_prop_sense_audio.stream != null
+
+
+func has_hunter_prop_sense_ping_marker() -> bool:
+	return _hunter_prop_sense_ping_marker != null and is_instance_valid(_hunter_prop_sense_ping_marker)
+
+
+func get_hunter_prop_sense_ping_marker_position() -> Vector3:
+	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
+		return _hunter_prop_sense_ping_marker.global_position
+	return Vector3.INF
+
+
+func get_hunter_prop_sense_ping_ring_count() -> int:
+	if not _hunter_prop_sense_ping_marker or not is_instance_valid(_hunter_prop_sense_ping_marker):
+		return 0
+	var count := 0
+	for child in _hunter_prop_sense_ping_marker.get_children():
+		if child is MeshInstance3D:
+			count += 1
+	return count
+
+
+func get_hunter_prop_sense_ping_marker_bottom_y() -> float:
+	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
+		return float(_hunter_prop_sense_ping_marker.get_meta("bottom_y", INF))
+	return INF
+
+
+func get_hunter_prop_sense_ping_marker_top_y() -> float:
+	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
+		return float(_hunter_prop_sense_ping_marker.get_meta("top_y", -INF))
+	return -INF
+
+
+func get_hunter_prop_sense_ping_expansion_multiplier() -> float:
+	return HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER
+
+
+func get_hunter_prop_sense_audio_volume_db() -> float:
+	if _hunter_prop_sense_audio and is_instance_valid(_hunter_prop_sense_audio):
+		return _hunter_prop_sense_audio.volume_db
+	return -INF
 
 
 func _process_prop_disguise_height(delta: float) -> void:
@@ -2127,6 +2758,8 @@ func _calculate_prop_disguise_bounds_in_body_space() -> AABB:
 
 
 func _find_prop_disguise_mesh_instances(node: Node, result: Array[MeshInstance3D]) -> void:
+	if node.name == "HunterPropSenseOutline":
+		return
 	if node is MeshInstance3D:
 		result.append(node as MeshInstance3D)
 	for child in node.get_children():
@@ -2176,6 +2809,292 @@ func _clear_prop_disguise_node() -> void:
 	_prop_disguise_node = null
 
 
+func _ensure_hunter_prop_sense_feedback() -> void:
+	if not _hunter_prop_sense_audio or not is_instance_valid(_hunter_prop_sense_audio):
+		_hunter_prop_sense_audio = AudioStreamPlayer3D.new()
+		_hunter_prop_sense_audio.name = "HunterPropSenseBeepAudio"
+		_hunter_prop_sense_audio.stream = _get_hunter_prop_sense_beep_stream()
+		_hunter_prop_sense_audio.volume_db = -7.5
+		_hunter_prop_sense_audio.max_distance = HUNTER_PROP_SENSE_AUDIO_RANGE
+		_hunter_prop_sense_audio.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		_hunter_prop_sense_audio.top_level = true
+		add_child(_hunter_prop_sense_audio)
+	if _hunter_prop_sense_visual_active:
+		_ensure_hunter_prop_sense_visual_feedback()
+	else:
+		_clear_hunter_prop_sense_visual_feedback()
+
+
+func _ensure_hunter_prop_sense_visual_feedback() -> void:
+	_refresh_hunter_prop_sense_outlines()
+	if not _hunter_prop_sense_glow_light or not is_instance_valid(_hunter_prop_sense_glow_light):
+		_hunter_prop_sense_glow_light = OmniLight3D.new()
+		_hunter_prop_sense_glow_light.name = "HunterPropSenseGlow"
+		_hunter_prop_sense_glow_light.light_color = Color(1.0, 0.06, 0.025, 1.0)
+		_hunter_prop_sense_glow_light.omni_range = HUNTER_PROP_SENSE_GLOW_RANGE
+		_hunter_prop_sense_glow_light.shadow_enabled = false
+		_hunter_prop_sense_glow_light.top_level = true
+		add_child(_hunter_prop_sense_glow_light)
+	_hunter_prop_sense_glow_light.visible = true
+	_hunter_prop_sense_glow_light.light_energy = lerpf(1.2, 3.8, _hunter_prop_sense_intensity)
+
+
+func _refresh_hunter_prop_sense_outlines() -> void:
+	if not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
+		return
+	var meshes: Array[MeshInstance3D] = []
+	_find_prop_disguise_mesh_instances(_prop_disguise_node, meshes)
+	var seen := {}
+	for mesh_instance in meshes:
+		if not mesh_instance.mesh:
+			continue
+		var mesh_id := mesh_instance.get_instance_id()
+		seen[mesh_id] = true
+		var outline: MeshInstance3D = _hunter_prop_sense_outline_nodes.get(mesh_id, null)
+		if not outline or not is_instance_valid(outline):
+			outline = MeshInstance3D.new()
+			outline.name = "HunterPropSenseOutline"
+			outline.mesh = mesh_instance.mesh
+			outline.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			outline.material_override = _get_hunter_prop_sense_outline_material()
+			outline.scale = Vector3.ONE * 1.055
+			outline.extra_cull_margin = 2.0
+			mesh_instance.add_child(outline)
+			_hunter_prop_sense_outline_nodes[mesh_id] = outline
+		outline.visible = true
+		outline.material_override = _get_hunter_prop_sense_outline_material()
+
+	for mesh_id in _hunter_prop_sense_outline_nodes.keys():
+		if seen.has(mesh_id):
+			continue
+		var stale_outline = _hunter_prop_sense_outline_nodes[mesh_id]
+		if stale_outline and is_instance_valid(stale_outline):
+			stale_outline.queue_free()
+		_hunter_prop_sense_outline_nodes.erase(mesh_id)
+
+
+func _process_hunter_prop_sense_feedback(delta: float) -> void:
+	if not _hunter_prop_sense_revealed:
+		return
+	if not _is_prop_disguised or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
+		_clear_hunter_prop_sense_feedback()
+		return
+	_update_hunter_prop_sense_feedback_transform()
+	_hunter_prop_sense_beep_timer -= delta
+	if _hunter_prop_sense_beep_timer <= 0.0:
+		_play_hunter_prop_sense_beep()
+		_hunter_prop_sense_beep_timer = _hunter_prop_sense_beep_interval
+
+
+func _update_hunter_prop_sense_feedback_transform() -> void:
+	var anchor := get_hunter_prop_sense_position()
+	if _hunter_prop_sense_visual_active and _hunter_prop_sense_glow_light and is_instance_valid(_hunter_prop_sense_glow_light):
+		_hunter_prop_sense_glow_light.global_position = anchor
+		_hunter_prop_sense_glow_light.light_energy = lerpf(1.2, 3.8, _hunter_prop_sense_intensity)
+	if _hunter_prop_sense_audio and is_instance_valid(_hunter_prop_sense_audio):
+		_hunter_prop_sense_audio.global_position = anchor
+		_hunter_prop_sense_audio.volume_db = lerpf(-7.5, -2.5, _hunter_prop_sense_intensity)
+
+
+func _play_hunter_prop_sense_beep() -> void:
+	if not _hunter_prop_sense_audio or not is_instance_valid(_hunter_prop_sense_audio):
+		return
+	if not _hunter_prop_sense_audio.stream:
+		_hunter_prop_sense_audio.stream = _get_hunter_prop_sense_beep_stream()
+	_hunter_prop_sense_audio.pitch_scale = lerpf(0.92, 1.26, _hunter_prop_sense_intensity)
+	_hunter_prop_sense_audio.play()
+
+
+func _clear_hunter_prop_sense_feedback() -> void:
+	_hunter_prop_sense_revealed = false
+	_hunter_prop_sense_visual_active = false
+	_hunter_prop_sense_intensity = 0.0
+	_hunter_prop_sense_beep_timer = 0.0
+	_hunter_prop_sense_ping_spawned = false
+	if _hunter_prop_sense_ping_tween and _hunter_prop_sense_ping_tween.is_valid():
+		_hunter_prop_sense_ping_tween.kill()
+	_hunter_prop_sense_ping_tween = null
+	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
+		_hunter_prop_sense_ping_marker.queue_free()
+	_hunter_prop_sense_ping_marker = null
+	_clear_hunter_prop_sense_visual_feedback()
+	if _hunter_prop_sense_audio and is_instance_valid(_hunter_prop_sense_audio):
+		_hunter_prop_sense_audio.stop()
+		_hunter_prop_sense_audio.queue_free()
+	_hunter_prop_sense_audio = null
+
+
+func _spawn_hunter_prop_sense_ping_marker() -> void:
+	_hunter_prop_sense_ping_spawned = true
+	if _hunter_prop_sense_ping_tween and _hunter_prop_sense_ping_tween.is_valid():
+		_hunter_prop_sense_ping_tween.kill()
+	_hunter_prop_sense_ping_tween = null
+	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
+		_hunter_prop_sense_ping_marker.queue_free()
+	var span := _get_hunter_prop_sense_ping_vertical_span()
+	var bottom_y := span.x
+	var top_y := span.y
+	var vertical_height := maxf(top_y - bottom_y, 1.2)
+	var marker := Node3D.new()
+	marker.name = "HunterPropSenseSoundPing"
+	marker.top_level = true
+	marker.set_meta("bottom_y", bottom_y)
+	marker.set_meta("top_y", top_y)
+	add_child(marker)
+	marker.global_position = Vector3(global_position.x, bottom_y, global_position.z)
+	_hunter_prop_sense_ping_marker = marker
+
+	var ring_count := clampi(int(ceil(vertical_height / HUNTER_PROP_SENSE_PING_RING_SPACING)) + 1, HUNTER_PROP_SENSE_PING_MIN_RINGS, HUNTER_PROP_SENSE_PING_MAX_RINGS)
+	for i in range(ring_count):
+		var height_ratio := 0.0 if ring_count <= 1 else float(i) / float(ring_count - 1)
+		var ring := MeshInstance3D.new()
+		ring.name = "HunterPropSenseSoundPingRing"
+		var mesh := SphereMesh.new()
+		mesh.radius = 0.5
+		mesh.height = 1.0
+		ring.mesh = mesh
+		ring.position = Vector3(0.0, vertical_height * height_ratio, 0.0)
+		var ground_emphasis := 1.0 - height_ratio
+		ring.scale = Vector3(0.30, lerpf(0.030, 0.016, height_ratio), 0.30)
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.material_override = _create_hunter_prop_sense_ping_material()
+		var ring_material := ring.material_override as ShaderMaterial
+		if ring_material:
+			ring_material.set_shader_parameter("alpha", lerpf(0.58, 1.0, ground_emphasis))
+			ring_material.set_shader_parameter("brightness", lerpf(0.82, 1.55, ground_emphasis))
+		marker.add_child(ring)
+
+	var light := OmniLight3D.new()
+	light.name = "HunterPropSenseSoundPingLight"
+	light.light_color = Color(1.0, 0.08, 0.025, 1.0)
+	light.omni_range = 1.25
+	light.light_energy = 3.4
+	light.shadow_enabled = true
+	light.position = Vector3(0.0, vertical_height * 0.5, 0.0)
+	marker.add_child(light)
+	var tween := create_tween()
+	_hunter_prop_sense_ping_tween = tween
+	tween.set_parallel(true)
+	for child in marker.get_children():
+		if not child is MeshInstance3D:
+			continue
+		var ring := child as MeshInstance3D
+		var height_ratio := 0.0 if vertical_height <= 0.0 else clampf(ring.position.y / vertical_height, 0.0, 1.0)
+		var ground_emphasis := 1.0 - height_ratio
+		var delay := height_ratio * 0.18
+		var expansion := lerpf(3.4, 4.5, height_ratio) * HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER
+		var ring_thickness := lerpf(0.052, 0.026, height_ratio)
+		tween.tween_property(ring, "scale", Vector3(expansion, ring_thickness, expansion), 1.0).set_delay(delay).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		var material := ring.material_override as ShaderMaterial
+		if material:
+			material.set_shader_parameter("alpha", lerpf(0.58, 1.0, ground_emphasis))
+			material.set_shader_parameter("brightness", lerpf(0.82, 1.55, ground_emphasis))
+			tween.tween_property(material, "shader_parameter/alpha", 0.0, 0.86).set_delay(delay + 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(light, "omni_range", 6.4 * HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER, 1.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(light, "light_energy", 0.0, 1.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.finished.connect(func():
+		if marker and is_instance_valid(marker):
+			marker.queue_free()
+		if _hunter_prop_sense_ping_marker == marker:
+			_hunter_prop_sense_ping_marker = null
+		if _hunter_prop_sense_ping_tween == tween:
+			_hunter_prop_sense_ping_tween = null
+	)
+
+
+func _create_hunter_prop_sense_ping_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_test_disabled, cull_disabled;
+
+uniform vec4 ping_color : source_color = vec4(1.0, 0.09, 0.02, 1.0);
+uniform float alpha = 0.72;
+uniform float brightness = 1.0;
+
+void fragment() {
+	float radial = length(UV - vec2(0.5));
+	float core = smoothstep(0.34, 0.0, radial) * 0.28;
+	float ring = smoothstep(0.50, 0.34, radial) * smoothstep(0.16, 0.30, radial);
+	float haze = smoothstep(0.52, 0.12, radial) * 0.22;
+	float pulse = core + ring + haze;
+	ALBEDO = ping_color.rgb;
+	EMISSION = ping_color.rgb * pulse * 3.4 * brightness;
+	ALPHA = clamp(pulse * alpha * (0.82 + brightness * 0.18), 0.0, 1.0);
+}
+"""
+	var material := ShaderMaterial.new()
+	material.resource_local_to_scene = true
+	material.shader = shader
+	material.set_shader_parameter("alpha", 0.72)
+	material.set_shader_parameter("brightness", 1.0)
+	return material
+
+
+func _clear_hunter_prop_sense_visual_feedback() -> void:
+	for outline_id in _hunter_prop_sense_outline_nodes.keys():
+		var outline = _hunter_prop_sense_outline_nodes[outline_id]
+		if outline and is_instance_valid(outline):
+			outline.queue_free()
+	_hunter_prop_sense_outline_nodes.clear()
+	if _hunter_prop_sense_glow_light and is_instance_valid(_hunter_prop_sense_glow_light):
+		_hunter_prop_sense_glow_light.queue_free()
+	_hunter_prop_sense_glow_light = null
+
+
+func _get_hunter_prop_sense_outline_material() -> ShaderMaterial:
+	if not _hunter_prop_sense_outline_material:
+		var shader := Shader.new()
+		shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_test_disabled, cull_front;
+
+uniform vec4 glow_color : source_color = vec4(1.0, 0.035, 0.015, 1.0);
+uniform float pulse_strength = 1.0;
+uniform float alpha_multiplier = 1.0;
+
+void fragment() {
+	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	float rim = pow(1.0 - view_dot, 1.6);
+	float pulse = 0.65 + sin(TIME * 7.0) * 0.18;
+	ALBEDO = glow_color.rgb;
+	EMISSION = glow_color.rgb * (1.6 + rim * 4.2) * pulse * pulse_strength;
+	ALPHA = clamp(0.20 + rim * 0.78, 0.18, 0.92) * alpha_multiplier;
+}
+"""
+		_hunter_prop_sense_outline_material = ShaderMaterial.new()
+		_hunter_prop_sense_outline_material.resource_local_to_scene = true
+		_hunter_prop_sense_outline_material.shader = shader
+	_hunter_prop_sense_outline_material.set_shader_parameter("pulse_strength", lerpf(0.75, 1.45, _hunter_prop_sense_intensity))
+	_hunter_prop_sense_outline_material.set_shader_parameter("alpha_multiplier", lerpf(0.32, 1.0, _hunter_prop_sense_intensity))
+	return _hunter_prop_sense_outline_material
+
+
+func _get_hunter_prop_sense_beep_stream() -> AudioStreamWAV:
+	if _hunter_prop_sense_beep_stream:
+		return _hunter_prop_sense_beep_stream
+	var sample_count := int(HUNTER_PROP_SENSE_BEEP_SAMPLE_RATE * HUNTER_PROP_SENSE_BEEP_SECONDS)
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / float(HUNTER_PROP_SENSE_BEEP_SAMPLE_RATE)
+		var envelope := 0.0
+		if t < 0.075:
+			envelope = sin((t / 0.075) * PI)
+		elif t >= 0.125 and t < 0.205:
+			envelope = sin(((t - 0.125) / 0.08) * PI)
+		var tone := sin(TAU * 780.0 * t) * 0.72 + sin(TAU * 1170.0 * t) * 0.28
+		var sample := int(clampf(tone * envelope * 0.62, -1.0, 1.0) * 32767.0)
+		data.encode_s16(i * 2, sample)
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = HUNTER_PROP_SENSE_BEEP_SAMPLE_RATE
+	stream.stereo = false
+	stream.data = data
+	_hunter_prop_sense_beep_stream = stream
+	return _hunter_prop_sense_beep_stream
+
+
 func _play_prop_disguise_land_animation(preset: Dictionary) -> void:
 	if not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
 		return
@@ -2214,9 +3133,21 @@ func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
 	holder.position = preset.get("offset", Vector3.ZERO)
 	holder.rotation = preset.get("rotation", Vector3.ZERO)
 	var mesh_type := str(preset.get("mesh", "box"))
+	if mesh_type == "runtime_gltf":
+		var runtime_node := _instantiate_environment_runtime_gltf(str(preset.get("runtime_model_path", "")))
+		if runtime_node:
+			runtime_node.name = "RuntimeGeneratedPropVisual"
+			runtime_node.scale = preset.get("scale", Vector3.ONE)
+			holder.add_child(runtime_node)
+			_apply_scene_prop_paint_profile(runtime_node, preset)
+			_disable_prop_collisions(runtime_node)
+			_apply_environment_prop_paint_payload(holder, preset)
+			return holder
+		mesh_type = str(preset.get("fallback_mesh", "box"))
 	if mesh_type == "scene":
 		var scene_path := str(preset.get("scene_path", ""))
 		var scene := load(scene_path)
+		var added_scene := false
 		if scene is PackedScene:
 			var scene_node := (scene as PackedScene).instantiate() as Node3D
 			if scene_node:
@@ -2224,8 +3155,13 @@ func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
 				scene_node.scale = preset.get("scale", Vector3.ONE)
 				holder.add_child(scene_node)
 				_apply_scene_prop_material(scene_node, str(preset.get("material_path", "")))
+				_apply_scene_prop_paint_profile(scene_node, preset)
 				_disable_prop_collisions(scene_node)
-		return holder
+				added_scene = true
+		if added_scene:
+			_apply_environment_prop_paint_payload(holder, preset)
+			return holder
+		mesh_type = str(preset.get("fallback_mesh", "box"))
 	match mesh_type:
 		"cactus":
 			_add_prop_mesh(holder, "cylinder", Vector3(0.38, 1.7, 0.38), Vector3(0, 0, 0), preset.get("color", Color.GREEN))
@@ -2234,7 +3170,21 @@ func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
 			_add_prop_mesh(holder, "cylinder", Vector3(0.18, 0.62, 0.18), Vector3(-0.33, 0.08, 0), preset.get("color", Color.GREEN), Vector3(0, 0, PI * 0.5))
 		_:
 			_add_prop_mesh(holder, mesh_type, preset.get("size", Vector3.ONE), Vector3.ZERO, preset.get("color", Color.WHITE))
+	_apply_environment_prop_paint_payload(holder, preset)
 	return holder
+
+
+func _instantiate_environment_runtime_gltf(model_path: String) -> Node3D:
+	if model_path.is_empty():
+		return null
+	var document := GLTFDocument.new()
+	var state := GLTFState.new()
+	var err := document.append_from_file(model_path, state)
+	if err != OK:
+		push_warning("Could not load runtime environment blend GLTF model: " + model_path)
+		return null
+	var scene := document.generate_scene(state)
+	return scene as Node3D if scene is Node3D else null
 
 
 func _add_prop_mesh(parent: Node3D, mesh_type: String, mesh_size: Vector3, local_pos: Vector3, color: Color, local_rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
@@ -2285,6 +3235,178 @@ func _apply_scene_prop_material(node: Node, material_path: String) -> void:
 	if not material_resource is Material:
 		return
 	_apply_material_to_unassigned_prop_meshes(node, material_resource as Material)
+
+
+func _apply_scene_prop_paint_profile(node: Node, preset: Dictionary) -> void:
+	if not preset.has("paint_color"):
+		return
+	var color: Color = preset.get("paint_color", Color.WHITE)
+	color.a = 1.0
+	var roughness := clampf(float(preset.get("paint_roughness", 0.72)), 0.0, 1.0)
+	var metallic := clampf(float(preset.get("paint_metallic", 0.0)), 0.0, 1.0)
+	var specular := clampf(float(preset.get("paint_specular", 0.45)), 0.0, 1.0)
+	_apply_paint_profile_to_prop_meshes(node, color, roughness, metallic, specular)
+
+
+func _apply_environment_prop_paint_payload(prop_root: Node3D, preset: Dictionary) -> void:
+	if not prop_root or not preset.has("paint_payload"):
+		return
+	var payload := _sanitize_environment_prop_paint_payload(preset.get("paint_payload", {}))
+	if payload.is_empty():
+		return
+	var base_color: Color = payload.get("base_color", Color(0.96, 0.94, 0.9, 1.0))
+	base_color.a = 1.0
+	var roughness := clampf(float(payload.get("roughness", 0.72)), 0.0, 1.0)
+	var metallic := clampf(float(payload.get("metallic", 0.0)), 0.0, 1.0)
+	var specular := clampf(float(payload.get("specular", 0.45)), 0.0, 1.0)
+	_apply_paint_profile_to_prop_meshes(prop_root, base_color, roughness, metallic, specular)
+	var surfaces: Array = payload.get("surfaces", [])
+	for entry in surfaces:
+		if not entry is Dictionary:
+			continue
+		var surface_payload := entry as Dictionary
+		var mesh_path := str(surface_payload.get("mesh_path", ""))
+		var mesh_instance := prop_root.get_node_or_null(mesh_path) as MeshInstance3D
+		if not mesh_instance:
+			continue
+		var surface := _normalize_camouflage_target_surface(mesh_instance, int(surface_payload.get("surface", 0)))
+		var texture := _texture_from_png_bytes(surface_payload.get("png", PackedByteArray()))
+		if not texture:
+			continue
+		var material := _create_environment_prop_paint_layer_material(base_color, texture, roughness, metallic, specular)
+		mesh_instance.set_surface_override_material(surface, material)
+
+
+func _create_environment_prop_paint_layer_material(
+	base_color: Color,
+	paint_texture: Texture2D,
+	roughness: float,
+	metallic: float,
+	specular: float
+) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = CAMOUFLAGE_PAINT_LAYER_SHADER
+	material.resource_local_to_scene = true
+	material.set_meta("camouflage_paint_layer", true)
+	material.set_shader_parameter("base_color", base_color)
+	material.set_shader_parameter("use_base_texture", false)
+	material.set_shader_parameter("paint_texture", paint_texture)
+	material.set_shader_parameter("paint_display_strength", 1.0)
+	material.set_shader_parameter("paint_exact_color_match", false)
+	material.set_shader_parameter("paint_roughness", roughness)
+	material.set_shader_parameter("paint_metallic", metallic)
+	material.set_shader_parameter("paint_specular", specular)
+	material.set_shader_parameter("use_paint_normal_texture", false)
+	material.set_shader_parameter("paint_normal_scale", 1.0)
+	material.set_meta("camouflage_bound_paint_texture", paint_texture)
+	material.set_meta("camouflage_bound_paint_strength", 1.0)
+	return material
+
+
+func _texture_from_png_bytes(value) -> Texture2D:
+	if not value is PackedByteArray:
+		return null
+	var bytes := value as PackedByteArray
+	if bytes.is_empty() or bytes.size() > ENVIRONMENT_PROP_PAINT_MAX_BYTES_PER_SURFACE:
+		return null
+	var image := Image.new()
+	var err := image.load_png_from_buffer(bytes)
+	if err != OK or image.is_empty():
+		return null
+	return ImageTexture.create_from_image(image)
+
+
+func _apply_paint_profile_to_prop_meshes(node: Node, color: Color, roughness: float, metallic: float, specular: float) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		var surface_count := _get_mesh_surface_count(mesh_instance)
+		if surface_count <= 0:
+			var material := _create_prop_paint_material(color, roughness, metallic, specular)
+			mesh_instance.material_override = material
+		else:
+			for surface in range(surface_count):
+				var material := _create_prop_paint_material(color, roughness, metallic, specular)
+				mesh_instance.set_surface_override_material(surface, material)
+	for child in node.get_children():
+		_apply_paint_profile_to_prop_meshes(child, color, roughness, metallic, specular)
+
+
+func _create_prop_paint_material(color: Color, roughness: float, metallic: float, specular: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.resource_local_to_scene = true
+	material.albedo_color = color
+	material.roughness = roughness
+	material.metallic = metallic
+	material.metallic_specular = specular
+	return material
+
+
+func _sanitize_environment_prop_disguise_preset(preset: Dictionary) -> Dictionary:
+	var clean := preset.duplicate(true)
+	if clean.has("paint_payload"):
+		var payload := _sanitize_environment_prop_paint_payload(clean.get("paint_payload", {}))
+		if payload.is_empty():
+			clean.erase("paint_payload")
+		else:
+			clean["paint_payload"] = payload
+	return clean
+
+
+func _sanitize_environment_prop_paint_payload(value) -> Dictionary:
+	if not value is Dictionary:
+		return {}
+	var payload := value as Dictionary
+	var raw_surfaces = payload.get("surfaces", [])
+	if not raw_surfaces is Array:
+		return {}
+	var clean_surfaces := []
+	var total_bytes := 0
+	for raw in raw_surfaces:
+		if clean_surfaces.size() >= ENVIRONMENT_PROP_PAINT_MAX_SURFACES:
+			break
+		if not raw is Dictionary:
+			continue
+		var entry := raw as Dictionary
+		var mesh_path := str(entry.get("mesh_path", ""))
+		if mesh_path.is_empty() or mesh_path.length() > 256 or mesh_path.begins_with("/") or mesh_path.find("..") >= 0:
+			continue
+		var png_bytes = entry.get("png", PackedByteArray())
+		if not png_bytes is PackedByteArray:
+			continue
+		var bytes := png_bytes as PackedByteArray
+		if bytes.is_empty() or bytes.size() > ENVIRONMENT_PROP_PAINT_MAX_BYTES_PER_SURFACE:
+			continue
+		if total_bytes + bytes.size() > ENVIRONMENT_PROP_PAINT_MAX_TOTAL_BYTES:
+			break
+		total_bytes += bytes.size()
+		clean_surfaces.append({
+			"mesh_path": mesh_path,
+			"surface": clampi(int(entry.get("surface", 0)), 0, 31),
+			"png": bytes,
+		})
+	if clean_surfaces.is_empty():
+		return {}
+	var base_color: Color = payload.get("base_color", Color(0.96, 0.94, 0.9, 1.0))
+	base_color.a = 1.0
+	return {
+		"version": 1,
+		"texture_size": clampi(int(payload.get("texture_size", ENVIRONMENT_PROP_PAINT_SYNC_SIZE)), 64, ENVIRONMENT_PROP_PAINT_SYNC_SIZE),
+		"base_color": base_color,
+		"roughness": clampf(float(payload.get("roughness", 0.72)), 0.0, 1.0),
+		"metallic": clampf(float(payload.get("metallic", 0.0)), 0.0, 1.0),
+		"specular": clampf(float(payload.get("specular", 0.45)), 0.0, 1.0),
+		"surfaces": clean_surfaces,
+	}
+
+
+func _image_has_visible_alpha(image: Image) -> bool:
+	if not image or image.is_empty():
+		return false
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			if image.get_pixel(x, y).a > 0.01:
+				return true
+	return false
 
 
 func _apply_material_to_unassigned_prop_meshes(node: Node, material: Material) -> void:
@@ -2620,6 +3742,10 @@ func get_inventory() -> PlayerInventory:
 func get_health() -> float:
 	return health
 
+
+func is_dead() -> bool:
+	return _is_dead
+
 func _add_starting_items():
 	if not player_inventory:
 		return
@@ -2642,48 +3768,349 @@ func _add_starting_items():
 func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 	if not multiplayer.is_server():
 		return
+	if _is_dead or health <= 0.0:
+		return
 
 	print("[Combat] Player ", name, " took ", amount, "% damage from ",
 		attacker_id, " (headshot=", is_headshot, ")")
 
 	health = max(0.0, health - amount)
-	_sync_health.rpc(health)
 
 	if health <= 0.0:
 		_server_die(attacker_id)
+	else:
+		_sync_health.rpc(health)
 
 
 func _server_die(killer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
+	if _is_dead:
+		return
 	print("[Combat] Player ", name, " killed by ", killer_id)
 
-	# 骞挎挱姝讳骸
+	_is_dead = true
+	health = 0.0
+	_sync_health.rpc(health)
 	_broadcast_death.rpc(killer_id)
-
-	# 绠€鍖栫殑姝讳骸澶勭悊:5s 鍚庨噸鐢?
-	await get_tree().create_timer(5.0).timeout
-	if multiplayer.is_server() and is_instance_valid(self):
-		health = 100.0
-		_sync_health.rpc(health)
-		# 閲嶇疆浣嶇疆
-		var level = get_tree().get_current_scene()
-		if level and level.has_method("get_spawn_point_for_role"):
-			var role = Network.players.get(int(name), {}).get("role", Network.Role.NONE)
-			global_position = level.get_spawn_point_for_role(role, int(name))
+	if Network.players.has(int(name)):
+		Network.server_set_player_alive(int(name), false)
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _broadcast_death(killer_id: int):
+	if not _is_authoritative_state_rpc_sender():
+		return
+	if _death_effect_played:
+		return
+	_death_effect_played = true
+	_is_dead = true
+	health = 0.0
 	print("[Combat] ", name, " was killed by ", killer_id)
-	clear_prop_disguise()
-	# TODO: 瑙﹀彂姝讳骸鍔ㄧ敾 + UI
+	var death_position := global_position
+	if _is_prop_role():
+		_spawn_prop_death_smoke(_get_prop_death_effect_position())
+		_spawn_prop_tombstone(death_position)
+		_play_prop_death_vanish()
+	else:
+		clear_prop_disguise()
+	# TODO: 瑙﹀彂姝讳骸 UI
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _sync_health(new_health: float):
+	if not _is_authoritative_state_rpc_sender():
+		return
+	if _is_dead and new_health > 0.0 and not _is_network_marked_alive():
+		health = 0.0
+		health_changed.emit(health)
+		return
 	health = new_health
+	if health <= 0.0:
+		_is_dead = true
+	if health > 0.0 and _prop_death_visual_hidden:
+		_prop_death_visual_hidden = false
+		_set_character_visual_visible(true)
 	health_changed.emit(health)
+
+
+func _is_authoritative_state_rpc_sender() -> bool:
+	var sender_id := multiplayer.get_remote_sender_id()
+	return sender_id == 0 or sender_id == 1
+
+
+func _is_network_marked_alive() -> bool:
+	var player_id := int(name)
+	if Network.players.has(player_id):
+		return bool(Network.players[player_id].get("alive", true))
+	return true
+
+
+func _is_prop_role() -> bool:
+	return role == Network.Role.CHAMELEON or role == Network.Role.STALKER
+
+
+func apply_network_alive_state(alive: bool) -> void:
+	if alive:
+		_is_dead = false
+		_death_effect_played = false
+		_prop_death_visual_hidden = false
+		if health <= 0.0:
+			health = 100.0
+			health_changed.emit(health)
+		if not _is_prop_disguised:
+			_set_character_visual_visible(true)
+		return
+	_is_dead = true
+	health = 0.0
+	health_changed.emit(health)
+	if _is_prop_role() and not _prop_death_visual_hidden:
+		_play_prop_death_vanish()
+
+
+func _play_prop_death_vanish() -> void:
+	_clear_hunter_prop_sense_feedback()
+	if not _is_prop_disguised or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
+		_set_character_visual_visible(false)
+		_prop_death_visual_hidden = true
+		_is_prop_disguised = false
+		_current_disguise_name = ""
+		_prop_disguise_is_q_scene_replica = false
+		_prop_disguise_base_position = Vector3.ZERO
+		_prop_disguise_height_offset = 0.0
+		_restore_default_collision_shape()
+		return
+	if _prop_disguise_tween and _prop_disguise_tween.is_valid():
+		_prop_disguise_tween.kill()
+	var vanish_node := _prop_disguise_node
+	_prop_death_visual_hidden = true
+	_prop_disguise_tween = create_tween()
+	_prop_disguise_tween.set_parallel(true)
+	_prop_disguise_tween.tween_property(vanish_node, "scale", Vector3(1.14, 0.08, 1.14), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	_prop_disguise_tween.tween_property(vanish_node, "position", vanish_node.position + Vector3(0.0, -0.12, 0.0), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_prop_disguise_tween.set_parallel(false)
+	_prop_disguise_tween.tween_callback(_clear_dead_prop_disguise_after_vanish)
+
+
+func _clear_dead_prop_disguise_after_vanish() -> void:
+	_clear_hunter_prop_sense_feedback()
+	_clear_prop_disguise_node()
+	_set_character_visual_visible(false)
+	_is_prop_disguised = false
+	_current_disguise_name = ""
+	_prop_disguise_is_q_scene_replica = false
+	_prop_disguise_base_position = Vector3.ZERO
+	_prop_disguise_height_offset = 0.0
+	_restore_default_collision_shape()
+
+
+func _get_prop_death_effect_position() -> Vector3:
+	if _is_prop_disguised and _prop_disguise_node and is_instance_valid(_prop_disguise_node):
+		var bounds := _calculate_node_bounds(_prop_disguise_node)
+		if bounds.size != Vector3.ZERO:
+			return _prop_disguise_node.global_transform * (bounds.position + bounds.size * 0.5)
+	var meshes := _get_stalker_visual_meshes()
+	if not meshes.is_empty():
+		var bounds := _calculate_meshes_world_bounds(meshes)
+		if bounds.size != Vector3.ZERO:
+			return bounds.position + bounds.size * 0.5
+	return global_position + Vector3.UP * 0.85
+
+
+func _calculate_meshes_world_bounds(meshes: Array[MeshInstance3D]) -> AABB:
+	var has_bounds := false
+	var bounds := AABB()
+	for mesh_instance in meshes:
+		if not mesh_instance or not is_instance_valid(mesh_instance) or not mesh_instance.mesh:
+			continue
+		var world_bounds := _transform_aabb(mesh_instance.global_transform, mesh_instance.get_aabb())
+		if not has_bounds:
+			bounds = world_bounds
+			has_bounds = true
+		else:
+			bounds = bounds.merge(world_bounds)
+	return bounds if has_bounds else AABB()
+
+
+func _spawn_prop_death_smoke(position: Vector3) -> void:
+	var scene_root := get_tree().get_current_scene() if get_tree() else null
+	if not scene_root:
+		scene_root = self
+	var root := Node3D.new()
+	root.name = "PropDeathSmokeRise"
+	root.top_level = true
+	scene_root.add_child(root)
+	root.global_position = position
+	var base_material := StandardMaterial3D.new()
+	base_material.resource_local_to_scene = true
+	base_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	base_material.albedo_color = Color(0.78, 0.80, 0.82, 0.48)
+	base_material.emission_enabled = true
+	base_material.emission = Color(0.42, 0.48, 0.54, 1.0)
+	base_material.emission_energy_multiplier = 0.18
+	for i in range(18):
+		var puff := MeshInstance3D.new()
+		puff.name = "PropDeathSmokePuff"
+		var mesh := SphereMesh.new()
+		mesh.radius = randf_range(0.055, 0.13)
+		mesh.height = mesh.radius * 2.0
+		puff.mesh = mesh
+		var material := base_material.duplicate() as StandardMaterial3D
+		material.albedo_color.a = randf_range(0.32, 0.56)
+		puff.material_override = material
+		root.add_child(puff)
+		var angle := randf() * TAU
+		var start_radius := randf_range(0.05, 0.34)
+		var start_height := randf_range(-0.36, 0.24)
+		puff.position = Vector3(cos(angle) * start_radius, start_height, sin(angle) * start_radius)
+		puff.scale = Vector3.ONE * randf_range(0.45, 0.85)
+		var drift_angle := angle + randf_range(-0.55, 0.55)
+		var drift_radius := randf_range(0.36, 0.92)
+		var rise := randf_range(0.82, 1.82)
+		var target := Vector3(cos(drift_angle) * drift_radius, start_height + rise, sin(drift_angle) * drift_radius)
+		var tween := puff.create_tween()
+		tween.parallel().tween_property(puff, "position", target, randf_range(0.82, 1.18)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(puff, "scale", Vector3.ONE * randf_range(1.6, 2.8), randf_range(0.82, 1.18)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(material, "albedo_color:a", 0.0, randf_range(0.72, 1.08)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	var cleanup := root.create_tween()
+	cleanup.tween_interval(1.35)
+	cleanup.tween_callback(root.queue_free)
+
+
+func _spawn_prop_tombstone(death_position: Vector3) -> void:
+	var scene_root := get_tree().get_current_scene() if get_tree() else null
+	if not scene_root:
+		scene_root = self
+	var tombstone := _instantiate_prop_tombstone()
+	tombstone.name = "PropDeathTombstone"
+	tombstone.top_level = true
+	scene_root.add_child(tombstone)
+	_fit_node_to_height(tombstone, PROP_TOMBSTONE_TARGET_HEIGHT)
+	var final_position := _resolve_tombstone_ground_position(death_position)
+	var apex_position := final_position + Vector3.UP * 0.78
+	tombstone.set_meta("death_rpc_synced", true)
+	tombstone.set_meta("starts_underground", true)
+	tombstone.set_meta("apex_offset", apex_position.y - final_position.y)
+	tombstone.global_position = final_position + Vector3.DOWN * 1.35
+	var final_scale := tombstone.scale
+	tombstone.scale = Vector3(final_scale.x * 0.58, final_scale.y * 0.12, final_scale.z * 0.58)
+	var tween := tombstone.create_tween()
+	tween.tween_property(tombstone, "global_position", apex_position, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(tombstone, "scale", Vector3(final_scale.x * 0.82, final_scale.y * 1.22, final_scale.z * 0.82), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(tombstone, "scale", Vector3(final_scale.x * 1.10, final_scale.y * 0.82, final_scale.z * 1.10), 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(tombstone, "global_position", final_position, 0.22).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(tombstone, "scale", Vector3(final_scale.x * 1.20, final_scale.y * 0.72, final_scale.z * 1.20), 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func(): _spawn_tombstone_landing_dust(scene_root, final_position))
+	tween.tween_property(tombstone, "scale", Vector3(final_scale.x * 0.94, final_scale.y * 1.08, final_scale.z * 0.94), 0.10).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(tombstone, "scale", final_scale, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _instantiate_prop_tombstone() -> Node3D:
+	var packed := load(PROP_TOMBSTONE_SCENE_PATH)
+	var tombstone: Node3D = null
+	if packed is PackedScene:
+		tombstone = (packed as PackedScene).instantiate() as Node3D
+	if not tombstone:
+		tombstone = _build_fallback_tombstone()
+	return tombstone
+
+
+func _build_fallback_tombstone() -> Node3D:
+	var root := Node3D.new()
+	var material := StandardMaterial3D.new()
+	material.resource_local_to_scene = true
+	material.albedo_color = Color(0.34, 0.36, 0.39, 1.0)
+	material.roughness = 0.86
+	var stone := MeshInstance3D.new()
+	stone.name = "FallbackTombstoneStone"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.72, 1.02, 0.18)
+	stone.mesh = mesh
+	stone.position.y = 0.51
+	stone.material_override = material
+	root.add_child(stone)
+	var cap := MeshInstance3D.new()
+	cap.name = "FallbackTombstoneCap"
+	var cap_mesh := SphereMesh.new()
+	cap_mesh.radius = 0.36
+	cap_mesh.height = 0.36
+	cap.mesh = cap_mesh
+	cap.position.y = 1.02
+	cap.scale = Vector3(1.0, 0.5, 0.25)
+	cap.material_override = material
+	root.add_child(cap)
+	return root
+
+
+func _resolve_tombstone_ground_position(death_position: Vector3) -> Vector3:
+	if not is_inside_tree() or not get_world_3d():
+		return death_position
+	var query := PhysicsRayQueryParameters3D.create(death_position + Vector3.UP * 2.0, death_position + Vector3.DOWN * 5.0, WORLD_COLLISION_MASK)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return death_position
+	return hit.get("position", death_position)
+
+
+func _fit_node_to_height(node: Node3D, target_height: float) -> void:
+	var bounds := _calculate_node_bounds(node)
+	if bounds.size.y <= 0.001:
+		node.scale = Vector3.ONE * 0.35
+		return
+	var scale_factor := target_height / bounds.size.y
+	node.scale *= scale_factor
+	bounds = _calculate_node_bounds(node)
+	if bounds.size != Vector3.ZERO:
+		node.position.y -= bounds.position.y
+
+
+func _calculate_node_bounds(node: Node3D) -> AABB:
+	var meshes: Array[MeshInstance3D] = []
+	_find_prop_disguise_mesh_instances(node, meshes)
+	var has_bounds := false
+	var bounds := AABB()
+	for mesh_instance in meshes:
+		if not mesh_instance.mesh:
+			continue
+		var local_bounds := _transform_aabb(node.global_transform.affine_inverse() * mesh_instance.global_transform, mesh_instance.get_aabb())
+		if not has_bounds:
+			bounds = local_bounds
+			has_bounds = true
+		else:
+			bounds = bounds.merge(local_bounds)
+	return bounds if has_bounds else AABB()
+
+
+func _spawn_tombstone_landing_dust(parent: Node, position: Vector3) -> void:
+	var root := Node3D.new()
+	root.name = "PropTombstoneLandingDust"
+	root.top_level = true
+	parent.add_child(root)
+	root.global_position = position
+	var dust_material := StandardMaterial3D.new()
+	dust_material.resource_local_to_scene = true
+	dust_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dust_material.albedo_color = Color(0.50, 0.43, 0.35, 0.42)
+	for i in range(10):
+		var mote := MeshInstance3D.new()
+		mote.name = "PropTombstoneDustMote"
+		var mesh := SphereMesh.new()
+		mesh.radius = randf_range(0.035, 0.075)
+		mesh.height = mesh.radius * 2.0
+		mote.mesh = mesh
+		mote.material_override = dust_material
+		root.add_child(mote)
+		var angle := randf() * TAU
+		var drift := Vector3(cos(angle), randf_range(0.18, 0.42), sin(angle)) * randf_range(0.18, 0.46)
+		var tween := mote.create_tween()
+		tween.parallel().tween_property(mote, "position", drift, 0.48).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(mote, "scale", Vector3.ONE * 0.15, 0.48).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var cleanup := root.create_tween()
+	cleanup.tween_interval(0.85)
+	cleanup.tween_callback(root.queue_free)
 
 
 # 鏈嶅姟鍣ㄤ晶:澶撮儴鍒ゅ畾(绠€鍖?鐢ㄧ鎾炰綅缃?vs 澶撮儴楂樺害)

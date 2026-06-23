@@ -24,6 +24,7 @@ extends Node3D
 var status_label: Label = null
 var combat_feedback_label: Label = null
 var skill_hud = null
+var match_status_hud = null
 
 # -----------------------------------------------------------------------------
 # Game state
@@ -126,6 +127,7 @@ func _ready():
 	# 鏈嶅姟鍣ㄩ€昏緫
 	Network.player_connected.connect(_on_player_connected)
 	Network.players_synced.connect(_on_players_synced)
+	Network.player_life_state_changed.connect(_on_player_life_state_changed)
 	if multiplayer.is_server():
 		multiplayer.peer_disconnected.connect(_remove_player)
 		Network.roles_assigned.connect(_on_roles_assigned)
@@ -350,6 +352,8 @@ func _sync_existing_player_node(peer_id: int, player_info: Dictionary) -> void:
 		player_node._sync_role_from_network()
 	if player_node.has_method("set_character_model"):
 		player_node.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	if player_node.has_method("apply_network_alive_state"):
+		player_node.apply_network_alive_state(bool(player_info.get("alive", true)))
 
 
 func _on_player_role_changed(peer_id: int, new_role: int):
@@ -363,6 +367,13 @@ func _on_player_role_changed(peer_id: int, new_role: int):
 	_try_reposition_player(peer_id)
 	_refresh_lobby_ui()
 	_update_skill_hud()
+
+
+func _on_player_life_state_changed(peer_id: int, alive: bool) -> void:
+	var player_node = players_container.get_node_or_null(str(peer_id)) if players_container else null
+	if player_node and player_node.has_method("apply_network_alive_state"):
+		player_node.apply_network_alive_state(alive)
+	_update_status_hud()
 
 
 func _on_roles_assigned():
@@ -393,6 +404,8 @@ func _add_player(id: int, player_info: Dictionary):
 	player.set_player_skin(skin_enum)
 	if player.has_method("set_character_model"):
 		player.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	if player.has_method("apply_network_alive_state"):
+		player.apply_network_alive_state(bool(player_info.get("alive", true)))
 
 	# 绔嬪嵆灏濊瘯鎸夎鑹插畾浣?瑙掕壊宸插垎閰嶇殑鎯呭喌)
 	# 瀹㈡埛绔彲鑳藉湪鑺傜偣 spawn 鏃惰繕涓嶇煡閬撹鑹?role=NONE),鍚庣画閫氳繃 _on_player_role_changed 鍐嶆瀹氫綅
@@ -548,7 +561,8 @@ func _server_start_from_lobby() -> void:
 
 func _server_start_prep_phase() -> void:
 	game_state = GameState.PREP
-	prep_remaining = float(Network.lobby_config.get("prep_duration_sec", 120))
+	prep_remaining = float(Network.lobby_config.get("prep_duration_sec", 30))
+	Network.server_reset_alive_states()
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
 	_server_spawn_unity_decorations()
@@ -566,7 +580,7 @@ func _server_start_prep_phase() -> void:
 	# 鍦?server 鏈湴绔嬪嵆鏇存柊 HUD
 	print("[Level] SERVER: prep_timer_label = ", prep_timer_label)
 	if prep_timer_label:
-		prep_timer_label.visible = true
+		prep_timer_label.visible = false
 		_update_prep_ui()
 		print("[Level] SERVER: PrepTimerLabel shown, text=", prep_timer_label.text)
 
@@ -1258,7 +1272,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 	# 鏄剧ず鍊掕鏃?HUD
 	print("[Level] prep_timer_label = ", prep_timer_label, " is_inside_tree = ", prep_timer_label != null and prep_timer_label.is_inside_tree())
 	if prep_timer_label:
-		prep_timer_label.visible = true
+		prep_timer_label.visible = false
 		_update_prep_ui()
 		print("[Level] PrepTimerLabel visible = ", prep_timer_label.visible, " text = ", prep_timer_label.text, " global_pos = ", prep_timer_label.global_position)
 	else:
@@ -1426,6 +1440,11 @@ func _ensure_status_hud() -> void:
 		combat_feedback_label.add_theme_constant_override("outline_size", 6)
 		combat_feedback_label.visible = false
 		hud.add_child(combat_feedback_label)
+	match_status_hud = hud.get_node_or_null("MatchStatusHUD")
+	if not match_status_hud and DisplayServer.get_name() != "headless":
+		match_status_hud = preload("res://scripts/match_status_hud.gd").new()
+		match_status_hud.name = "MatchStatusHUD"
+		hud.add_child(match_status_hud)
 	_update_status_hud()
 
 
@@ -1445,16 +1464,19 @@ func _ensure_skill_hud() -> void:
 
 func _set_hud_visible(visible_value: bool) -> void:
 	if prep_timer_label:
-		prep_timer_label.visible = visible_value and game_state == GameState.PREP
+		prep_timer_label.visible = false
 	if status_label:
 		status_label.visible = visible_value
 	if combat_feedback_label:
 		combat_feedback_label.visible = false
 	if skill_hud:
 		skill_hud.visible = visible_value and not main_menu.is_menu_visible()
+	if match_status_hud:
+		match_status_hud.visible = visible_value and (game_state == GameState.PREP or game_state == GameState.PLAY) and not main_menu.is_menu_visible()
 
 
 func _update_status_hud() -> void:
+	_update_match_status_hud()
 	if not status_label:
 		return
 	status_label.visible = not (main_menu and main_menu.is_menu_visible())
@@ -1485,6 +1507,40 @@ func _update_status_hud() -> void:
 	status_label.text = "\n".join(lines)
 
 
+func _update_match_status_hud() -> void:
+	if not match_status_hud:
+		return
+	var should_show := not (main_menu and main_menu.is_menu_visible()) and (game_state == GameState.PREP or game_state == GameState.PLAY)
+	if not should_show:
+		match_status_hud.clear()
+		return
+	var prop_counts := _alive_counts_for_roles([Network.Role.CHAMELEON, Network.Role.STALKER])
+	var hunter_counts := _alive_counts_for_roles([Network.Role.HUNTER])
+	var remaining := prep_remaining if game_state == GameState.PREP else match_remaining
+	var phase_label := I18n.t("prep_remaining") if game_state == GameState.PREP else I18n.t("match_remaining")
+	match_status_hud.set_match_state(
+		int(prop_counts.get("alive", 0)),
+		int(prop_counts.get("total", 0)),
+		int(hunter_counts.get("alive", 0)),
+		int(hunter_counts.get("total", 0)),
+		remaining,
+		phase_label
+	)
+
+
+func _alive_counts_for_roles(roles: Array) -> Dictionary:
+	var total := 0
+	var alive := 0
+	for pid in Network.players.keys():
+		var info: Dictionary = Network.players.get(pid, {})
+		if not roles.has(int(info.get("role", Network.Role.NONE))):
+			continue
+		total += 1
+		if bool(info.get("alive", true)):
+			alive += 1
+	return {"total": total, "alive": alive}
+
+
 func _update_skill_hud() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
@@ -1503,6 +1559,8 @@ func _update_skill_hud() -> void:
 		skill_hud.clear_skills()
 		return
 	skill_hud.set_skills(_skill_hud_entries_for_player(local_player))
+	if skill_hud.has_method("set_passive_skills"):
+		skill_hud.set_passive_skills(_passive_skill_hud_entries_for_player(local_player))
 
 
 func _skill_hud_entries_for_player(local_player: Character) -> Array:
@@ -1515,6 +1573,33 @@ func _skill_hud_entries_for_player(local_player: Character) -> Array:
 			return _stalker_skill_hud_entries(local_player)
 		_:
 			return _placeholder_skill_hud_entries("ROLE")
+
+
+func _passive_skill_hud_entries_for_player(local_player: Character) -> Array:
+	if local_player.role != Network.Role.HUNTER:
+		return []
+	var sense_system = local_player.get_node_or_null("HunterPropSenseSystem")
+	if not sense_system:
+		return []
+	var active := false
+	var active_remaining := 0.0
+	var cooldown_remaining := 0.0
+	if sense_system.has_method("is_passive_active"):
+		active = bool(sense_system.call("is_passive_active"))
+	if sense_system.has_method("get_passive_active_remaining"):
+		active_remaining = float(sense_system.call("get_passive_active_remaining"))
+	if sense_system.has_method("get_passive_cooldown_remaining"):
+		cooldown_remaining = float(sense_system.call("get_passive_cooldown_remaining"))
+	return [
+		{
+			"icon": "detect",
+			"active": active,
+			"charge_ratio": clampf(active_remaining / 10.0, 0.0, 1.0) if active else (0.0 if cooldown_remaining > 0.0 else 1.0),
+			"cooldown_remaining": cooldown_remaining,
+			"cooldown_total": 45.0,
+			"disabled": cooldown_remaining > 0.0,
+		},
+	]
 
 
 func _hunter_skill_hud_entries(local_player: Character) -> Array:
@@ -1771,7 +1856,7 @@ func _notification(what):
 		print("  F1 - Add random test item (debug)")
 		print("  F2 - Print inventory contents (debug)")
 		print("Match: ", Network.lobby_config.get("match_duration_sec", 600) / 60, " min")
-		print("Prep: ", Network.lobby_config.get("prep_duration_sec", 120), " s")
+		print("Prep: ", Network.lobby_config.get("prep_duration_sec", 30), " s")
 		print("Ratio: 1 Hunter : 3 Props")
 
 

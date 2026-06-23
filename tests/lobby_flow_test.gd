@@ -50,7 +50,7 @@ func _reset_network_state() -> void:
 		"gravity_mps2": 9.8,
 		"low_gravity_events": true,
 		"match_duration_sec": 600,
-		"prep_duration_sec": 120,
+		"prep_duration_sec": 30,
 		"host_hunter_count": -1,
 		"host_stalker_count": -1,
 		"stalker_glass_alpha_max": 0.125,

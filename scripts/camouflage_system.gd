@@ -42,6 +42,8 @@ const PAINT_ROUGHNESS_DEFAULT := 1.0
 const PAINT_METALLIC_DEFAULT := 0.0
 const PAINT_SPECULAR_DEFAULT := 0.5
 const PAINT_MATERIAL_STEP := 0.05
+const SCULPT_MIN_WORLD_RADIUS := 0.08
+const SCULPT_MAX_WORLD_RADIUS := 0.46
 const SURFACE_PREVIEW_OFFSET := 0.012
 const SURFACE_PREVIEW_SEGMENTS := 64
 const SURFACE_PREVIEW_RING_INNER_RADIUS := 0.78
@@ -92,6 +94,8 @@ var _performance_metrics := {}
 var _hud: CamouflageHUD = null
 var _surface_preview: MeshInstance3D = null
 var _surface_preview_material: StandardMaterial3D = null
+var _sculpt_system: Node = null
+var _environment_blend_system: Node = null
 static var _shared_brush_patch_cache: Dictionary = {}
 static var _shared_brush_patch_image_cache: Dictionary = {}
 
@@ -157,6 +161,13 @@ func _process(delta: float) -> void:
 	if not skill_active:
 		return
 
+	_sync_sculpt_hud_status()
+	var sculpt_blocks_paint := _sculpt_system and _sculpt_system.has_method("blocks_camouflage_paint_tick") and bool(_sculpt_system.call("blocks_camouflage_paint_tick"))
+	if sculpt_blocks_paint:
+		_update_surface_lock()
+		_pending_drag_paint = false
+		_sync_sculpt_hud_status()
+		return
 	if not has_sampled_color:
 		_hide_surface_preview()
 		return
@@ -176,8 +187,18 @@ func initialize(owner_node: CharacterBody3D, owner_camera: Camera3D) -> void:
 	_ensure_hud()
 
 
+func set_sculpt_system(system: Node) -> void:
+	_sculpt_system = system
+
+
+func set_environment_blend_system(system: Node) -> void:
+	_environment_blend_system = system
+
+
 func toggle_skill() -> bool:
-	if skill_active:
+	if _environment_blend_system and _environment_blend_system.has_method("toggle_wheel") and not skill_active:
+		_environment_blend_system.call("toggle_wheel")
+	elif skill_active:
 		deactivate_skill()
 	else:
 		activate_skill()
@@ -209,6 +230,7 @@ func activate_skill() -> void:
 	if _hud:
 		_hud.set_skill_active(true, has_sampled_color, brush_color, _current_brush_radius(), brush_angle)
 		_update_hud_material_controls()
+		_sync_sculpt_hud_status()
 	_hide_surface_preview()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	skill_activated.emit()
@@ -286,7 +308,23 @@ func try_absorb() -> bool:
 
 
 func is_brush_mode() -> bool:
-	return skill_active
+	return skill_active or _is_environment_blend_active()
+
+
+func _is_environment_blend_active() -> bool:
+	return _environment_blend_system and _environment_blend_system.has_method("is_active") and bool(_environment_blend_system.call("is_active"))
+
+
+func get_current_paint_profile() -> Dictionary:
+	return {
+		"has_sampled_color": has_sampled_color,
+		"color": brush_color,
+		"roughness": paint_roughness,
+		"metallic": paint_metallic,
+		"specular": paint_specular,
+		"brush_radius": _current_brush_radius(),
+		"brush_angle": brush_angle,
+	}
 
 
 func is_ready() -> bool:
@@ -298,12 +336,25 @@ func get_cooldown_remaining() -> float:
 
 
 func handle_brush_input(event: InputEvent) -> bool:
+	if _is_environment_blend_active() and _environment_blend_system.has_method("handle_skill_input"):
+		if bool(_environment_blend_system.call("handle_skill_input", event)):
+			return true
+
 	if not skill_active:
 		return false
 
 	if event.is_action_pressed("camouflage_absorb"):
 		deactivate_skill()
 		return true
+
+	if event is InputEventMouseMotion:
+		var active_motion := event as InputEventMouseMotion
+		if _resizing_brush:
+			_resize_brush(active_motion.relative)
+			return true
+		if _orbiting_camera:
+			_orbit_owner_camera(active_motion.relative)
+			return true
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_Z:
@@ -350,12 +401,6 @@ func handle_brush_input(event: InputEvent) -> bool:
 
 	if event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
-		if _resizing_brush:
-			_resize_brush(motion.relative)
-			return true
-		if _orbiting_camera:
-			_orbit_owner_camera(motion.relative)
-			return true
 		if has_sampled_color and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 			_paint_at_mouse(false, motion.position)
 			return true
@@ -524,6 +569,9 @@ func _paint_surface(surface: Dictionary, force: bool = false) -> void:
 	_stroke_wait = BRUSH_STROKE_INTERVAL
 	if _hud:
 		_hud.set_brush(_current_brush_radius(), brush_angle)
+	if _sculpt_system:
+		_sync_sculpt_brush_radius_from_paint_brush()
+	_sync_sculpt_hud_status()
 
 
 func _queue_pending_paint_request(screen_position: Vector2) -> void:
@@ -874,8 +922,12 @@ func _resize_brush(relative: Vector2) -> void:
 		BRUSH_MIN_RADIUS,
 		BRUSH_MAX_RADIUS
 	)
+	_sync_sculpt_brush_radius_from_paint_brush()
 	if _hud:
 		_hud.set_brush(_current_brush_radius(), brush_angle)
+	if skill_active and _is_sculpt_interaction_mode():
+		_update_surface_lock()
+	_sync_sculpt_hud_status()
 
 
 func _submit_brush_stroke(
@@ -999,13 +1051,57 @@ func _update_hud_material_controls() -> void:
 		_hud.set_material_controls(paint_exact_color_match, paint_roughness, paint_metallic)
 
 
+func _sync_sculpt_hud_status() -> void:
+	if not _hud or not _hud.has_method("set_sculpt_status"):
+		return
+	if not _sculpt_system or not _sculpt_system.has_method("get_debug_summary"):
+		_hud.call("set_sculpt_status", "", "", "", 0.0, 0.0)
+		return
+	var summary: Dictionary = _sculpt_system.call("get_debug_summary")
+	if not bool(summary.get("active", false)):
+		_hud.call("set_sculpt_status", "", "", "", 0.0, 0.0)
+		return
+	_hud.call(
+		"set_sculpt_status",
+		str(summary.get("state", "")),
+		str(summary.get("edit_mode", "")),
+		str(summary.get("sculpt_tool", "")),
+		float(summary.get("shape_commit_cooldown", 0.0)),
+		float(summary.get("brush_radius", 0.0))
+	)
+
+
+func _is_sculpt_interaction_mode() -> bool:
+	if not _sculpt_system or not _sculpt_system.has_method("get_debug_summary") or not _sculpt_system.has_method("blocks_camouflage_paint_tick"):
+		return false
+	var summary: Dictionary = _sculpt_system.call("get_debug_summary")
+	return bool(summary.get("active", false)) and bool(_sculpt_system.call("blocks_camouflage_paint_tick"))
+
+
+func _sync_sculpt_brush_radius_from_paint_brush() -> void:
+	if not _sculpt_system or not _sculpt_system.has_method("set_brush_radius"):
+		return
+	var t := inverse_lerp(BRUSH_MIN_RADIUS, BRUSH_MAX_RADIUS, brush_radius)
+	_sculpt_system.call("set_brush_radius", lerpf(SCULPT_MIN_WORLD_RADIUS, SCULPT_MAX_WORLD_RADIUS, t))
+
+
+func _current_sculpt_world_radius() -> float:
+	if not _sculpt_system or not _sculpt_system.has_method("get_debug_summary"):
+		return SCULPT_MIN_WORLD_RADIUS
+	var summary: Dictionary = _sculpt_system.call("get_debug_summary")
+	return clampf(float(summary.get("brush_radius", SCULPT_MIN_WORLD_RADIUS)), SCULPT_MIN_WORLD_RADIUS, SCULPT_MAX_WORLD_RADIUS)
+
+
 func _current_brush_radius() -> float:
 	return brush_radius
 
 
 func _update_surface_lock(screen_position: Vector2 = Vector2(-INF, -INF)) -> void:
 	var mouse := _resolve_screen_position(screen_position)
-	_surface_lock = _project_screen_to_body_surface(mouse, true)
+	if _is_sculpt_interaction_mode() and _sculpt_system and _sculpt_system.has_method("get_tool_surface_at_screen"):
+		_surface_lock = _sculpt_system.call("get_tool_surface_at_screen", mouse)
+	else:
+		_surface_lock = _project_screen_to_body_surface(mouse, true)
 	_surface_lock_mouse_position = mouse
 	if not _hud:
 		return
@@ -2107,12 +2203,13 @@ func _update_surface_preview(surface: Dictionary) -> void:
 		return
 	var clean_normal := normal.normalized()
 	var preview_position := position + clean_normal * SURFACE_PREVIEW_OFFSET
-	var radius := _brush_screen_radius_to_world(position, _current_brush_radius())
+	var sculpt_mode := _is_sculpt_interaction_mode()
+	var radius := _current_sculpt_world_radius() if sculpt_mode else _brush_screen_radius_to_world(position, _current_brush_radius())
 	var basis := _basis_from_surface_normal(clean_normal).scaled(Vector3(radius, radius, radius))
 	_surface_preview.global_transform = Transform3D(basis, preview_position)
 	_surface_preview.visible = true
 	if _surface_preview_material:
-		var color := brush_color if has_sampled_color else Color(0.78, 0.88, 1.0, 1.0)
+		var color := Color(0.70, 0.66, 1.0, 1.0) if sculpt_mode else (brush_color if has_sampled_color else Color(0.78, 0.88, 1.0, 1.0))
 		_surface_preview_material.albedo_color = Color(color.r, color.g, color.b, 0.82)
 
 
@@ -3498,3 +3595,4 @@ func _ensure_hud() -> void:
 	_hud.name = "CamouflageHUD"
 	parent.add_child(_hud)
 	_update_hud_material_controls()
+	_sync_sculpt_hud_status()

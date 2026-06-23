@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dfyh1ds3fp2go"
+path="res://.godot/imported/basic_human_solid_clone_remesh.obj-bc9d5f685e42fe61a9844a1409339d34.mesh"
+
+[deps]
+
+files=["res://.godot/imported/basic_human_solid_clone_remesh.obj-bc9d5f685e42fe61a9844a1409339d34.mesh"]
+
+source_file="res://assets/characters/basic/basic_human_solid_clone_remesh.obj"
+dest_files=["res://.godot/imported/basic_human_solid_clone_remesh.obj-bc9d5f685e42fe61a9844a1409339d34.mesh", "res://.godot/imported/basic_human_solid_clone_remesh.obj-bc9d5f685e42fe61a9844a1409339d34.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

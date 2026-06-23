@@ -26,6 +26,8 @@ const DAMAGE_FALLOFF_RANGE: float = 60.0
 const DAMAGE_FALLOFF_FACTOR: float = 0.5
 const SCAN_RANGE: float = 14.0
 const SCAN_COOLDOWN: float = 4.0
+const SCAN_SCULPT_RESET_RADIUS: float = 0.56
+const SCAN_SCULPT_RESET_AMOUNT: float = 0.45
 
 const MELEE_DAMAGE: float = 10.0  # 弹药耗尽时切近战
 
@@ -263,7 +265,9 @@ func _server_scan(sender_id: int) -> void:
 
 	if nearest_target:
 		var is_disguise: bool = nearest_target.has_method("is_disguised") and nearest_target.is_disguised()
-		if is_disguise:
+		if _apply_scan_counterplay_to_target(nearest_target):
+			_show_feedback_on_owner("CLAY SIGNAL %.1fm" % nearest_distance, Color(1.0, 0.62, 0.28, 1.0), 1.1)
+		elif is_disguise:
 			_show_feedback_on_owner("DISGUISE SIGNAL %.1fm" % nearest_distance, Color(0.18, 1.0, 0.86, 1.0), 1.1)
 		else:
 			_show_feedback_on_owner("PROP SIGNAL %.1fm" % nearest_distance, Color(0.65, 0.78, 1.0, 1.0), 1.0)
@@ -378,6 +382,28 @@ func _show_feedback_on_owner(text: String, color: Color = Color.WHITE, duration:
 		_client_weapon_feedback(text, color, duration)
 	else:
 		_client_weapon_feedback.rpc_id(owner_peer_id, text, color, duration)
+
+
+func _apply_scan_counterplay_to_target(target: Node3D) -> bool:
+	if not target or not target.has_method("apply_chameleon_sculpt_counterplay_reset"):
+		return false
+	var sculpt_system := target.get_node_or_null("ChameleonSculptSystem")
+	if not sculpt_system or not sculpt_system.has_method("get_debug_summary"):
+		return false
+	var summary: Dictionary = sculpt_system.call("get_debug_summary")
+	if not bool(summary.get("active", false)):
+		return false
+	var reset_position := target.global_position + Vector3.UP * 0.95
+	var shell := sculpt_system.get("shell") as Node3D
+	if shell and is_instance_valid(shell):
+		reset_position = shell.global_position + Vector3.UP * 0.95
+	target.call(
+		"apply_chameleon_sculpt_counterplay_reset",
+		reset_position,
+		SCAN_SCULPT_RESET_RADIUS,
+		SCAN_SCULPT_RESET_AMOUNT
+	)
+	return true
 
 
 func _show_tracer(start: Vector3, end: Vector3) -> void:

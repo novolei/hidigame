@@ -15,6 +15,8 @@ const METER_SLANT_Y := 4.0
 const KEY_FONT_SIZE := 22
 const TITLE_FONT_SIZE := 13
 const COOLDOWN_FONT_SIZE := 24
+const PASSIVE_CARD_SCALE := 0.67
+const PASSIVE_ROW_GAP := 14.0
 const ICON_TEXTURE_PATHS := {
 	"flashlight": "res://assets/ui/skills/flashlight.png",
 	"stealth": "res://assets/ui/skills/stealth.png",
@@ -28,6 +30,7 @@ const ICON_TEXTURE_PATHS := {
 }
 
 var _skills: Array = []
+var _passive_skills: Array = []
 var _title_font: Font = null
 var _value_font: Font = null
 var _icon_textures: Dictionary = {}
@@ -55,37 +58,44 @@ func _notification(what: int) -> void:
 
 func set_skills(skills: Array) -> void:
 	_skills = skills.duplicate(true)
-	visible = not _skills.is_empty()
+	visible = not _skills.is_empty() or not _passive_skills.is_empty()
+	queue_redraw()
+
+
+func set_passive_skills(skills: Array) -> void:
+	_passive_skills = skills.duplicate(true)
+	visible = not _skills.is_empty() or not _passive_skills.is_empty()
 	queue_redraw()
 
 
 func clear_skills() -> void:
 	_skills.clear()
+	_passive_skills.clear()
 	visible = false
 	queue_redraw()
 
 
 func _draw() -> void:
-	if _skills.is_empty():
+	if _skills.is_empty() and _passive_skills.is_empty():
 		return
 	var viewport_size := get_viewport_rect().size
 	var hud_scale := _get_hud_scale(viewport_size)
-	var card_size := CARD_SIZE * hud_scale
+	var start := _get_skill_row_start(viewport_size)
+	var card_size := _get_skill_card_size(viewport_size)
 	var card_gap := CARD_GAP * hud_scale
 	var step_y := STEP_Y * hud_scale
-	var margin := MARGIN * hud_scale
-	var total_width := float(_skills.size()) * card_size.x + float(maxi(_skills.size() - 1, 0)) * card_gap
-	var start := Vector2(
-		viewport_size.x - margin.x - total_width,
-		viewport_size.y - margin.y - card_size.y - float(maxi(_skills.size() - 1, 0)) * step_y
-	)
 	for i in range(_skills.size()):
 		var skill: Dictionary = _skills[i]
 		var pos := start + Vector2(float(i) * (card_size.x + card_gap), float(i) * step_y)
 		_draw_skill_card(skill, Rect2(pos, card_size), i, hud_scale)
+	var passive_rects := _get_passive_skill_rects(viewport_size)
+	var passive_scale := hud_scale * PASSIVE_CARD_SCALE
+	for i in range(_passive_skills.size()):
+		var passive_skill: Dictionary = _passive_skills[i]
+		_draw_skill_card(passive_skill, passive_rects[i], i, passive_scale, false)
 
 
-func _draw_skill_card(skill: Dictionary, rect: Rect2, index: int, hud_scale: float) -> void:
+func _draw_skill_card(skill: Dictionary, rect: Rect2, index: int, hud_scale: float, show_label: bool = true) -> void:
 	var active := bool(skill.get("active", false))
 	var disabled := bool(skill.get("disabled", false))
 	var cooldown_remaining := float(skill.get("cooldown_remaining", 0.0))
@@ -97,20 +107,19 @@ func _draw_skill_card(skill: Dictionary, rect: Rect2, index: int, hud_scale: flo
 	elif disabled or cooldown_remaining > 0.0:
 		accent = Color(0.72, 0.76, 0.80, 0.66)
 
-	var line_width := rect.size.x - 18.0 * hud_scale
-	var slant_angle := atan2(METER_SLANT_Y * hud_scale, line_width)
-	var icon_rect := rect.grow(-6.0 * hud_scale)
-	icon_rect.position.y -= 1.0 * hud_scale
-	icon_rect.size.y -= 8.0 * hud_scale
+	var slant_angle := _get_card_slant_angle(rect, hud_scale)
+	var icon_rect := _get_skill_icon_rect(rect, hud_scale)
 	_draw_icon(str(skill.get("icon", "locked")), icon_rect, accent, disabled or cooldown_remaining > 0.0, slant_angle)
 	_draw_charge_meter(rect, charge_ratio, active, disabled, hud_scale)
 
 	if cooldown_remaining > 0.0:
 		var ratio := clampf(cooldown_remaining / cooldown_total, 0.0, 1.0)
 		var overlay_rect := Rect2(icon_rect.position + Vector2(0.0, icon_rect.size.y * (1.0 - ratio)), Vector2(icon_rect.size.x, icon_rect.size.y * ratio))
-		draw_rect(overlay_rect, Color(0.0, 0.0, 0.0, 0.42), true)
-		_draw_centered_text(_get_value_font(), rect.position + Vector2(0.0, 48.0 * hud_scale), rect.size.x, "%.0fs" % ceil(cooldown_remaining), _scaled_font_size(COOLDOWN_FONT_SIZE, hud_scale), Color(1.0, 1.0, 1.0, 0.92))
+		_draw_slanted_rect(overlay_rect, slant_angle, Color(0.0, 0.0, 0.0, 0.42))
+		_draw_centered_text_slanted(_get_value_font(), rect.position + Vector2(0.0, 48.0 * hud_scale), rect.size.x, "%.0fs" % ceil(cooldown_remaining), _scaled_font_size(COOLDOWN_FONT_SIZE, hud_scale), Color(1.0, 1.0, 1.0, 0.92), slant_angle)
 
+	if not show_label:
+		return
 	var key := str(skill.get("key", str(index + 1)))
 	var key_y := rect.position.y + rect.size.y + 22.0 * hud_scale
 	_draw_centered_text(_get_value_font(), Vector2(rect.position.x, key_y), rect.size.x, key, _scaled_font_size(KEY_FONT_SIZE, hud_scale), Color(1.0, 0.97, 0.90, 0.95))
@@ -120,11 +129,9 @@ func _draw_skill_card(skill: Dictionary, rect: Rect2, index: int, hud_scale: flo
 
 
 func _draw_charge_meter(rect: Rect2, charge_ratio: float, active: bool, disabled: bool, hud_scale: float) -> void:
-	var width := rect.size.x - 18.0 * hud_scale
-	var y := rect.position.y + rect.size.y - 5.0 * hud_scale
-	var x := rect.position.x + 9.0 * hud_scale
-	var line_start := Vector2(x, y)
-	var line_end := Vector2(x + width, y + METER_SLANT_Y * hud_scale)
+	var meter_line := _get_charge_meter_line(rect, hud_scale)
+	var line_start: Vector2 = meter_line[0]
+	var line_end: Vector2 = meter_line[1]
 	draw_line(line_start + Vector2(0.0, 2.0 * hud_scale), line_end + Vector2(0.0, 2.0 * hud_scale), Color(0.02, 0.05, 0.07, 0.82), 5.0 * hud_scale, true)
 	if not disabled and charge_ratio > 0.0:
 		var color := Color(0.62, 0.92, 1.0, 0.95) if not active else Color(1.0, 0.92, 0.48, 1.0)
@@ -141,9 +148,25 @@ func _draw_icon(icon: String, rect: Rect2, color: Color, muted: bool, slant_angl
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+func _draw_slanted_rect(rect: Rect2, slant_angle: float, color: Color) -> void:
+	var center := rect.get_center()
+	draw_set_transform(center, slant_angle, Vector2.ONE)
+	draw_rect(Rect2(-rect.size * 0.5, rect.size), color, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 func _draw_centered_text(font: Font, pos: Vector2, width: float, text: String, size: int, color: Color) -> void:
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, Color(0.0, 0.0, 0.0, color.a * 0.48))
 	draw_string(font, pos - Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+
+
+func _draw_centered_text_slanted(font: Font, pos: Vector2, width: float, text: String, size: int, color: Color, slant_angle: float) -> void:
+	var pivot := pos + Vector2(width * 0.5, 0.0)
+	var local_pos := Vector2(-width * 0.5, 0.0)
+	draw_set_transform(pivot, slant_angle, Vector2.ONE)
+	draw_string(font, local_pos, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, Color(0.0, 0.0, 0.0, color.a * 0.48))
+	draw_string(font, local_pos - Vector2(1.0, 1.0), text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _load_font(path: String) -> Font:
@@ -158,6 +181,73 @@ func _get_hud_scale(viewport_size: Vector2) -> float:
 
 func _on_viewport_size_changed() -> void:
 	queue_redraw()
+
+
+func _get_skill_card_size(viewport_size: Vector2) -> Vector2:
+	return CARD_SIZE * _get_hud_scale(viewport_size)
+
+
+func _get_card_slant_angle(rect: Rect2, hud_scale: float) -> float:
+	return atan(_get_skill_row_slope())
+
+
+func _get_skill_row_slope() -> float:
+	return STEP_Y / (CARD_SIZE.x + CARD_GAP)
+
+
+func _get_charge_meter_line(rect: Rect2, hud_scale: float) -> Array[Vector2]:
+	var width := rect.size.x - 18.0 * hud_scale
+	var y := rect.position.y + rect.size.y - 5.0 * hud_scale
+	var x := _get_skill_icon_rect(rect, hud_scale).position.x
+	var line_start := Vector2(x, y)
+	var line_end := Vector2(x + width, y + width * _get_skill_row_slope())
+	return [line_start, line_end]
+
+
+func _get_skill_icon_rect(rect: Rect2, hud_scale: float) -> Rect2:
+	var icon_rect := rect.grow(-6.0 * hud_scale)
+	icon_rect.position.y -= 1.0 * hud_scale
+	icon_rect.size.y -= 8.0 * hud_scale
+	return icon_rect
+
+
+func _get_skill_row_start(viewport_size: Vector2) -> Vector2:
+	var hud_scale := _get_hud_scale(viewport_size)
+	var card_size := CARD_SIZE * hud_scale
+	var card_gap := CARD_GAP * hud_scale
+	var step_y := STEP_Y * hud_scale
+	var margin := MARGIN * hud_scale
+	var total_width := float(_skills.size()) * card_size.x + float(maxi(_skills.size() - 1, 0)) * card_gap
+	return Vector2(
+		viewport_size.x - margin.x - total_width,
+		viewport_size.y - margin.y - card_size.y - float(maxi(_skills.size() - 1, 0)) * step_y
+	)
+
+
+func _get_passive_skill_rects(viewport_size: Vector2) -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+	if _passive_skills.is_empty():
+		return rects
+	var hud_scale := _get_hud_scale(viewport_size)
+	var card_size := CARD_SIZE * hud_scale
+	var passive_size := card_size * PASSIVE_CARD_SCALE
+	var passive_gap := CARD_GAP * hud_scale * PASSIVE_CARD_SCALE
+	var passive_width := float(_passive_skills.size()) * passive_size.x + float(maxi(_passive_skills.size() - 1, 0)) * passive_gap
+	var skill_start := _get_skill_row_start(viewport_size)
+	var skill_row_right := skill_start.x + float(_skills.size()) * card_size.x + float(maxi(_skills.size() - 1, 0)) * CARD_GAP * hud_scale
+	if _skills.is_empty():
+		skill_row_right = viewport_size.x - MARGIN.x * hud_scale
+	var start := Vector2(
+		skill_row_right - passive_width,
+		skill_start.y - PASSIVE_ROW_GAP * hud_scale - passive_size.y
+	)
+	for i in range(_passive_skills.size()):
+		rects.append(Rect2(start + Vector2(float(i) * (passive_size.x + passive_gap), 0.0), passive_size))
+	return rects
+
+
+func get_passive_card_scale() -> float:
+	return PASSIVE_CARD_SCALE
 
 
 func _scaled_font_size(base_size: int, hud_scale: float) -> int:

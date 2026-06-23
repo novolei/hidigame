@@ -63,9 +63,9 @@ ItemDatabase="*res://scripts/item_database.gd"
 I18n="*res://scripts/i18n.gd"
 SteamBridge="*res://scripts/steam_bridge.gd"
 GameSettings="*res://scripts/game_settings.gd"
-BootSplashPlus="*uid://bfmnwl86vfxe1"
 SimpleGrass="*uid://bfq0snth8sj3h"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+BootSplashPlus="*uid://bfmnwl86vfxe1"
 
 [display]
 
@@ -164,10 +164,10 @@ stalker_grapple={
 [layer_names]
 
 3d_render/layer_17="SimpleGrassTextured interactive layer"
-3d_render/layer_21="Chameleon GPU paint overlay"
 3d_physics/layer_1="player"
 3d_physics/layer_2="world"
 3d_physics/layer_3="props"
+3d_render/layer_21="Chameleon GPU paint overlay"
 
 [shader_globals]
 

@@ -171,6 +171,8 @@ func try_replicate_nearby_prop() -> bool:
 		return false
 
 	var preset: Dictionary = prop.get_disguise_preset()
+	preset["q_scene_prop_replica"] = true
+	preset["disguise_source"] = "nearby_scene_prop_q"
 	current_preset_index = -1
 	is_shifting = true
 	shift_started.emit(current_preset_index, preset)

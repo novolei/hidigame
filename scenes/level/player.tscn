@@ -5021,7 +5021,7 @@ fov = 68.0
 [node name="PlayerNick" type="Node3D" parent="." unique_id=592014994]
 
 [node name="Nickname" type="Label3D" parent="PlayerNick" unique_id=751084048]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.97037, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.32, 0)
 billboard = 1
 outline_modulate = Color(0, 0, 0, 0.301961)
 text = "player name test"

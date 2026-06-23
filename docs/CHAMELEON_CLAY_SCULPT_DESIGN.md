@@ -1,5 +1,7 @@
 # Chameleon 人物泥塑设计文档
 
+> 2026-06-23 策略更新: 本文记录的是早期「体素外壳 + 人形锚点」方案。该方向已经被新的自由泥塑方案取代:藏匿者不需要维持人体部位或骨骼约束,而是把自身临时变成可吸附、可揉捏、可上色的环境伪装材料。新的主方案见 `docs/CHAMELEON_FREEFORM_CLAY_REFACTOR.md`。
+
 ## 1. 目标
 
 本功能把藏匿者的「环境融入」升级为一套可操作的现场泥塑工具。玩家进入环境融入技能后,先选择并调整一个可吸附到环境或物品表面的吸附点,然后生成一个与当前本体同大小、无 pose、可编辑的体素外壳。技能期间玩家可以使用 Paint / Sculpt 工具改造这个外壳的颜色、材质观感和体积轮廓;玩家也可以在任意时刻选择「还原本体」,立刻回到带骨骼动画的真实自身模型并恢复自由移动。
@@ -17,6 +19,9 @@
 - Paint 和 Sculpt 工具共用环境融入技能入口、HUD、取色和材质采样逻辑。
 - 玩家可以随时还原本体,还原后显示真实骨骼模型、恢复动画和自由移动。
 - 服务器必须校验吸附、雕刻、还原请求,客户端不能单方面宣布自己已经完美伪装。
+- 雕刻空间必须被硬性限制在本体尺寸附近的 AABB 内,不允许无限膨胀。
+- 玩家可以把泥塑作品保存为 UGC 造型,生成作品码,并支持点赞、下载和排行榜。
+- 多人同步以 SDF 笔触操作日志为主,压缩 snapshot 为辅,避免每帧同步完整体素体。
 
 ### 2.2 明确不做
 
@@ -25,6 +30,7 @@
 - 不让体素外壳具备完整骨骼动画。
 - 不在每一笔雕刻后重建复杂物理碰撞。
 - 不允许移除头、躯干、四肢等人形识别锚点。
+- 不允许 UGC 作品绕过本局技能规则,例如超出体积、删除锚点或伪造碰撞。
 
 ## 3. 核心循环
 
@@ -102,15 +108,15 @@
 
 ### 6.1 生成原则
 
-体素外壳不是复制当前动画姿态,而是以角色当前身高和碰撞体尺寸生成一套无 pose 静态人形体积:
+体素外壳不是复制当前动画姿态,而是从玩家当前真实本体的可见角色 Mesh 生成一套无 pose 静态体素外形:
 
-- 头部:球体或椭球。
-- 躯干:胶囊或椭球柱。
-- 双臂:简化胶囊,默认贴近躯干。
-- 双腿:简化胶囊,默认并拢或微分开。
-- 背部/底部:保留足够体积用于贴地、贴墙或贴物体。
+- 优先收集当前角色 active skin 或 GodotRobot 的 MeshInstance3D。
+- 对有 Skin / Skeleton 的角色,先把骨骼临时归零到 rest pose 并按 bind pose 手动烘焙顶点,避免复制跑步、跳跃、攻击等动画 pose。
+- 将烘焙后的三角面变换到 shell 局部空间,再体素化为可编辑 SDF。
+- 体素颜色优先来自顶点色或材质基础色,再由 Paint 系统继续覆盖。
+- 如果没有可用 Mesh 或烘焙失败,才退回程序化无 pose 人形 SDF。
 
-外壳尺寸来自当前真实本体的碰撞体和视觉包围盒,默认与本体同高度、同最大宽度。后续允许玩家通过 Sculpt 改变轮廓,但必须受人形锚点保护。
+外壳尺寸来自当前真实本体的视觉网格和编辑 AABB,默认与本体同高度、同最大宽度。后续允许玩家通过 Sculpt 改变轮廓,但必须受人形锚点保护。
 
 ### 6.2 推荐技术形态
 
@@ -138,6 +144,22 @@ MVP 使用 `VoxelTerrain` + `VoxelStreamMemory` + `VoxelMesherTransvoxel` 创建
 - `right_leg_core`
 
 雕刻的 Remove / Flatten 操作不能把锚点区域的 SDF 推到空气侧。Add / Smooth 可以影响锚点边缘,但不能让锚点失去可识别轮廓。
+
+### 6.4 雕刻空间硬限制
+
+雕刻空间不是无限体素世界,而是绑定到玩家同尺寸外壳的局部 AABB。当前原型采用 32³ 本体外壳,初始形状从玩家本体 Mesh rest-skin 体素化生成:
+
+```gdscript
+{
+    "grid": Vector3i(32, 32, 32),
+    "voxel_scale": 0.0625,
+    "local_bounds": AABB(Vector3(-0.86, 0.04, -0.62), Vector3(1.72, 1.82, 1.24)),
+    "min_radius": 0.08,
+    "max_radius": 0.46
+}
+```
+
+所有 Add / Remove / Smooth / Paint 输入先转换到外壳局部空间,再被夹到 `local_bounds`。边界外 voxel 强制为空,头、躯干、左右手臂、左右腿锚点强制保持实体。UGC 下载、网络 snapshot 和本地编辑都必须走同一套 compact body / snapshot 应用路径,不能因为来源不同绕过规则。
 
 ## 7. 工具设计
 
@@ -281,16 +303,89 @@ MVP snapshot 可用操作日志:
 
 后续如果操作日志过长,改为压缩 `VoxelBuffer` 数据块。
 
-## 10. 视觉与反馈
+### 9.5 最优化多人数据共享方案
 
-### 10.1 吸附预览
+多人同步分三层,按带宽从低到高递进:
+
+| 层级 | 用途 | 传输内容 | 可靠性 |
+|---|---|---|---|
+| Stroke op-log | 实时雕刻 | `tool_names`, `world_positions`, `radii`, `strengths` 批量笔触 | `unreliable_ordered` |
+| Keyframe snapshot | 新玩家加入、丢包恢复 | compact body: `sdf_q_rle`, `palette`, `color_indices_rle` | `reliable` |
+| UGC body | 作品码/下载 | 与 keyframe snapshot 同格式,附带 name/author/likes/downloads | HTTP/平台服务或本地文件 |
+
+运行期不传完整 mesh。客户端和服务器都持有同一个局部 SDF shell,实时只传笔触参数并重放 `VoxelTool.do_sphere` / 本地 smooth。服务端每隔 N 笔或形态提交时生成 compact body:
+
+```gdscript
+{
+    "version": 1,
+    "grid": [32, 32, 32],
+    "voxel_scale": 0.125,
+    "sdf_scale": 1024.0,
+    "sdf_q_rle": [[value, count], ...],
+    "palette": ["c8b391", ...],
+    "color_indices_rle": [[index, count], ...],
+    "solid_count": int,
+    "checksum": int
+}
+```
+
+这个格式比完整 float SDF 更适合多人共享:固定体积、可 RLE、可校验、可直接复用为 UGC 作品体。当前原型内部 SDF 使用 32-bit,避免本地 snapshot 重放的二次量化误差;网络和 UGC 边界再统一量化到 `sdf_scale`。
+
+## 10. UGC 分享系统
+
+UGC 是泥塑系统的长期价值层。玩家不只是在局内捏自己,还可以把一个合法外壳保存为作品并分享。
+
+### 10.1 作品数据
+
+最小作品结构:
+
+```json
+{
+  "id": "8hex",
+  "name": "FakeTree",
+  "author_id": "player-or-platform-id",
+  "created_at_unix": 1780000000,
+  "body": {
+    "version": 1,
+    "grid": [32, 32, 32],
+    "sdf_q_rle": [[128, 20], [-512, 4]],
+    "palette": ["c8b391", "33cc59"],
+    "color_indices_rle": [[0, 3000], [1, 120]]
+  },
+  "likes": 0,
+  "downloads": 0
+}
+```
+
+`body` 必须是通过安全规则导出的 compact body,不能接收任意外部 mesh。下载别人造型时先 `decode_share_code()` 再 `apply_compact_body()`,由外壳脚本重新执行 AABB、锚点和体积保护。
+
+### 10.2 玩家功能
+
+| 功能 | MVP 行为 | 后续扩展 |
+|---|---|---|
+| 保存 | 把当前 shell 导出为 compact body 并写入本地库 | 上传到平台服务 |
+| 分享作品码 | JSON -> Base64,前缀 `HIDI-CLAY-1:` | 短码服务/二维码 |
+| 点赞 | 本地或服务器给作品 `likes += 1` | 防刷、账号限频 |
+| 下载别人造型 | 导入作品码并应用到 shell | 收藏夹/赛季主题 |
+| 排行榜 | 按 likes、downloads 排序 | 周榜、好友榜、地图榜 |
+
+### 10.3 风险控制
+
+- 分享码只保存体素体,不保存脚本、材质路径或外部资源路径。
+- 作品导入后必须再次执行空间限制和锚点保护。
+- 排行榜展示的是作品预览和统计,不直接影响对局强度。
+- 局内使用 UGC 造型时仍受技能冷却、吸附、可见破绽和 Hunter 反制约束。
+
+## 11. 视觉与反馈
+
+### 11.1 吸附预览
 
 - 可吸附表面:绿色或当前 sampled color 圆环。
 - 不可吸附表面:红色圆环并显示简短失败原因。
 - 外壳包围盒:半透明人形轮廓。
 - 法线:短箭头,用于提示外壳会贴向哪个方向。
 
-### 10.2 泥塑反馈
+### 11.2 泥塑反馈
 
 - Add: 软泥鼓起效果。
 - Remove: 刮削粉尘或碎片。
@@ -298,14 +393,15 @@ MVP snapshot 可用操作日志:
 - Flatten: 表面压痕和刮平线。
 - Paint: 沿用现有笔触和湿润反光。
 
-### 10.3 Hunter 识别线索
+### 11.3 Hunter 识别线索
 
 - 雕刻边缘保留轻微体素化轮廓。
 - 过度 Flatten 会产生可见压痕。
 - 吸附点附近有短暂残留痕迹。
 - 近距离手电照射可增强体素外壳边缘高光。
+- Hunter `SCAN` 命中正在泥塑的藏匿者时,会对外壳中心附近做一次局部 soft reset,让过度雕刻的体素向默认人形回弹并暴露泥塑破绽。
 
-## 11. 与现有系统的关系
+## 12. 与现有系统的关系
 
 | 现有系统 | 关系 |
 |---|---|
@@ -315,20 +411,24 @@ MVP snapshot 可用操作日志:
 | `CharacterBody3D` 移动 | `SHELL_ACTIVE` 期间冻结或极慢;还原后恢复 |
 | `SkillHUD` / `CamouflageHUD` | 增加子模式、吸附状态、雕刻工具和还原提示 |
 | `shadow_visibility_system.gd` | 不直接耦合;但 Hunter 反制可读取外壳状态增强显示 |
+| `WeaponSystem` | Hunter `SCAN` 发现泥塑外壳时触发服务端广播的 soft reset |
+| `ChameleonSculptUGC` | 保存、作品码、点赞、下载和排行榜的本地/平台数据入口 |
 
-## 12. 文件落点建议
+## 13. 文件落点建议
 
 | 文件 | 作用 |
 |---|---|
 | `scripts/chameleon_sculpt_system.gd` | 状态机、输入、吸附、工具调度 |
-| `scripts/self_voxel_shell.gd` | 体素外壳生成、编辑、snapshot |
+| `scripts/self_voxel_body.gd` | 体素外壳生成、编辑、compact body、snapshot |
+| `scripts/chameleon_sculpt_ugc.gd` | UGC 保存、作品码、点赞、下载、排行榜 |
+| `scripts/weapon_system.gd` | Hunter SCAN 对泥塑外壳触发局部 soft reset |
 | `scripts/sculpt_anchor.gd` | 吸附目标解析、预览、合法性校验 |
-| `scenes/effects/self_voxel_shell.tscn` | 体素外壳场景 |
-| `shaders/chameleon_voxel_shell.gdshader` | 体素外壳渲染与 Paint 材质 |
+| `scenes/effects/self_voxel_body.tscn` | 体素外壳场景 |
+| `shaders/chameleon_clay_shell.gdshader` | 体素外壳渲染与 Paint 材质 |
 | `tests/chameleon_sculpt_system_test.gd` | 状态机与规则测试 |
-| `tests/self_voxel_shell_test.gd` | SDF 生成、锚点保护、操作重放 |
+| `tests/chameleon_sculpt_ugc_test.gd` | 作品码、下载、点赞、排行榜测试 |
 
-## 13. 实施计划
+## 14. 实施计划
 
 ### Phase 0: 插件兼容性验证
 
@@ -342,7 +442,7 @@ MVP snapshot 可用操作日志:
 ### Phase 1: 单机泥塑原型
 
 - 新建 `SelfVoxelShell`。
-- 根据玩家碰撞体生成无 pose 同尺寸人形 SDF。
+- 根据玩家当前可见角色 Mesh 生成无 pose 同尺寸 SDF,无可用 Mesh 时 fallback 到程序化人形 SDF。
 - 实现 Add / Remove / Smooth。
 - 实现人形锚点保护。
 - 实现 Reset Shell。
@@ -376,16 +476,25 @@ MVP snapshot 可用操作日志:
 
 通过标准:Host + Client 下吸附、雕刻、上色、还原一致。
 
-### Phase 5: 反制与平衡
+### Phase 5: UGC 分享
+
+- 导出当前 shell compact body。
+- 生成 `HIDI-CLAY-1:` 作品码。
+- 导入作品码并下载到本地库。
+- 点赞、下载计数、排行榜排序。
+
+通过标准:玩家可以保存 `FakeTree` 一类作品,复制作品码给别人,别人导入后得到合法可编辑外壳。
+
+### Phase 6: 反制与平衡
 
 - 手电增强边缘线索。
 - 雨或水攻击冲刷 Paint 并软化 Sculpt 外壳。
-- Hunter 扫描显示吸附残留。
+- Hunter 扫描显示吸附残留,并对活跃泥塑外壳做局部 soft reset。
 - 调整雕刻期间移动限制和还原延迟。
 
 通过标准:藏匿者有创造力,但 Hunter 仍有观察和道具反制路径。
 
-## 14. 验收标准
+## 15. 验收标准
 
 - 藏匿者可以进入环境融入技能并选择合法吸附点。
 - 玩家能调整吸附点位置、朝向和贴合偏移。
@@ -397,14 +506,16 @@ MVP snapshot 可用操作日志:
 - 玩家任意时刻还原后恢复真实骨骼模型、动画和自由移动。
 - 多人下远端玩家能看到外壳状态和主要编辑结果。
 - 断线重连或新加入玩家能通过 snapshot 看到当前外壳。
+- 雕刻空间被限制在固定局部 AABB 和体积预算内。
+- UGC 作品可以保存、生成作品码、导入下载、点赞并进入排行榜。
+- UGC 下载造型不会绕过人形锚点和体积限制。
 - 现有 `ShapeShiftSystem`、Stalker 隐身、Hunter 武器不因本功能回退。
 
-## 15. 待决问题
+## 16. 待决问题
 
 - 雕刻期间是否完全禁止移动,还是允许沿吸附表面小范围滑移。
 - 体素外壳是否参与命中判定,还是继续使用玩家 capsule。
 - 体素外壳颜色最终采用 voxel color channel,还是继续使用现有 GPU overlay。
 - 还原本体是否需要 0.2s 到 0.5s 暴露动画。
 - 吸附到动态物体时,是否随目标移动或在目标移动时强制还原。
-- 雕刻外壳是否可以保存为档案预设,还是只允许单局临时存在。
-
+- UGC 排行榜先做本地/房间榜,还是接入平台账号和服务器榜单。

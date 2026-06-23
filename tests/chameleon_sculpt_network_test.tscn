@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/chameleon_sculpt_network_test.gd" id="1_chameleon_sculpt_network_test"]
+
+[node name="ChameleonSculptNetworkTest" type="Node3D"]
+script = ExtResource("1_chameleon_sculpt_network_test")

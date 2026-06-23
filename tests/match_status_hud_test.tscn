@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/match_status_hud_test.gd" id="1_match_status_hud_test"]
+
+[node name="MatchStatusHUDTest" type="Node"]
+script = ExtResource("1_match_status_hud_test")

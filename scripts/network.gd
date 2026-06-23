@@ -55,6 +55,7 @@ var player_info: Dictionary = {
 	"skin": SKIN_BLUE,
 	"character_model": DEFAULT_CHARACTER_MODEL,
 	"role": Role.NONE,
+	"alive": true,
 	"role_locked": false,
 	"join_room_name": ""
 }
@@ -75,7 +76,7 @@ var lobby_config: Dictionary = {
 	"gravity_mps2": 9.8,
 	"low_gravity_events": true,
 	"match_duration_sec": 600,       # 10 分钟默认
-	"prep_duration_sec": 120,        # 120 秒默认
+	"prep_duration_sec": 30,         # 30 秒默认
 	"host_hunter_count": -1,         # -1 表示按 1:3 自动
 	"host_stalker_count": -1,        # -1 表示按 1:1 自动
 	"stalker_glass_alpha_max": 0.125,
@@ -89,6 +90,7 @@ var lobby_config: Dictionary = {
 signal player_connected(peer_id, player_info)
 signal players_synced(all_players)
 signal player_role_changed(peer_id, new_role)        # 角色变化
+signal player_life_state_changed(peer_id, alive)
 signal player_disconnected(peer_id)
 signal server_disconnected
 signal roles_assigned()                              # 服务器完成角色分配
@@ -208,6 +210,7 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	player_info["skin"] = skin_str_to_e(skin_color_str)
 	player_info["character_model"] = normalize_character_model(character_model)
 	player_info["role"] = host_role
+	player_info["alive"] = true
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = ""
 	player_info["join_room_name"] = ""
@@ -273,6 +276,7 @@ func join_game(nickname: String, skin_color_str: String, address: String = SERVE
 	player_info["skin"] = skin_enum
 	player_info["character_model"] = normalize_character_model(character_model)
 	player_info["role"] = client_role
+	player_info["alive"] = true
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = lobby_id.strip_edges().to_upper()
 	player_info["join_room_name"] = room_name.strip_edges()
@@ -568,6 +572,8 @@ func _on_player_connected(id):
 func _register_player(new_player_info):
 	var new_player_id = multiplayer.get_remote_sender_id()
 	new_player_info["character_model"] = normalize_character_model(str(new_player_info.get("character_model", DEFAULT_CHARACTER_MODEL)))
+	if not new_player_info.has("alive"):
+		new_player_info["alive"] = true
 	if multiplayer.is_server():
 		var provided_id = str(new_player_info.get("join_lobby_id", "")).to_upper()
 		if not is_lobby_id_valid(provided_id):
@@ -603,6 +609,33 @@ func _broadcast_full_sync(all_players: Dictionary, config: Dictionary):
 	lobby_config = config
 	lobby_config_updated.emit(lobby_config)
 	players_synced.emit(players)
+
+
+func server_reset_alive_states() -> void:
+	if not multiplayer.is_server():
+		return
+	for pid in players.keys():
+		players[pid]["alive"] = true
+	_broadcast_full_sync.rpc(players, lobby_config)
+	players_synced.emit(players)
+
+
+func server_set_player_alive(peer_id: int, alive: bool) -> void:
+	if not multiplayer.is_server() or not players.has(peer_id):
+		return
+	if bool(players[peer_id].get("alive", true)) == alive:
+		return
+	players[peer_id]["alive"] = alive
+	player_life_state_changed.emit(peer_id, alive)
+	_broadcast_player_life_state.rpc(peer_id, alive)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _broadcast_player_life_state(peer_id: int, alive: bool) -> void:
+	if not players.has(peer_id):
+		return
+	players[peer_id]["alive"] = alive
+	player_life_state_changed.emit(peer_id, alive)
 
 
 func _on_player_disconnected(id):

@@ -1034,7 +1034,7 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(game_show_option, str(config.get("game_show", "None")), 0)
 	_set_option_by_value(gravity_option, float(config.get("gravity_mps2", 9.8)), 1)
 	_set_option_by_value(duration_option, int(config.get("match_duration_sec", 600)), 1)
-	_set_option_by_value(prep_option, int(config.get("prep_duration_sec", 120)), 2)
+	_set_option_by_value(prep_option, int(config.get("prep_duration_sec", 30)), 0)
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
 	_set_option_by_value(stalker_glass_option, float(config.get("stalker_glass_alpha_max", 0.125)), 2)
 
@@ -1050,7 +1050,7 @@ func _collect_lobby_config() -> Dictionary:
 		"gravity_mps2": float(_get_option_value(gravity_option, 9.8)),
 		"low_gravity_events": _get_option_value(game_show_option, "None") == "Chaos Show",
 		"match_duration_sec": int(_get_option_value(duration_option, 600)),
-		"prep_duration_sec": int(_get_option_value(prep_option, 120)),
+		"prep_duration_sec": int(_get_option_value(prep_option, 30)),
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
 		"stalker_glass_alpha_max": float(_get_option_value(stalker_glass_option, 0.125)),
 	}
