@@ -21,6 +21,11 @@ const SKIN_YELLOW := 1
 const SKIN_GREEN := 2
 const SKIN_RED := 3
 const CharacterSkinCatalogScript := preload("res://scripts/character_skin_catalog.gd")
+const CardDatabase := preload("res://scripts/card_database.gd")
+const CARD_DRAFT_TOTAL_SECONDS := 20.0
+const CARD_DRAFT_PICK_SECONDS := 10.0
+const CARD_DRAFT_REQUIRED_PICKS := 2
+const CARD_DRAFT_TIMER_SYNC_SECONDS := 0.25
 
 # -----------------------------------------------------------------------------
 # 角色枚举(全局共享,Character / Player / Network 都用这个)
@@ -99,6 +104,16 @@ signal prep_phase_started(remaining_sec: float)      # 准备阶段开始
 signal prep_phase_ended()                            # 准备阶段结束
 signal match_started()                               # 正式比赛开始
 signal start_match_requested()                       # host 点击开始
+signal card_draft_updated(peer_id: int, draft_state: Dictionary)
+signal card_loadout_updated(peer_id: int, loadout: Array)
+signal card_activated(peer_id: int, card_id: String, slot_index: int)
+signal card_drafts_completed()
+
+var card_drafts: Dictionary = {}
+var card_loadouts: Dictionary = {}
+var _card_rng := RandomNumberGenerator.new()
+var _card_draft_active := false
+var _card_timer_sync_remaining := 0.0
 
 # -----------------------------------------------------------------------------
 # 阶段同步 RPC(server → 所有 client,通知阶段变化)
@@ -178,11 +193,311 @@ func server_broadcast_match_started() -> void:
 # 生命周期
 # =============================================================================
 
-func _process(_delta):
+# =============================================================================
+# Match card draft / loadout
+# =============================================================================
+
+func server_start_card_drafts_for_match() -> void:
+	if not multiplayer.is_server():
+		return
+	_card_rng.randomize()
+	card_drafts.clear()
+	card_loadouts.clear()
+	_card_draft_active = true
+	_card_timer_sync_remaining = 0.0
+	for pid in players.keys():
+		var peer_id := int(pid)
+		var role := int(players[pid].get("role", Role.NONE))
+		if role == Role.SPECTATOR or role == Role.NONE:
+			continue
+		_server_begin_card_pick(peer_id)
+	_server_check_card_drafts_completed()
+
+
+func server_clear_match_cards() -> void:
+	if not multiplayer.is_server():
+		return
+	_card_draft_active = false
+	_card_timer_sync_remaining = 0.0
+	card_drafts.clear()
+	card_loadouts.clear()
+	for pid in players.keys():
+		var peer_id := int(pid)
+		_sync_card_draft_to_peer(peer_id, {})
+		_sync_card_loadout_to_peer(peer_id, [])
+
+
+func get_my_card_draft() -> Dictionary:
+	var peer_id := multiplayer.get_unique_id()
+	return (card_drafts.get(peer_id, {}) as Dictionary).duplicate(true)
+
+
+func get_my_card_loadout() -> Array:
+	var peer_id := multiplayer.get_unique_id()
+	return (card_loadouts.get(peer_id, []) as Array).duplicate(true)
+
+
+func get_card_loadout_for_peer(peer_id: int) -> Array:
+	return (card_loadouts.get(peer_id, []) as Array).duplicate(true)
+
+
+func request_keep_card(card_id: String) -> void:
+	if multiplayer.is_server():
+		_server_keep_card(multiplayer.get_unique_id(), card_id)
+	else:
+		_request_keep_card_rpc.rpc_id(1, card_id)
+
+
+func request_use_card_slot(slot_index: int) -> void:
+	if multiplayer.is_server():
+		_server_use_card_slot(multiplayer.get_unique_id(), slot_index)
+	else:
+		_request_use_card_slot_rpc.rpc_id(1, slot_index)
+
+
+func server_try_consume_reactive_card(peer_id: int, card_id: String) -> bool:
+	if not multiplayer.is_server():
+		return false
+	var loadout := card_loadouts.get(peer_id, []) as Array
+	for i in range(loadout.size()):
+		var slot := loadout[i] as Dictionary
+		if str(slot.get("id", "")) != card_id or bool(slot.get("used", false)):
+			continue
+		if CardDatabase.is_manual(card_id):
+			continue
+		slot["used"] = true
+		loadout[i] = slot
+		card_loadouts[peer_id] = loadout
+		_sync_card_loadout_to_peer(peer_id, loadout)
+		_emit_card_activated(peer_id, card_id, i)
+		return true
+	return false
+
+
+@rpc("any_peer", "reliable")
+func _request_keep_card_rpc(card_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	_server_keep_card(multiplayer.get_remote_sender_id(), card_id)
+
+
+@rpc("any_peer", "reliable")
+func _request_use_card_slot_rpc(slot_index: int) -> void:
+	if not multiplayer.is_server():
+		return
+	_server_use_card_slot(multiplayer.get_remote_sender_id(), slot_index)
+
+
+func _server_begin_card_pick(peer_id: int) -> void:
+	if not players.has(peer_id):
+		return
+	var role := int(players[peer_id].get("role", Role.NONE))
+	var previous := card_drafts.get(peer_id, {}) as Dictionary
+	var kept := (previous.get("kept", []) as Array).duplicate()
+	var choices := CardDatabase.random_choices_for_role(role, 3, kept, _card_rng)
+	var now_msec := Time.get_ticks_msec()
+	var draft_started_msec := int(previous.get("draft_started_msec", now_msec))
+	var draft_expires_at_msec := int(previous.get("draft_expires_at_msec", now_msec + int(CARD_DRAFT_TOTAL_SECONDS * 1000.0)))
+	var pick_expires_at_msec := now_msec + int(minf(CARD_DRAFT_PICK_SECONDS, maxf(0.0, float(draft_expires_at_msec - now_msec) / 1000.0)) * 1000.0)
+	var state := {
+		"role": role,
+		"pick_index": kept.size() + 1,
+		"choices": choices,
+		"kept": kept,
+		"complete": false,
+		"draft_started_msec": draft_started_msec,
+		"draft_expires_at_msec": draft_expires_at_msec,
+		"pick_started_msec": now_msec,
+		"pick_expires_at_msec": pick_expires_at_msec,
+		"pick_duration_sec": CARD_DRAFT_PICK_SECONDS,
+		"draft_duration_sec": CARD_DRAFT_TOTAL_SECONDS,
+		"auto_selected": false,
+	}
+	_update_card_draft_remaining_fields(state, now_msec)
+	card_drafts[peer_id] = state
+	_sync_card_draft_to_peer(peer_id, state)
+
+
+func _server_keep_card(peer_id: int, card_id: String, automatic: bool = false) -> void:
+	if not players.has(peer_id):
+		return
+	var state := card_drafts.get(peer_id, {}) as Dictionary
+	if state.is_empty() or bool(state.get("complete", false)):
+		return
+	if not automatic and _is_card_pick_expired(state):
+		_server_auto_keep_card(peer_id)
+		return
+	var choices := state.get("choices", []) as Array
+	if not choices.has(card_id):
+		return
+	var kept := (state.get("kept", []) as Array).duplicate()
+	if kept.has(card_id):
+		return
+	kept.append(card_id)
+	var loadout := _cards_to_loadout(kept)
+	card_loadouts[peer_id] = loadout
+	_sync_card_loadout_to_peer(peer_id, loadout)
+	if kept.size() >= CARD_DRAFT_REQUIRED_PICKS:
+		state["kept"] = kept
+		state["choices"] = []
+		state["complete"] = true
+		state["auto_selected"] = automatic
+		_update_card_draft_remaining_fields(state)
+		card_drafts[peer_id] = state
+		_sync_card_draft_to_peer(peer_id, state)
+		_server_check_card_drafts_completed()
+		return
+	state["kept"] = kept
+	state["auto_selected"] = automatic
+	card_drafts[peer_id] = state
+	_server_begin_card_pick(peer_id)
+
+
+func _server_process_card_drafts(delta: float) -> void:
+	_card_timer_sync_remaining = maxf(0.0, _card_timer_sync_remaining - delta)
+	var now_msec := Time.get_ticks_msec()
+	var should_sync_timers := _card_timer_sync_remaining <= 0.0
+	if should_sync_timers:
+		_card_timer_sync_remaining = CARD_DRAFT_TIMER_SYNC_SECONDS
+	var peer_ids := card_drafts.keys()
+	for pid in peer_ids:
+		var peer_id := int(pid)
+		var state := card_drafts.get(peer_id, {}) as Dictionary
+		if state.is_empty() or bool(state.get("complete", false)):
+			continue
+		_update_card_draft_remaining_fields(state, now_msec)
+		card_drafts[peer_id] = state
+		if _is_card_pick_expired(state, now_msec):
+			_server_auto_keep_card(peer_id)
+		elif should_sync_timers:
+			_sync_card_draft_to_peer(peer_id, state)
+	_server_check_card_drafts_completed()
+
+
+func _server_auto_keep_card(peer_id: int) -> void:
+	var state := card_drafts.get(peer_id, {}) as Dictionary
+	if state.is_empty() or bool(state.get("complete", false)):
+		return
+	var choices := state.get("choices", []) as Array
+	if choices.is_empty():
+		return
+	var random_index := _card_rng.randi_range(0, choices.size() - 1)
+	_server_keep_card(peer_id, str(choices[random_index]), true)
+
+
+func _server_check_card_drafts_completed() -> void:
+	if not _card_draft_active:
+		return
+	for pid in players.keys():
+		var peer_id := int(pid)
+		var role := int(players[pid].get("role", Role.NONE))
+		if role == Role.SPECTATOR or role == Role.NONE:
+			continue
+		var loadout := card_loadouts.get(peer_id, []) as Array
+		if loadout.size() < CARD_DRAFT_REQUIRED_PICKS:
+			return
+	_card_draft_active = false
+	_card_timer_sync_remaining = 0.0
+	card_drafts_completed.emit()
+
+
+func _is_card_pick_expired(state: Dictionary, now_msec: int = -1) -> bool:
+	if now_msec < 0:
+		now_msec = Time.get_ticks_msec()
+	var pick_expires_at_msec := int(state.get("pick_expires_at_msec", now_msec))
+	var draft_expires_at_msec := int(state.get("draft_expires_at_msec", now_msec))
+	return now_msec >= pick_expires_at_msec or now_msec >= draft_expires_at_msec
+
+
+func _update_card_draft_remaining_fields(state: Dictionary, now_msec: int = -1) -> void:
+	if now_msec < 0:
+		now_msec = Time.get_ticks_msec()
+	var pick_expires_at_msec := int(state.get("pick_expires_at_msec", now_msec))
+	var draft_expires_at_msec := int(state.get("draft_expires_at_msec", now_msec))
+	state["pick_remaining_sec"] = maxf(0.0, float(pick_expires_at_msec - now_msec) / 1000.0)
+	state["draft_remaining_sec"] = maxf(0.0, float(draft_expires_at_msec - now_msec) / 1000.0)
+
+
+func _server_use_card_slot(peer_id: int, slot_index: int) -> void:
+	if not players.has(peer_id):
+		return
+	var loadout := card_loadouts.get(peer_id, []) as Array
+	if slot_index < 0 or slot_index >= loadout.size():
+		return
+	var slot := loadout[slot_index] as Dictionary
+	var card_id := str(slot.get("id", ""))
+	if bool(slot.get("used", false)) or card_id.is_empty():
+		return
+	if not CardDatabase.is_manual(card_id):
+		return
+	slot["used"] = true
+	loadout[slot_index] = slot
+	card_loadouts[peer_id] = loadout
+	_sync_card_loadout_to_peer(peer_id, loadout)
+	_emit_card_activated(peer_id, card_id, slot_index)
+
+
+func _cards_to_loadout(card_ids: Array) -> Array:
+	var loadout: Array = []
+	for card_id in card_ids:
+		loadout.append({
+			"id": str(card_id),
+			"used": false,
+		})
+	return loadout
+
+
+func _sync_card_draft_to_peer(peer_id: int, state: Dictionary) -> void:
+	if peer_id == 1:
+		_client_receive_card_draft(peer_id, state)
+	elif _can_send_card_rpc_to_peer(peer_id):
+		_client_receive_card_draft.rpc_id(peer_id, peer_id, state)
+
+
+func _sync_card_loadout_to_peer(peer_id: int, loadout: Array) -> void:
+	if peer_id == 1:
+		_client_receive_card_loadout(peer_id, loadout)
+	elif _can_send_card_rpc_to_peer(peer_id):
+		_client_receive_card_loadout.rpc_id(peer_id, peer_id, loadout)
+
+
+func _can_send_card_rpc_to_peer(peer_id: int) -> bool:
+	return multiplayer.multiplayer_peer != null and multiplayer.get_peers().has(peer_id)
+
+
+func _emit_card_activated(peer_id: int, card_id: String, slot_index: int) -> void:
+	card_activated.emit(peer_id, card_id, slot_index)
+	_rpc_card_activated.rpc(peer_id, card_id, slot_index)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _client_receive_card_draft(peer_id: int, state: Dictionary) -> void:
+	if state.is_empty():
+		card_drafts.erase(peer_id)
+	else:
+		card_drafts[peer_id] = state.duplicate(true)
+	card_draft_updated.emit(peer_id, state.duplicate(true))
+
+
+@rpc("authority", "call_remote", "reliable")
+func _client_receive_card_loadout(peer_id: int, loadout: Array) -> void:
+	card_loadouts[peer_id] = loadout.duplicate(true)
+	card_loadout_updated.emit(peer_id, loadout.duplicate(true))
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_card_activated(peer_id: int, card_id: String, slot_index: int) -> void:
+	card_activated.emit(peer_id, card_id, slot_index)
+
+
+func _process(delta):
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server() and _card_draft_active:
+		_server_process_card_drafts(delta)
 	if Input.is_action_just_pressed("quit"):
 		get_tree().quit(0)
 
 func _ready() -> void:
+	_card_rng.randomize()
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.peer_disconnected.connect(_on_player_disconnected)

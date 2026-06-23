@@ -37,6 +37,10 @@ func _reset_network_state() -> void:
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
 	Network.players.clear()
+	Network.card_drafts.clear()
+	Network.card_loadouts.clear()
+	Network.set("_card_draft_active", false)
+	Network.set("_card_timer_sync_remaining", 0.0)
 	Network.lobby_config = {
 		"max_players": 24,
 		"lobby_id": "",
@@ -263,11 +267,15 @@ func _test_level_start_match_path() -> void:
 	await level._on_start_match_pressed(Network.lobby_config.duplicate())
 	await get_tree().process_frame
 
-	_expect(level.game_state == 1, "Start Match should move Level from LOBBY to PREP")
+	_expect(level.game_state == level.GameState.CARD_DRAFT, "Start Match should move Level from LOBBY to card drafting")
 	_expect(not level.main_menu.visible, "Start Match should hide the lobby UI")
-	_expect(int(round(level.prep_remaining)) == 60, "Start Match should use configured hide prep time")
+	_expect(int(round(level.prep_remaining)) == 0, "Card drafting should not consume hide prep time")
 	_expect(Network.get_hunters().size() == 1, "Start Match should keep one configured Hunter")
 	_expect(Network.get_props().size() == 1, "Start Match should keep one Prop")
+	_finish_all_card_drafts()
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.PREP, "Card draft completion should start hide prep")
+	_expect(int(round(level.prep_remaining)) == 60, "Prep should start with the full configured hide time after drafting")
 	level._apply_configured_gravity()
 	_expect(absf(level.active_gravity_mps2 - 14.7) < 0.01, "Level should apply configured lobby gravity")
 
@@ -330,9 +338,12 @@ func _test_single_player_character_test_start() -> void:
 	await level._on_start_match_pressed(Network.lobby_config.duplicate())
 	await get_tree().process_frame
 
-	_expect(level.game_state == 1, "Single-player test should enter PREP")
+	_expect(level.game_state == level.GameState.CARD_DRAFT, "Single-player test should enter card drafting before PREP")
 	_expect(Network.players[1]["role"] == Network.Role.CHAMELEON, "Single-player test should auto fallback to Chameleon")
 	_expect(Network.get_props().size() == 1, "Single-player test should count the solo player as a prop")
+	_finish_all_card_drafts()
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.PREP, "Single-player card draft completion should enter PREP")
 
 	level.set_process(false)
 	level.queue_free()
@@ -395,6 +406,25 @@ func _test_auto_balance_preserves_selected_stalker_in_two_player_lobby() -> void
 
 	peer.close()
 	Network.multiplayer.multiplayer_peer = null
+
+
+func _finish_all_card_drafts() -> void:
+	var safety := 0
+	while safety < 12:
+		safety += 1
+		var advanced := false
+		for pid in Network.card_drafts.keys():
+			var peer_id := int(pid)
+			var state := Network.card_drafts.get(peer_id, {}) as Dictionary
+			if state.is_empty() or bool(state.get("complete", false)):
+				continue
+			var choices := state.get("choices", []) as Array
+			if choices.is_empty():
+				continue
+			Network._server_keep_card(peer_id, str(choices[0]))
+			advanced = true
+		if not advanced:
+			return
 
 
 func _player(nick: String, role: int) -> Dictionary:

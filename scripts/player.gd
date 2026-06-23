@@ -49,6 +49,7 @@ const HUNTER_PROP_SENSE_PING_MIN_RINGS := 4
 const HUNTER_PROP_SENSE_PING_MAX_RINGS := 9
 const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
+const CardDatabase := preload("res://scripts/card_database.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
 const CHAMELEON_GPU_PBR_OVERLAY_SHADER := preload("res://shaders/chameleon_gpu_pbr_overlay.gdshader")
@@ -131,6 +132,13 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 var can_double_jump = true
 var has_double_jumped = false
 var health: float = 100.0
+var _card_effect_timers: Dictionary = {}
+var _card_speed_multiplier := 1.0
+var _card_damage_immunity_remaining := 0.0
+var _card_hunter_skill_immunity_remaining := 0.0
+var _card_silent_steps_remaining := 0.0
+var _card_original_scale := Vector3.ONE
+var _card_scale_effect_active := false
 var _camouflage_brush_locked := false
 var _camouflage_paint_texture: Texture2D = null
 var _camouflage_paint_textures: Dictionary = {}
@@ -980,6 +988,7 @@ func _physics_process(delta):
 	_update_movement_audio(delta, was_on_floor)
 
 func _process(delta):
+	_process_card_effects(delta)
 	_process_camouflage_gpu_painter(delta)
 	if is_stalker():
 		_refresh_stalker_visibility_view(false)
@@ -1020,6 +1029,7 @@ func _move(delta: float) -> void:
 		_direction = _direction.normalized()
 
 	is_running()
+	_current_speed *= _card_speed_multiplier
 	var has_move_input := _direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE
 	var target_horizontal_velocity := Vector3.ZERO
 	if has_move_input:
@@ -1155,6 +1165,328 @@ func _respawn():
 	global_transform.origin = _respawn_point
 	velocity = Vector3.ZERO
 	clear_prop_disguise()
+
+
+func apply_card_effect(card_id: String) -> void:
+	var card := CardDatabase.get_card(card_id)
+	var duration := float(card.get("duration", 0.0))
+	match card_id:
+		"prop_chromatic_burst":
+			_card_apply_stealth(maxf(duration, 1.0))
+		"prop_micro_form":
+			_card_apply_scale(0.25, maxf(duration, 15.0))
+		"prop_flashbang":
+			_card_apply_vision_impairment_to_role(Network.Role.HUNTER, float(card.get("radius", 10.0)), duration, "FLASH")
+		"prop_decoy_echo":
+			_card_spawn_decoy(maxf(duration, 15.0), Vector3.ZERO)
+		"prop_portal_step":
+			_card_portal_step()
+		"prop_static_aura":
+			_card_apply_prop_aura_status("damage_immunity", float(card.get("radius", 8.0)), maxf(duration, 8.0))
+		"prop_emergency_conceal":
+			health = maxf(health, 65.0)
+			_sync_health.rpc(health)
+			_card_apply_status("damage_immunity", maxf(duration, 5.0))
+			_card_tint_for_duration(Color(0.42, 0.44, 0.46, 1.0), maxf(duration, 5.0))
+		"prop_paint_bomb":
+			_card_apply_vision_impairment_to_role(Network.Role.HUNTER, float(card.get("radius", 20.0)), duration, "PAINT")
+		"prop_time_stop":
+			_card_apply_role_speed_multiplier(Network.Role.HUNTER, float(card.get("radius", 10.0)), 0.5, maxf(duration, 8.0))
+		"prop_mist_clones":
+			_card_spawn_mist_clones(maxf(duration, 8.0))
+		"prop_sense":
+			_card_apply_role_scale(Network.Role.HUNTER, 35.0, 0.5, maxf(duration, 8.0))
+		"prop_empty_bullet":
+			_card_clear_hunter_ammo()
+		"prop_silent_steps":
+			_card_apply_status("silent_steps", maxf(duration, 18.0))
+		"prop_extreme_immunity":
+			_card_apply_status("damage_immunity", maxf(duration, 25.0))
+			_card_apply_status("hunter_skill_immunity", maxf(duration, 25.0))
+			_card_tint_for_duration(Color(0.55, 0.98, 0.82, 1.0), maxf(duration, 25.0))
+		"prop_revival":
+			_card_feedback_to_owner("REVIVAL READY", Color(0.62, 1.0, 0.74, 1.0), 0.9)
+		"hunter_pulse_scan":
+			_card_reveal_props(float(card.get("radius", 24.0)), maxf(duration, 6.0))
+		"hunter_blacklight":
+			_card_reveal_props(float(card.get("radius", 18.0)), maxf(duration, 8.0))
+		"hunter_overclock_rounds":
+			_card_refill_weapon(60)
+			_card_apply_status("speed_multiplier_1_2", maxf(duration, 8.0))
+		"hunter_gravity_net":
+			_card_apply_role_speed_multiplier(Network.Role.CHAMELEON, float(card.get("radius", 10.0)), 0.55, maxf(duration, 8.0))
+			_card_apply_role_speed_multiplier(Network.Role.STALKER, float(card.get("radius", 10.0)), 0.55, maxf(duration, 8.0))
+		"hunter_echo_marker":
+			_card_mark_nearest_prop(float(card.get("radius", 35.0)), maxf(duration, 5.0))
+		"hunter_light_cage":
+			_card_reveal_props(float(card.get("radius", 12.0)), maxf(duration, 7.0))
+			_card_apply_role_speed_multiplier(Network.Role.CHAMELEON, float(card.get("radius", 12.0)), 0.72, maxf(duration, 7.0))
+			_card_apply_role_speed_multiplier(Network.Role.STALKER, float(card.get("radius", 12.0)), 0.72, maxf(duration, 7.0))
+		"hunter_turret_overdrive":
+			_card_overdrive_turret(maxf(duration, 10.0))
+		"hunter_ammo_cache":
+			_card_refill_weapon(WeaponSystem.MAX_TOTAL_AMMO)
+		"hunter_adrenaline":
+			_card_apply_status("speed_multiplier_1_45", maxf(duration, 6.0))
+		"hunter_signal_jammer":
+			_card_apply_vision_impairment_to_role(Network.Role.CHAMELEON, float(card.get("radius", 14.0)), maxf(duration, 6.0), "JAMMED")
+			_card_apply_vision_impairment_to_role(Network.Role.STALKER, float(card.get("radius", 14.0)), maxf(duration, 6.0), "JAMMED")
+		_:
+			_card_feedback_to_owner("CARD", Color(0.62, 0.92, 1.0, 1.0), 0.5)
+
+
+func apply_card_status(status_id: String, duration: float, multiplier: float = 1.0) -> void:
+	_card_apply_status(status_id, duration, multiplier)
+
+
+func has_card_damage_immunity() -> bool:
+	return _card_damage_immunity_remaining > 0.0
+
+
+func _process_card_effects(delta: float) -> void:
+	if _card_damage_immunity_remaining > 0.0:
+		_card_damage_immunity_remaining = maxf(0.0, _card_damage_immunity_remaining - delta)
+	if _card_hunter_skill_immunity_remaining > 0.0:
+		_card_hunter_skill_immunity_remaining = maxf(0.0, _card_hunter_skill_immunity_remaining - delta)
+	if _card_silent_steps_remaining > 0.0:
+		_card_silent_steps_remaining = maxf(0.0, _card_silent_steps_remaining - delta)
+	for key in _card_effect_timers.keys():
+		_card_effect_timers[key] = float(_card_effect_timers[key]) - delta
+		if float(_card_effect_timers[key]) > 0.0:
+			continue
+		_card_effect_timers.erase(key)
+		match str(key):
+			"visual":
+				if not _is_dead:
+					_set_character_visual_visible(true)
+			"scale":
+				if _card_scale_effect_active:
+					scale = _card_original_scale
+					_card_scale_effect_active = false
+			"tint":
+				_set_player_tint(Color(1, 1, 1))
+			"speed":
+				_card_speed_multiplier = 1.0
+
+
+func _card_apply_status(status_id: String, duration: float, multiplier: float = 1.0) -> void:
+	match status_id:
+		"damage_immunity":
+			_card_damage_immunity_remaining = maxf(_card_damage_immunity_remaining, duration)
+		"hunter_skill_immunity":
+			_card_hunter_skill_immunity_remaining = maxf(_card_hunter_skill_immunity_remaining, duration)
+		"silent_steps":
+			_card_silent_steps_remaining = maxf(_card_silent_steps_remaining, duration)
+		"speed_multiplier_1_2":
+			_card_speed_multiplier = maxf(_card_speed_multiplier, 1.2)
+			_card_effect_timers["speed"] = maxf(float(_card_effect_timers.get("speed", 0.0)), duration)
+		"speed_multiplier_1_45":
+			_card_speed_multiplier = maxf(_card_speed_multiplier, 1.45)
+			_card_effect_timers["speed"] = maxf(float(_card_effect_timers.get("speed", 0.0)), duration)
+		"speed_multiplier":
+			_card_speed_multiplier = minf(_card_speed_multiplier, multiplier)
+			_card_effect_timers["speed"] = maxf(float(_card_effect_timers.get("speed", 0.0)), duration)
+
+
+func _card_apply_stealth(duration: float) -> void:
+	_set_character_visual_visible(false)
+	_card_effect_timers["visual"] = duration
+	_card_feedback_to_owner("INVISIBLE", Color(0.62, 0.92, 1.0, 1.0), 0.65)
+
+
+func _card_apply_scale(multiplier: float, duration: float) -> void:
+	if not _card_scale_effect_active:
+		_card_original_scale = scale
+	_card_scale_effect_active = true
+	scale = _card_original_scale * multiplier
+	_card_effect_timers["scale"] = duration
+	_card_feedback_to_owner("MICRO FORM", Color(0.72, 1.0, 0.82, 1.0), 0.8)
+
+
+func _card_apply_role_scale(target_role: int, radius: float, multiplier: float, duration: float) -> void:
+	for player in _card_players_in_radius(radius):
+		if int(player.role) == target_role:
+			player._card_apply_scale(multiplier, duration)
+
+
+func _card_apply_role_speed_multiplier(target_role: int, radius: float, multiplier: float, duration: float) -> void:
+	for player in _card_players_in_radius(radius):
+		if int(player.role) == target_role:
+			player.apply_card_status("speed_multiplier", duration, multiplier)
+			player._card_feedback_to_owner("SLOWED", Color(0.65, 0.78, 1.0, 1.0), 0.7)
+
+
+func _card_apply_prop_aura_status(status_id: String, radius: float, duration: float) -> void:
+	for player in _card_players_in_radius(radius):
+		if player.is_prop():
+			player.apply_card_status(status_id, duration)
+			player._card_tint_for_duration(Color(0.55, 0.98, 0.82, 1.0), duration)
+
+
+func _card_apply_vision_impairment_to_role(target_role: int, radius: float, duration: float, label: String) -> void:
+	for player in _card_players_in_radius(radius):
+		if int(player.role) == target_role:
+			player._card_feedback_to_owner(label, Color(1.0, 0.96, 0.72, 1.0), maxf(duration, 0.75))
+			player._card_tint_for_duration(Color(1.0, 0.96, 0.72, 1.0), minf(maxf(duration, 0.75), 2.0))
+
+
+func _card_spawn_decoy(duration: float, local_offset: Vector3) -> void:
+	var scene_root := get_tree().get_current_scene() if get_tree() else null
+	if not scene_root:
+		scene_root = self
+	var decoy := MeshInstance3D.new()
+	decoy.name = "CardDecoyEcho"
+	decoy.top_level = true
+	var mesh := CapsuleMesh.new()
+	mesh.radius = 0.34
+	mesh.height = 1.8
+	decoy.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(0.62, 0.92, 1.0, 0.34)
+	material.emission_enabled = true
+	material.emission = Color(0.2, 0.62, 1.0, 1.0)
+	material.emission_energy_multiplier = 0.35
+	decoy.material_override = material
+	scene_root.add_child(decoy)
+	decoy.global_position = global_position + global_transform.basis * local_offset + Vector3.UP * 0.9
+	var tween := decoy.create_tween()
+	tween.tween_interval(duration)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.35)
+	tween.tween_callback(decoy.queue_free)
+
+
+func _card_spawn_mist_clones(duration: float) -> void:
+	_card_spawn_decoy(duration, Vector3(1.4, 0.0, 0.6))
+	_card_spawn_decoy(duration, Vector3(-1.2, 0.0, -0.8))
+	_card_feedback_to_owner("CLONES", Color(0.62, 0.92, 1.0, 1.0), 0.75)
+
+
+func _card_portal_step() -> void:
+	if not multiplayer.is_server() and multiplayer.multiplayer_peer:
+		return
+	var angle := randf() * TAU
+	var distance := randf_range(40.0, 50.0)
+	var destination := _card_grounded_position(global_position + Vector3(cos(angle) * distance, 0.0, sin(angle) * distance))
+	_card_spawn_decoy(1.25, Vector3.ZERO)
+	global_position = destination
+	velocity = Vector3.ZERO
+	_card_feedback_to_owner("PORTAL", Color(0.72, 0.86, 1.0, 1.0), 0.75)
+
+
+func _card_reveal_props(radius: float, duration: float) -> void:
+	for player in _card_players_in_radius(radius):
+		if player.is_prop():
+			player.set_hunter_prop_sense_revealed(true, 1.0, 0.42, true)
+			player._card_feedback_to_owner("REVEALED", Color(1.0, 0.32, 0.18, 1.0), 0.75)
+			player._card_clear_reveal_after(duration)
+
+
+func _card_mark_nearest_prop(radius: float, duration: float) -> void:
+	var nearest: Character = null
+	var nearest_distance := INF
+	for player in _card_players_in_radius(radius):
+		if not player.is_prop():
+			continue
+		var distance := global_position.distance_to(player.global_position)
+		if distance < nearest_distance:
+			nearest = player
+			nearest_distance = distance
+	if nearest:
+		nearest.set_hunter_prop_sense_revealed(true, 1.0, 0.36, true)
+		nearest._card_clear_reveal_after(duration)
+		_card_feedback_to_owner("ECHO %.1fm" % nearest_distance, Color(0.65, 0.78, 1.0, 1.0), 0.9)
+	else:
+		_card_feedback_to_owner("ECHO CLEAR", Color(0.75, 0.78, 0.86, 1.0), 0.7)
+
+
+func _card_clear_reveal_after(duration: float) -> void:
+	await get_tree().create_timer(duration).timeout
+	if is_instance_valid(self):
+		set_hunter_prop_sense_revealed(false)
+
+
+func _card_clear_hunter_ammo() -> void:
+	for node in get_tree().get_nodes_in_group("players"):
+		if not node is Character:
+			continue
+		var player := node as Character
+		if not player.is_hunter():
+			continue
+		var weapon := player.get_node_or_null("WeaponSystem")
+		if weapon:
+			weapon.current_magazine = 0
+			weapon.total_ammo = 0
+			if weapon.has_signal("ammo_changed"):
+				weapon.ammo_changed.emit(0, 0)
+			if weapon.has_method("_sync_ammo_to_owner"):
+				weapon.call("_sync_ammo_to_owner")
+			player._card_feedback_to_owner("AMMO EMPTY", Color(1.0, 0.72, 0.25, 1.0), 0.9)
+
+
+func _card_refill_weapon(amount: int) -> void:
+	var weapon := get_node_or_null("WeaponSystem")
+	if weapon and weapon.has_method("server_add_ammo"):
+		if multiplayer.is_server() or not multiplayer.multiplayer_peer:
+			weapon.server_add_ammo(amount)
+	_card_feedback_to_owner("AMMO", Color(1.0, 0.86, 0.25, 1.0), 0.75)
+
+
+func _card_overdrive_turret(duration: float) -> void:
+	var turret := get_node_or_null("HunterAutoTurretSystem")
+	if turret:
+		turret.set("overheat_cooldown", 0.0)
+		turret.set_meta("card_overdrive_until_msec", Time.get_ticks_msec() + int(duration * 1000.0))
+	_card_feedback_to_owner("TURRET OVERDRIVE", Color(1.0, 0.86, 0.25, 1.0), 0.8)
+
+
+func _card_tint_for_duration(color: Color, duration: float) -> void:
+	_set_player_tint(color)
+	_card_effect_timers["tint"] = maxf(float(_card_effect_timers.get("tint", 0.0)), duration)
+
+
+func _card_players_in_radius(radius: float) -> Array[Character]:
+	var result: Array[Character] = []
+	if not is_inside_tree():
+		return result
+	for node in get_tree().get_nodes_in_group("players"):
+		if not node is Character:
+			continue
+		var player := node as Character
+		if player == self:
+			result.append(player)
+			continue
+		if global_position.distance_to(player.global_position) <= radius:
+			result.append(player)
+	return result
+
+
+func _card_grounded_position(candidate: Vector3) -> Vector3:
+	if not get_world_3d():
+		return candidate
+	var query := PhysicsRayQueryParameters3D.create(candidate + Vector3.UP * 8.0, candidate + Vector3.DOWN * 24.0, WORLD_COLLISION_MASK)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return candidate
+	return hit.get("position", candidate) + Vector3.UP * 0.08
+
+
+@rpc("authority", "call_local", "reliable")
+func _client_card_feedback(text: String, color: Color, duration: float) -> void:
+	var level = get_tree().get_current_scene()
+	if level and level.has_method("show_combat_feedback"):
+		level.show_combat_feedback(text, color, duration)
+
+
+func _card_feedback_to_owner(text: String, color: Color, duration: float = 0.75) -> void:
+	var owner_id := get_multiplayer_authority()
+	if multiplayer.is_server() and multiplayer.multiplayer_peer and owner_id != 1:
+		_client_card_feedback.rpc_id(owner_id, text, color, duration)
+	elif owner_id == multiplayer.get_unique_id() or not multiplayer.multiplayer_peer:
+		_client_card_feedback(text, color, duration)
 
 @rpc("any_peer", "reliable")
 func change_nick(new_nick: String):
@@ -3507,6 +3839,8 @@ func _update_movement_audio(delta: float, was_on_floor: bool) -> void:
 
 
 func _play_step_audio() -> void:
+	if _card_silent_steps_remaining > 0.0:
+		return
 	if not _step_audio or _step_sounds.is_empty():
 		return
 	_step_audio.stream = _step_sounds.pick_random()
@@ -3770,6 +4104,16 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 		return
 	if _is_dead or health <= 0.0:
 		return
+	if _card_damage_immunity_remaining > 0.0 or _card_hunter_skill_immunity_remaining > 0.0:
+		_card_feedback_to_owner("IMMUNE", Color(0.62, 1.0, 0.74, 1.0), 0.65)
+		return
+
+	var player_id := int(name)
+	var projected_health := health - amount
+	if _is_prop_role() and projected_health <= 5.0 and Network.server_try_consume_reactive_card(player_id, "prop_emergency_conceal"):
+		health = maxf(health, 65.0)
+		_sync_health.rpc(health)
+		return
 
 	print("[Combat] Player ", name, " took ", amount, "% damage from ",
 		attacker_id, " (headshot=", is_headshot, ")")
@@ -3787,6 +4131,16 @@ func _server_die(killer_id: int) -> void:
 		return
 	if _is_dead:
 		return
+	if _is_prop_role() and Network.server_try_consume_reactive_card(int(name), "prop_revival"):
+		print("[Combat] Player ", name, " consumed Revival Card after lethal hit by ", killer_id)
+		_is_dead = true
+		health = 0.0
+		_sync_health.rpc(health)
+		_broadcast_death.rpc(killer_id)
+		if Network.players.has(int(name)):
+			Network.server_set_player_alive(int(name), false)
+		_server_revive_from_card_after_delay()
+		return
 	print("[Combat] Player ", name, " killed by ", killer_id)
 
 	_is_dead = true
@@ -3795,6 +4149,42 @@ func _server_die(killer_id: int) -> void:
 	_broadcast_death.rpc(killer_id)
 	if Network.players.has(int(name)):
 		Network.server_set_player_alive(int(name), false)
+
+
+func _server_revive_from_card_after_delay() -> void:
+	await get_tree().create_timer(5.0).timeout
+	if not is_instance_valid(self):
+		return
+	_is_dead = false
+	_death_effect_played = false
+	_prop_death_visual_hidden = false
+	health = 65.0
+	global_position = _card_find_respawn_outside_hunter_view()
+	velocity = Vector3.ZERO
+	_set_character_visual_visible(true)
+	clear_prop_disguise()
+	_sync_health.rpc(health)
+	if Network.players.has(int(name)):
+		Network.server_set_player_alive(int(name), true)
+	_card_feedback_to_owner("REVIVED", Color(0.62, 1.0, 0.74, 1.0), 1.0)
+
+
+func _card_find_respawn_outside_hunter_view() -> Vector3:
+	for attempt in range(12):
+		var angle := randf() * TAU
+		var distance := randf_range(28.0, 48.0)
+		var candidate := _card_grounded_position(Vector3(cos(angle) * distance, 0.0, sin(angle) * distance))
+		var too_close := false
+		for node in get_tree().get_nodes_in_group("players"):
+			if not node is Character:
+				continue
+			var hunter := node as Character
+			if hunter.is_hunter() and hunter.global_position.distance_to(candidate) < 18.0:
+				too_close = true
+				break
+		if not too_close:
+			return candidate
+	return _card_grounded_position(global_position + Vector3(randf_range(-24.0, 24.0), 0.0, randf_range(-24.0, 24.0)))
 
 
 @rpc("any_peer", "call_local", "reliable")

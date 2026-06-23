@@ -24,6 +24,7 @@ extends Node3D
 var status_label: Label = null
 var combat_feedback_label: Label = null
 var skill_hud = null
+var card_hud = null
 var match_status_hud = null
 
 # -----------------------------------------------------------------------------
@@ -31,6 +32,7 @@ var match_status_hud = null
 # -----------------------------------------------------------------------------
 enum GameState {
 	LOBBY,
+	CARD_DRAFT,
 	PREP,
 	PLAY,
 	END,
@@ -128,6 +130,10 @@ func _ready():
 	Network.player_connected.connect(_on_player_connected)
 	Network.players_synced.connect(_on_players_synced)
 	Network.player_life_state_changed.connect(_on_player_life_state_changed)
+	Network.card_draft_updated.connect(_on_card_draft_updated)
+	Network.card_loadout_updated.connect(_on_card_loadout_updated)
+	Network.card_activated.connect(_on_card_activated)
+	Network.card_drafts_completed.connect(_on_card_drafts_completed)
 	if multiplayer.is_server():
 		multiplayer.peer_disconnected.connect(_remove_player)
 		Network.roles_assigned.connect(_on_roles_assigned)
@@ -161,6 +167,7 @@ func _ready():
 	_apply_selected_map_scene()
 	_ensure_status_hud()
 	_ensure_skill_hud()
+	_ensure_card_hud()
 
 	# Debug: 纭 HUD 鑺傜偣鎵惧埌
 	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
@@ -518,7 +525,7 @@ func _server_schedule_prep_phase() -> void:
 	await get_tree().process_frame
 
 	# 杩涘叆鍑嗗闃舵
-	_server_start_prep_phase()
+	_server_start_card_draft_phase()
 
 
 func _on_lobby_config_changed(config: Dictionary) -> void:
@@ -554,9 +561,18 @@ func _server_start_from_lobby() -> void:
 		return
 	Network.server_auto_balance_roles(true)
 	await get_tree().process_frame
+	_server_start_card_draft_phase()
+
+
+func _server_start_card_draft_phase() -> void:
+	if not multiplayer.is_server():
+		return
 	main_menu.hide_menu()
+	game_state = GameState.CARD_DRAFT
+	Network.server_start_card_drafts_for_match()
+	_set_hud_visible(true)
+	_update_card_hud()
 	_update_mouse_capture()
-	_server_start_prep_phase()
 
 
 func _server_start_prep_phase() -> void:
@@ -620,6 +636,7 @@ func _server_end_match() -> void:
 	game_state = GameState.END
 	match_remaining = 0.0
 	_apply_configured_gravity()
+	Network.server_clear_match_cards()
 	print("[Level] Match ended")
 	# TODO: 缁撶畻鑳滆礋(PoC-1 绠€鍖?鍚庣画 PoC 鍔?
 
@@ -1267,6 +1284,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 	if main_menu:
 		main_menu.hide_menu()
 	_set_hud_visible(true)
+	_update_card_hud()
 	_update_mouse_capture()
 	print("[Level] Client received: prep phase started, ", remaining, "s remaining")
 	# 鏄剧ず鍊掕鏃?HUD
@@ -1286,6 +1304,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 func _on_prep_phase_ended() -> void:
 	game_state = GameState.PLAY
 	_set_hud_visible(true)
+	_update_card_hud()
 	_set_preparation_gate_open(true)
 	# 闅愯棌鍊掕鏃?HUD
 	if prep_timer_label:
@@ -1301,6 +1320,7 @@ func _on_match_started() -> void:
 	match_remaining = float(Network.lobby_config.get("match_duration_sec", 600))
 	_apply_configured_gravity()
 	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
+	_update_card_hud()
 
 
 func _process_gravity_events(delta: float) -> void:
@@ -1462,6 +1482,22 @@ func _ensure_skill_hud() -> void:
 	_update_skill_hud()
 
 
+func _ensure_card_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	card_hud = hud.get_node_or_null("CardHUD")
+	if not card_hud:
+		card_hud = preload("res://scripts/card_hud.gd").new()
+		card_hud.name = "CardHUD"
+		hud.add_child(card_hud)
+		card_hud.draft_choice_selected.connect(_on_card_hud_draft_choice_selected)
+		card_hud.card_slot_used.connect(_on_card_hud_slot_used)
+	_update_card_hud()
+
+
 func _set_hud_visible(visible_value: bool) -> void:
 	if prep_timer_label:
 		prep_timer_label.visible = false
@@ -1471,6 +1507,8 @@ func _set_hud_visible(visible_value: bool) -> void:
 		combat_feedback_label.visible = false
 	if skill_hud:
 		skill_hud.visible = visible_value and not main_menu.is_menu_visible()
+	if card_hud:
+		card_hud.visible = visible_value and not main_menu.is_menu_visible()
 	if match_status_hud:
 		match_status_hud.visible = visible_value and (game_state == GameState.PREP or game_state == GameState.PLAY) and not main_menu.is_menu_visible()
 
@@ -1561,6 +1599,63 @@ func _update_skill_hud() -> void:
 	skill_hud.set_skills(_skill_hud_entries_for_player(local_player))
 	if skill_hud.has_method("set_passive_skills"):
 		skill_hud.set_passive_skills(_passive_skill_hud_entries_for_player(local_player))
+
+
+func _update_card_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not card_hud:
+		_ensure_card_hud()
+	if not card_hud:
+		return
+	if game_state == GameState.LOBBY or game_state == GameState.END:
+		card_hud.clear_cards()
+		return
+	card_hud.set_draft_state(Network.get_my_card_draft())
+	card_hud.set_loadout(Network.get_my_card_loadout())
+	if main_menu and main_menu.is_menu_visible():
+		card_hud.visible = false
+
+
+func _on_card_draft_updated(peer_id: int, _draft_state: Dictionary) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		if not _draft_state.is_empty() and not bool(_draft_state.get("complete", false)) and game_state == GameState.LOBBY:
+			game_state = GameState.CARD_DRAFT
+			if main_menu:
+				main_menu.hide_menu()
+			_set_hud_visible(true)
+		_update_card_hud()
+		_update_mouse_capture()
+
+
+func _on_card_loadout_updated(peer_id: int, _loadout: Array) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		_update_card_hud()
+
+
+func _on_card_drafts_completed() -> void:
+	if not multiplayer.is_server():
+		return
+	if game_state != GameState.CARD_DRAFT:
+		return
+	_server_start_prep_phase()
+
+
+func _on_card_activated(peer_id: int, card_id: String, slot_index: int) -> void:
+	var player_node = players_container.get_node_or_null(str(peer_id)) if players_container else null
+	if player_node and player_node.has_method("apply_card_effect"):
+		player_node.apply_card_effect(card_id)
+	if peer_id == multiplayer.get_unique_id():
+		show_combat_feedback("CARD %d" % (slot_index + 1), Color(0.62, 0.92, 1.0, 1.0), 0.75)
+	_update_card_hud()
+
+
+func _on_card_hud_draft_choice_selected(card_id: String) -> void:
+	Network.request_keep_card(card_id)
+
+
+func _on_card_hud_slot_used(slot_index: int) -> void:
+	Network.request_use_card_slot(slot_index)
 
 
 func _skill_hud_entries_for_player(local_player: Character) -> Array:
@@ -1742,6 +1837,10 @@ func _should_capture_mouse() -> bool:
 		return false
 	if inventory_visible:
 		return false
+	if card_hud and card_hud.has_method("is_drafting_active") and card_hud.is_drafting_active():
+		return false
+	if card_hud and card_hud.has_method("is_detail_visible") and card_hud.is_detail_visible():
+		return false
 	var local_player = _get_local_player()
 	if local_player and local_player.has_method("is_camouflage_brushing") and local_player.is_camouflage_brushing():
 		return false
@@ -1784,6 +1883,10 @@ func is_chat_visible() -> bool:
 func _input(event):
 	if event is InputEventMouseButton and event.pressed and _should_capture_mouse():
 		_capture_game_mouse()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if _handle_card_hotkeys(event as InputEventKey):
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("toggle_chat"):
 		toggle_chat()
 	elif chat_visible and multiplayer_chat.message.has_focus():
@@ -1799,6 +1902,32 @@ func _input(event):
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_F5:
 		# Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase(鐢ㄤ簬 UI 娴嬭瘯)
 		_debug_force_prep_phase()
+
+
+func _handle_card_hotkeys(event: InputEventKey) -> bool:
+	if not card_hud:
+		return false
+	if event.keycode == KEY_H and card_hud.has_method("toggle_detail_panel"):
+		return card_hud.toggle_detail_panel()
+	if card_hud.has_method("is_drafting_active") and card_hud.is_drafting_active():
+		match event.keycode:
+			KEY_1:
+				return card_hud.choose_by_index(0)
+			KEY_2:
+				return card_hud.choose_by_index(1)
+			KEY_3:
+				return card_hud.choose_by_index(2)
+		return false
+	if main_menu and main_menu.is_menu_visible():
+		return false
+	if game_state != GameState.PREP and game_state != GameState.PLAY:
+		return false
+	match event.keycode:
+		KEY_E:
+			return card_hud.use_slot(0)
+		KEY_R:
+			return card_hud.use_slot(1)
+	return false
 
 
 func _on_chat_message_sent(message_text: String) -> void:
@@ -1915,4 +2044,4 @@ func _debug_force_prep_phase() -> void:
 		return
 	print("[Debug] F5: Force start prep phase (skip 2-player check)")
 	Network.server_auto_balance_roles(true)
-	_server_start_prep_phase()
+	_server_start_card_draft_phase()
