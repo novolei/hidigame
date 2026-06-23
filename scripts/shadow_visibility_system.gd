@@ -3,13 +3,32 @@ class_name ShadowVisibilitySystem
 
 const CHECK_INTERVAL := 0.2
 const RAY_LENGTH := 5.0
+const DIRECTIONAL_RAY_LENGTH := 40.0
 const BODY_CENTER_HEIGHT := 1.0
 const SAMPLE_RADIUS := 0.42
-const WORLD_COLLISION_MASK := 2
+const WORLD_COLLISION_MASK := 3
 const LOCAL_LIGHT_MIN_ENERGY := 0.08
 const EMISSIVE_REVEAL_RADIUS := 3.5
 const EMISSIVE_MIN_ENERGY := 0.25
+const FLASHLIGHT_REVEAL_LOCKOUT := 20.0
 const REVEAL_ENVIRONMENT_GROUP := "stalker_reveal_environment"
+const EXPLICIT_SHADOW_ZONE_GROUP := "stalker_shadow_zone"
+const HUNTER_FLASHLIGHT_GROUP := "hunter_flashlights"
+const HUNTER_FLASHLIGHT_LIGHT_GROUP := "hunter_flashlight_lights"
+const REVEAL_SOURCE_IGNORED_GROUPS := [
+	"players",
+	"replicable_props",
+	"ammo_pickups",
+	"dynamic_shadow_noise",
+]
+const MAX_RAY_SKIP_COUNT := 8
+const IGNORED_SHADOW_CASTER_GROUPS := [
+	"players",
+	"map_props",
+	"replicable_props",
+	"ammo_pickups",
+	"dynamic_shadow_noise",
+]
 
 enum ShadowLevel {
 	BRIGHT,
@@ -24,6 +43,9 @@ var blocked_ray_count := 0
 var visibility_alpha := 1.0
 var check_accumulator := 0.0
 var forced_reveal_remaining := 0.0
+var hunter_flashlight_exposure := 0.0
+var flashlight_reveal_lockout_remaining := 0.0
+var hunter_flashlight_reveal_latched := false
 
 signal visibility_changed(level: int, alpha: float, blocked_rays: int)
 
@@ -36,6 +58,9 @@ func initialize(owner_node: CharacterBody3D) -> void:
 func _process(delta: float) -> void:
 	if forced_reveal_remaining > 0.0:
 		forced_reveal_remaining = maxf(0.0, forced_reveal_remaining - delta)
+	if flashlight_reveal_lockout_remaining > 0.0:
+		flashlight_reveal_lockout_remaining = maxf(0.0, flashlight_reveal_lockout_remaining - delta)
+	_update_hunter_flashlight_exposure(delta)
 	check_accumulator -= delta
 	if check_accumulator <= 0.0:
 		check_accumulator = CHECK_INTERVAL
@@ -47,18 +72,25 @@ func force_shadow_check() -> void:
 		_set_shadow_state(ShadowLevel.BRIGHT, 1.0, 0)
 		return
 
-	if forced_reveal_remaining > 0.0 or _has_clear_local_light() or _has_clear_environment_reveal():
+	var explicit_shadow_blocked := _count_explicit_shadow_zone_blocked_rays()
+	if forced_reveal_remaining > 0.0 or flashlight_reveal_lockout_remaining > 0.0 or _is_hunter_flashlight_revealed() or _has_clear_non_directional_light() or _has_clear_environment_reveal():
+		_set_shadow_state(ShadowLevel.BRIGHT, 1.0, 0)
+		return
+	if explicit_shadow_blocked >= 3:
+		_set_shadow_state(ShadowLevel.FULL_SHADOW, 0.0, explicit_shadow_blocked)
+		return
+	if _has_clear_directional_light():
 		_set_shadow_state(ShadowLevel.BRIGHT, 1.0, 0)
 		return
 
-	var blocked := _count_blocked_upward_rays()
+	var blocked := _count_blocked_shadow_rays()
 	match blocked:
 		5:
 			_set_shadow_state(ShadowLevel.FULL_SHADOW, 0.0, blocked)
 		4:
-			_set_shadow_state(ShadowLevel.STRONG_SHADOW, 0.2, blocked)
+			_set_shadow_state(ShadowLevel.STRONG_SHADOW, 0.34, blocked)
 		3:
-			_set_shadow_state(ShadowLevel.WEAK_SHADOW, 0.5, blocked)
+			_set_shadow_state(ShadowLevel.WEAK_SHADOW, 0.68, blocked)
 		_:
 			_set_shadow_state(ShadowLevel.BRIGHT, 1.0, blocked)
 
@@ -80,31 +112,79 @@ func get_visibility_alpha() -> float:
 	return visibility_alpha
 
 
+func get_hunter_flashlight_exposure() -> float:
+	return hunter_flashlight_exposure
+
+
+func get_flashlight_reveal_lockout_remaining() -> float:
+	return flashlight_reveal_lockout_remaining
+
+
 func is_in_shadow() -> bool:
 	return blocked_ray_count >= 3
+
+
+func _count_blocked_shadow_rays() -> int:
+	return max(_count_blocked_upward_rays(), _count_blocked_directional_light_rays())
+
+
+func _count_explicit_shadow_zone_blocked_rays() -> int:
+	var scene := get_tree().current_scene
+	if not scene:
+		return 0
+	var blocked := 0
+	var origin := shadow_owner.global_position + Vector3.UP * BODY_CENTER_HEIGHT
+	for offset in _shadow_sample_offsets():
+		if _point_is_inside_explicit_shadow_zone(origin + offset, scene):
+			blocked += 1
+	return blocked
 
 
 func _count_blocked_upward_rays() -> int:
 	var space_state := shadow_owner.get_world_3d().direct_space_state
 	var origin := shadow_owner.global_position + Vector3.UP * BODY_CENTER_HEIGHT
-	var offsets := [
+	var blocked := 0
+	for offset in _shadow_sample_offsets():
+		var start: Vector3 = origin + offset
+		var end: Vector3 = start + Vector3.UP * RAY_LENGTH
+		if _has_shadow_blocker_between(space_state, start, end):
+			blocked += 1
+	return blocked
+
+
+func _count_blocked_directional_light_rays() -> int:
+	var scene := get_tree().current_scene
+	if not scene:
+		return 0
+	var lights: Array[DirectionalLight3D] = []
+	_collect_directional_lights(scene, lights)
+	var most_blocked := 0
+	for light in lights:
+		if light.visible and light.light_energy >= LOCAL_LIGHT_MIN_ENERGY:
+			most_blocked = max(most_blocked, _count_blocked_rays_from_directional_light(light))
+	return most_blocked
+
+
+func _count_blocked_rays_from_directional_light(light: DirectionalLight3D) -> int:
+	var target_origin := shadow_owner.global_position + Vector3.UP * BODY_CENTER_HEIGHT
+	var light_direction := -light.global_transform.basis.z.normalized()
+	var blocked := 0
+	for offset in _shadow_sample_offsets():
+		var target: Vector3 = target_origin + offset
+		var source := target - light_direction * DIRECTIONAL_RAY_LENGTH
+		if not _has_line_of_sight(source, target):
+			blocked += 1
+	return blocked
+
+
+func _shadow_sample_offsets() -> Array[Vector3]:
+	return [
 		Vector3.ZERO,
 		Vector3.FORWARD * SAMPLE_RADIUS,
 		Vector3.BACK * SAMPLE_RADIUS,
 		Vector3.LEFT * SAMPLE_RADIUS,
 		Vector3.RIGHT * SAMPLE_RADIUS,
 	]
-	var blocked := 0
-	for offset in offsets:
-		var start: Vector3 = origin + offset
-		var end: Vector3 = start + Vector3.UP * RAY_LENGTH
-		var query := PhysicsRayQueryParameters3D.create(start, end, WORLD_COLLISION_MASK)
-		if shadow_owner is CollisionObject3D:
-			query.exclude = [(shadow_owner as CollisionObject3D).get_rid()]
-		var result := space_state.intersect_ray(query)
-		if not result.is_empty():
-			blocked += 1
-	return blocked
 
 
 func _has_clear_local_light() -> bool:
@@ -119,6 +199,87 @@ func _has_clear_local_light() -> bool:
 	return false
 
 
+func _has_clear_non_directional_light() -> bool:
+	var scene := get_tree().current_scene
+	if not scene:
+		return false
+	var lights: Array[Light3D] = []
+	_collect_local_lights(scene, lights)
+	for light in lights:
+		if light is DirectionalLight3D:
+			continue
+		if light.is_in_group(HUNTER_FLASHLIGHT_LIGHT_GROUP):
+			continue
+		if _does_light_reveal_owner(light):
+			return true
+	return false
+
+
+func _update_hunter_flashlight_exposure(delta: float) -> void:
+	var reveal_seconds := _hunter_flashlight_reveal_seconds()
+	if _is_inside_hunter_flashlight_beam():
+		hunter_flashlight_exposure = minf(reveal_seconds, hunter_flashlight_exposure + delta)
+		if hunter_flashlight_exposure >= reveal_seconds and not hunter_flashlight_reveal_latched:
+			hunter_flashlight_reveal_latched = true
+			flashlight_reveal_lockout_remaining = maxf(flashlight_reveal_lockout_remaining, FLASHLIGHT_REVEAL_LOCKOUT)
+	else:
+		hunter_flashlight_exposure = 0.0
+		hunter_flashlight_reveal_latched = false
+
+
+func _is_hunter_flashlight_revealed() -> bool:
+	return hunter_flashlight_exposure >= _hunter_flashlight_reveal_seconds()
+
+
+func _hunter_flashlight_reveal_seconds() -> float:
+	var seconds := 5.0
+	var tree := get_tree()
+	if tree:
+		for node in tree.get_nodes_in_group(HUNTER_FLASHLIGHT_GROUP):
+			if node and node.has_method("get_reveal_seconds"):
+				seconds = float(node.call("get_reveal_seconds"))
+				break
+	return maxf(seconds, 0.1)
+
+
+func _is_inside_hunter_flashlight_beam() -> bool:
+	var tree := get_tree()
+	if not tree or not shadow_owner:
+		return false
+	var target := shadow_owner.global_position + Vector3.UP * BODY_CENTER_HEIGHT
+	for node in tree.get_nodes_in_group(HUNTER_FLASHLIGHT_GROUP):
+		if not node or not node.has_method("is_flashlight_active") or not bool(node.call("is_flashlight_active")):
+			continue
+		var origin: Vector3 = node.call("get_flashlight_origin")
+		var direction: Vector3 = node.call("get_flashlight_direction")
+		if direction.length_squared() <= 0.0001:
+			continue
+		var to_target := target - origin
+		var distance := to_target.length()
+		var light_range := float(node.call("get_flashlight_range")) if node.has_method("get_flashlight_range") else 18.0
+		if distance > light_range or distance <= 0.001:
+			continue
+		var angle := rad_to_deg(direction.normalized().angle_to(to_target.normalized()))
+		var half_angle := float(node.call("get_flashlight_half_angle_degrees")) if node.has_method("get_flashlight_half_angle_degrees") else 19.0
+		if angle > half_angle:
+			continue
+		if _has_line_of_sight(origin + direction.normalized() * 0.25, target):
+			return true
+	return false
+
+
+func _has_clear_directional_light() -> bool:
+	var scene := get_tree().current_scene
+	if not scene:
+		return false
+	var lights: Array[DirectionalLight3D] = []
+	_collect_directional_lights(scene, lights)
+	for light in lights:
+		if light.visible and light.light_energy >= LOCAL_LIGHT_MIN_ENERGY and _does_directional_light_reveal(light):
+			return true
+	return false
+
+
 func _has_clear_environment_reveal() -> bool:
 	var scene := get_tree().current_scene
 	if not scene:
@@ -127,6 +288,8 @@ func _has_clear_environment_reveal() -> bool:
 
 
 func _node_reveals_from_environment(node: Node) -> bool:
+	if _is_ignored_reveal_source(node):
+		return false
 	if _is_reveal_environment_node(node) or _is_nearby_emissive_mesh(node):
 		return true
 	for child in node.get_children():
@@ -192,10 +355,17 @@ func _get_reveal_radius(node: Node, fallback: float) -> float:
 func _collect_local_lights(node: Node, lights: Array[Light3D]) -> void:
 	if node is DirectionalLight3D or node is OmniLight3D or node is SpotLight3D:
 		var light := node as Light3D
-		if light.visible and light.light_energy >= LOCAL_LIGHT_MIN_ENERGY:
+		if light.visible and light.light_energy >= LOCAL_LIGHT_MIN_ENERGY and not light.is_in_group(HUNTER_FLASHLIGHT_LIGHT_GROUP) and not _is_ignored_reveal_source(light):
 			lights.append(light)
 	for child in node.get_children():
 		_collect_local_lights(child, lights)
+
+
+func _collect_directional_lights(node: Node, lights: Array[DirectionalLight3D]) -> void:
+	if node is DirectionalLight3D:
+		lights.append(node as DirectionalLight3D)
+	for child in node.get_children():
+		_collect_directional_lights(child, lights)
 
 
 func _does_light_reveal_owner(light: Light3D) -> bool:
@@ -225,7 +395,7 @@ func _does_light_reveal_owner(light: Light3D) -> bool:
 func _does_directional_light_reveal(light: DirectionalLight3D) -> bool:
 	var target := shadow_owner.global_position + Vector3.UP * BODY_CENTER_HEIGHT
 	var light_direction := -light.global_transform.basis.z.normalized()
-	var source_probe := target - light_direction * RAY_LENGTH
+	var source_probe := target - light_direction * DIRECTIONAL_RAY_LENGTH
 	return _has_line_of_sight(source_probe, target)
 
 
@@ -239,11 +409,89 @@ func _is_inside_spot_cone(light: SpotLight3D, to_target: Vector3) -> bool:
 
 func _has_line_of_sight(start: Vector3, end: Vector3) -> bool:
 	var space_state := shadow_owner.get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(start, end, WORLD_COLLISION_MASK)
+	return not _has_shadow_blocker_between(space_state, start, end)
+
+
+func _has_shadow_blocker_between(space_state: PhysicsDirectSpaceState3D, start: Vector3, end: Vector3) -> bool:
+	var exclude: Array[RID] = []
 	if shadow_owner is CollisionObject3D:
-		query.exclude = [(shadow_owner as CollisionObject3D).get_rid()]
-	var result := space_state.intersect_ray(query)
-	return result.is_empty()
+		exclude.append((shadow_owner as CollisionObject3D).get_rid())
+	for i in range(MAX_RAY_SKIP_COUNT):
+		var query := PhysicsRayQueryParameters3D.create(start, end, WORLD_COLLISION_MASK)
+		query.exclude = exclude
+		var result := space_state.intersect_ray(query)
+		if result.is_empty():
+			return false
+		var collider = result.get("collider")
+		if _is_valid_shadow_caster(collider):
+			return true
+		if collider is CollisionObject3D:
+			exclude.append((collider as CollisionObject3D).get_rid())
+		else:
+			return false
+	return false
+
+
+func _point_is_inside_explicit_shadow_zone(point: Vector3, node: Node) -> bool:
+	if node is Area3D and node.is_in_group(EXPLICIT_SHADOW_ZONE_GROUP):
+		if _point_is_inside_area_shapes(point, node as Area3D):
+			return true
+	for child in node.get_children():
+		if _point_is_inside_explicit_shadow_zone(point, child):
+			return true
+	return false
+
+
+func _point_is_inside_area_shapes(point: Vector3, area: Area3D) -> bool:
+	for child in area.get_children():
+		if not child is CollisionShape3D:
+			continue
+		var collision := child as CollisionShape3D
+		if collision.disabled or not collision.shape:
+			continue
+		if _point_is_inside_shape(point, collision.global_transform, collision.shape):
+			return true
+	return false
+
+
+func _point_is_inside_shape(point: Vector3, shape_transform: Transform3D, shape: Shape3D) -> bool:
+	var local_point := shape_transform.affine_inverse() * point
+	if shape is BoxShape3D:
+		var half_extents := (shape as BoxShape3D).size * 0.5
+		return absf(local_point.x) <= half_extents.x and absf(local_point.y) <= half_extents.y and absf(local_point.z) <= half_extents.z
+	if shape is SphereShape3D:
+		return local_point.length() <= (shape as SphereShape3D).radius
+	if shape is CylinderShape3D:
+		var cylinder := shape as CylinderShape3D
+		var radial := Vector2(local_point.x, local_point.z).length()
+		return radial <= cylinder.radius and absf(local_point.y) <= cylinder.height * 0.5
+	return false
+
+
+func _is_valid_shadow_caster(collider) -> bool:
+	if not collider is Node:
+		return true
+	var node := collider as Node
+	for group_name in IGNORED_SHADOW_CASTER_GROUPS:
+		if node.is_in_group(group_name):
+			return false
+	var parent := node.get_parent()
+	while parent:
+		for group_name in IGNORED_SHADOW_CASTER_GROUPS:
+			if parent.is_in_group(group_name):
+				return false
+		parent = parent.get_parent()
+	return true
+
+
+func _is_ignored_reveal_source(node: Node) -> bool:
+	var current := node
+	while current:
+		for group_name in REVEAL_SOURCE_IGNORED_GROUPS:
+			if current.is_in_group(group_name):
+				return true
+		current = current.get_parent()
+	return false
 
 
 func _set_shadow_state(level: ShadowLevel, alpha: float, blocked: int) -> void:

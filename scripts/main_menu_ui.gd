@@ -17,6 +17,8 @@ var lobby_visible := false
 var current_lobby_id := "----"
 var is_host_lobby := false
 var lobby_chat_visible := false
+var lobby_chat_fading := false
+var _lobby_chat_fade_token := 0
 var settings_visible := false
 var lobby_chat_messages: Array[Dictionary] = []
 
@@ -46,6 +48,7 @@ var gravity_option: OptionButton
 var duration_option: OptionButton
 var prep_option: OptionButton
 var hunter_count_option: OptionButton
+var stalker_glass_option: OptionButton
 var start_button: Button
 var auto_assign_button: Button
 var chat_panel: PanelContainer
@@ -93,16 +96,22 @@ func _input(event: InputEvent) -> void:
 			return
 	if not lobby_visible:
 		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if lobby_chat_visible and chat_panel and not chat_panel.get_global_rect().has_point(event.position):
+			_set_lobby_chat_visible(false, true)
+			accept_event()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and lobby_chat_visible:
-			_set_lobby_chat_visible(false)
+			_set_lobby_chat_visible(false, true)
+			accept_event()
+		elif event.keycode == KEY_T:
+			_set_lobby_chat_visible(not lobby_chat_visible)
 			accept_event()
 		elif event.keycode == KEY_ENTER:
 			if lobby_chat_visible and chat_input and chat_input.has_focus():
 				_send_lobby_chat_message()
-			else:
-				_set_lobby_chat_visible(true)
-			accept_event()
+				accept_event()
 
 
 func _fit_to_viewport() -> void:
@@ -631,6 +640,19 @@ func _build_match_details_panel() -> Control:
 	id_row.add_child(copy)
 	box.add_child(id_row)
 
+	if is_host_lobby:
+		box.add_child(_section_label("Host Address"))
+		var address_row = HBoxContainer.new()
+		address_row.add_theme_constant_override("separation", _s(8))
+		var host_target := "%s:%d" % [Network.SERVER_ADDRESS, int(Network.lobby_config.get("host_port", Network.server_port))]
+		var host_address_input = _line_edit(host_target)
+		host_address_input.editable = false
+		address_row.add_child(host_address_input)
+		var copy_address = _icon_button("res://addons/at-icons/control/clipboard.svg")
+		copy_address.pressed.connect(func(): DisplayServer.clipboard_set(host_target))
+		address_row.add_child(copy_address)
+		box.add_child(address_row)
+
 	players_hint_label = _muted_label(I18n.t("players_needed"), 16)
 	box.add_child(players_hint_label)
 	box.add_child(_thin_separator())
@@ -643,6 +665,7 @@ func _build_match_details_panel() -> Control:
 	duration_option = _option([300, 600, 900], "duration")
 	prep_option = _option([30, 60, 120], "prep")
 	hunter_count_option = _option([-1, 1, 2, 3, 4, 5, 6, 7, 8], "hunters")
+	stalker_glass_option = _option([0.07, 0.105, 0.125, 0.16], "stalker_glass")
 
 	box.add_child(_option_group(I18n.t("level"), map_option))
 	box.add_child(_option_group(I18n.t("variant"), variant_option))
@@ -651,6 +674,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(_option_group(I18n.t("gravity"), gravity_option))
 	box.add_child(_option_group(I18n.t("duration"), duration_option))
 	box.add_child(_option_group(I18n.t("hunter_count"), hunter_count_option))
+	box.add_child(_option_group(I18n.t("stalker_glass"), stalker_glass_option))
 	box.add_child(_option_group(I18n.t("hide_prep"), prep_option))
 
 	auto_assign_button = _button(I18n.t("auto_assign"), false)
@@ -722,12 +746,12 @@ func _build_lobby_footer() -> Control:
 	footer.add_theme_constant_override("separation", _s(16))
 
 	footer.add_child(_key_hint("ESC", I18n.t("close") if lobby_chat_visible else I18n.t("back")))
-	var chat_hint = _key_hint("ENTER", I18n.t("chat"))
+	var chat_hint = _key_hint("T", I18n.t("chat"))
 	chat_hint.mouse_filter = Control.MOUSE_FILTER_STOP
 	chat_hint.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	chat_hint.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_set_lobby_chat_visible(true)
+			_set_lobby_chat_visible(not lobby_chat_visible)
 	)
 	footer.add_child(chat_hint)
 	footer.add_child(_key_hint("C", I18n.t("manage_lobby")))
@@ -835,8 +859,27 @@ func _chat_message_row(nick: String, text: String) -> Control:
 	return row
 
 
-func _set_lobby_chat_visible(value: bool) -> void:
+func _set_lobby_chat_visible(value: bool, fade: bool = false) -> void:
+	if value:
+		_lobby_chat_fade_token += 1
+		lobby_chat_fading = false
+	if not value and fade and chat_panel and chat_panel.visible:
+		_lobby_chat_fade_token += 1
+		var fade_token := _lobby_chat_fade_token
+		lobby_chat_visible = false
+		lobby_chat_fading = true
+		var tween := create_tween()
+		tween.tween_property(chat_panel, "modulate:a", 0.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		await tween.finished
+		if fade_token != _lobby_chat_fade_token or lobby_chat_visible:
+			return
+		lobby_chat_fading = false
+		_build_ui()
+		if lobby_visible:
+			update_lobby(Network.players, Network.lobby_config)
+		return
 	lobby_chat_visible = value
+	lobby_chat_fading = false
 	_build_ui()
 	if lobby_visible:
 		update_lobby(Network.players, Network.lobby_config)
@@ -993,6 +1036,7 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(duration_option, int(config.get("match_duration_sec", 600)), 1)
 	_set_option_by_value(prep_option, int(config.get("prep_duration_sec", 120)), 2)
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
+	_set_option_by_value(stalker_glass_option, float(config.get("stalker_glass_alpha_max", 0.125)), 2)
 
 
 func _collect_lobby_config() -> Dictionary:
@@ -1008,6 +1052,7 @@ func _collect_lobby_config() -> Dictionary:
 		"match_duration_sec": int(_get_option_value(duration_option, 600)),
 		"prep_duration_sec": int(_get_option_value(prep_option, 120)),
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
+		"stalker_glass_alpha_max": float(_get_option_value(stalker_glass_option, 0.125)),
 	}
 
 
@@ -1246,7 +1291,7 @@ func _get_option_value(option: OptionButton, fallback):
 
 
 func _set_config_enabled(enabled: bool) -> void:
-	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option]
+	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option, stalker_glass_option]
 	for option in options:
 		if option:
 			option.disabled = not enabled

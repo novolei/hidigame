@@ -1,0 +1,49 @@
+[gd_scene load_steps=8 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
+albedo_color = Color(0.78, 0.9, 1, 1)
+metallic = 0.65
+roughness = 0.24
+emission_enabled = true
+emission = Color(0.18, 0.52, 1, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tip"]
+top_radius = 0.0
+bottom_radius = 0.09
+height = 0.32
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_core"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.38
+
+[sub_resource type="BoxMesh" id="BoxMesh_prong"]
+size = Vector3(0.055, 0.3, 0.055)
+
+[node name="StalkerGrappleHook" type="Node3D"]
+
+[node name="Tip" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -0.16)
+mesh = SubResource("CylinderMesh_tip")
+material_override = SubResource("StandardMaterial3D_metal")
+
+[node name="Core" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.06)
+mesh = SubResource("CylinderMesh_core")
+material_override = SubResource("StandardMaterial3D_metal")
+
+[node name="ProngLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.766044, 0, 0.642788, 0, 1, 0, -0.642788, 0, 0.766044, -0.13, 0, 0.13)
+mesh = SubResource("BoxMesh_prong")
+material_override = SubResource("StandardMaterial3D_metal")
+
+[node name="ProngRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.766044, 0, -0.642788, 0, 1, 0, 0.642788, 0, 0.766044, 0.13, 0, 0.13)
+mesh = SubResource("BoxMesh_prong")
+material_override = SubResource("StandardMaterial3D_metal")
+
+[node name="ProngTop" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.766044, -0.642788, 0, 0.642788, 0.766044, 0, 0.13, 0.13)
+mesh = SubResource("BoxMesh_prong")
+material_override = SubResource("StandardMaterial3D_metal")

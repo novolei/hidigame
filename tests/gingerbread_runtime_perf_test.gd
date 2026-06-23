@@ -30,11 +30,11 @@ func _run() -> void:
 	var ginger_root := player.get_node_or_null("3DGodotRobot/CustomCharacterSkin")
 	var ginger_mesh := _find_first_mesh(ginger_root)
 	if not ginger_mesh:
-		failures.append("Rigged 6K Meshy gingerbread should expose a runtime paintable mesh")
+		failures.append("Rigged 24K gingerbread should expose a runtime paintable mesh")
 	else:
 		var tri_count := _count_triangles(ginger_mesh)
-		if tri_count <= 0 or tri_count > 8000:
-			failures.append("Rigged 6K Meshy gingerbread triangle count should stay near the 6K target; got %d" % tri_count)
+		if tri_count < 18000 or tri_count > 30000:
+			failures.append("Rigged 24K gingerbread triangle count should stay near the 24K target; got %d" % tri_count)
 
 		var aabb := ginger_mesh.get_aabb()
 		var center := ginger_mesh.global_transform * (aabb.position + aabb.size * 0.5)
@@ -417,7 +417,11 @@ func _count_triangles(mesh_instance: MeshInstance3D) -> int:
 	var total := 0
 	for surface in range(mesh_instance.mesh.get_surface_count()):
 		var arrays := mesh_instance.mesh.surface_get_arrays(surface)
-		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if arrays.size() <= Mesh.ARRAY_VERTEX or not arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array:
+			continue
+		var indices := PackedInt32Array()
+		if arrays.size() > Mesh.ARRAY_INDEX and arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
+			indices = arrays[Mesh.ARRAY_INDEX]
 		if not indices.is_empty():
 			total += int(indices.size() / 3)
 		else:

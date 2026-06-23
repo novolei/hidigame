@@ -23,6 +23,7 @@ extends Node3D
 @onready var prep_timer_label: Label = $HUDCanvas/PrepTimerLabel if has_node("HUDCanvas/PrepTimerLabel") else null
 var status_label: Label = null
 var combat_feedback_label: Label = null
+var skill_hud = null
 
 # -----------------------------------------------------------------------------
 # Game state
@@ -77,6 +78,11 @@ const UNITY_DECOR_COUNT_24: int = 42
 const UNITY_DECOR_MIN_DISTANCE: float = 4.0
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
+const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
+const FIXED_SHADOW_COVER_GROUP := "stalker_shadow_caster"
+const FIXED_SHADOW_ZONE_GROUP := "stalker_shadow_zone"
+const RANDOM_DECOR_SHADOW_NOISE_GROUP := "dynamic_shadow_noise"
+const FIXED_SHADOW_COVER_MATERIAL := Color(0.18, 0.14, 0.10, 1.0)
 const TANK_DEMO_MAP_SCENES := {
 	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
 	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
@@ -97,6 +103,9 @@ func _ready():
 		print("Dedicated server starting...")
 		Network.start_host("", "")
 
+	_configure_match_lighting()
+	_ensure_fixed_shadow_cover()
+
 	multiplayer_chat.hide()
 	multiplayer_chat.set_process_input(true)
 	main_menu.show_menu()
@@ -115,8 +124,9 @@ func _ready():
 		multiplayer_chat.message_sent.connect(_on_chat_message_sent)
 
 	# 鏈嶅姟鍣ㄩ€昏緫
+	Network.player_connected.connect(_on_player_connected)
+	Network.players_synced.connect(_on_players_synced)
 	if multiplayer.is_server():
-		Network.player_connected.connect(_on_player_connected)
 		multiplayer.peer_disconnected.connect(_remove_player)
 		Network.roles_assigned.connect(_on_roles_assigned)
 
@@ -148,6 +158,7 @@ func _ready():
 
 	_apply_selected_map_scene()
 	_ensure_status_hud()
+	_ensure_skill_hud()
 
 	# Debug: 纭 HUD 鑺傜偣鎵惧埌
 	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
@@ -200,6 +211,7 @@ func _process(delta):
 		if multiplayer.is_server() and match_remaining <= 0.0:
 			_server_end_match()
 	_update_status_hud()
+	_update_skill_hud()
 	_update_mouse_capture()
 
 
@@ -304,12 +316,45 @@ func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
 # 鏈嶅姟鍣?鐜╁杩炴帴 / 瑙掕壊 / spawn
 # -----------------------------------------------------------------------------
 func _on_player_connected(peer_id, player_info):
-	if multiplayer.is_server():
-		_add_player(peer_id, player_info)
-		_refresh_lobby_ui()
+	_add_player(peer_id, player_info)
+	_refresh_lobby_ui()
+
+
+func _on_players_synced(_all_players: Dictionary) -> void:
+	_ensure_player_nodes_from_network()
+	_refresh_lobby_ui()
+
+
+func _ensure_player_nodes_from_network() -> void:
+	if not players_container:
+		return
+	for pid in Network.players.keys():
+		var player_id := int(pid)
+		var synced_player_info: Dictionary = Network.players.get(pid, {})
+		if synced_player_info.is_empty():
+			synced_player_info = Network.players.get(player_id, {})
+		if synced_player_info.is_empty():
+			continue
+		if players_container.has_node(str(player_id)):
+			_sync_existing_player_node(player_id, synced_player_info)
+			_try_reposition_player(player_id)
+		else:
+			_add_player(player_id, synced_player_info)
+
+
+func _sync_existing_player_node(peer_id: int, player_info: Dictionary) -> void:
+	var player_node = players_container.get_node_or_null(str(peer_id))
+	if not player_node:
+		return
+	if player_node.has_method("_sync_role_from_network"):
+		player_node._sync_role_from_network()
+	if player_node.has_method("set_character_model"):
+		player_node.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
 
 
 func _on_player_role_changed(peer_id: int, new_role: int):
+	if not players_container.has_node(str(peer_id)):
+		_ensure_player_nodes_from_network()
 	# 鎵€鏈夌閮藉搷搴?server + client)
 	var player_node = players_container.get_node_or_null(str(peer_id))
 	if player_node and player_node.has_method("_sync_role_from_network"):
@@ -317,11 +362,13 @@ func _on_player_role_changed(peer_id: int, new_role: int):
 	# 绔嬪嵆 reposition(鍏抽敭淇:涔嬪墠鍙湪 server 绔?reposition,client 绔笉鍔?
 	_try_reposition_player(peer_id)
 	_refresh_lobby_ui()
+	_update_skill_hud()
 
 
 func _on_roles_assigned():
 	# 鎵€鏈夌閮?reposition(瑙掕壊鍒嗛厤瀹屾垚鍚庣粺涓€澶勭悊)
 	print("[Level] Roles assigned, repositioning all players")
+	_ensure_player_nodes_from_network()
 	for pid in Network.players.keys():
 		_try_reposition_player(pid)
 	_refresh_lobby_ui()
@@ -336,13 +383,13 @@ func _add_player(id: int, player_info: Dictionary):
 
 	var player = player_scene.instantiate()
 	player.name = str(id)
-	player.position = get_spawn_point_for_role(Network.players[id].get("role", Network.Role.NONE), id)
+	player.position = get_spawn_point_for_role(int(player_info.get("role", Network.Role.NONE)), id)
 	players_container.add_child(player, true)
 
-	var nick = Network.players[id]["nick"]
+	var nick = str(player_info.get("nick", "Player_" + str(id)))
 	player.nickname.text = nick
 
-	var skin_enum = player_info["skin"]
+	var skin_enum = player_info.get("skin", Network.SKIN_BLUE)
 	player.set_player_skin(skin_enum)
 	if player.has_method("set_character_model"):
 		player.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
@@ -358,7 +405,9 @@ func _try_reposition_player(pid: int) -> bool:
 		return false
 	var player_node = players_container.get_node(str(pid))
 	var info = Network.players.get(pid, {})
-	var role = info.get("role", Network.Role.NONE)
+	if info.is_empty():
+		info = Network.players.get(str(pid), {})
+	var role = int(info.get("role", Network.Role.NONE))
 
 	# 瑙掕壊鏈垎閰?涓嶅仛 reposition
 	if role == Network.Role.NONE:
@@ -644,6 +693,7 @@ func _rpc_spawn_map_props(spawn_data: Array) -> void:
 func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
 	var node := FruitProp.new()
 	node.name = str(data.get("name", "MapProp"))
+	node.set_multiplayer_authority(1)
 	container.add_child(node, true)
 	node.apply_data({
 		"id": str(data.get("id", "apple")),
@@ -656,6 +706,77 @@ func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
 		"position": data.get("position", Vector3.ZERO),
 		"rotation_y": float(data.get("rotation_y", 0.0)),
 	})
+
+
+func request_map_prop_impact(prop: FruitProp, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+	if not prop:
+		return
+	if multiplayer.is_server():
+		_server_apply_map_prop_impact(prop.name, player_velocity, contact_point, contact_normal, disguised_player, 0)
+	else:
+		_request_map_prop_impact_rpc.rpc_id(1, prop.name, player_velocity, contact_point, contact_normal, disguised_player)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_map_prop_impact_rpc(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	_server_apply_map_prop_impact(prop_name, player_velocity, contact_point, contact_normal, disguised_player, sender_id)
+
+
+func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, sender_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var prop := _get_map_prop_by_name(prop_name)
+	if not prop:
+		return
+	if sender_id != 0:
+		if not Network.players.has(sender_id):
+			return
+		var player_node := players_container.get_node_or_null(str(sender_id)) if players_container else null
+		if player_node is Node3D and (player_node as Node3D).global_position.distance_to(prop.global_position) > MAP_PROP_IMPACT_MAX_DISTANCE:
+			return
+	var reported_velocity := player_velocity
+	if reported_velocity.length() > FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED:
+		reported_velocity = reported_velocity.normalized() * FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED
+	prop._apply_player_impact_authoritative(reported_velocity, contact_point, contact_normal, disguised_player)
+
+
+func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> void:
+	if not multiplayer.is_server() or not prop:
+		return
+	if reliable:
+		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+	else:
+		_rpc_sync_map_prop_motion_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _rpc_sync_map_prop_motion_state(prop_name: String, next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool) -> void:
+	_apply_map_prop_network_state(prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_sync_map_prop_rest_state(prop_name: String, next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool) -> void:
+	_apply_map_prop_network_state(prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
+
+
+func _apply_map_prop_network_state(prop_name: String, next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool) -> void:
+	var prop := _get_map_prop_by_name(prop_name)
+	if not prop:
+		return
+	prop._apply_network_physics_state(next_transform, next_linear_velocity, next_angular_velocity, next_sleeping, true)
+
+
+func _get_map_prop_by_name(prop_name: String) -> FruitProp:
+	var container := get_node_or_null("MapPropContainer")
+	if not container:
+		return null
+	var prop := container.get_node_or_null(prop_name)
+	if prop is FruitProp:
+		return prop as FruitProp
+	return null
 
 
 func _server_spawn_unity_decorations() -> void:
@@ -730,6 +851,7 @@ func _spawn_one_unity_decoration(container: Node3D, data: Dictionary) -> void:
 
 	node.name = str(data.get("name", "UnityDecor"))
 	container.add_child(node, true)
+	node.add_to_group(RANDOM_DECOR_SHADOW_NOISE_GROUP)
 	node.scale = data.get("scale", Vector3.ONE)
 	node.rotation.y = float(data.get("rotation_y", 0.0))
 	node.global_position = data.get("position", Vector3.ZERO)
@@ -807,6 +929,7 @@ func _add_decoration_collision_body(container: Node3D, visual_node: Node3D) -> v
 	body.name = visual_node.name + "_Collision"
 	body.collision_layer = UNITY_DECOR_COLLISION_LAYER
 	body.collision_mask = 0
+	body.add_to_group(RANDOM_DECOR_SHADOW_NOISE_GROUP)
 	container.add_child(body, true)
 	body.global_position = bounds.get_center()
 
@@ -819,6 +942,115 @@ func _add_decoration_collision_body(container: Node3D, visual_node: Node3D) -> v
 	)
 	shape_node.shape = shape
 	body.add_child(shape_node)
+
+
+func _configure_match_lighting() -> void:
+	var light := get_node_or_null("Environment/DirectionalLight3D") as DirectionalLight3D
+	if light:
+		light.light_color = Color(0.76, 0.82, 1.0, 1.0)
+		light.light_energy = 0.58
+		light.shadow_enabled = true
+		light.shadow_blur = 0.85
+		light.rotation_degrees = Vector3(-64.0, 38.0, 0.0)
+		_set_property_if_present(light, "directional_shadow_max_distance", 95.0)
+		_set_property_if_present(light, "directional_shadow_fade_start", 0.72)
+
+	var world_environment := get_node_or_null("Environment/WorldEnvironment") as WorldEnvironment
+	if not world_environment or not world_environment.environment:
+		return
+	var environment := world_environment.environment.duplicate() as Environment
+	world_environment.environment = environment
+	environment.ambient_light_color = Color(0.34, 0.39, 0.58, 1.0)
+	environment.ambient_light_energy = 0.62
+	environment.ambient_light_sky_contribution = 0.22
+	environment.tonemap_exposure = 0.95
+	environment.fog_enabled = true
+	environment.fog_density = 0.0025
+	environment.fog_light_color = Color(0.10, 0.13, 0.22, 1.0)
+
+
+func _ensure_fixed_shadow_cover() -> void:
+	if get_node_or_null("FixedShadowCover"):
+		return
+	var parent := get_node_or_null("Environment")
+	if not parent:
+		parent = self
+	var container := Node3D.new()
+	container.name = "FixedShadowCover"
+	parent.add_child(container)
+
+	_add_fixed_shadow_canopy(container, "NorthShadeAwning", Vector3(-8.0, 0.0, -10.0), Vector3(7.2, 0.32, 5.6), deg_to_rad(18.0))
+	_add_fixed_shadow_canopy(container, "CenterShadeRig", Vector3(5.5, 0.0, 4.5), Vector3(6.4, 0.32, 6.4), deg_to_rad(-22.0))
+	_add_fixed_shadow_canopy(container, "EastShadeLeanTo", Vector3(13.0, 0.0, -1.5), Vector3(5.6, 0.32, 7.0), deg_to_rad(42.0))
+	_add_fixed_shadow_canopy(container, "SouthShadeCrateRoof", Vector3(-2.5, 0.0, 13.5), Vector3(8.0, 0.30, 4.8), deg_to_rad(-8.0))
+
+
+func _add_fixed_shadow_canopy(parent: Node, base_name: String, base_position: Vector3, roof_size: Vector3, yaw: float) -> void:
+	var roof_height := 3.05
+	_add_fixed_shadow_box(parent, base_name + "_Roof", base_position + Vector3(0.0, roof_height, 0.0), roof_size, yaw, FIXED_SHADOW_COVER_MATERIAL)
+	_add_fixed_shadow_zone(parent, base_name + "_ShadowZone", base_position + Vector3(0.0, 1.05, 0.0), Vector3(roof_size.x * 1.55, 2.3, roof_size.z * 1.65), yaw)
+	var post_offsets := [
+		Vector3(-roof_size.x * 0.42, 1.35, -roof_size.z * 0.38),
+		Vector3(roof_size.x * 0.42, 1.35, -roof_size.z * 0.38),
+		Vector3(-roof_size.x * 0.42, 1.35, roof_size.z * 0.38),
+		Vector3(roof_size.x * 0.42, 1.35, roof_size.z * 0.38),
+	]
+	for i in range(post_offsets.size()):
+		_add_fixed_shadow_box(parent, "%s_Post_%d" % [base_name, i], base_position + post_offsets[i].rotated(Vector3.UP, yaw), Vector3(0.28, 2.7, 0.28), yaw, Color(0.16, 0.11, 0.075, 1.0))
+
+
+func _add_fixed_shadow_zone(parent: Node, node_name: String, position: Vector3, size: Vector3, yaw: float) -> void:
+	var area := Area3D.new()
+	area.name = node_name
+	area.collision_layer = 0
+	area.collision_mask = 0
+	area.monitoring = false
+	area.monitorable = false
+	area.add_to_group(FIXED_SHADOW_ZONE_GROUP)
+	area.position = position
+	area.rotation.y = yaw
+	parent.add_child(area)
+
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	collision.shape = shape
+	area.add_child(collision)
+
+
+func _add_fixed_shadow_box(parent: Node, node_name: String, position: Vector3, size: Vector3, yaw: float, color: Color) -> void:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	body.collision_layer = UNITY_DECOR_COLLISION_LAYER
+	body.collision_mask = 0
+	body.add_to_group(FIXED_SHADOW_COVER_GROUP)
+	body.position = position
+	body.rotation.y = yaw
+	parent.add_child(body)
+
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	collision.shape = shape
+	body.add_child(collision)
+
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh_instance.mesh = mesh
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.85
+	mesh_instance.material_override = material
+	body.add_child(mesh_instance)
+
+
+func _set_property_if_present(object: Object, property_name: String, value) -> void:
+	for property in object.get_property_list():
+		if str(property.get("name", "")) == property_name:
+			object.set(property_name, value)
+			return
 
 
 func _align_visual_bottom_to_ground(node: Node3D, ground_y: float) -> void:
@@ -1032,6 +1264,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 	else:
 		print("[Level] WARNING: prep_timer_label is null - HUDCanvas/PrepTimerLabel node not found!")
 
+	_ensure_player_nodes_from_network()
 	for pid in Network.players.keys():
 		_try_reposition_player(pid)
 
@@ -1196,6 +1429,20 @@ func _ensure_status_hud() -> void:
 	_update_status_hud()
 
 
+func _ensure_skill_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	skill_hud = hud.get_node_or_null("SkillHUD")
+	if not skill_hud:
+		skill_hud = preload("res://scripts/skill_hud.gd").new()
+		skill_hud.name = "SkillHUD"
+		hud.add_child(skill_hud)
+	_update_skill_hud()
+
+
 func _set_hud_visible(visible_value: bool) -> void:
 	if prep_timer_label:
 		prep_timer_label.visible = visible_value and game_state == GameState.PREP
@@ -1203,6 +1450,8 @@ func _set_hud_visible(visible_value: bool) -> void:
 		status_label.visible = visible_value
 	if combat_feedback_label:
 		combat_feedback_label.visible = false
+	if skill_hud:
+		skill_hud.visible = visible_value and not main_menu.is_menu_visible()
 
 
 func _update_status_hud() -> void:
@@ -1234,6 +1483,138 @@ func _update_status_hud() -> void:
 			var weapon: WeaponSystem = local_player.get_node("WeaponSystem")
 			lines.append("%s: %d / %d" % [I18n.t("ammo"), weapon.current_magazine, weapon.total_ammo])
 	status_label.text = "\n".join(lines)
+
+
+func _update_skill_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not skill_hud:
+		_ensure_skill_hud()
+	if not skill_hud:
+		return
+	if main_menu and main_menu.is_menu_visible():
+		skill_hud.clear_skills()
+		return
+	if game_state == GameState.LOBBY or game_state == GameState.END:
+		skill_hud.clear_skills()
+		return
+	var local_player = _get_local_player()
+	if not local_player:
+		skill_hud.clear_skills()
+		return
+	skill_hud.set_skills(_skill_hud_entries_for_player(local_player))
+
+
+func _skill_hud_entries_for_player(local_player: Character) -> Array:
+	match local_player.role:
+		Network.Role.HUNTER:
+			return _hunter_skill_hud_entries(local_player)
+		Network.Role.CHAMELEON:
+			return _chameleon_skill_hud_entries(local_player)
+		Network.Role.STALKER:
+			return _stalker_skill_hud_entries(local_player)
+		_:
+			return _placeholder_skill_hud_entries("ROLE")
+
+
+func _hunter_skill_hud_entries(local_player: Character) -> Array:
+	var flashlight = local_player.get_node_or_null("HunterFlashlightSystem")
+	var battery_remaining := 15.0
+	var battery_ratio := 1.0
+	var cooldown_remaining := 0.0
+	var active := false
+	if flashlight:
+		if flashlight.has_method("get_battery_remaining"):
+			battery_remaining = float(flashlight.call("get_battery_remaining"))
+		battery_ratio = clampf(battery_remaining / 15.0, 0.0, 1.0)
+		if flashlight.has_method("get_cooldown_remaining"):
+			cooldown_remaining = float(flashlight.call("get_cooldown_remaining"))
+		if flashlight.has_method("is_flashlight_active"):
+			active = bool(flashlight.call("is_flashlight_active"))
+	return [
+		{
+			"title": "FLASH",
+			"key": "F",
+			"icon": "flashlight",
+			"active": active,
+			"charge_ratio": battery_ratio,
+			"cooldown_remaining": cooldown_remaining,
+			"cooldown_total": 45.0,
+			"disabled": cooldown_remaining > 0.0 or battery_remaining <= 0.0,
+		},
+		{"title": "SCAN", "key": "2", "icon": "detect", "charge_ratio": 0.0, "disabled": true},
+		{"title": "TRAP", "key": "3", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "DASH", "key": "4", "icon": "sprint", "charge_ratio": 0.0, "disabled": true},
+	]
+
+
+func _chameleon_skill_hud_entries(local_player: Character) -> Array:
+	var shape_system = local_player.get_node_or_null("ShapeShiftSystem")
+	var shape_cooldown := 0.0
+	if shape_system and shape_system.has_method("get_cooldown_remaining"):
+		shape_cooldown = float(shape_system.call("get_cooldown_remaining"))
+	var camo_active := local_player.has_method("is_camouflage_brushing") and local_player.is_camouflage_brushing()
+	return [
+		{
+			"title": "SHIFT",
+			"key": "Q",
+			"icon": "shape",
+			"charge_ratio": 0.0 if shape_cooldown > 0.0 else 1.0,
+			"cooldown_remaining": shape_cooldown,
+			"cooldown_total": 6.0,
+			"disabled": shape_cooldown > 0.0,
+		},
+		{"title": "CAMO", "key": "C", "icon": "camo", "active": camo_active, "charge_ratio": 1.0},
+		{"title": "COPY", "key": "3", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "BLEND", "key": "4", "icon": "stealth", "charge_ratio": 0.0, "disabled": true},
+	]
+
+
+func _stalker_skill_hud_entries(local_player: Character) -> Array:
+	var shadow_system = local_player.get_node_or_null("ShadowVisibilitySystem")
+	var grapple_system = local_player.get_node_or_null("StalkerGrappleSystem")
+	var shadow_alpha := 1.0
+	var reveal_lockout := 0.0
+	var grapple_cooldown := 0.0
+	if shadow_system:
+		if shadow_system.has_method("get_visibility_alpha"):
+			shadow_alpha = float(shadow_system.call("get_visibility_alpha"))
+		if shadow_system.has_method("get_flashlight_reveal_lockout_remaining"):
+			reveal_lockout = float(shadow_system.call("get_flashlight_reveal_lockout_remaining"))
+	if grapple_system and grapple_system.has_method("get_cooldown_remaining"):
+		grapple_cooldown = float(grapple_system.call("get_cooldown_remaining"))
+	return [
+		{
+			"title": "SHADOW",
+			"key": "AUTO",
+			"icon": "stealth",
+			"active": shadow_alpha < 0.99,
+			"charge_ratio": 0.0 if reveal_lockout > 0.0 else 1.0,
+			"cooldown_remaining": reveal_lockout,
+			"cooldown_total": 20.0,
+			"disabled": reveal_lockout > 0.0,
+		},
+		{
+			"title": "HOOK",
+			"key": "2",
+			"icon": "grapple",
+			"charge_ratio": 0.0 if grapple_cooldown > 0.0 else 1.0,
+			"cooldown_remaining": grapple_cooldown,
+			"cooldown_total": 45.0,
+			"disabled": grapple_cooldown > 0.0,
+		},
+		{"title": "DECOY", "key": "3", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "BURST", "key": "4", "icon": "sprint", "charge_ratio": 0.0, "disabled": true},
+	]
+
+
+func _placeholder_skill_hud_entries(label: String) -> Array:
+	return [
+		{"title": label, "key": "1", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "SKILL", "key": "2", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "SKILL", "key": "3", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+		{"title": "SKILL", "key": "4", "icon": "locked", "charge_ratio": 0.0, "disabled": true},
+	]
 
 
 func show_combat_feedback(text: String, color: Color = Color(1, 0.86, 0.25, 1), duration: float = 0.85) -> void:
@@ -1386,7 +1767,7 @@ func _notification(what):
 		print("=== Prop Hunt v0.3.3 ===")
 		print("Controls:")
 		print("  WASD - Move | Shift - Sprint | Space - Jump")
-		print("  Ctrl - Toggle Chat | B - Toggle Inventory")
+		print("  T - Toggle Chat | B - Toggle Inventory")
 		print("  F1 - Add random test item (debug)")
 		print("  F2 - Print inventory contents (debug)")
 		print("Match: ", Network.lobby_config.get("match_duration_sec", 600) / 60, " min")

@@ -40,6 +40,7 @@ const COLOR_MATERIAL_SCREEN_MATCH_THRESHOLD := 0.32
 const COLOR_MATERIAL_CALIBRATION_WEIGHT := 0.0
 const PAINT_ROUGHNESS_DEFAULT := 1.0
 const PAINT_METALLIC_DEFAULT := 0.0
+const PAINT_SPECULAR_DEFAULT := 0.5
 const PAINT_MATERIAL_STEP := 0.05
 const SURFACE_PREVIEW_OFFSET := 0.012
 const SURFACE_PREVIEW_SEGMENTS := 64
@@ -64,6 +65,9 @@ var last_confidence := 0.0
 var paint_exact_color_match := false
 var paint_roughness := PAINT_ROUGHNESS_DEFAULT
 var paint_metallic := PAINT_METALLIC_DEFAULT
+var paint_specular := PAINT_SPECULAR_DEFAULT
+var paint_normal_texture: Texture2D = null
+var paint_normal_scale := 1.0
 
 var _stroke_wait := 0.0
 var _resizing_brush := false
@@ -390,7 +394,11 @@ func _pick_color_at_mouse(screen_position: Vector2 = Vector2(-1.0, -1.0)) -> voi
 	if bool(material_profile.get("has_response", false)):
 		paint_roughness = clampf(float(material_profile.get("roughness", paint_roughness)), 0.0, 1.0)
 		paint_metallic = clampf(float(material_profile.get("metallic", paint_metallic)), 0.0, 1.0)
+		paint_specular = clampf(float(material_profile.get("specular", paint_specular)), 0.0, 1.0)
+		paint_normal_texture = material_profile.get("normal_texture", null) as Texture2D
+		paint_normal_scale = clampf(float(material_profile.get("normal_scale", paint_normal_scale)), 0.0, 2.0)
 		_sync_paint_material_controls()
+		_sync_paint_material_profile()
 	has_sampled_color = true
 	last_confidence = 1.0
 	_last_stroke_world_position = Vector3(INF, INF, INF)
@@ -889,7 +897,10 @@ func _submit_brush_stroke(
 		world_position,
 		world_normal,
 		target_mesh_path,
-		target_surface
+		target_surface,
+		paint_roughness,
+		paint_metallic,
+		paint_specular
 	)
 
 
@@ -923,7 +934,10 @@ func _submit_brush_stroke_batch(
 			brush_radii,
 			uv_clip_triangles,
 			uv_clip_triangle_counts,
-			uv_footprint_metrics
+			uv_footprint_metrics,
+			paint_roughness,
+			paint_metallic,
+			paint_specular
 		)
 		return
 	for index in range(uvs.size()):
@@ -965,7 +979,19 @@ func _adjust_paint_metallic(delta: float) -> void:
 
 func _sync_paint_material_controls() -> void:
 	if camouflage_owner and camouflage_owner.has_method("set_camouflage_paint_material_controls"):
-		camouflage_owner.call("set_camouflage_paint_material_controls", paint_exact_color_match, paint_roughness, paint_metallic)
+		camouflage_owner.call("set_camouflage_paint_material_controls", paint_exact_color_match, paint_roughness, paint_metallic, paint_specular)
+
+
+func _sync_paint_material_profile() -> void:
+	if not camouflage_owner or not camouflage_owner.has_method("set_camouflage_paint_material_profile"):
+		return
+	camouflage_owner.call("set_camouflage_paint_material_profile", {
+		"roughness": paint_roughness,
+		"metallic": paint_metallic,
+		"specular": paint_specular,
+		"normal_texture": paint_normal_texture,
+		"normal_scale": paint_normal_scale,
+	})
 
 
 func _update_hud_material_controls() -> void:
@@ -1035,7 +1061,10 @@ func _project_screen_to_body_surface(
 		var target_mesh := camouflage_owner.get_node_or_null(target_mesh_path) as MeshInstance3D
 		if not target_mesh or not target_mesh.mesh or not _is_mesh_paintable_visible(target_mesh):
 			return {}
-		return _intersect_mesh_triangles(target_mesh, target_mesh_path, ray_origin, ray_dir, allow_async_build, target_surface, screen_position)
+		var targeted_hit := _intersect_mesh_triangles(target_mesh, target_mesh_path, ray_origin, ray_dir, allow_async_build, target_surface, screen_position)
+		if targeted_hit.is_empty():
+			targeted_hit = _intersect_mesh_screen_projection(target_mesh, target_mesh_path, screen_position, target_surface)
+		return targeted_hit
 	var best := {}
 	var best_distance := INF
 	for mesh_data in _get_paintable_meshes():
@@ -1044,6 +1073,8 @@ func _project_screen_to_body_surface(
 		if not mesh or not mesh.mesh or not _is_mesh_paintable_visible(mesh):
 			continue
 		var hit := _intersect_mesh_triangles(mesh, path, ray_origin, ray_dir, allow_async_build, -1, screen_position)
+		if hit.is_empty():
+			hit = _intersect_mesh_screen_projection(mesh, path, screen_position, -1)
 		if hit.is_empty():
 			continue
 		var distance: float = hit.get("distance", INF)
@@ -1200,6 +1231,102 @@ func _intersect_mesh_triangles(
 	return best
 
 
+func _intersect_mesh_screen_projection(
+	mesh_instance: MeshInstance3D,
+	mesh_path: String,
+	screen_position: Vector2,
+	target_surface: int = -1
+) -> Dictionary:
+	if not camera or not mesh_instance or not mesh_instance.mesh:
+		return {}
+	var ray_origin := camera.project_ray_origin(screen_position)
+	var surface_start := 0
+	var surface_end := mesh_instance.mesh.get_surface_count()
+	if target_surface >= 0:
+		if target_surface >= surface_end:
+			return {}
+		surface_start = target_surface
+		surface_end = target_surface + 1
+	var best := {}
+	var best_screen_distance := maxf(6.0, _current_brush_radius() * 0.5)
+	var best_world_distance := INF
+	for surface in range(surface_start, surface_end):
+		var hit_data := _get_mesh_instance_surface_hit_data(mesh_instance, surface, true)
+		if hit_data.is_empty():
+			continue
+		var faces: PackedVector3Array = hit_data.get("faces", PackedVector3Array())
+		var face_uvs: PackedVector2Array = hit_data.get("uvs", PackedVector2Array())
+		var triangle_count := mini(int(faces.size() / 3), int(face_uvs.size() / 3))
+		for face_index in range(triangle_count):
+			var face_offset := face_index * 3
+			var v0 := faces[face_offset]
+			var v1 := faces[face_offset + 1]
+			var v2 := faces[face_offset + 2]
+			var world_v0 := mesh_instance.global_transform * v0
+			var world_v1 := mesh_instance.global_transform * v1
+			var world_v2 := mesh_instance.global_transform * v2
+			if camera.is_position_behind(world_v0) and camera.is_position_behind(world_v1) and camera.is_position_behind(world_v2):
+				continue
+			var screen_v0 := camera.unproject_position(world_v0)
+			var screen_v1 := camera.unproject_position(world_v1)
+			var screen_v2 := camera.unproject_position(world_v2)
+			var screen_distance := _distance_to_screen_triangle(screen_position, screen_v0, screen_v1, screen_v2)
+			if screen_distance > best_screen_distance + 0.001:
+				continue
+			var bary := _barycentric_from_screen_point(screen_position, screen_v0, screen_v1, screen_v2)
+			if bary.x < -0.001 or bary.y < -0.001 or bary.z < -0.001:
+				var closest := _closest_point_on_screen_triangle(screen_position, screen_v0, screen_v1, screen_v2)
+				bary = _barycentric_from_screen_point(closest, screen_v0, screen_v1, screen_v2)
+			bary = Vector3(maxf(0.0, bary.x), maxf(0.0, bary.y), maxf(0.0, bary.z))
+			var bary_sum := bary.x + bary.y + bary.z
+			if bary_sum <= 0.000001:
+				continue
+			bary /= bary_sum
+			var world_hit := world_v0 * bary.x + world_v1 * bary.y + world_v2 * bary.z
+			var world_distance := ray_origin.distance_to(world_hit)
+			if absf(screen_distance - best_screen_distance) <= 0.001 and world_distance >= best_world_distance:
+				continue
+			var uv0 := face_uvs[face_offset]
+			var uv1 := face_uvs[face_offset + 1]
+			var uv2 := face_uvs[face_offset + 2]
+			var uv := uv0 * bary.x + uv1 * bary.y + uv2 * bary.z
+			uv = Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0))
+			var world_normal := (world_v1 - world_v0).cross(world_v2 - world_v0).normalized()
+			if world_normal.length_squared() <= 0.001:
+				continue
+			var world_radius := _brush_screen_radius_to_world(world_hit, _current_brush_radius())
+			var texture_radius := _estimate_texture_radius_from_triangle(world_radius, world_v0, world_v1, world_v2, uv0, uv1, uv2)
+			var uv_footprint_metric := _uv_footprint_metric_from_triangle(world_radius, world_v0, world_v1, world_v2, uv0, uv1, uv2)
+			if uv_footprint_metric.is_empty():
+				uv_footprint_metric = _fallback_uv_footprint_metric(texture_radius)
+			else:
+				uv_footprint_metric = _clamp_uv_footprint_metric_to_texture_radius(uv_footprint_metric, texture_radius)
+			best_screen_distance = screen_distance
+			best_world_distance = world_distance
+			best = {
+				"uv": uv,
+				"screen": screen_position,
+				"position": world_hit,
+				"normal": world_normal,
+				"angle": _surface_normal_to_brush_angle(world_normal),
+				"distance": world_distance,
+				"mesh_path": mesh_path,
+				"surface": surface,
+				"face_index": face_index,
+				"face_uv0": uv0,
+				"face_uv1": uv1,
+				"face_uv2": uv2,
+				"world_v0": world_v0,
+				"world_v1": world_v1,
+				"world_v2": world_v2,
+				"barycentric": bary,
+				"texture_radius": texture_radius,
+				"uv_footprint_metric": uv_footprint_metric,
+				"uv_clip_triangles": _collect_uv_clip_triangles_for_brush(hit_data, face_index, uv, texture_radius),
+			}
+	return best
+
+
 func _request_paintable_mesh_cache_warmup() -> void:
 	for mesh_data in _get_paintable_meshes():
 		var mesh_instance := mesh_data.get("mesh") as MeshInstance3D
@@ -1273,7 +1400,7 @@ func _get_mesh_surface_hit_data(mesh: Mesh, surface: int, build_synchronously: b
 		_mesh_hit_cache[cache_key] = {}
 		return {}
 
-	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var indices := _packed_int_array_from(arrays[Mesh.ARRAY_INDEX])
 	var triangle_count := int(indices.size() / 3) if not indices.is_empty() else int(vertices.size() / 3)
 	if triangle_count <= 0:
 		_mesh_hit_cache[cache_key] = {}
@@ -1442,6 +1569,13 @@ func _get_mesh_surface_triangle_count_estimate(mesh: Mesh, surface: int) -> int:
 			return int(primitive_indices.size() / 3)
 		var primitive_vertices: PackedVector3Array = primitive_arrays[Mesh.ARRAY_VERTEX]
 		return int(primitive_vertices.size() / 3)
+	var arrays := _get_mesh_surface_arrays(mesh, surface)
+	if not arrays.is_empty():
+		var indices := _packed_int_array_from(arrays[Mesh.ARRAY_INDEX])
+		if not indices.is_empty():
+			return int(indices.size() / 3)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		return int(vertices.size() / 3)
 	if mesh.has_method("surface_get_array_index_len"):
 		var index_len := int(mesh.call("surface_get_array_index_len", surface))
 		if index_len > 0:
@@ -1450,14 +1584,7 @@ func _get_mesh_surface_triangle_count_estimate(mesh: Mesh, surface: int) -> int:
 		var array_len := int(mesh.call("surface_get_array_len", surface))
 		if array_len > 0:
 			return int(array_len / 3)
-	var arrays := _get_mesh_surface_arrays(mesh, surface)
-	if arrays.is_empty():
-		return 0
-	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-	if not indices.is_empty():
-		return int(indices.size() / 3)
-	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	return int(vertices.size() / 3)
+	return 0
 
 
 static func _build_surface_hit_data_from_arrays(
@@ -1541,9 +1668,9 @@ static func _build_skinned_surface_hit_data_from_snapshot(snapshot: Dictionary) 
 			return {}
 		vertices = arrays[Mesh.ARRAY_VERTEX]
 		uvs = arrays[Mesh.ARRAY_TEX_UV]
-		indices = arrays[Mesh.ARRAY_INDEX]
-		bones = arrays[Mesh.ARRAY_BONES]
-		weights = arrays[Mesh.ARRAY_WEIGHTS]
+		indices = _packed_int_array_from(arrays[Mesh.ARRAY_INDEX])
+		bones = _packed_int_array_from(arrays[Mesh.ARRAY_BONES])
+		weights = _packed_float_array_from(arrays[Mesh.ARRAY_WEIGHTS])
 		if bones != null and vertices.size() > 0 and bones.size() % vertices.size() == 0:
 			influences_per_vertex = int(bones.size() / vertices.size())
 		triangle_count = int(indices.size() / 3) if not indices.is_empty() else int(vertices.size() / 3)
@@ -1640,7 +1767,7 @@ static func _build_surface_hit_data_from_mesh(mesh: Mesh, surface: int) -> Dicti
 	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
 	if vertices.is_empty() or uvs.size() != vertices.size():
 		return {}
-	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var indices := _packed_int_array_from(arrays[Mesh.ARRAY_INDEX])
 	var triangle_count := int(indices.size() / 3) if not indices.is_empty() else int(vertices.size() / 3)
 	if triangle_count <= 0:
 		return {}
@@ -1683,6 +1810,64 @@ func _barycentric_from_point(point: Vector3, v0: Vector3, v1: Vector3, v2: Vecto
 	var bary_z := (d00 * d21 - d01 * d20) / denom
 	var bary_x := 1.0 - bary_y - bary_z
 	return Vector3(bary_x, bary_y, bary_z)
+
+
+static func _barycentric_from_screen_point(point: Vector2, v0: Vector2, v1: Vector2, v2: Vector2) -> Vector3:
+	var edge0 := v1 - v0
+	var edge1 := v2 - v0
+	var point_edge := point - v0
+	var d00 := edge0.dot(edge0)
+	var d01 := edge0.dot(edge1)
+	var d11 := edge1.dot(edge1)
+	var d20 := point_edge.dot(edge0)
+	var d21 := point_edge.dot(edge1)
+	var denom := d00 * d11 - d01 * d01
+	if absf(denom) < 0.000001:
+		return Vector3(1.0, 0.0, 0.0)
+	var bary_y := (d11 * d20 - d01 * d21) / denom
+	var bary_z := (d00 * d21 - d01 * d20) / denom
+	var bary_x := 1.0 - bary_y - bary_z
+	return Vector3(bary_x, bary_y, bary_z)
+
+
+static func _packed_int_array_from(value) -> PackedInt32Array:
+	if value is PackedInt32Array:
+		return value
+	return PackedInt32Array()
+
+
+static func _packed_float_array_from(value) -> PackedFloat32Array:
+	if value is PackedFloat32Array:
+		return value
+	return PackedFloat32Array()
+
+
+static func _distance_to_screen_triangle(point: Vector2, v0: Vector2, v1: Vector2, v2: Vector2) -> float:
+	var bary := _barycentric_from_screen_point(point, v0, v1, v2)
+	if bary.x >= -0.00001 and bary.y >= -0.00001 and bary.z >= -0.00001:
+		return 0.0
+	return minf(
+		_distance_to_segment_2d(point, v0, v1),
+		minf(_distance_to_segment_2d(point, v1, v2), _distance_to_segment_2d(point, v2, v0))
+	)
+
+
+static func _closest_point_on_screen_triangle(point: Vector2, v0: Vector2, v1: Vector2, v2: Vector2) -> Vector2:
+	var bary := _barycentric_from_screen_point(point, v0, v1, v2)
+	if bary.x >= -0.00001 and bary.y >= -0.00001 and bary.z >= -0.00001:
+		return point
+	var closest := _closest_point_on_segment_2d(point, v0, v1)
+	var closest_distance := point.distance_squared_to(closest)
+	var candidate := _closest_point_on_segment_2d(point, v1, v2)
+	var candidate_distance := point.distance_squared_to(candidate)
+	if candidate_distance < closest_distance:
+		closest = candidate
+		closest_distance = candidate_distance
+	candidate = _closest_point_on_segment_2d(point, v2, v0)
+	candidate_distance = point.distance_squared_to(candidate)
+	if candidate_distance < closest_distance:
+		closest = candidate
+	return closest
 
 
 func _collect_uv_clip_triangles_for_brush(
@@ -2239,6 +2424,7 @@ func _material_profile_from_material(material: Material, uv: Vector2) -> Diction
 		"color": color,
 		"roughness": paint_roughness,
 		"metallic": paint_metallic,
+		"specular": paint_specular,
 		"has_response": false,
 	}
 	if not material:
@@ -2248,6 +2434,7 @@ func _material_profile_from_material(material: Material, uv: Vector2) -> Diction
 		var standard := material as StandardMaterial3D
 		var roughness := _variant_to_unit_float(standard.get("roughness"), PAINT_ROUGHNESS_DEFAULT)
 		var metallic := _variant_to_unit_float(standard.get("metallic"), PAINT_METALLIC_DEFAULT)
+		var specular := _variant_to_unit_float(standard.get("metallic_specular"), PAINT_SPECULAR_DEFAULT)
 		var roughness_texture := standard.get("roughness_texture") as Texture2D
 		if roughness_texture:
 			roughness *= _sample_texture_scalar(roughness_texture, uv, 1.0)
@@ -2262,6 +2449,9 @@ func _material_profile_from_material(material: Material, uv: Vector2) -> Diction
 				metallic *= clampf(orm_color.b, 0.0, 1.0)
 		profile["roughness"] = clampf(roughness, 0.0, 1.0)
 		profile["metallic"] = clampf(metallic, 0.0, 1.0)
+		profile["specular"] = clampf(specular, 0.0, 1.0)
+		profile["normal_texture"] = standard.get("normal_texture") as Texture2D
+		profile["normal_scale"] = _variant_to_unit_float(standard.get("normal_scale"), 1.0)
 		profile["has_response"] = true
 		return profile
 
@@ -2277,6 +2467,11 @@ func _material_profile_from_material(material: Material, uv: Vector2) -> Diction
 			["metallic", "metalness", "material_metallic", "surface_metallic", "paint_metallic"],
 			PAINT_METALLIC_DEFAULT
 		)
+		var specular := _shader_unit_parameter(
+			shader_material,
+			["specular", "material_specular", "surface_specular", "paint_specular"],
+			PAINT_SPECULAR_DEFAULT
+		)
 		var roughness_texture := _shader_texture_parameter(shader_material, ["roughness_texture", "texture_roughness", "roughness_map"])
 		if roughness_texture:
 			roughness *= _sample_texture_scalar(roughness_texture, uv, 1.0)
@@ -2291,6 +2486,9 @@ func _material_profile_from_material(material: Material, uv: Vector2) -> Diction
 				metallic *= clampf(orm_color.b, 0.0, 1.0)
 		profile["roughness"] = clampf(roughness, 0.0, 1.0)
 		profile["metallic"] = clampf(metallic, 0.0, 1.0)
+		profile["specular"] = clampf(specular, 0.0, 1.0)
+		profile["normal_texture"] = _shader_texture_parameter(shader_material, ["normal_texture", "texture_normal", "normal_map"])
+		profile["normal_scale"] = _shader_unit_parameter(shader_material, ["normal_scale", "normal_map_scale", "paint_normal_scale"], 1.0)
 		profile["has_response"] = true
 	return profile
 
@@ -2987,12 +3185,16 @@ static func _uv_point_inside_triangle_or_margin(
 
 
 static func _distance_to_segment_2d(point: Vector2, start: Vector2, end: Vector2) -> float:
+	return point.distance_to(_closest_point_on_segment_2d(point, start, end))
+
+
+static func _closest_point_on_segment_2d(point: Vector2, start: Vector2, end: Vector2) -> Vector2:
 	var segment := end - start
 	var length_squared := segment.length_squared()
 	if length_squared <= 0.0000001:
-		return point.distance_to(start)
+		return start
 	var t := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0)
-	return point.distance_to(start + segment * t)
+	return start + segment * t
 
 
 static func _brush_patch_placement(center: Vector2i, radius: int, patch_size: int) -> Dictionary:

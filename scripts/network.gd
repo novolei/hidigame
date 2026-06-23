@@ -15,7 +15,7 @@ const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
-const DEFAULT_CHARACTER_MODEL := "godot_robot"
+const DEFAULT_CHARACTER_MODEL := "basic_humanoid"
 const SKIN_BLUE := 0
 const SKIN_YELLOW := 1
 const SKIN_GREEN := 2
@@ -78,6 +78,7 @@ var lobby_config: Dictionary = {
 	"prep_duration_sec": 120,        # 120 秒默认
 	"host_hunter_count": -1,         # -1 表示按 1:3 自动
 	"host_stalker_count": -1,        # -1 表示按 1:1 自动
+	"stalker_glass_alpha_max": 0.125,
 	"auto_balance": true,
 	"role_locked": false             # 服务器锁定角色后为 true,准备阶段开始时
 }
@@ -86,6 +87,7 @@ var lobby_config: Dictionary = {
 # 信号
 # -----------------------------------------------------------------------------
 signal player_connected(peer_id, player_info)
+signal players_synced(all_players)
 signal player_role_changed(peer_id, new_role)        # 角色变化
 signal player_disconnected(peer_id)
 signal server_disconnected
@@ -251,8 +253,11 @@ func _close_current_peer() -> void:
 
 
 func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+	_close_current_peer()
 	var peer = ENetMultiplayerPeer.new()
-	address = _normalize_join_address(address)
+	var endpoint := _normalize_join_endpoint(address)
+	address = str(endpoint.get("address", SERVER_ADDRESS))
+	server_port = int(endpoint.get("port", SERVER_PORT))
 	var error = peer.create_client(address, server_port)
 	if error:
 		return error
@@ -372,10 +377,17 @@ func server_auto_balance_roles(lock_roles: bool = false) -> void:
 	hunter_count = min(8, max(1, hunter_count))
 	hunter_count = min(hunter_count, total - 1)
 	var props_count = total - hunter_count
+	var selected_stalker_count := 0
+	for pid in player_ids:
+		if int(players[pid].get("role", Role.NONE)) == Role.STALKER:
+			selected_stalker_count += 1
 
 	# 2. 计算 Stalker / Chameleon(默认 1:1)
 	var stalker_count = int(floor(props_count / 2.0))
 	var chameleon_count = props_count - stalker_count
+	if selected_stalker_count > stalker_count:
+		stalker_count = min(props_count, selected_stalker_count)
+		chameleon_count = props_count - stalker_count
 
 	print("[Network] Auto-balance: total=", total, " hunters=", hunter_count,
 		" stalkers=", stalker_count, " chameleons=", chameleon_count)
@@ -521,6 +533,7 @@ func _server_apply_lobby_config(new_config: Dictionary) -> void:
 		if lobby_config.has(key):
 			lobby_config[key] = new_config[key]
 	lobby_config["lobby_id"] = str(lobby_config.get("lobby_id", "")).to_upper()
+	lobby_config["stalker_glass_alpha_max"] = clampf(float(lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
 	print("[Network] Lobby config updated: ", lobby_config)
 	lobby_config_updated.emit(lobby_config)
 	_broadcast_lobby_config.rpc(lobby_config)
@@ -589,6 +602,7 @@ func _broadcast_full_sync(all_players: Dictionary, config: Dictionary):
 	players = all_players
 	lobby_config = config
 	lobby_config_updated.emit(lobby_config)
+	players_synced.emit(players)
 
 
 func _on_player_disconnected(id):
@@ -699,8 +713,52 @@ func _normalize_lobby_password(value: String) -> String:
 
 
 func _normalize_join_address(address: String) -> String:
+	return str(_normalize_join_endpoint(address).get("address", SERVER_ADDRESS))
+
+
+func _normalize_join_endpoint(address: String) -> Dictionary:
 	var normalized := address.strip_edges()
-	return normalized if not normalized.is_empty() else SERVER_ADDRESS
+	if normalized.is_empty():
+		normalized = SERVER_ADDRESS
+
+	var host := normalized
+	var port := server_port if server_port > 0 else SERVER_PORT
+	var parsed_port := -1
+
+	if normalized.begins_with("["):
+		var close_index := normalized.find("]")
+		if close_index > 0 and normalized.length() > close_index + 2 and normalized.substr(close_index + 1, 1) == ":":
+			var bracket_port := normalized.substr(close_index + 2)
+			if _is_valid_port_text(bracket_port):
+				host = normalized.substr(1, close_index - 1)
+				parsed_port = int(bracket_port)
+	else:
+		var first_colon := normalized.find(":")
+		var last_colon := normalized.rfind(":")
+		if first_colon > 0 and first_colon == last_colon:
+			var port_text := normalized.substr(last_colon + 1)
+			if _is_valid_port_text(port_text):
+				host = normalized.substr(0, last_colon)
+				parsed_port = int(port_text)
+
+	host = host.strip_edges()
+	if host.is_empty():
+		host = SERVER_ADDRESS
+	if parsed_port > 0:
+		port = parsed_port
+
+	return {
+		"address": host,
+		"port": port,
+	}
+
+
+func _is_valid_port_text(port_text: String) -> bool:
+	var clean := port_text.strip_edges()
+	if not clean.is_valid_int():
+		return false
+	var port := int(clean)
+	return port > 0 and port <= 65535
 
 
 func _generate_lobby_id() -> String:

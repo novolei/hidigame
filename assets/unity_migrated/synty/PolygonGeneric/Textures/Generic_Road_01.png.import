@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvxwa74ird213"
-path.s3tc="res://.godot/imported/Generic_Road_01.png-6ad2591d511af683fecae744235f0ba1.s3tc.ctex"
+path.s3tc="res://.godot/imported/Generic_Road_01.png-ae1bcf311e26437c247589ae8cbea00c.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/unity_migrated/synty/PolygonGeneric/textures/Generic_Road_01.png"
-dest_files=["res://.godot/imported/Generic_Road_01.png-6ad2591d511af683fecae744235f0ba1.s3tc.ctex"]
+source_file="res://assets/unity_migrated/synty/PolygonGeneric/Textures/Generic_Road_01.png"
+dest_files=["res://.godot/imported/Generic_Road_01.png-ae1bcf311e26437c247589ae8cbea00c.s3tc.ctex"]
 
 [params]
 

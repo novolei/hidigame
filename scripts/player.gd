@@ -36,6 +36,12 @@ const WORLD_COLLISION_MASK := 2
 const PROP_DISGUISE_GROUND_SNAP_UP := 2.5
 const PROP_DISGUISE_GROUND_SNAP_DOWN := 8.0
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
+const CHAMELEON_GPU_PBR_OVERLAY_SHADER := preload("res://shaders/chameleon_gpu_pbr_overlay.gdshader")
+const CAMOUFLAGE_GPU_OVERLAY_LAYER := 20
+const CAMOUFLAGE_GPU_ATLAS_SIZE := 2048
+const CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT := Vector2i(512, 512)
+const CAMOUFLAGE_GPU_BRUSH_TIME := 0.035
+const CAMOUFLAGE_GPU_MAX_QUEUED_STROKES := 96
 
 enum SkinColor { BLUE, YELLOW, GREEN, RED }
 
@@ -102,7 +108,18 @@ var _camouflage_brush_base_color := Color(0.42, 0.95, 0.72, 1.0)
 var _camouflage_paint_exact_color_match := false
 var _camouflage_paint_roughness := 1.0
 var _camouflage_paint_metallic := 0.0
+var _camouflage_paint_specular := 0.5
+var _camouflage_paint_normal_texture: Texture2D = null
+var _camouflage_paint_normal_scale := 1.0
+var _camouflage_gpu_atlas_manager: Node3D = null
+var _camouflage_gpu_camera_brush: Node3D = null
+var _camouflage_gpu_stroke_queue: Array[Dictionary] = []
+var _camouflage_gpu_draw_timer := 0.0
+var _camouflage_gpu_unavailable := false
 var _camouflage_paused_animation_players: Dictionary = {}
+var _remote_visual_position := Vector3.ZERO
+var _remote_visual_position_initialized := false
+var _remote_visual_move_hold := 0.0
 
 signal health_changed(value: float)
 
@@ -131,8 +148,8 @@ func _ready():
 		", role: ", Network.role_to_string(role))
 
 	# Hunter 鐜╁:鏈湴绔礋璐ｈ緭鍏?瑙嗚,鏈嶅姟鍣ㄧ璐熻矗鏉冨▉寮硅嵂/鍛戒腑鐘舵€併€?
-	if is_hunter() and (is_local_player or multiplayer.is_server()):
-		_setup_hunter_weapon()
+	if is_hunter():
+		_setup_hunter_systems()
 	elif is_stalker():
 		_setup_stalker_systems()
 	else:
@@ -152,8 +169,8 @@ func _ready():
 
 func _check_role_after_assignment() -> void:
 	_sync_role_from_network()
-	if is_hunter() and (is_multiplayer_authority() or multiplayer.is_server()) and not has_node("WeaponSystem"):
-		_setup_hunter_weapon()
+	if is_hunter():
+		_setup_hunter_systems()
 	elif is_chameleon() and is_multiplayer_authority() and not has_node("CamouflageSystem"):
 		_setup_chameleon_systems()
 	elif is_stalker() and not has_node("ShadowVisibilitySystem"):
@@ -167,6 +184,8 @@ func _check_role_after_assignment() -> void:
 var shape_system: ShapeShiftSystem = null
 var camouflage_system: CamouflageSystem = null
 var shadow_visibility = null
+var stalker_grapple_system = null
+var hunter_flashlight_system = null
 var _stalker_original_material_overrides := {}
 var _stalker_ghost_material: ShaderMaterial = null
 var _stalker_glass_material: ShaderMaterial = null
@@ -211,6 +230,14 @@ func _setup_stalker_systems() -> void:
 		shadow_visibility.initialize(self)
 		if not shadow_visibility.visibility_changed.is_connected(_on_stalker_visibility_changed):
 			shadow_visibility.visibility_changed.connect(_on_stalker_visibility_changed)
+	var camera := $SpringArmOffset/SpringArm3D/Camera3D if has_node("SpringArmOffset/SpringArm3D/Camera3D") else null
+	if not has_node("StalkerGrappleSystem"):
+		var grapple := preload("res://scripts/stalker_grapple_system.gd").new()
+		grapple.name = "StalkerGrappleSystem"
+		add_child(grapple)
+	stalker_grapple_system = get_node_or_null("StalkerGrappleSystem")
+	if stalker_grapple_system:
+		stalker_grapple_system.initialize(self, camera if is_multiplayer_authority() else null)
 	_refresh_stalker_visibility_view(true)
 
 
@@ -219,6 +246,9 @@ func _teardown_stalker_systems() -> void:
 	if shadow_visibility and is_instance_valid(shadow_visibility):
 		shadow_visibility.queue_free()
 	shadow_visibility = null
+	if stalker_grapple_system and is_instance_valid(stalker_grapple_system):
+		stalker_grapple_system.queue_free()
+	stalker_grapple_system = null
 	_stalker_visual_mode = "normal"
 	_stalker_visual_alpha = -1.0
 
@@ -241,17 +271,24 @@ func _refresh_stalker_visibility_view(force: bool = false) -> void:
 
 	var shadow_alpha: float = float(shadow_visibility.get_visibility_alpha())
 	var next_mode := _get_stalker_visual_mode_for_viewer(shadow_alpha)
+	var next_material: Material = null
+	match next_mode:
+		"ghost":
+			next_material = _get_stalker_ghost_material(_ghost_alpha_from_shadow(shadow_alpha))
+		"glass":
+			next_material = _get_stalker_glass_material(_glass_alpha_from_shadow(shadow_alpha))
 	if not force and next_mode == _stalker_visual_mode and is_equal_approx(shadow_alpha, _stalker_visual_alpha):
-		return
+		if next_mode == "normal" or _stalker_visual_meshes_have_material(next_material):
+			return
 
 	_stalker_visual_mode = next_mode
 	_stalker_visual_alpha = shadow_alpha
 
 	match next_mode:
 		"ghost":
-			_apply_stalker_material(_get_stalker_ghost_material(_ghost_alpha_from_shadow(shadow_alpha)))
+			_apply_stalker_material(next_material)
 		"glass":
-			_apply_stalker_material(_get_stalker_glass_material(_glass_alpha_from_shadow(shadow_alpha)))
+			_apply_stalker_material(next_material)
 		_:
 			_restore_stalker_materials()
 
@@ -282,7 +319,14 @@ func _ghost_alpha_from_shadow(shadow_alpha: float) -> float:
 
 
 func _glass_alpha_from_shadow(shadow_alpha: float) -> float:
-	return clampf(lerpf(0.10, 0.28, shadow_alpha), 0.10, 0.28)
+	var ceiling := _stalker_glass_alpha_ceiling()
+	var floor_alpha := minf(0.018, ceiling * 0.22)
+	var reveal_alpha := minf(ceiling * 0.52, 0.065)
+	return clampf(lerpf(floor_alpha, reveal_alpha, shadow_alpha), floor_alpha, reveal_alpha)
+
+
+func _stalker_glass_alpha_ceiling() -> float:
+	return clampf(float(Network.lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
 
 
 func _apply_stalker_material(material: Material) -> void:
@@ -306,11 +350,38 @@ func _restore_stalker_materials() -> void:
 		nickname.visible = true
 
 
+func _stalker_visual_meshes_have_material(material: Material) -> bool:
+	if not material:
+		return true
+	var meshes := _get_stalker_visual_meshes()
+	if meshes.is_empty():
+		return false
+	for mesh in meshes:
+		if mesh.material_override != material:
+			return false
+	return true
+
+
 func _get_stalker_visual_meshes() -> Array[MeshInstance3D]:
 	var meshes: Array[MeshInstance3D] = []
-	if _body:
-		_find_meshes(_body, meshes)
+	if _prop_disguise_node and is_instance_valid(_prop_disguise_node) and _prop_disguise_node.visible:
+		_find_visible_meshes(_prop_disguise_node, meshes)
+	elif _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.visible:
+		_find_visible_meshes(_active_skin_node, meshes)
+	elif _robot_visual_root and _robot_visual_root.visible:
+		_find_visible_meshes(_robot_visual_root, meshes)
+	elif _body:
+		_find_visible_meshes(_body, meshes)
 	return meshes
+
+
+func _find_visible_meshes(node: Node, result: Array[MeshInstance3D]) -> void:
+	if node is Node3D and not (node as Node3D).visible:
+		return
+	if node is MeshInstance3D:
+		result.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_find_visible_meshes(child, result)
 
 
 func _update_stalker_nickname_visibility(shadow_alpha: float) -> void:
@@ -355,32 +426,52 @@ shader_type spatial;
 render_mode blend_mix, depth_prepass_alpha, cull_disabled, specular_schlick_ggx;
 
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
-uniform vec4 edge_tint : source_color = vec4(0.70, 0.92, 1.0, 1.0);
-uniform float alpha = 0.12;
-uniform float refraction_strength = 0.026;
+uniform vec4 edge_tint : source_color = vec4(0.50, 0.58, 0.62, 1.0);
+uniform float alpha = 0.025;
+uniform float visibility_ceiling = 0.125;
+uniform float refraction_strength = 0.015;
+uniform float shimmer_strength = 0.006;
 
 void fragment() {
-	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.5);
-	vec2 wobble = NORMAL.xy * refraction_strength * (0.35 + fresnel);
+	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	float fresnel = pow(1.0 - view_dot, 4.0);
+	float shimmer = sin((SCREEN_UV.x * 1.3 + SCREEN_UV.y * 1.7 + TIME * 0.08) * 95.0) * 0.5 + 0.5;
+	vec2 normal_warp = normalize(NORMAL.xy + vec2(0.0001, 0.0001));
+	vec2 heat_warp = vec2(sin(SCREEN_UV.y * 120.0 + TIME * 1.2), cos(SCREEN_UV.x * 105.0 - TIME)) * shimmer_strength;
+	vec2 wobble = normal_warp * refraction_strength * (0.12 + fresnel * 0.85) + heat_warp * (0.25 + fresnel);
 	vec3 refracted = texture(screen_texture, SCREEN_UV + wobble).rgb;
-	ALBEDO = mix(refracted, edge_tint.rgb, fresnel * 0.65);
-	ALPHA = clamp(alpha + fresnel * 0.32, 0.04, 0.48);
-	EMISSION = edge_tint.rgb * fresnel * 0.45;
-	ROUGHNESS = 0.015;
+	vec3 base_screen = texture(screen_texture, SCREEN_UV).rgb;
+	vec3 distortion_delta = abs(refracted - base_screen);
+	ALBEDO = mix(refracted, edge_tint.rgb, fresnel * 0.18);
+	ALPHA = clamp(alpha + fresnel * 0.045 + length(distortion_delta) * 0.05, 0.006, visibility_ceiling);
+	EMISSION = edge_tint.rgb * fresnel * 0.018;
+	ROUGHNESS = 0.04;
 	METALLIC = 0.0;
-	SPECULAR = 1.0;
+	SPECULAR = 0.45;
 }
 """
 		_stalker_glass_material = ShaderMaterial.new()
 		_stalker_glass_material.resource_local_to_scene = true
 		_stalker_glass_material.shader = shader
+		_stalker_glass_material.set_shader_parameter("edge_tint", Color(0.50, 0.58, 0.62, 1.0))
+		_stalker_glass_material.set_shader_parameter("refraction_strength", 0.015)
+		_stalker_glass_material.set_shader_parameter("shimmer_strength", 0.006)
 	_stalker_glass_material.set_shader_parameter("alpha", alpha)
+	_stalker_glass_material.set_shader_parameter("visibility_ceiling", _stalker_glass_alpha_ceiling())
 	return _stalker_glass_material
 
 
 # =============================================================================
 # Hunter 姝﹀櫒鍒濆鍖?
 # =============================================================================
+
+func _setup_hunter_systems() -> void:
+	if not is_hunter():
+		return
+	if is_multiplayer_authority() or multiplayer.is_server():
+		_setup_hunter_weapon()
+	_setup_hunter_flashlight()
+
 
 func _setup_hunter_weapon() -> void:
 	var is_local_player = is_multiplayer_authority()
@@ -411,6 +502,23 @@ func _setup_hunter_weapon() -> void:
 			weapon.ammo_changed.connect(_on_ammo_changed)
 
 
+func _setup_hunter_flashlight() -> void:
+	var camera := $SpringArmOffset/SpringArm3D/Camera3D if has_node("SpringArmOffset/SpringArm3D/Camera3D") else null
+	if not has_node("HunterFlashlightSystem"):
+		var flashlight := preload("res://scripts/hunter_flashlight_system.gd").new()
+		flashlight.name = "HunterFlashlightSystem"
+		add_child(flashlight)
+	hunter_flashlight_system = get_node_or_null("HunterFlashlightSystem")
+	if hunter_flashlight_system:
+		hunter_flashlight_system.initialize(self, camera if is_multiplayer_authority() else null)
+
+
+func _teardown_hunter_flashlight() -> void:
+	if hunter_flashlight_system and is_instance_valid(hunter_flashlight_system):
+		hunter_flashlight_system.queue_free()
+	hunter_flashlight_system = null
+
+
 func _on_ammo_changed(current_magazine: int, total_ammo: int) -> void:
 	# TODO: 鏇存柊 HUD 寮硅嵂鏄剧ず
 	pass
@@ -432,11 +540,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_chameleon():
 		_handle_chameleon_input(event)
 
+	if is_stalker():
+		_handle_stalker_input(event)
+
 
 func _handle_hunter_input(event: InputEvent) -> void:
 	# 鍑嗗闃舵閿佸畾涓嶈兘寮€鏋?
 	if prep_phase_locked:
 		return
+
+	if event.is_action_pressed("flashlight") and hunter_flashlight_system:
+		hunter_flashlight_system.request_toggle()
+		get_viewport().set_input_as_handled()
 
 	var weapon = get_node_or_null("WeaponSystem")
 	if not weapon:
@@ -480,6 +595,14 @@ func _handle_chameleon_input(event: InputEvent) -> void:
 				wheel.show_wheel(shape_system)
 				# 閿佷綇瑙掕壊绉诲姩
 				shape_system.open_wheel()
+
+
+func _handle_stalker_input(event: InputEvent) -> void:
+	if prep_phase_locked:
+		return
+	if event.is_action_pressed("stalker_grapple") and stalker_grapple_system:
+		if stalker_grapple_system.request_grapple():
+			get_viewport().set_input_as_handled()
 
 
 func _process_input_held():
@@ -531,12 +654,15 @@ func _sync_character_model_from_network() -> void:
 func _on_role_changed(peer_id: int, new_role: int) -> void:
 	if peer_id == str(name).to_int():
 		role = new_role
+		_sync_character_model_from_network()
 		print("[Player ", name, "] Role updated to ", Network.role_to_string(new_role))
 		if new_role != Network.Role.STALKER and shadow_visibility:
 			_teardown_stalker_systems()
+		if new_role != Network.Role.HUNTER and hunter_flashlight_system:
+			_teardown_hunter_flashlight()
 		# 濡傛灉鏄?Hunter 涓旇繕娌℃寕姝﹀櫒,琛ユ寕
-		if new_role == Network.Role.HUNTER and (is_multiplayer_authority() or multiplayer.is_server()) and not has_node("WeaponSystem"):
-			_setup_hunter_weapon()
+		if new_role == Network.Role.HUNTER:
+			_setup_hunter_systems()
 		elif new_role == Network.Role.CHAMELEON and is_multiplayer_authority() and not has_node("CamouflageSystem"):
 			_setup_chameleon_systems()
 		elif new_role == Network.Role.STALKER:
@@ -579,13 +705,17 @@ func _set_player_tint(color: Color) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	_find_meshes(self, meshes)
 	for mesh_inst in meshes:
-		for i in range(mesh_inst.get_surface_override_material_count()):
-			var mat = mesh_inst.get_surface_override_material(i)
-			if mat == null:
-				mat = StandardMaterial3D.new()
-				mesh_inst.set_surface_override_material(i, mat)
-			if mat is StandardMaterial3D:
-				(mat as StandardMaterial3D).albedo_color = color
+		for i in range(_get_mesh_surface_count(mesh_inst)):
+			var source_material := _get_mesh_surface_material(mesh_inst, i)
+			if not source_material is StandardMaterial3D:
+				continue
+			var material := source_material as StandardMaterial3D
+			if not bool(material.get_meta("player_tint_unique", false)):
+				material = material.duplicate()
+				material.resource_local_to_scene = true
+				material.set_meta("player_tint_unique", true)
+				mesh_inst.set_surface_override_material(i, material)
+			material.albedo_color = color
 
 
 func _find_meshes(node: Node, result: Array[MeshInstance3D]) -> void:
@@ -698,9 +828,12 @@ func _physics_process(delta):
 	_update_movement_audio(delta, was_on_floor)
 
 func _process(delta):
+	_process_camouflage_gpu_painter(delta)
 	if is_stalker():
 		_refresh_stalker_visibility_view(false)
-	if not is_multiplayer_authority(): return
+	if not is_multiplayer_authority():
+		_animate_remote_skin_from_network_motion(delta)
+		return
 	_check_fall_and_respawn()
 	# Hunter 鎸佺画寮€鐏娴?
 	_process_input_held()
@@ -938,13 +1071,33 @@ func adjust_camouflage_camera_zoom(step_count: float) -> void:
 		_spring_arm_offset.call("zoom_camera", step_count)
 
 
-func set_camouflage_paint_material_controls(exact_color_match: bool, roughness: float, metallic: float) -> void:
+func set_camouflage_paint_material_controls(exact_color_match: bool, roughness: float, metallic: float, specular: float = 0.5) -> void:
 	_camouflage_paint_exact_color_match = exact_color_match
 	_camouflage_paint_roughness = clampf(roughness, 0.0, 1.0)
 	_camouflage_paint_metallic = clampf(metallic, 0.0, 1.0)
+	_camouflage_paint_specular = clampf(specular, 0.0, 1.0)
 	for material in _camouflage_paint_layer_materials.values():
 		if material is ShaderMaterial and is_instance_valid(material):
 			_configure_camouflage_paint_layer_controls(material as ShaderMaterial)
+	for material in _camouflage_surface_materials.values():
+		if material is StandardMaterial3D and is_instance_valid(material):
+			_configure_camouflage_display_material(material as StandardMaterial3D)
+	_configure_camouflage_gpu_overlay_materials()
+
+
+func set_camouflage_paint_material_profile(profile: Dictionary) -> void:
+	_camouflage_paint_roughness = clampf(float(profile.get("roughness", _camouflage_paint_roughness)), 0.0, 1.0)
+	_camouflage_paint_metallic = clampf(float(profile.get("metallic", _camouflage_paint_metallic)), 0.0, 1.0)
+	_camouflage_paint_specular = clampf(float(profile.get("specular", _camouflage_paint_specular)), 0.0, 1.0)
+	_camouflage_paint_normal_texture = profile.get("normal_texture", null) as Texture2D
+	_camouflage_paint_normal_scale = clampf(float(profile.get("normal_scale", _camouflage_paint_normal_scale)), 0.0, 2.0)
+	for material in _camouflage_paint_layer_materials.values():
+		if material is ShaderMaterial and is_instance_valid(material):
+			_configure_camouflage_paint_layer_controls(material as ShaderMaterial)
+	for material in _camouflage_surface_materials.values():
+		if material is StandardMaterial3D and is_instance_valid(material):
+			_configure_camouflage_display_material(material as StandardMaterial3D)
+	_configure_camouflage_gpu_overlay_materials()
 
 
 func submit_camouflage_brush_start(base_color: Color) -> void:
@@ -965,18 +1118,22 @@ func submit_camouflage_brush_stroke(
 	world_position: Vector3 = Vector3.ZERO,
 	world_normal: Vector3 = Vector3.UP,
 	target_mesh_path: String = "",
-	target_surface: int = 0
+	target_surface: int = 0,
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	color.a = 1.0
 	var clean_uv := Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0))
 	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
-		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	elif _should_apply_camouflage_brush_without_server_peer():
-		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	else:
-		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface)
+		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 
 
 func submit_camouflage_brush_stroke_batch(
@@ -991,7 +1148,10 @@ func submit_camouflage_brush_stroke_batch(
 	brush_radii: PackedFloat32Array = PackedFloat32Array(),
 	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
 	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
-	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array(),
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	if uvs.is_empty():
 		return
@@ -1004,12 +1164,13 @@ func submit_camouflage_brush_stroke_batch(
 	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, clean_uvs.size())
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
-		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	elif _should_apply_camouflage_brush_without_server_peer():
-		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	else:
-		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
+		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 
 
 func _should_apply_camouflage_brush_without_server_peer() -> bool:
@@ -1045,7 +1206,10 @@ func _request_camouflage_brush_stroke(
 	world_position: Vector3 = Vector3.ZERO,
 	world_normal: Vector3 = Vector3.UP,
 	target_mesh_path: String = "",
-	target_surface: int = 0
+	target_surface: int = 0,
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	if not multiplayer.is_server():
 		return
@@ -1054,6 +1218,7 @@ func _request_camouflage_brush_stroke(
 		return
 	color.a = 1.0
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	_apply_camouflage_brush_stroke.rpc(
 		Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0)),
 		color,
@@ -1062,7 +1227,10 @@ func _request_camouflage_brush_stroke(
 		world_position,
 		clean_normal,
 		target_mesh_path,
-		target_surface
+		target_surface,
+		_camouflage_paint_roughness,
+		_camouflage_paint_metallic,
+		_camouflage_paint_specular
 	)
 
 
@@ -1079,7 +1247,10 @@ func _request_camouflage_brush_stroke_batch(
 	brush_radii: PackedFloat32Array = PackedFloat32Array(),
 	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
 	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
-	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array(),
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	if not multiplayer.is_server():
 		return
@@ -1095,6 +1266,7 @@ func _request_camouflage_brush_stroke_batch(
 	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, clean_uvs.size())
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	_apply_camouflage_brush_stroke_batch.rpc(
 		clean_uvs,
 		color,
@@ -1107,7 +1279,10 @@ func _request_camouflage_brush_stroke_batch(
 		clean_radii,
 		clean_uv_clip.get("triangles", PackedVector2Array()),
 		clean_uv_clip.get("counts", PackedInt32Array()),
-		clean_uv_footprint_metrics
+		clean_uv_footprint_metrics,
+		_camouflage_paint_roughness,
+		_camouflage_paint_metallic,
+		_camouflage_paint_specular
 	)
 
 
@@ -1123,6 +1298,9 @@ func _start_camouflage_brush_visual(base_color: Color) -> void:
 	_camouflage_paint_layer_materials.clear()
 	_camouflage_source_material_infos.clear()
 	_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(base_color)
+	_camouflage_gpu_stroke_queue.clear()
+	_camouflage_gpu_draw_timer = 0.0
+	_ensure_camouflage_gpu_painter()
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
@@ -1134,14 +1312,19 @@ func _apply_camouflage_brush_stroke(
 	world_position: Vector3 = Vector3.ZERO,
 	world_normal: Vector3 = Vector3.UP,
 	target_mesh_path: String = "",
-	target_surface: int = 0
+	target_surface: int = 0,
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not multiplayer.is_server():
 		return
 	color.a = 1.0
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if not _camouflage_paint_texture:
 		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
+	_queue_camouflage_gpu_brush_stroke(world_position, world_normal, color, brush_radius)
 	if target_mesh_path.is_empty():
 		var global_painted := CamouflageSystem.paint_brush_on_texture(_camouflage_paint_texture, uv, color, brush_radius, angle)
 		if global_painted != _camouflage_paint_texture:
@@ -1171,7 +1354,10 @@ func _apply_camouflage_brush_stroke_batch(
 	brush_radii: PackedFloat32Array = PackedFloat32Array(),
 	uv_clip_triangles: PackedVector2Array = PackedVector2Array(),
 	uv_clip_triangle_counts: PackedInt32Array = PackedInt32Array(),
-	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array(),
+	material_roughness: float = -1.0,
+	material_metallic: float = -1.0,
+	material_specular: float = -1.0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not multiplayer.is_server():
@@ -1179,9 +1365,11 @@ func _apply_camouflage_brush_stroke_batch(
 	if uvs.is_empty():
 		return
 	color.a = 1.0
+	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if not _camouflage_paint_texture:
 		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
 	var clean_radii := _sanitize_camouflage_brush_radii(brush_radii, uvs.size(), brush_radius)
+	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, uvs.size())
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, uvs.size())
 	if target_mesh_path.is_empty():
@@ -1189,6 +1377,7 @@ func _apply_camouflage_brush_stroke_batch(
 		if global_painted != _camouflage_paint_texture:
 			_camouflage_paint_texture = global_painted
 		_apply_camouflage_texture_to_character(_camouflage_paint_texture, color, 1.0)
+		_queue_camouflage_gpu_brush_strokes(world_positions, clean_normal, color, brush_radius, clean_radii)
 		return
 	var mesh_instance := get_node_or_null(target_mesh_path) as MeshInstance3D
 	if not mesh_instance:
@@ -1198,6 +1387,7 @@ func _apply_camouflage_brush_stroke_batch(
 	var painted := CamouflageSystem.paint_brush_strokes_on_texture(target_texture, uvs, color, brush_radius, angle, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
 	_camouflage_paint_textures[_camouflage_texture_key(target_mesh_path, surface)] = painted
 	_apply_camouflage_texture_to_mesh_surface(target_mesh_path, surface, painted, color, 1.0)
+	_queue_camouflage_gpu_brush_strokes(world_positions, clean_normal, color, brush_radius, clean_radii)
 
 
 func _get_camouflage_target_texture(target_mesh_path: String, target_surface: int) -> Texture2D:
@@ -1257,7 +1447,7 @@ func _apply_camouflage_texture_to_character(texture: Texture2D, primary_color: C
 
 func _collect_camouflage_meshes(result: Array[MeshInstance3D]) -> void:
 	for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
-		if mesh and is_instance_valid(mesh) and mesh.visible and mesh.is_visible_in_tree():
+		if mesh and is_instance_valid(mesh):
 			result.append(mesh)
 	if _active_skin_node and is_instance_valid(_active_skin_node):
 		_find_meshes(_active_skin_node, result)
@@ -1266,10 +1456,15 @@ func _collect_camouflage_meshes(result: Array[MeshInstance3D]) -> void:
 func _configure_camouflage_display_material(material: StandardMaterial3D) -> void:
 	if not material:
 		return
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.disable_receive_shadows = true
-	material.roughness = 1.0
-	material.metallic = 0.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	material.disable_receive_shadows = false
+	material.roughness = _camouflage_paint_roughness
+	material.metallic = _camouflage_paint_metallic
+	material.set("metallic_specular", _camouflage_paint_specular)
+	if _camouflage_paint_normal_texture:
+		material.set("normal_enabled", true)
+		material.set("normal_texture", _camouflage_paint_normal_texture)
+		material.set("normal_scale", _camouflage_paint_normal_scale)
 
 
 func _get_mesh_surface_count(mesh_instance: MeshInstance3D) -> int:
@@ -1365,6 +1560,256 @@ func _configure_camouflage_paint_layer_controls(material: ShaderMaterial) -> voi
 	material.set_shader_parameter("paint_exact_color_match", _camouflage_paint_exact_color_match)
 	material.set_shader_parameter("paint_roughness", _camouflage_paint_roughness)
 	material.set_shader_parameter("paint_metallic", _camouflage_paint_metallic)
+	material.set_shader_parameter("paint_specular", _camouflage_paint_specular)
+	material.set_shader_parameter("use_paint_normal_texture", _camouflage_paint_normal_texture != null)
+	if _camouflage_paint_normal_texture:
+		material.set_shader_parameter("paint_normal_texture", _camouflage_paint_normal_texture)
+	material.set_shader_parameter("paint_normal_scale", _camouflage_paint_normal_scale)
+
+
+func _apply_camouflage_material_scalars(roughness: float, metallic: float, specular: float) -> void:
+	var changed := false
+	if roughness >= 0.0:
+		var next_roughness := clampf(roughness, 0.0, 1.0)
+		changed = changed or absf(next_roughness - _camouflage_paint_roughness) > 0.001
+		_camouflage_paint_roughness = next_roughness
+	if metallic >= 0.0:
+		var next_metallic := clampf(metallic, 0.0, 1.0)
+		changed = changed or absf(next_metallic - _camouflage_paint_metallic) > 0.001
+		_camouflage_paint_metallic = next_metallic
+	if specular >= 0.0:
+		var next_specular := clampf(specular, 0.0, 1.0)
+		changed = changed or absf(next_specular - _camouflage_paint_specular) > 0.001
+		_camouflage_paint_specular = next_specular
+	if not changed:
+		return
+	for material in _camouflage_paint_layer_materials.values():
+		if material is ShaderMaterial and is_instance_valid(material):
+			_configure_camouflage_paint_layer_controls(material as ShaderMaterial)
+	for material in _camouflage_surface_materials.values():
+		if material is StandardMaterial3D and is_instance_valid(material):
+			_configure_camouflage_display_material(material as StandardMaterial3D)
+	_configure_camouflage_gpu_overlay_materials()
+
+
+func _ensure_camouflage_gpu_painter() -> bool:
+	if _camouflage_gpu_unavailable:
+		return false
+	if _camouflage_gpu_atlas_manager and is_instance_valid(_camouflage_gpu_atlas_manager) and _camouflage_gpu_camera_brush and is_instance_valid(_camouflage_gpu_camera_brush):
+		return true
+
+	var manager_script = load("res://addons/gpu_texture_painter/manager/overlay_atlas_manager.gd")
+	var brush_script = load("res://addons/gpu_texture_painter/brush/camera_brush.gd")
+	if not manager_script or not brush_script:
+		_camouflage_gpu_unavailable = true
+		push_warning("Chameleon GPU painter addon is unavailable; falling back to CPU camouflage paint.")
+		return false
+
+	if not _prepare_camouflage_gpu_meshes():
+		_camouflage_gpu_unavailable = true
+		push_warning("Chameleon GPU painter could not find or build UV2 paint meshes; falling back to CPU camouflage paint.")
+		return false
+
+	var manager = manager_script.new()
+	if not manager is Node3D:
+		_camouflage_gpu_unavailable = true
+		return false
+	manager.name = "ChameleonGPUOverlayAtlasManager"
+	add_child(manager)
+	_camouflage_gpu_atlas_manager = manager as Node3D
+	_camouflage_gpu_atlas_manager.set("atlas_size", CAMOUFLAGE_GPU_ATLAS_SIZE)
+	_camouflage_gpu_atlas_manager.set("overlay_shader", CHAMELEON_GPU_PBR_OVERLAY_SHADER)
+	_camouflage_gpu_atlas_manager.set("apply_on_ready", false)
+
+	var brush = brush_script.new()
+	if not brush is Node3D:
+		_camouflage_gpu_unavailable = true
+		return false
+	brush.name = "ChameleonGPUCameraBrush"
+	add_child(brush)
+	_camouflage_gpu_camera_brush = brush as Node3D
+	_camouflage_gpu_camera_brush.top_level = true
+	_camouflage_gpu_camera_brush.set("projection", Camera3D.PROJECTION_ORTHOGONAL)
+	_camouflage_gpu_camera_brush.set("size", 0.35)
+	_camouflage_gpu_camera_brush.set("max_distance", 3.0)
+	_camouflage_gpu_camera_brush.set("start_distance_fade", 1.0)
+	_camouflage_gpu_camera_brush.set("min_bleed", 1)
+	_camouflage_gpu_camera_brush.set("max_bleed", 2)
+	_camouflage_gpu_camera_brush.set("resolution", Vector2i(256, 256))
+	_camouflage_gpu_camera_brush.set("draw_speed", 180.0)
+	_camouflage_gpu_camera_brush.set("drawing", false)
+
+	if _camouflage_gpu_atlas_manager.has_method("apply"):
+		_camouflage_gpu_atlas_manager.call("apply")
+	_configure_camouflage_gpu_overlay_materials()
+	return true
+
+
+func _prepare_camouflage_gpu_meshes() -> bool:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_camouflage_meshes(meshes)
+	var prepared_count := 0
+	for mesh_instance in meshes:
+		if not mesh_instance or not is_instance_valid(mesh_instance):
+			continue
+		if not _ensure_mesh_uv2_from_uv(mesh_instance):
+			continue
+		mesh_instance.layers |= 1 << CAMOUFLAGE_GPU_OVERLAY_LAYER
+		var mesh := mesh_instance.mesh
+		if mesh.lightmap_size_hint == Vector2i.ZERO:
+			mesh.lightmap_size_hint = CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT
+		prepared_count += 1
+	return prepared_count > 0
+
+
+func _ensure_mesh_uv2_from_uv(mesh_instance: MeshInstance3D) -> bool:
+	if not mesh_instance or not mesh_instance.mesh:
+		return false
+	if _mesh_has_uv2(mesh_instance.mesh):
+		return true
+	var source_mesh := mesh_instance.mesh
+	var paint_mesh := ArrayMesh.new()
+	paint_mesh.resource_local_to_scene = true
+	paint_mesh.lightmap_size_hint = CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT
+	for surface in range(source_mesh.get_surface_count()):
+		var arrays := CamouflageSystem._get_mesh_surface_arrays_static(source_mesh, surface)
+		if not arrays is Array or arrays.is_empty() or arrays.size() <= Mesh.ARRAY_TEX_UV2:
+			return false
+		var uv_value = arrays[Mesh.ARRAY_TEX_UV]
+		if not uv_value is PackedVector2Array or (uv_value as PackedVector2Array).is_empty():
+			return false
+		arrays[Mesh.ARRAY_TEX_UV2] = uv_value
+		var primitive := Mesh.PRIMITIVE_TRIANGLES
+		if source_mesh.has_method("surface_get_primitive_type"):
+			primitive = int(source_mesh.call("surface_get_primitive_type", surface))
+		paint_mesh.add_surface_from_arrays(primitive, arrays)
+		if surface < paint_mesh.get_surface_count():
+			var surface_material := source_mesh.surface_get_material(surface)
+			if surface_material:
+				paint_mesh.surface_set_material(surface, surface_material)
+	if paint_mesh.get_surface_count() <= 0:
+		return false
+	mesh_instance.mesh = paint_mesh
+	return _mesh_has_uv2(paint_mesh)
+
+
+func _mesh_has_uv2(mesh: Mesh) -> bool:
+	if not mesh:
+		return false
+	for surface in range(mesh.get_surface_count()):
+		var arrays := []
+		if mesh is PrimitiveMesh:
+			arrays = (mesh as PrimitiveMesh).get_mesh_arrays()
+		elif mesh.has_method("surface_get_arrays"):
+			arrays = mesh.call("surface_get_arrays", surface)
+		if arrays.is_empty() or arrays.size() <= Mesh.ARRAY_TEX_UV2:
+			return false
+		var uv2_value = arrays[Mesh.ARRAY_TEX_UV2]
+		if not uv2_value is PackedVector2Array:
+			return false
+		var uv2s: PackedVector2Array = uv2_value
+		if uv2s.is_empty():
+			return false
+	return true
+
+
+func _configure_camouflage_gpu_overlay_materials() -> void:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_camouflage_meshes(meshes)
+	for mesh_instance in meshes:
+		if not mesh_instance or not is_instance_valid(mesh_instance):
+			continue
+		var material := mesh_instance.material_overlay as ShaderMaterial
+		if not material:
+			continue
+		material.set_shader_parameter("paint_display_strength", 1.0)
+		material.set_shader_parameter("paint_roughness", _camouflage_paint_roughness)
+		material.set_shader_parameter("paint_metallic", _camouflage_paint_metallic)
+		material.set_shader_parameter("paint_specular", _camouflage_paint_specular)
+		material.set_shader_parameter("use_paint_normal_texture", _camouflage_paint_normal_texture != null)
+		if _camouflage_paint_normal_texture:
+			material.set_shader_parameter("paint_normal_texture", _camouflage_paint_normal_texture)
+		material.set_shader_parameter("paint_normal_scale", _camouflage_paint_normal_scale)
+
+
+func _queue_camouflage_gpu_brush_strokes(
+	world_positions: PackedVector3Array,
+	world_normal: Vector3,
+	color: Color,
+	brush_radius: float,
+	brush_radii: PackedFloat32Array = PackedFloat32Array()
+) -> void:
+	if world_positions.is_empty():
+		return
+	for index in range(world_positions.size()):
+		var radius := brush_radius
+		if index < brush_radii.size():
+			radius = brush_radii[index]
+		_queue_camouflage_gpu_brush_stroke(world_positions[index], world_normal, color, radius)
+
+
+func _queue_camouflage_gpu_brush_stroke(world_position: Vector3, world_normal: Vector3, color: Color, brush_radius: float) -> void:
+	if _camouflage_gpu_unavailable:
+		return
+	var normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	var clean_color := color
+	clean_color.a = 1.0
+	_camouflage_gpu_stroke_queue.append({
+		"position": world_position,
+		"normal": normal,
+		"color": clean_color,
+		"radius": _sanitize_camouflage_brush_radius(brush_radius),
+		"roughness": _camouflage_paint_roughness,
+		"metallic": _camouflage_paint_metallic,
+		"specular": _camouflage_paint_specular,
+	})
+	while _camouflage_gpu_stroke_queue.size() > CAMOUFLAGE_GPU_MAX_QUEUED_STROKES:
+		_camouflage_gpu_stroke_queue.pop_front()
+
+
+func _process_camouflage_gpu_painter(delta: float) -> void:
+	if _camouflage_gpu_draw_timer > 0.0:
+		_camouflage_gpu_draw_timer = maxf(0.0, _camouflage_gpu_draw_timer - delta)
+		if _camouflage_gpu_draw_timer <= 0.0 and _camouflage_gpu_camera_brush and is_instance_valid(_camouflage_gpu_camera_brush):
+			_camouflage_gpu_camera_brush.set("drawing", false)
+		return
+	if _camouflage_gpu_stroke_queue.is_empty():
+		return
+	if not _ensure_camouflage_gpu_painter():
+		_camouflage_gpu_stroke_queue.clear()
+		return
+	var stroke: Dictionary = _camouflage_gpu_stroke_queue.pop_front()
+	_apply_camouflage_material_scalars(
+		float(stroke.get("roughness", _camouflage_paint_roughness)),
+		float(stroke.get("metallic", _camouflage_paint_metallic)),
+		float(stroke.get("specular", _camouflage_paint_specular))
+	)
+	_start_camouflage_gpu_brush_stroke(stroke)
+
+
+func _start_camouflage_gpu_brush_stroke(stroke: Dictionary) -> void:
+	if not _camouflage_gpu_camera_brush or not is_instance_valid(_camouflage_gpu_camera_brush):
+		return
+	var world_position: Vector3 = stroke.get("position", global_position)
+	var normal: Vector3 = stroke.get("normal", Vector3.UP)
+	normal = normal.normalized() if normal.length_squared() > 0.001 else Vector3.UP
+	var color: Color = stroke.get("color", _camouflage_brush_base_color)
+	color.a = 1.0
+	var texture_radius := clampf(float(stroke.get("radius", 46.0)), 10.0, 160.0)
+	var world_size := clampf(texture_radius / 120.0, 0.10, 1.85)
+	var brush_distance := clampf(world_size * 1.35 + 0.30, 0.38, 3.0)
+	var brush_origin := world_position + normal * brush_distance
+	var up := Vector3.UP
+	if absf(normal.dot(up)) > 0.92:
+		up = Vector3.RIGHT
+
+	_camouflage_gpu_camera_brush.global_position = brush_origin
+	_camouflage_gpu_camera_brush.look_at(world_position, up)
+	_camouflage_gpu_camera_brush.set("color", color)
+	_camouflage_gpu_camera_brush.set("size", world_size)
+	_camouflage_gpu_camera_brush.set("max_distance", brush_distance + world_size + 0.45)
+	_camouflage_gpu_camera_brush.set("drawing", true)
+	_camouflage_gpu_draw_timer = CAMOUFLAGE_GPU_BRUSH_TIME
 
 
 func _ensure_unique_standard_material(mesh_instance: MeshInstance3D, surface: int) -> StandardMaterial3D:
@@ -1464,17 +1909,23 @@ func _sanitize_camouflage_brush_radius(radius: float) -> float:
 
 
 func set_character_model(model_id: String) -> void:
-	var normalized := CharacterSkinCatalog.normalize(model_id)
+	var normalized := _resolve_character_model_for_role(model_id)
 	character_model_id = normalized
+	_remote_visual_position_initialized = false
 	if not _body:
 		return
 
-	if normalized == CharacterSkinCatalog.DEFAULT_ID:
+	if normalized == CharacterSkinCatalog.GODOT_ROBOT_ID:
 		if _active_skin_node and is_instance_valid(_active_skin_node):
+			if _active_skin_node.get_parent():
+				_active_skin_node.get_parent().remove_child(_active_skin_node)
 			_active_skin_node.queue_free()
 		_active_skin_node = null
 		if _robot_visual_root:
 			_robot_visual_root.visible = true
+		if is_stalker():
+			_refresh_stalker_visibility_view(true)
+			call_deferred("_refresh_stalker_visibility_view", true)
 		return
 
 	var scene_path := CharacterSkinCatalog.scene_path_for(normalized)
@@ -1484,6 +1935,8 @@ func set_character_model(model_id: String) -> void:
 		return
 
 	if _active_skin_node and is_instance_valid(_active_skin_node):
+		if _active_skin_node.get_parent():
+			_active_skin_node.get_parent().remove_child(_active_skin_node)
 		_active_skin_node.queue_free()
 
 	_active_skin_node = scene.instantiate() as Node3D
@@ -1498,6 +1951,18 @@ func set_character_model(model_id: String) -> void:
 		_robot_visual_root.visible = false
 	_body.add_child(_active_skin_node)
 	_play_skin_action("idle")
+	if is_stalker():
+		_refresh_stalker_visibility_view(true)
+		call_deferred("_refresh_stalker_visibility_view", true)
+
+
+func _resolve_character_model_for_role(model_id: String) -> String:
+	var normalized := CharacterSkinCatalog.normalize(model_id)
+	if role == Network.Role.HUNTER and normalized == CharacterSkinCatalog.DEFAULT_ID:
+		return CharacterSkinCatalog.HUNTER_SHOOTER_ID
+	if role != Network.Role.HUNTER and normalized == CharacterSkinCatalog.HUNTER_SHOOTER_ID:
+		return CharacterSkinCatalog.BASIC_HUMANOID_ID
+	return normalized
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -1739,9 +2204,9 @@ func _play_prop_disguise_land_animation(preset: Dictionary) -> void:
 
 func _set_character_visual_visible(visible_value: bool) -> void:
 	if _robot_visual_root:
-		_robot_visual_root.visible = visible_value and character_model_id == CharacterSkinCatalog.DEFAULT_ID
+		_robot_visual_root.visible = visible_value and character_model_id == CharacterSkinCatalog.GODOT_ROBOT_ID
 	if _active_skin_node and is_instance_valid(_active_skin_node):
-		_active_skin_node.visible = visible_value and character_model_id != CharacterSkinCatalog.DEFAULT_ID
+		_active_skin_node.visible = visible_value and character_model_id != CharacterSkinCatalog.GODOT_ROBOT_ID
 
 
 func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
@@ -1960,6 +2425,36 @@ func _play_skin_action(action: String) -> void:
 		_:
 			if _active_skin_node.has_method("idle"):
 				_active_skin_node.call("idle")
+
+
+func _animate_remote_skin_from_network_motion(delta: float) -> void:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	if delta <= 0.0:
+		return
+	if not _remote_visual_position_initialized:
+		_remote_visual_position = global_position
+		_remote_visual_position_initialized = true
+		_play_skin_action("idle")
+		return
+
+	var visual_velocity := (global_position - _remote_visual_position) / maxf(delta, 0.001)
+	_remote_visual_position = global_position
+	var horizontal_speed_sq := Vector2(visual_velocity.x, visual_velocity.z).length_squared()
+	if visual_velocity.y > 0.75:
+		_play_skin_action("jump")
+	elif visual_velocity.y < -0.75:
+		_play_skin_action("fall")
+	elif horizontal_speed_sq > 0.04:
+		_remote_visual_move_hold = 0.18
+		if _active_skin_node.has_method("set_walk_run_blending"):
+			_active_skin_node.call("set_walk_run_blending", 1.0 if horizontal_speed_sq > 36.0 else 0.25)
+		_play_skin_action("move")
+	elif _remote_visual_move_hold > 0.0:
+		_remote_visual_move_hold = maxf(0.0, _remote_visual_move_hold - delta)
+		_play_skin_action("move")
+	else:
+		_play_skin_action("idle")
 
 
 func set_mesh_texture(mesh_instance: MeshInstance3D, texture: Texture2D) -> void:

@@ -61,11 +61,14 @@ var respawn_timer: float = 0.0
 # =============================================================================
 
 func _ready() -> void:
+	add_to_group("ammo_pickups")
 	_apply_visual()
 	body_entered.connect(_on_body_entered)
 
 
 func _process(delta: float) -> void:
+	if not multiplayer.is_server():
+		return
 	if not is_available:
 		respawn_timer -= delta
 		if respawn_timer <= 0.0:
@@ -172,17 +175,15 @@ func _server_try_pickup_by_id(pid: int) -> void:
 
 
 func _consume() -> void:
-	if multiplayer.is_server():
-		_set_available.rpc(false, RESPAWN_TIME)
-	else:
-		_set_available(false, RESPAWN_TIME)
+	if not multiplayer.is_server():
+		return
+	_set_available.rpc(false, RESPAWN_TIME)
 
 
 func _respawn() -> void:
-	if multiplayer.is_server():
-		_set_available.rpc(true, 0.0)
-	else:
-		_set_available(true, 0.0)
+	if not multiplayer.is_server():
+		return
+	_set_available.rpc(true, 0.0)
 	print("[Ammo] ", ammo_type, " respawned at ", global_position)
 
 
@@ -192,6 +193,14 @@ func _set_available(available: bool, timer_value: float) -> void:
 	respawn_timer = timer_value
 	visible = available
 	set_deferred("monitoring", available)
+	set_deferred("monitorable", available)
+	_set_collision_shapes_enabled(available)
+
+
+func _set_collision_shapes_enabled(enabled: bool) -> void:
+	for child in get_children():
+		if child is CollisionShape3D:
+			(child as CollisionShape3D).set_deferred("disabled", not enabled)
 
 
 # =============================================================================

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://assets/characters/hunter_shooter/hunter_shooter_skin.gd" id="1_hunter"]
+
+[node name="HunterShooterSkin" type="Node3D"]
+script = ExtResource("1_hunter")

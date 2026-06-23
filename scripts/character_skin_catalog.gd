@@ -1,11 +1,17 @@
 extends RefCounted
 class_name CharacterSkinCatalog
 
-const DEFAULT_ID := "godot_robot"
+const BASIC_HUMANOID_ID := "basic_humanoid"
+const HUNTER_SHOOTER_ID := "hunter_shooter"
+const GODOT_ROBOT_ID := "godot_robot"
+const BUD_ID := "bud"
+const WALKALL_ID := "walkall"
+const CUTE_ICE_CREAM_ID := "cute_ice_cream"
+const DEFAULT_ID := BASIC_HUMANOID_ID
 
 const MODELS := [
 	{
-		"id": "godot_robot",
+		"id": GODOT_ROBOT_ID,
 		"label": "Godot Robot",
 		"label_key": "character.godot_robot",
 		"scene": "",
@@ -66,6 +72,46 @@ const MODELS := [
 		"label_key": "character.gingerbread",
 		"scene": "res://assets/characters/gingerbread/gingerbread_animated_skin.tscn",
 		"scale": Vector3(0.90, 0.90, 0.90),
+		"offset": Vector3(0, 0.0, 0),
+	},
+	{
+		"id": BASIC_HUMANOID_ID,
+		"label": "Basic Humanoid",
+		"label_key": "character.basic_humanoid",
+		"scene": "res://assets/characters/basic/basic_humanoid_skin.tscn",
+		"scale": Vector3(0.56, 0.56, 0.56),
+		"offset": Vector3(0, 0.0, 0),
+	},
+	{
+		"id": HUNTER_SHOOTER_ID,
+		"label": "Hunter Shooter",
+		"label_key": "character.hunter_shooter",
+		"scene": "res://assets/characters/hunter_shooter/hunter_shooter_skin.tscn",
+		"scale": Vector3(1.0, 1.0, 1.0),
+		"offset": Vector3(0, 0.0, 0),
+	},
+	{
+		"id": BUD_ID,
+		"label": "Bud",
+		"label_key": "character.bud",
+		"scene": "res://assets/characters/bud/bud_skin.tscn",
+		"scale": Vector3(1.65, 1.65, 1.65),
+		"offset": Vector3(0, 0.16, 0),
+	},
+	{
+		"id": WALKALL_ID,
+		"label": "Walkall",
+		"label_key": "character.walkall",
+		"scene": "res://assets/characters/walkall/walkall_skin.tscn",
+		"scale": Vector3(16.5, 16.5, 16.5),
+		"offset": Vector3(0, 0.0, 0),
+	},
+	{
+		"id": CUTE_ICE_CREAM_ID,
+		"label": "Cute Ice Cream",
+		"label_key": "character.cute_ice_cream",
+		"scene": "res://assets/characters/cute_ice_cream/cute_ice_cream_skin.tscn",
+		"scale": Vector3(0.34, 0.34, 0.34),
 		"offset": Vector3(0, 0.0, 0),
 	},
 ]

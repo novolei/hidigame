@@ -16,6 +16,12 @@ const MAX_LINEAR_SPEED := 7.0
 const MAX_ANGULAR_SPEED := 7.5
 const FLOOR_SETTLE_LINEAR_SPEED := 0.14
 const FLOOR_SETTLE_ANGULAR_SPEED := 0.22
+const NETWORK_SYNC_INTERVAL := 0.08
+const NETWORK_POSITION_EPSILON := 0.015
+const NETWORK_ROTATION_EPSILON := 0.01
+const NETWORK_VELOCITY_EPSILON := 0.04
+const CLIENT_IMPACT_REQUEST_INTERVAL := 0.12
+const CLIENT_MAX_REPORTED_IMPACT_SPEED := 9.0
 
 var prop_id := "apple"
 var display_name := "Apple"
@@ -30,14 +36,33 @@ var collision_kind := "cylinder"
 var visual_bounds := AABB()
 var visual_root: Node3D = null
 var ground_position := Vector3.ZERO
+var _network_sync_elapsed := 0.0
+var _network_sync_initialized := false
+var _last_synced_transform := Transform3D()
+var _last_synced_linear_velocity := Vector3.ZERO
+var _last_synced_angular_velocity := Vector3.ZERO
+var _last_synced_sleeping := true
+var _client_impact_request_cooldown := 0.0
 
 
 func _ready() -> void:
 	_configure_physics_body()
+	_configure_multiplayer_body_authority()
 	add_to_group("map_props")
 	add_to_group("replicable_props")
 	if category == "fruit":
 		add_to_group("fruit_props")
+
+
+func _physics_process(delta: float) -> void:
+	if multiplayer.is_server():
+		_network_sync_elapsed += delta
+		if _network_sync_elapsed >= NETWORK_SYNC_INTERVAL:
+			_network_sync_elapsed = 0.0
+			if _should_broadcast_network_state():
+				_broadcast_network_state()
+	elif _client_impact_request_cooldown > 0.0:
+		_client_impact_request_cooldown = maxf(0.0, _client_impact_request_cooldown - delta)
 
 
 func apply_data(data: Dictionary) -> void:
@@ -55,6 +80,7 @@ func apply_data(data: Dictionary) -> void:
 	rotation.y = float(data.get("rotation_y", rotation.y))
 	_refresh_groups()
 	_rebuild_visual()
+	_configure_multiplayer_body_authority()
 
 
 func get_disguise_preset() -> Dictionary:
@@ -115,6 +141,40 @@ func _rebuild_visual() -> void:
 
 
 func apply_player_impact(player_velocity: Vector3, contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false) -> void:
+	if not multiplayer.is_server():
+		_request_authoritative_player_impact(player_velocity, contact_point, contact_normal, disguised_player)
+		return
+	_apply_player_impact_authoritative(player_velocity, contact_point, contact_normal, disguised_player)
+
+
+func _request_authoritative_player_impact(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+	if _client_impact_request_cooldown > 0.0:
+		return
+	_client_impact_request_cooldown = CLIENT_IMPACT_REQUEST_INTERVAL
+	var reported_velocity := player_velocity
+	if reported_velocity.length() > CLIENT_MAX_REPORTED_IMPACT_SPEED:
+		reported_velocity = reported_velocity.normalized() * CLIENT_MAX_REPORTED_IMPACT_SPEED
+	var level := _get_level_node()
+	if level and level.has_method("request_map_prop_impact"):
+		level.request_map_prop_impact(self, reported_velocity, contact_point, contact_normal, disguised_player)
+		return
+	_request_player_impact_rpc.rpc_id(1, reported_velocity, contact_point, contact_normal, disguised_player)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_player_impact_rpc(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if sender_id != 0 and not Network.players.has(sender_id):
+		return
+	var reported_velocity := player_velocity
+	if reported_velocity.length() > CLIENT_MAX_REPORTED_IMPACT_SPEED:
+		reported_velocity = reported_velocity.normalized() * CLIENT_MAX_REPORTED_IMPACT_SPEED
+	_apply_player_impact_authoritative(reported_velocity, contact_point, contact_normal, disguised_player)
+
+
+func _apply_player_impact_authoritative(player_velocity: Vector3, contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false) -> void:
 	var horizontal_velocity := Vector3(player_velocity.x, 0.0, player_velocity.z)
 	var speed := horizontal_velocity.length()
 	if speed < PLAYER_IMPACT_MIN_SPEED:
@@ -141,6 +201,7 @@ func apply_player_impact(player_velocity: Vector3, contact_point: Vector3 = Vect
 		elif collision_kind == "sphere":
 			roll_multiplier *= 0.75
 		apply_torque_impulse(roll_axis.normalized() * impulse_strength * maxf(collision_radius, 0.2) * roll_multiplier)
+	_broadcast_network_state()
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
@@ -198,6 +259,94 @@ func _configure_physics_body() -> void:
 	material.friction = 0.78
 	material.bounce = 0.025
 	physics_material_override = material
+
+
+func _configure_multiplayer_body_authority() -> void:
+	if multiplayer.is_server():
+		freeze = false
+		return
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+	sleeping = true
+
+
+func _should_broadcast_network_state() -> bool:
+	if not _network_sync_initialized:
+		return true
+	if not sleeping:
+		return true
+	if _last_synced_sleeping != sleeping:
+		return true
+	if global_position.distance_squared_to(_last_synced_transform.origin) > NETWORK_POSITION_EPSILON * NETWORK_POSITION_EPSILON:
+		return true
+	var current_rotation := global_transform.basis.get_rotation_quaternion()
+	var synced_rotation := _last_synced_transform.basis.get_rotation_quaternion()
+	if current_rotation.angle_to(synced_rotation) > NETWORK_ROTATION_EPSILON:
+		return true
+	if linear_velocity.distance_squared_to(_last_synced_linear_velocity) > NETWORK_VELOCITY_EPSILON * NETWORK_VELOCITY_EPSILON:
+		return true
+	if angular_velocity.distance_squared_to(_last_synced_angular_velocity) > NETWORK_VELOCITY_EPSILON * NETWORK_VELOCITY_EPSILON:
+		return true
+	return false
+
+
+func _broadcast_network_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var was_sleeping := _last_synced_sleeping
+	_store_synced_network_state()
+	var level := _get_level_node()
+	if level and level.has_method("_server_publish_map_prop_state"):
+		level._server_publish_map_prop_state(self, sleeping or was_sleeping != sleeping)
+		return
+	if sleeping or was_sleeping != sleeping:
+		_sync_prop_rest_state.rpc(global_transform, linear_velocity, angular_velocity, sleeping)
+	else:
+		_sync_prop_motion_state.rpc(global_transform, linear_velocity, angular_velocity, sleeping)
+
+
+func _store_synced_network_state() -> void:
+	_network_sync_initialized = true
+	_last_synced_transform = global_transform
+	_last_synced_linear_velocity = linear_velocity
+	_last_synced_angular_velocity = angular_velocity
+	_last_synced_sleeping = sleeping
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _sync_prop_motion_state(next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool) -> void:
+	_apply_network_physics_state(next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_prop_rest_state(next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool) -> void:
+	_apply_network_physics_state(next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
+
+
+func _apply_network_physics_state(next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool, force: bool = false) -> void:
+	if is_inside_tree() and multiplayer.is_server() and not force:
+		return
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+	if is_inside_tree():
+		global_transform = next_transform
+	else:
+		transform = next_transform
+	linear_velocity = next_linear_velocity
+	angular_velocity = next_angular_velocity
+	sleeping = next_sleeping
+
+
+func _get_level_node() -> Node:
+	var scene := get_tree().current_scene if is_inside_tree() else null
+	if scene and scene.has_method("_server_publish_map_prop_state"):
+		return scene
+	var node := get_parent()
+	while node:
+		if node.has_method("_server_publish_map_prop_state") or node.has_method("request_map_prop_impact"):
+			return node
+		node = node.get_parent()
+	return null
 
 
 func _place_body_and_visual_on_ground() -> void:

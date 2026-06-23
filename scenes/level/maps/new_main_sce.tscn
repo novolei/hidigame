@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://cr1mcikla8csf"]
+
+[ext_resource type="PackedScene" uid="uid://cucjdkubn0qw2" path="res://assets/KayKit_Character_Animations_1.1/Mannequin Character/characters/Mannequin_Large.fbx" id="1_i3fhm"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3ds88"]
+sky_top_color = Color(0.07402996, 0.45760125, 0.7800204, 1)
+sky_horizon_color = Color(0.60039556, 0.686813, 0.7567614, 1)
+ground_bottom_color = Color(0.2553202, 0.21741888, 0.17479306, 1)
+ground_horizon_color = Color(0.60039556, 0.686813, 0.7567614, 1)
+
+[sub_resource type="Sky" id="Sky_i3fhm"]
+sky_material = SubResource("ProceduralSkyMaterial_3ds88")
+
+[sub_resource type="Environment" id="Environment_qc671"]
+background_mode = 2
+sky = SubResource("Sky_i3fhm")
+glow_enabled = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_mg7r7"]
+size = Vector3(1000, 22, 1000)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_x1s1i"]
+albedo_color = Color(0.10152232, 0.3576121, 0.45540613, 1)
+
+[node name="NewMainSce" type="Node3D" unique_id=2134912732]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2122914612]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 328.35358, 349.57382)
+light_color = Color(1, 1, 0.5764706, 1)
+light_energy = 2.9
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=589732208]
+environment = SubResource("Environment_qc671")
+
+[node name="CSGMesh3D" type="CSGMesh3D" parent="." unique_id=1797284245]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8431396, -1.182373, -2.5403976)
+mesh = SubResource("BoxMesh_mg7r7")
+material = SubResource("StandardMaterial3D_x1s1i")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=700030225]
+transform = Transform3D(1, 0, 0, 0, 0.45977446, 0.8880357, 0, -0.8880357, 0.45977446, 0, 364.16965, -498.98767)
+
+[node name="Mannequin_Large" parent="." unique_id=743781267 instance=ExtResource("1_i3fhm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -982.99585, 462.9743, -76.19008)

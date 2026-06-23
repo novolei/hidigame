@@ -13,10 +13,13 @@ func _run() -> void:
 	_test_lobby_id_password()
 	_test_host_room_metadata()
 	_test_host_port_fallback_when_default_is_busy()
+	_test_join_address_port_parsing()
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
 	await _test_level_start_match_path()
+	await _test_client_full_sync_spawns_player_nodes()
 	await _test_single_player_character_test_start()
+	_test_auto_balance_preserves_selected_stalker_in_two_player_lobby()
 	_test_auto_assign_by_hunter_count()
 
 	if failures.is_empty():
@@ -50,6 +53,7 @@ func _reset_network_state() -> void:
 		"prep_duration_sec": 120,
 		"host_hunter_count": -1,
 		"host_stalker_count": -1,
+		"stalker_glass_alpha_max": 0.125,
 		"auto_balance": true,
 		"role_locked": false,
 	}
@@ -101,6 +105,18 @@ func _test_host_port_fallback_when_default_is_busy() -> void:
 	Network.server_port = Network.SERVER_PORT
 
 
+func _test_join_address_port_parsing() -> void:
+	_reset_network_state()
+	var port := 19102
+	var endpoint := Network._normalize_join_endpoint("127.0.0.1:%d" % port)
+	_expect(str(endpoint.get("address", "")) == "127.0.0.1", "Join should strip the port from the ENet host address")
+	_expect(int(endpoint.get("port", -1)) == port, "Join should parse host:port addresses")
+	var ipv6_endpoint := Network._normalize_join_endpoint("[::1]:19103")
+	_expect(str(ipv6_endpoint.get("address", "")) == "::1", "Join should support bracketed IPv6 host:port addresses")
+	_expect(int(ipv6_endpoint.get("port", -1)) == 19103, "Join should parse bracketed IPv6 ports")
+	Network.server_port = Network.SERVER_PORT
+
+
 func _test_lobby_ui_state() -> void:
 	_reset_network_state()
 	var ui_peer := ENetMultiplayerPeer.new()
@@ -118,6 +134,7 @@ func _test_lobby_ui_state() -> void:
 		"match_duration_sec": 900,
 		"prep_duration_sec": 60,
 		"host_hunter_count": 2,
+		"stalker_glass_alpha_max": 0.16,
 	}, true)
 
 	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
@@ -140,6 +157,7 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.duration_option.selected == 2, "Duration dropdown should select 15 min")
 	_expect(ui.prep_option.selected == 1, "Hide Prep dropdown should select 60 sec")
 	_expect(ui.hunter_count_option.selected == 2, "Hunter Count dropdown should select 2 Hunters")
+	_expect(absf(float(_selected_value(ui.stalker_glass_option)) - 0.16) < 0.001, "Stalker shimmer dropdown should follow lobby config")
 	_expect(_tree_has_button_text(ui, "Host"), "Host player should be visible in player/team lists")
 	_expect(_tree_has_button_text(ui, "Guest"), "Joined player should be visible in user list")
 	_expect(ui.start_button.disabled, "Start should stay disabled until both Hunter and Prop teams exist")
@@ -157,6 +175,8 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.selected_role == Network.Role.STALKER, "Clicking a team panel should choose that team")
 	ui._on_team_panel_input(click_event, Network.Role.SPECTATOR)
 	_expect(ui.selected_role == Network.Role.SPECTATOR, "Clicking spectators should choose spectator mode")
+	ui.stalker_glass_option.select(2)
+	_expect(absf(float(ui.get_host_config().get("stalker_glass_alpha_max", 0.0)) - 0.125) < 0.001, "Host config should publish Stalker glass visibility")
 
 	I18n.set_language_setting("zh")
 	await get_tree().process_frame
@@ -261,6 +281,35 @@ func _test_level_start_match_path() -> void:
 	await get_tree().process_frame
 
 
+func _test_client_full_sync_spawns_player_nodes() -> void:
+	_reset_network_state()
+	Network.server_port = 19094
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var synced_players := {
+		1: _player("Host", Network.Role.HUNTER),
+		2: _player("StalkerClient", Network.Role.STALKER),
+	}
+	Network._broadcast_full_sync(synced_players, Network.lobby_config.duplicate())
+	await get_tree().process_frame
+
+	var players_container: Node = level.get_node("PlayersContainer")
+	_expect(players_container.has_node("2"), "Client full sync should instantiate missing player nodes")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
 func _test_single_player_character_test_start() -> void:
 	_reset_network_state()
 	Network.server_port = 19093
@@ -319,6 +368,30 @@ func _test_auto_assign_by_hunter_count() -> void:
 	_expect(Network.players[1]["role"] == Network.Role.STALKER, "Manual role selection should work after auto assign")
 	Network.request_set_role(Network.Role.SPECTATOR)
 	_expect(Network.players[1]["role"] == Network.Role.SPECTATOR, "Spectator should be a selectable lobby role")
+
+	peer.close()
+	Network.multiplayer.multiplayer_peer = null
+
+
+func _test_auto_balance_preserves_selected_stalker_in_two_player_lobby() -> void:
+	_reset_network_state()
+	var peer := ENetMultiplayerPeer.new()
+	var error := peer.create_server(19095, Network.MAX_PLAYERS)
+	_expect(error == OK, "Test server peer should start for selected Stalker balance")
+	if error != OK:
+		return
+	Network.multiplayer.multiplayer_peer = peer
+	Network.players = {
+		1: _player("HostHunter", Network.Role.HUNTER),
+		2: _player("ClientStalker", Network.Role.STALKER),
+	}
+
+	Network.server_auto_balance_roles(true)
+	_expect(Network.players[2]["role"] == Network.Role.STALKER, "Start Match should preserve a client-selected Stalker in a two-player lobby")
+	_expect(Network.get_hunters().size() == 1, "Two-player lobby should still keep one Hunter")
+	_expect(Network.get_stalkers().size() == 1, "Two-player lobby should allow its only Prop to be Stalker")
+	_expect(Network.get_chameleons().is_empty(), "Selected Stalker should not be converted to Chameleon/Hider")
+	_expect(bool(Network.players[2].get("role_locked", false)), "Start Match should lock the preserved Stalker role")
 
 	peer.close()
 	Network.multiplayer.multiplayer_peer = null
