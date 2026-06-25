@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://mu648ax7ndn5"]
+
+[ext_resource type="Script" uid="uid://b5c7wqyrr70qe" path="res://tests/level_layout_config_test.gd" id="1_4jhv6"]
+
+[node name="LevelLayoutConfigTest" type="Node3D" unique_id=202584522]
+script = ExtResource("1_4jhv6")

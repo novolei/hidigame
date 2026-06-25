@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://e37cm51xtlnk"]
+
+[ext_resource type="PackedScene" uid="uid://bxhewvniye73c" path="res://assets/characters/party_monster/party_monster_skin.tscn" id="1_3h6hl"]
+
+[sub_resource type="Environment" id="Environment_3h6hl"]
+background_mode = 1
+background_color = Color(0.72, 0.83, 0.88, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.78, 0.88, 0.95, 1)
+ambient_light_energy = 0.86
+tonemap_mode = 2
+tonemap_exposure = 0.92
+tonemap_white = 1.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b5ffg"]
+albedo_color = Color(0.66, 0.6, 0.5, 1)
+roughness = 0.78
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_6sala"]
+material = SubResource("StandardMaterial3D_b5ffg")
+size = Vector2(5.4, 2.8)
+
+[node name="PartyMonsterMaterialPreview" type="Node3D" unique_id=1190290422]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=5847858]
+environment = SubResource("Environment_3h6hl")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=707268563]
+transform = Transform3D(0.8290376, 0.3741731, -0.4155613, 0, 0.7431448, 0.6691306, 0.5591929, -0.55473447, 0.616095, 0, 0, 0)
+light_color = Color(1, 0.94, 0.86, 1)
+light_energy = 1.45
+light_specular = 0.86
+
+[node name="FillLight" type="DirectionalLight3D" parent="." unique_id=771136381]
+transform = Transform3D(-0.6691307, -0.22964439, 0.70677274, 0, 0.95105654, 0.309017, -0.7431448, 0.20677276, -0.6363811, 0, 0, 0)
+light_color = Color(0.72, 0.88, 1, 1)
+light_energy = 0.28
+light_specular = 0.35
+
+[node name="MattePreviewFloor" type="MeshInstance3D" parent="." unique_id=62924791]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
+mesh = SubResource("PlaneMesh_6sala")
+
+[node name="DefaultYellow" parent="." unique_id=690286025 instance=ExtResource("1_3h6hl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0, 0)
+
+[node name="MaskBlue" parent="." unique_id=1468787104 instance=ExtResource("1_3h6hl")]
+character_model_id = "party_monster_masktint01"
+
+[node name="MaskPink" parent="." unique_id=2041739905 instance=ExtResource("1_3h6hl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 0, 0)
+
+[node name="PreviewCamera" type="Camera3D" parent="." unique_id=1931279308]
+transform = Transform3D(1, 0, 0, 0, 0.99713486, 0.075644694, 0, -0.075644694, 0.99713486, 0, 1.05, 4.35)
+current = true
+fov = 48.0

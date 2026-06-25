@@ -33,6 +33,12 @@ const RECOIL_POSITION_KICK := 0.075
 const RECOIL_ROTATION_KICK := 0.055
 const MUZZLE_FLASH_SECONDS := 0.105
 const MODEL_FORWARD_YAW_OFFSET := PI
+const HOVL_PROJECTILE_EFFECT_SCRIPT := preload("res://scripts/hovl_projectile_effect.gd")
+const HOVL_AUTO_TURRET_EFFECT_ID := "projectile_08_energy"
+const HOVL_AUTO_TURRET_HIT_EFFECT_ID := "projectile_16_star"
+const HOVL_AUTO_TURRET_EFFECT_SECONDS := 0.16
+const HOVL_AUTO_TURRET_EFFECT_SCALE := 0.48
+const HOVL_AUTO_TURRET_MIN_DISTANCE := 1.1
 
 var hunter: Node3D = null
 var owner_peer_id := 1
@@ -170,6 +176,12 @@ func is_overheated() -> bool:
 	return overheat_cooldown > 0.0
 
 
+func drain_by_card(duration: float = OVERHEAT_COOLDOWN_SECONDS) -> void:
+	heat_shots = SHOTS_BEFORE_OVERHEAT
+	overheat_cooldown = maxf(overheat_cooldown, duration)
+	_broadcast_turret_overheat.rpc()
+
+
 func get_model_scale() -> float:
 	return MODEL_SCALE
 
@@ -210,6 +222,26 @@ func get_muzzle_flash_count_for_test() -> int:
 		if str(child.name).begins_with("AutoTurretMuzzleFlash"):
 			count += 1
 	return count
+
+
+func get_hovl_projectile_effect_count_for_test() -> int:
+	var count := 0
+	for child in get_children():
+		if str(child.name).begins_with("AutoTurretHovlProjectile"):
+			count += 1
+	return count
+
+
+func get_hovl_projectile_effect_ids_for_test() -> Array[String]:
+	var ids: Array[String] = []
+	for child in get_children():
+		if str(child.name).begins_with("AutoTurretHovlProjectile"):
+			var effect_id := str(child.get("effect_id"))
+			if effect_id == "" and child.has_method("source_summary"):
+				var summary: Dictionary = child.call("source_summary")
+				effect_id = str(summary.get("id", ""))
+			ids.append(effect_id)
+	return ids
 
 
 func has_single_shot_audio_for_test() -> bool:
@@ -255,7 +287,15 @@ func get_textured_visual_mesh_count_for_test() -> int:
 
 
 func trigger_visual_shot_for_test(start: Vector3, end: Vector3) -> void:
+	clear_hovl_projectile_effects_for_test()
 	_broadcast_turret_shot(start, end, Vector3.UP, false)
+
+
+func clear_hovl_projectile_effects_for_test() -> void:
+	for child in get_children():
+		if str(child.name).begins_with("AutoTurretHovlProjectile"):
+			remove_child(child)
+			child.queue_free()
 
 
 func _is_valid_hunter() -> bool:
@@ -475,6 +515,24 @@ func _find_best_visible_prop_target() -> Node3D:
 	var origin := _get_muzzle_position()
 	var best_target: Node3D = null
 	var best_distance := INF
+	for node in get_tree().get_nodes_in_group("card_decoy_targets"):
+		if not node is Node3D:
+			continue
+		var candidate := node as Node3D
+		if not _is_valid_prop_target(candidate):
+			continue
+		var aim_point := _get_target_aim_point(candidate)
+		var distance := origin.distance_to(aim_point)
+		if distance > TARGET_RANGE or distance >= best_distance:
+			continue
+		if not _is_inside_scan_cone(aim_point):
+			continue
+		if not _has_line_of_sight(origin, aim_point, candidate):
+			continue
+		best_target = candidate
+		best_distance = distance
+	if best_target:
+		return best_target
 	for node in get_tree().get_nodes_in_group("players"):
 		if node == hunter or not node is Node3D:
 			continue
@@ -497,6 +555,8 @@ func _find_best_visible_prop_target() -> Node3D:
 func _is_valid_prop_target(candidate: Node3D) -> bool:
 	if candidate.has_method("get_health") and candidate.get_health() <= 0.0:
 		return false
+	if candidate.has_method("is_card_decoy_target") and candidate.is_card_decoy_target():
+		return true
 	if candidate.has_method("is_chameleon") and candidate.is_chameleon():
 		if candidate.has_method("is_disguised") and candidate.is_disguised():
 			return false
@@ -706,6 +766,8 @@ func _get_muzzle_position() -> Vector3:
 
 
 func _get_target_aim_point(target: Node3D) -> Vector3:
+	if target.has_method("get_auto_turret_aim_point"):
+		return target.get_auto_turret_aim_point()
 	if target.has_method("get_hunter_prop_sense_position"):
 		return target.get_hunter_prop_sense_position()
 	return target.global_position + Vector3.UP * 1.0
@@ -736,6 +798,7 @@ func _broadcast_turret_shot(start: Vector3, end: Vector3, normal: Vector3, hit_p
 	var shot_direction := (end - start).normalized()
 	_apply_fire_recoil()
 	_spawn_muzzle_flash(start, shot_direction)
+	_spawn_hovl_projectile_effect(start, end, hit_prop)
 	_spawn_tracer(start, end, hit_prop)
 	_spawn_impact(end, normal, hit_prop)
 	_play_shot_audio(start)
@@ -815,6 +878,26 @@ func _add_flash_blob(parent: Node3D, position: Vector3, radius: float, color: Co
 	blob.scale = Vector3(1.0, 1.35, 0.72)
 	blob.material_override = _make_muzzle_flash_material(color, Color(1.0, 0.46, 0.08, 1.0), 2.8)
 	parent.add_child(blob)
+
+
+func _spawn_hovl_projectile_effect(start: Vector3, end: Vector3, hit_prop: bool) -> void:
+	var length := start.distance_to(end)
+	if length < HOVL_AUTO_TURRET_MIN_DISTANCE:
+		return
+	var effect := HOVL_PROJECTILE_EFFECT_SCRIPT.new() as Node3D
+	if effect == null:
+		return
+	effect.name = "AutoTurretHovlProjectile"
+	effect.top_level = true
+	effect.scale = Vector3.ONE * HOVL_AUTO_TURRET_EFFECT_SCALE
+	add_child(effect)
+	var effect_id := HOVL_AUTO_TURRET_HIT_EFFECT_ID if hit_prop else HOVL_AUTO_TURRET_EFFECT_ID
+	if effect.has_method("configure"):
+		effect.call("configure", effect_id, length, HOVL_AUTO_TURRET_EFFECT_SECONDS)
+	if effect.has_method("launch"):
+		effect.call("launch", start, end, true)
+	else:
+		effect.global_position = start
 
 
 func _spawn_tracer(start: Vector3, end: Vector3, hit_prop: bool) -> void:

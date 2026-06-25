@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bbj1t52cq8khd"]
+
+[ext_resource type="Script" path="res://.fennara/tmp/character_setup_overlay_alignment_scene.gd" id="1_7w3xl"]
+
+[node name="CharacterSetupOverlayAlignmentProbe" type="Node" unique_id=302639647]
+script = ExtResource("1_7w3xl")

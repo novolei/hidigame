@@ -13,6 +13,7 @@ func _run() -> void:
 		"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
 		"garden": "res://scenes/level/maps/garden.tscn",
 		"Japanese Town Street": "res://scenes/level/maps/japanese_town_street.tscn",
+		"Western Town Prop Hunt": "res://scenes/level/maps/western_town_prop_hunt.tscn",
 	}
 
 	for map_name in scenes.keys():
@@ -46,6 +47,40 @@ func _run() -> void:
 				failures.append("Japanese Town Street should generate runtime collision")
 			elif _count_collision_shapes(imported_collision) == 0:
 				failures.append("Japanese Town Street runtime collision should include at least one shape")
+			map.queue_free()
+			continue
+		if map_name == "Western Town Prop Hunt":
+			if map.name != "WesternTownMapRoot":
+				failures.append("Western Town Prop Hunt should expose a WesternTownMapRoot scene root")
+			var asset_root := map.get_node_or_null("ExistingAssetWesternTown")
+			if not asset_root:
+				failures.append("Western Town Prop Hunt should use existing asset instances for visible scenery")
+			elif _count_mesh_instances(asset_root) < 80:
+				failures.append("Western Town Prop Hunt should include substantial existing asset mesh scenery")
+			var western_collision := map.get_node_or_null("WesternGameplayCollision")
+			if not western_collision:
+				failures.append("Western Town Prop Hunt should provide gameplay collision")
+			elif _count_collision_shapes(western_collision) < 20:
+				failures.append("Western Town Prop Hunt gameplay collision should cover ground, blockers, and upper routes")
+			if not map.get_node_or_null("WesternGameplayMarkers"):
+				failures.append("Western Town Prop Hunt should provide 24 player spawn hint markers")
+			if not map.get_node_or_null("WesternTownPreviewCamera"):
+				failures.append("Western Town Prop Hunt should include a preview camera")
+			var tank_decor := map.get_node_or_null("WesternTankDecor")
+			if not tank_decor:
+				failures.append("Western Town Prop Hunt should include fixed tank decor")
+			elif _count_collision_shapes(tank_decor) < 7:
+				failures.append("Western Town Prop Hunt tank decor should include gameplay collision")
+			if _count_nodes_named(map, "DecorHeavyTank") == 0:
+				failures.append("Western Town Prop Hunt should include materialized heavy tank scenery")
+			if _count_nodes_named(map, "DecorUTVTank") == 0:
+				failures.append("Western Town Prop Hunt should include materialized UTV tank scenery")
+			if _count_nodes_named(map, "DecorSharkTank") == 0:
+				failures.append("Western Town Prop Hunt should include materialized shark tank scenery")
+			if _count_nodes_named(map, "DecorBustedTank") == 0:
+				failures.append("Western Town Prop Hunt should include additional damaged tank scenery")
+			if _count_materialized_surfaces(map) < 400:
+				failures.append("Western Town Prop Hunt should persist material overrides for existing scenery")
 			map.queue_free()
 			continue
 		var root := map.get_node_or_null("GeneratedTankDemoMap")
@@ -121,6 +156,22 @@ func _run() -> void:
 			if not mounted_japanese_town.get_node_or_null("ImportedCollisionRoot"):
 				failures.append("Mounted Japanese Town Street map should include generated collision")
 		japanese_town_level.queue_free()
+
+	Network.lobby_config["map"] = "Western Town Prop Hunt"
+	if main_scene is PackedScene:
+		var western_level := (main_scene as PackedScene).instantiate()
+		add_child(western_level)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var mounted_western := western_level.get_node_or_null("Environment/TankDemoMapRoot")
+		if not mounted_western:
+			failures.append("Main level did not mount the selected Western Town Prop Hunt map")
+		else:
+			if not mounted_western.get_node_or_null("ExistingAssetWesternTown"):
+				failures.append("Mounted Western Town Prop Hunt map should include existing asset scenery")
+			if not mounted_western.get_node_or_null("WesternGameplayCollision"):
+				failures.append("Mounted Western Town Prop Hunt map should include gameplay collision")
+		western_level.queue_free()
 	Network.lobby_config["map"] = "Warehouse"
 
 	if failures.is_empty():
@@ -165,6 +216,19 @@ func _count_collision_shapes(node: Node) -> int:
 		count += 1
 	for child in node.get_children():
 		count += _count_collision_shapes(child)
+	return count
+
+
+func _count_materialized_surfaces(node: Node) -> int:
+	var count := 0
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh:
+			for i in range(mesh_instance.mesh.get_surface_count()):
+				if mesh_instance.get_surface_override_material(i):
+					count += 1
+	for child in node.get_children():
+		count += _count_materialized_surfaces(child)
 	return count
 
 

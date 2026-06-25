@@ -12,6 +12,13 @@ extends Node3D
 @onready var players_container: Node3D = $PlayersContainer
 @onready var main_menu: MainMenuUI = $MainMenuUI
 @export var player_scene: PackedScene
+const MatchIntroOverlayScript := preload("res://scripts/match_intro_overlay.gd")
+const CharacterSetupOverlayScript := preload("res://scripts/character_setup_overlay.gd")
+const LevelLayout := preload("res://scripts/level_layout_config.gd")
+const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
+const PartyMonsterAccessoryPickupScript := preload("res://scripts/party_monster_accessory_pickup.gd")
+const PartyMonsterHuntHUDScript := preload("res://scripts/party_monster_hunt_hud.gd")
+const HologramFlagScene := preload("res://scenes/effects/hologram_flag.tscn")
 
 @onready var multiplayer_chat: MultiplayerChatUI = $MultiplayerChatUI
 @onready var inventory_ui: InventoryUI = $InventoryUI
@@ -26,6 +33,9 @@ var combat_feedback_label: Label = null
 var skill_hud = null
 var card_hud = null
 var match_status_hud = null
+var party_monster_hunt_hud = null
+var match_intro_overlay: MatchIntroOverlay = null
+var character_setup_overlay: CharacterSetupOverlay = null
 
 # -----------------------------------------------------------------------------
 # Game state
@@ -33,6 +43,8 @@ var match_status_hud = null
 enum GameState {
 	LOBBY,
 	CARD_DRAFT,
+	SKIN_CONFIG,
+	MATCH_INTRO,
 	PREP,
 	PLAY,
 	END,
@@ -42,9 +54,12 @@ var game_state: GameState = GameState.LOBBY
 var chat_visible = false
 var inventory_visible = false
 var pending_steam_join := {}
+var _hologram_flag_states: Dictionary = {}
 
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
+var skin_config_remaining: float = 0.0
+var match_intro_remaining: float = 0.0
 
 var match_timer: Timer = null
 var match_remaining: float = 0.0
@@ -53,35 +68,31 @@ var active_gravity_mps2: float = 9.8
 var gravity_event_remaining: float = 0.0
 var low_gravity_check_remaining: float = 0.0
 var gravity_event_label := ""
+var party_monster_bounty_accessories: Array = []
+var party_monster_bounty_remaining := 0.0
+var party_monster_bounty_next_timer := 0.0
+var party_monster_bounty_marked_count := 0
+var party_monster_bounty_clear_timer := 0.0
+var _party_monster_rng := RandomNumberGenerator.new()
 
 # -----------------------------------------------------------------------------
 # Spawn 浣嶇疆閰嶇疆
 # -----------------------------------------------------------------------------
-const PROP_SPAWN_RADIUS: float = 10.0      # 涓绘垬鍦?Prop 鍑虹敓鍗婂緞
 const HUNTER_SPAWN_RADIUS: float = 5.0     # 鍑嗗瀹?Hunter 鍑虹敓鍗婂緞
 const HUNTER_ROOM_OFFSET: Vector3 = Vector3(0, 0, -80)  # 鍑嗗瀹ょ浉瀵逛富鎴樺満鍋忕Щ
 
-# 寮硅嵂鍖呮暎钀介厤缃?v0.3.3)
-const AMMO_PACK_COUNT_SMALL_8: int = 8
-const AMMO_PACK_COUNT_MEDIUM_8: int = 4
-const AMMO_PACK_COUNT_LARGE_8: int = 2
-const AMMO_PACK_COUNT_SMALL_24: int = 22
-const AMMO_PACK_COUNT_MEDIUM_24: int = 12
-const AMMO_PACK_COUNT_LARGE_24: int = 5
-const MAP_PROP_COUNT_8: int = 52
-const MAP_PROP_COUNT_24: int = 120
-const MAP_PROP_MAP_RADIUS: float = 34.0
-const MAP_PROP_MIN_DISTANCE: float = 2.4
+# Dynamic entity sizing stays here; placement density/radius lives in LevelLayout.
 const MAP_PROP_MIN_SCALE_MULTIPLIER: float = 4.0
 const MAP_PROP_MAX_SCALE_MULTIPLIER: float = 6.0
 const MAP_PROP_MIN_COLLISION_RADIUS: float = 0.16
 const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
-const UNITY_DECOR_COUNT_8: int = 18
-const UNITY_DECOR_COUNT_24: int = 42
-const UNITY_DECOR_MIN_DISTANCE: float = 4.0
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
 const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
+const WORLD_COLLISION_MASK: int = 2
+const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
+const GROUND_RAY_UP: float = 80.0
+const GROUND_RAY_DOWN: float = 160.0
 const FIXED_SHADOW_COVER_GROUP := "stalker_shadow_caster"
 const FIXED_SHADOW_ZONE_GROUP := "stalker_shadow_zone"
 const RANDOM_DECOR_SHADOW_NOISE_GROUP := "dynamic_shadow_noise"
@@ -92,16 +103,40 @@ const TANK_DEMO_MAP_SCENES := {
 	"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
 	"garden": "res://scenes/level/maps/garden.tscn",
 	"Japanese Town Street": "res://scenes/level/maps/japanese_town_street.tscn",
+	"Western Town Prop Hunt": "res://scenes/level/maps/western_town_prop_hunt.tscn",
+	"Polygon Apocalypse Bunker": "res://scenes/level/maps/polygon_apocalypse_bunker.tscn",
+	"Polygon Apocalypse Interior": "res://scenes/level/maps/polygon_apocalypse_building_interior_dressing.tscn",
+	"Polygon Apocalypse City": "res://scenes/level/maps/polygon_apocalypse_city_standard.tscn",
+	"Polygon Apocalypse City URP": "res://scenes/level/maps/polygon_apocalypse_city_urp.tscn",
+	"Polygon Apocalypse City: Downtown Escape": "res://scenes/level/maps/polygon_apocalypse_city_downtown_escape.tscn",
+	"Polygon Apocalypse City: Quarantine Crossing": "res://scenes/level/maps/polygon_apocalypse_city_quarantine_crossing.tscn",
+	"Polygon Apocalypse City: Market Row": "res://scenes/level/maps/polygon_apocalypse_city_market_row.tscn",
+	"Polygon Apocalypse City: Overpass Camp": "res://scenes/level/maps/polygon_apocalypse_city_overpass_camp.tscn",
+	"Polygon Apocalypse City: Warehouse Ward": "res://scenes/level/maps/polygon_apocalypse_city_warehouse_ward.tscn",
+	"Polygon Apocalypse City URP: Downtown Escape": "res://scenes/level/maps/polygon_apocalypse_city_urp_downtown_escape.tscn",
+	"Polygon Apocalypse City URP: Quarantine Crossing": "res://scenes/level/maps/polygon_apocalypse_city_urp_quarantine_crossing.tscn",
+	"Polygon Apocalypse City URP: Market Row": "res://scenes/level/maps/polygon_apocalypse_city_urp_market_row.tscn",
+	"Polygon Apocalypse City URP: Overpass Camp": "res://scenes/level/maps/polygon_apocalypse_city_urp_overpass_camp.tscn",
+	"Polygon Apocalypse City URP: Warehouse Ward": "res://scenes/level/maps/polygon_apocalypse_city_urp_warehouse_ward.tscn",
 }
+const MATCH_INTRO_DURATION := 3.0
 const LOW_GRAVITY_MULTIPLIER := 0.42
 const LOW_GRAVITY_EVENT_DURATION := 24.0
 const LOW_GRAVITY_CHECK_INTERVAL := 18.0
 const LOW_GRAVITY_EVENT_CHANCE := 0.34
-const AMMO_PACK_MAP_RADIUS: float = 35.0  # 寮硅嵂鍖呮暎钀藉崐寰?
+const PARTY_MONSTER_ACCESSORY_MIN_PICKUPS := 12
+const PARTY_MONSTER_ACCESSORY_MAX_PICKUPS := 24
+const PARTY_MONSTER_ACCESSORY_MIN_DISTANCE := 7.0
+const PARTY_MONSTER_BOUNTY_FIRST_DELAY := 18.0
+const PARTY_MONSTER_BOUNTY_ACTIVE_SECONDS := 78.0
+const PARTY_MONSTER_BOUNTY_REST_SECONDS := 22.0
+const PARTY_MONSTER_BOUNTY_ESCAPE_REST_SECONDS := 12.0
+const PARTY_MONSTER_BOUNTY_CLEAR_GRACE := 4.0
 # -----------------------------------------------------------------------------
 # 鐢熷懡鍛ㄦ湡
 # -----------------------------------------------------------------------------
 func _ready():
+	_party_monster_rng.randomize()
 	if DisplayServer.get_name() == "headless":
 		print("Dedicated server starting...")
 		Network.start_host("", "")
@@ -130,6 +165,10 @@ func _ready():
 	Network.player_connected.connect(_on_player_connected)
 	Network.players_synced.connect(_on_players_synced)
 	Network.player_life_state_changed.connect(_on_player_life_state_changed)
+	Network.player_character_model_changed.connect(_on_player_character_model_changed)
+	Network.player_party_monster_accessories_changed.connect(_on_player_party_monster_accessories_changed)
+	Network.skin_config_started.connect(_on_skin_config_started)
+	Network.match_intro_started.connect(_on_match_intro_started)
 	Network.card_draft_updated.connect(_on_card_draft_updated)
 	Network.card_loadout_updated.connect(_on_card_loadout_updated)
 	Network.card_activated.connect(_on_card_activated)
@@ -162,12 +201,16 @@ func _ready():
 	# 鍑嗗瀹や綅缃亸绉?鍏抽敭:閬垮厤涓庝富鍦板浘鍦版澘閲嶅悎)
 	if preparation_room:
 		preparation_room.position = HUNTER_ROOM_OFFSET
+		_set_preparation_room_active(true)
 		_set_preparation_gate_open(false)
 
 	_apply_selected_map_scene()
 	_ensure_status_hud()
 	_ensure_skill_hud()
 	_ensure_card_hud()
+	_ensure_party_monster_hunt_hud()
+	_ensure_match_intro_overlay()
+	_ensure_character_setup_overlay()
 
 	# Debug: 纭 HUD 鑺傜偣鎵惧埌
 	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
@@ -186,6 +229,7 @@ func _apply_selected_map_scene() -> void:
 	var is_tank_demo_map := TANK_DEMO_MAP_SCENES.has(selected_map)
 	if gdquest_arena:
 		gdquest_arena.visible = not is_tank_demo_map
+		_sanitize_embedded_map_lighting(gdquest_arena)
 
 	var floor_body := environment.get_node_or_null("Floor") as CollisionObject3D
 	if floor_body:
@@ -205,21 +249,53 @@ func _apply_selected_map_scene() -> void:
 		return
 	map_root.name = "TankDemoMapRoot"
 	environment.add_child(map_root)
+	_sanitize_embedded_map_lighting(map_root)
+
+
+func _sanitize_embedded_map_lighting(map_root: Node) -> void:
+	if map_root == null:
+		return
+	var embedded_worlds: Array[Node] = map_root.find_children("*", "WorldEnvironment", true, false)
+	for node in embedded_worlds:
+		var world_environment := node as WorldEnvironment
+		if world_environment:
+			world_environment.environment = null
+	var embedded_directionals: Array[Node] = map_root.find_children("*", "DirectionalLight3D", true, false)
+	for node in embedded_directionals:
+		var directional := node as DirectionalLight3D
+		if directional:
+			directional.visible = false
+			directional.light_energy = 0.0
 
 
 func _process(delta):
 	# 鏇存柊鍊掕鏃舵樉绀?浠讳綍鐘舵€?
-	if game_state == GameState.PREP:
+	if game_state == GameState.SKIN_CONFIG:
+		skin_config_remaining = max(0.0, skin_config_remaining - delta)
+		_update_character_setup_ui()
+		if multiplayer.is_server() and skin_config_remaining <= 0.0:
+			_server_start_match_intro_phase()
+	elif game_state == GameState.MATCH_INTRO:
+		match_intro_remaining = max(0.0, match_intro_remaining - delta)
+		_update_match_intro_ui()
+		if multiplayer.is_server() and match_intro_remaining <= 0.0:
+			_server_start_prep_phase()
+	elif game_state == GameState.PREP:
 		prep_remaining = max(0.0, prep_remaining - delta)
 		_update_prep_ui()
 		if multiplayer.is_server() and prep_remaining <= 0.0:
 			_server_end_prep_phase()
 	elif game_state == GameState.PLAY:
 		match_remaining = max(0.0, match_remaining - delta)
+		if not party_monster_bounty_accessories.is_empty():
+			party_monster_bounty_remaining = maxf(0.0, party_monster_bounty_remaining - delta)
 		_process_gravity_events(delta)
+		if multiplayer.is_server():
+			_server_process_party_monster_bounties(delta)
 		if multiplayer.is_server() and match_remaining <= 0.0:
 			_server_end_match()
 	_update_status_hud()
+	_update_party_monster_hunt_hud()
 	_update_skill_hud()
 	_update_mouse_capture()
 
@@ -321,21 +397,30 @@ func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
 		main_menu.update_lobby(Network.players, Network.lobby_config)
 
 
+func _should_spawn_player_nodes() -> bool:
+	return game_state == GameState.PREP or game_state == GameState.PLAY
+
+
 # -----------------------------------------------------------------------------
 # 鏈嶅姟鍣?鐜╁杩炴帴 / 瑙掕壊 / spawn
 # -----------------------------------------------------------------------------
 func _on_player_connected(peer_id, player_info):
-	_add_player(peer_id, player_info)
+	if _should_spawn_player_nodes():
+		_add_player(peer_id, player_info)
 	_refresh_lobby_ui()
+	if multiplayer.is_server():
+		_server_sync_hologram_flags_to_peer(int(peer_id))
 
 
 func _on_players_synced(_all_players: Dictionary) -> void:
-	_ensure_player_nodes_from_network()
+	if _should_spawn_player_nodes():
+		_ensure_player_nodes_from_network()
+	_refresh_party_monster_bounty_marks()
 	_refresh_lobby_ui()
 
 
-func _ensure_player_nodes_from_network() -> void:
-	if not players_container:
+func _ensure_player_nodes_from_network(reposition_existing: bool = false) -> void:
+	if not players_container or not _should_spawn_player_nodes():
 		return
 	for pid in Network.players.keys():
 		var player_id := int(pid)
@@ -346,7 +431,8 @@ func _ensure_player_nodes_from_network() -> void:
 			continue
 		if players_container.has_node(str(player_id)):
 			_sync_existing_player_node(player_id, synced_player_info)
-			_try_reposition_player(player_id)
+			if reposition_existing:
+				_try_reposition_player(player_id)
 		else:
 			_add_player(player_id, synced_player_info)
 
@@ -359,6 +445,8 @@ func _sync_existing_player_node(peer_id: int, player_info: Dictionary) -> void:
 		player_node._sync_role_from_network()
 	if player_node.has_method("set_character_model"):
 		player_node.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	if player_node.has_method("set_party_monster_accessory_loadout"):
+		player_node.set_party_monster_accessory_loadout(player_info.get("party_monster_accessories", {}))
 	if player_node.has_method("apply_network_alive_state"):
 		player_node.apply_network_alive_state(bool(player_info.get("alive", true)))
 
@@ -411,6 +499,8 @@ func _add_player(id: int, player_info: Dictionary):
 	player.set_player_skin(skin_enum)
 	if player.has_method("set_character_model"):
 		player.set_character_model(str(player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	if player.has_method("set_party_monster_accessory_loadout"):
+		player.set_party_monster_accessory_loadout(player_info.get("party_monster_accessories", {}))
 	if player.has_method("apply_network_alive_state"):
 		player.apply_network_alive_state(bool(player_info.get("alive", true)))
 
@@ -437,6 +527,8 @@ func _try_reposition_player(pid: int) -> bool:
 	player_node.global_position = new_pos
 
 	# Hunter 鍦?PREP 闃舵閿佸畾
+	if player_node.has_method("set_match_intro_locked"):
+		player_node.set_match_intro_locked(game_state == GameState.MATCH_INTRO)
 	if role == Network.Role.HUNTER and game_state == GameState.PREP:
 		if player_node.has_method("set_prep_locked"):
 			player_node.set_prep_locked(true)
@@ -456,39 +548,131 @@ func get_spawn_point_for_role(role: int, pid: int) -> Vector3:
 	match role:
 		Network.Role.HUNTER:
 			# 鍑嗗瀹や綅缃?鐩稿浜庝富鎴樺満)
-			var slot = pid % 8
-			var angle = slot * (TAU / 8.0)
-			return HUNTER_ROOM_OFFSET + Vector3(cos(angle) * HUNTER_SPAWN_RADIUS, 0, sin(angle) * HUNTER_SPAWN_RADIUS)
+			return _get_hunter_spawn_point(pid)
 		Network.Role.CHAMELEON, Network.Role.STALKER:
 			# 涓绘垬鍦哄嚭鐢熷尯
-			var angle = randf() * TAU
-			return get_grounded_spawn_position(Vector3(cos(angle) * PROP_SPAWN_RADIUS, 0, sin(angle) * PROP_SPAWN_RADIUS))
+			return get_grounded_spawn_position(LevelLayout.prop_spawn_point(pid, Network.get_props()))
 		_:
+			pass
 			# 鏈垎閰嶈鑹?鏆傛椂鏀句富鎴樺満涓績
 			return get_grounded_spawn_position(Vector3.ZERO)
 
 
+func _get_hunter_spawn_point(pid: int) -> Vector3:
+	var slot_index := _get_hunter_slot_index(pid)
+	var slots := _get_preparation_room_hunter_slots()
+	if not slots.is_empty():
+		var slot: Marker3D = slots[slot_index % slots.size()]
+		var slot_position: Vector3 = preparation_room.global_transform * slot.position
+		var overflow_round: int = floori(float(slot_index) / float(slots.size()))
+		if overflow_round > 0:
+			slot_position += Vector3(float((overflow_round % 3) - 1) * 1.35, 0.0, floorf(float(overflow_round) / 3.0) * 1.35)
+		return slot_position
+	return _get_fallback_hunter_spawn_point(pid)
+
+
+func _get_preparation_room_hunter_slots() -> Array[Marker3D]:
+	var slots: Array[Marker3D] = []
+	if not preparation_room:
+		return slots
+	for child in preparation_room.get_children():
+		if child is Marker3D and String(child.name).begins_with("HunterSlot"):
+			slots.append(child as Marker3D)
+	slots.sort_custom(func(a: Marker3D, b: Marker3D) -> bool:
+		return _get_hunter_slot_number(a.name) < _get_hunter_slot_number(b.name)
+	)
+	return slots
+
+
+func _get_hunter_slot_index(pid: int) -> int:
+	var hunter_ids := Network.get_hunters()
+	hunter_ids.sort()
+	var found_index: int = hunter_ids.find(pid)
+	if found_index >= 0:
+		return found_index
+	return absi(pid) % 16
+
+
+func _get_hunter_slot_number(slot_name: StringName) -> int:
+	var text := String(slot_name).replace("HunterSlot", "")
+	if text.is_valid_int():
+		return int(text)
+	return 9999
+
+
+func _get_fallback_hunter_spawn_point(pid: int) -> Vector3:
+	var slot: int = absi(pid) % 8
+	var angle: float = float(slot) * (TAU / 8.0)
+	return HUNTER_ROOM_OFFSET + Vector3(cos(angle) * HUNTER_SPAWN_RADIUS, 0.0, sin(angle) * HUNTER_SPAWN_RADIUS)
+
+
 func get_spawn_point() -> Vector3:
-	var spawn_point = Vector2.from_angle(randf() * 2 * PI) * 10
-	return get_grounded_spawn_position(Vector3(spawn_point.x, 0, spawn_point.y))
+	return get_grounded_spawn_position(LevelLayout.random_default_spawn_point())
 
 
 func get_grounded_spawn_position(base_position: Vector3) -> Vector3:
-	if not is_inside_tree():
+	if not is_inside_tree() or not get_world_3d():
 		return base_position
-	var from := base_position + Vector3.UP * 60.0
-	var to := base_position + Vector3.DOWN * 120.0
-	var query := PhysicsRayQueryParameters3D.create(from, to, 2)
+	var terrain_hit := _raycast_ground_position(base_position, true)
+	if not terrain_hit.is_empty():
+		var terrain_position: Vector3 = terrain_hit.get("position", base_position)
+		return Vector3(base_position.x, terrain_position.y, base_position.z)
+	var support_ground_y := _get_selected_map_support_ground_y(base_position)
+	if support_ground_y > -9999.0:
+		return Vector3(base_position.x, support_ground_y, base_position.z)
+	var any_hit := _raycast_ground_position(base_position, false)
+	if not any_hit.is_empty():
+		var hit_position: Vector3 = any_hit.get("position", base_position)
+		return Vector3(base_position.x, hit_position.y, base_position.z)
+	return base_position
+
+
+func _raycast_ground_position(base_position: Vector3, exclude_support: bool) -> Dictionary:
+	var from := base_position + Vector3.UP * GROUND_RAY_UP
+	var to := base_position + Vector3.DOWN * GROUND_RAY_DOWN
+	var query := PhysicsRayQueryParameters3D.create(from, to, WORLD_COLLISION_MASK)
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty():
-		return base_position
-	var hit_position: Vector3 = hit.get("position", base_position)
-	return Vector3(base_position.x, hit_position.y, base_position.z)
+	if exclude_support:
+		var support := _get_selected_map_support_body()
+		if support:
+			query.exclude = [support.get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+func _get_selected_map_support_body() -> StaticBody3D:
+	var environment := get_node_or_null("Environment") as Node
+	if environment == null:
+		return null
+	var map_root := environment.get_node_or_null("TankDemoMapRoot") as Node
+	if map_root == null:
+		return null
+	var generated := map_root.get_node_or_null("GeneratedPolygonApocalypseMap") as Node
+	if generated == null:
+		return null
+	return generated.get_node_or_null("PolygonApocalypseGameplaySupport") as StaticBody3D
+
+
+func _get_selected_map_support_ground_y(base_position: Vector3) -> float:
+	var support := _get_selected_map_support_body()
+	if support == null:
+		return -10000.0
+	var shape_node := support.get_node_or_null("GameplaySupportShape") as CollisionShape3D
+	if shape_node == null or not shape_node.shape is BoxShape3D:
+		return -10000.0
+	var shape := shape_node.shape as BoxShape3D
+	var half_x := shape.size.x * 0.5
+	var half_z := shape.size.z * 0.5
+	if base_position.x < support.global_position.x - half_x or base_position.x > support.global_position.x + half_x:
+		return -10000.0
+	if base_position.z < support.global_position.z - half_z or base_position.z > support.global_position.z + half_z:
+		return -10000.0
+	return support.global_position.y + shape.size.y * 0.5
 
 
 func _remove_player(id):
+	if multiplayer.is_server():
+		_server_remove_hologram_flag(int(id))
 	if not multiplayer.is_server() or not players_container.has_node(str(id)):
 		return
 	var player_node = players_container.get_node(str(id))
@@ -575,10 +759,48 @@ func _server_start_card_draft_phase() -> void:
 	_update_mouse_capture()
 
 
+func _server_start_skin_config_phase() -> void:
+	if not multiplayer.is_server():
+		return
+	game_state = GameState.SKIN_CONFIG
+	skin_config_remaining = Network.SKIN_CONFIG_TOTAL_SECONDS
+	match_intro_remaining = 0.0
+	prep_remaining = 0.0
+	_set_preparation_room_active(true)
+	_set_hud_visible(true)
+	_set_match_intro_locked(true)
+	_ensure_hider_party_monster_defaults()
+	_show_character_setup_overlay()
+	_update_character_setup_ui()
+	Network.server_broadcast_skin_config_started(skin_config_remaining)
+	_update_mouse_capture()
+
+
+func _server_start_match_intro_phase() -> void:
+	if not multiplayer.is_server():
+		return
+	game_state = GameState.MATCH_INTRO
+	skin_config_remaining = 0.0
+	match_intro_remaining = MATCH_INTRO_DURATION
+	_set_preparation_room_active(true)
+	_hide_character_setup_overlay()
+	_set_hud_visible(true)
+	_set_match_intro_locked(true)
+	_update_match_intro_ui()
+	Network.server_broadcast_match_intro_started(match_intro_remaining)
+	_update_mouse_capture()
+
+
 func _server_start_prep_phase() -> void:
 	game_state = GameState.PREP
+	match_intro_remaining = 0.0
+	_set_preparation_room_active(true)
+	_hide_character_setup_overlay()
+	_hide_match_intro_overlay()
+	_set_match_intro_locked(false)
 	prep_remaining = float(Network.lobby_config.get("prep_duration_sec", 30))
 	Network.server_reset_alive_states()
+	_ensure_player_nodes_from_network(true)
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
 	_server_spawn_unity_decorations()
@@ -610,14 +832,18 @@ func _server_end_prep_phase() -> void:
 	_set_preparation_gate_open(true)
 
 	# 瑙ｉ攣鎵€鏈?Hunter,绉诲姩鍒颁富鎴樺満鍏ュ彛
-	var entrance_offset = Vector3(0, 0, 30)
-	for pid in Network.get_hunters():
+	var hunter_ids: Array = Network.get_hunters()
+	hunter_ids.sort()
+	for release_index in range(hunter_ids.size()):
+		var pid: int = int(hunter_ids[release_index])
 		if players_container.has_node(str(pid)):
 			var p = players_container.get_node(str(pid))
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(false)
 			# 绉诲姩鍒颁富鎴樺満鍏ュ彛
-			p.global_position = get_grounded_spawn_position(entrance_offset + Vector3(randf_range(-5, 5), 0, randf_range(-5, 5)))
+			p.global_position = get_grounded_spawn_position(LevelLayout.hunter_release_point(release_index, hunter_ids.size()))
+
+	_set_preparation_room_active(false)
 
 	print("[Level] Prep phase ended, match started")
 	Network.server_broadcast_prep_ended()
@@ -625,11 +851,14 @@ func _server_end_prep_phase() -> void:
 
 
 func _server_start_match() -> void:
+	_set_preparation_room_active(false)
 	match_remaining = float(Network.lobby_config.get("match_duration_sec", 600))
 	_apply_configured_gravity()
 	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
 	Network.server_broadcast_match_started()
 	_server_spawn_ammo_packs()
+	_server_spawn_party_monster_accessory_pickups()
+	_server_reset_party_monster_bounty_cycle()
 
 
 func _server_end_match() -> void:
@@ -637,6 +866,7 @@ func _server_end_match() -> void:
 	match_remaining = 0.0
 	_apply_configured_gravity()
 	Network.server_clear_match_cards()
+	_set_party_monster_bounty([], 0.0)
 	print("[Level] Match ended")
 	# TODO: 缁撶畻鑳滆礋(PoC-1 绠€鍖?鍚庣画 PoC 鍔?
 
@@ -650,10 +880,7 @@ func _server_spawn_map_props() -> void:
 		return
 
 	var total: int = max(Network.players.size(), 1)
-	var prop_count: int = MAP_PROP_COUNT_8
-	if total > 8:
-		var ratio: float = min(float(total) / 24.0, 1.0)
-		prop_count = int(round(lerpf(float(MAP_PROP_COUNT_8), float(MAP_PROP_COUNT_24), ratio)))
+	var prop_count: int = LevelLayout.map_prop_count(total)
 
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.randomize()
@@ -663,7 +890,7 @@ func _server_spawn_map_props() -> void:
 
 	for i in range(prop_count):
 		var prop: Dictionary = FruitPropCatalog.random_entry(rng)
-		var pos: Vector3 = _get_random_map_prop_position(used_positions, MAP_PROP_MIN_DISTANCE, rng)
+		var pos: Vector3 = _get_random_map_prop_position(used_positions, LevelLayout.MAP_PROP_MIN_DISTANCE, rng)
 		var size_multiplier := rng.randf_range(MAP_PROP_MIN_SCALE_MULTIPLIER, MAP_PROP_MAX_SCALE_MULTIPLIER)
 		var base_scale: Vector3 = prop.get("scale", Vector3.ONE)
 		var data: Dictionary = {
@@ -688,18 +915,7 @@ func _server_spawn_map_props() -> void:
 
 
 func _get_random_map_prop_position(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
-	for attempt in range(32):
-		var angle := rng.randf() * TAU
-		var radius := rng.randf_range(4.0, MAP_PROP_MAP_RADIUS)
-		var pos := Vector3(cos(angle) * radius, 0.08, sin(angle) * radius)
-		var ok := true
-		for u in used:
-			if pos.distance_to(u) < min_dist:
-				ok = false
-				break
-		if ok:
-			return pos
-	return Vector3(rng.randf_range(-8.0, 8.0), 0.08, rng.randf_range(-8.0, 8.0))
+	return get_grounded_spawn_position(LevelLayout.random_map_prop_position(used, min_dist, rng))
 
 
 func _get_or_create_map_prop_container() -> Node3D:
@@ -810,15 +1026,177 @@ func _get_map_prop_by_name(prop_name: String) -> FruitProp:
 	return null
 
 
+func request_place_hologram_flag(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
+	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+	if multiplayer.is_server():
+		_server_place_hologram_flag(owner_id, state, 0)
+	else:
+		_request_place_hologram_flag_rpc.rpc_id(1, owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_place_hologram_flag_rpc(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id := multiplayer.get_remote_sender_id()
+	if sender_id != owner_id:
+		push_warning("Peer " + str(sender_id) + " tried to place hologram flag for " + str(owner_id))
+		return
+	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+	_server_place_hologram_flag(owner_id, state, sender_id)
+
+
+func _server_place_hologram_flag(owner_id: int, state: Dictionary, sender_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if not _is_valid_hologram_flag_state(owner_id, state):
+		return
+	_hologram_flag_states[owner_id] = state.duplicate(true)
+	_rpc_place_hologram_flag.rpc(owner_id, state)
+
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_place_hologram_flag(owner_id: int, state: Dictionary) -> void:
+	var clean_state := state.duplicate(true)
+	clean_state["owner_peer_id"] = owner_id
+	_hologram_flag_states[owner_id] = clean_state
+	_spawn_or_update_hologram_flag(owner_id, clean_state)
+
+
+func _server_remove_hologram_flag(owner_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if not _hologram_flag_states.has(owner_id):
+		return
+	_hologram_flag_states.erase(owner_id)
+	_rpc_remove_hologram_flag.rpc(owner_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_remove_hologram_flag(owner_id: int) -> void:
+	_hologram_flag_states.erase(owner_id)
+	_remove_local_hologram_flag(owner_id)
+
+
+func _server_sync_hologram_flags_to_peer(peer_id: int) -> void:
+	if not multiplayer.is_server() or _hologram_flag_states.is_empty():
+		return
+	var states: Array = []
+	for state in _hologram_flag_states.values():
+		states.append((state as Dictionary).duplicate(true))
+	if peer_id == multiplayer.get_unique_id():
+		_rpc_sync_hologram_flags(states)
+	elif multiplayer.multiplayer_peer != null and multiplayer.get_peers().has(peer_id):
+		_rpc_sync_hologram_flags.rpc_id(peer_id, states)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_sync_hologram_flags(states: Array) -> void:
+	_clear_local_hologram_flags()
+	_hologram_flag_states.clear()
+	for raw_state in states:
+		if not raw_state is Dictionary:
+			continue
+		var state := (raw_state as Dictionary).duplicate(true)
+		var owner_id := int(state.get("owner_peer_id", 0))
+		if owner_id <= 0:
+			continue
+		_hologram_flag_states[owner_id] = state
+		_spawn_or_update_hologram_flag(owner_id, state)
+
+
+func _sanitize_hologram_flag_state(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> Dictionary:
+	return {
+		"owner_peer_id": owner_id,
+		"transform": flag_transform,
+		"character_model_id": CharacterSkinCatalog.normalize(model_id),
+		"party_monster_accessories": accessory_loadout.duplicate(true),
+		"skin_color": clampi(skin_color, 0, 3),
+		"player_height": clampf(player_visual_height, 0.8, 4.0),
+	}
+
+
+func _is_valid_hologram_flag_state(owner_id: int, state: Dictionary) -> bool:
+	if owner_id <= 0:
+		return false
+	if not Network.players.has(owner_id) and not Network.players.has(str(owner_id)):
+		return false
+	var flag_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
+	var player_node := players_container.get_node_or_null(str(owner_id)) if players_container else null
+	if player_node is Node3D:
+		var distance := (player_node as Node3D).global_position.distance_to(flag_transform.origin)
+		if distance > HOLOGRAM_FLAG_MAX_PLACE_DISTANCE:
+			return false
+	return true
+
+
+func _get_or_create_hologram_flag_container() -> Node3D:
+	var existing := get_node_or_null("HologramFlagContainer") as Node3D
+	if existing:
+		return existing
+	var container := Node3D.new()
+	container.name = "HologramFlagContainer"
+	add_child(container)
+	return container
+
+
+func _spawn_or_update_hologram_flag(owner_id: int, state: Dictionary) -> HologramFlag:
+	var container := _get_or_create_hologram_flag_container()
+	var node_name := _hologram_flag_node_name(owner_id)
+	var existing := container.get_node_or_null(node_name)
+	if existing:
+		container.remove_child(existing)
+		existing.free()
+	var flag := HologramFlagScene.instantiate() as HologramFlag
+	if not flag:
+		push_warning("Hologram flag scene did not instantiate")
+		return null
+	flag.name = node_name
+	container.add_child(flag, true)
+	flag.configure(state)
+	var flag_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
+	flag.global_transform = flag_transform
+	return flag
+
+
+func _remove_local_hologram_flag(owner_id: int) -> void:
+	var container := get_node_or_null("HologramFlagContainer") as Node3D
+	if not container:
+		return
+	var existing := container.get_node_or_null(_hologram_flag_node_name(owner_id))
+	if existing:
+		container.remove_child(existing)
+		existing.free()
+
+
+func _clear_local_hologram_flags() -> void:
+	var container := get_node_or_null("HologramFlagContainer") as Node3D
+	if not container:
+		return
+	for child in container.get_children():
+		container.remove_child(child)
+		child.free()
+
+
+func _hologram_flag_node_name(owner_id: int) -> String:
+	return "HologramFlag_%d" % owner_id
+
+
+func get_hologram_flag_count_for_test() -> int:
+	var container := get_node_or_null("HologramFlagContainer") as Node3D
+	return container.get_child_count() if container else 0
+
+
+func get_hologram_flag_state_for_test(owner_id: int) -> Dictionary:
+	return (_hologram_flag_states.get(owner_id, {}) as Dictionary).duplicate(true)
+
+
 func _server_spawn_unity_decorations() -> void:
 	if not multiplayer.is_server():
 		return
 
 	var total: int = max(Network.players.size(), 1)
-	var decor_count := UNITY_DECOR_COUNT_8
-	if total > 8:
-		var ratio: float = min(float(total) / 24.0, 1.0)
-		decor_count = int(round(lerpf(float(UNITY_DECOR_COUNT_8), float(UNITY_DECOR_COUNT_24), ratio)))
+	var decor_count: int = LevelLayout.unity_decor_count(total)
 
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
@@ -828,7 +1206,7 @@ func _server_spawn_unity_decorations() -> void:
 
 	for i in range(decor_count):
 		var decor: Dictionary = UnityAssetCatalog.random_decoration(rng)
-		var pos := _get_random_map_prop_position(used_positions, UNITY_DECOR_MIN_DISTANCE, rng)
+		var pos: Vector3 = get_grounded_spawn_position(LevelLayout.random_unity_decor_position(used_positions, LevelLayout.UNITY_DECOR_MIN_DISTANCE, rng))
 		var data := {
 			"name": "UnityDecor_%03d_%s" % [i, str(decor.get("id", "decor")).to_upper()],
 			"id": str(decor.get("id", "decor")),
@@ -978,26 +1356,35 @@ func _add_decoration_collision_body(container: Node3D, visual_node: Node3D) -> v
 func _configure_match_lighting() -> void:
 	var light := get_node_or_null("Environment/DirectionalLight3D") as DirectionalLight3D
 	if light:
-		light.light_color = Color(0.76, 0.82, 1.0, 1.0)
-		light.light_energy = 0.58
+		light.light_color = Color(1.0, 0.91, 0.78, 1.0)
+		light.light_energy = 0.90
 		light.shadow_enabled = true
-		light.shadow_blur = 0.85
-		light.rotation_degrees = Vector3(-64.0, 38.0, 0.0)
-		_set_property_if_present(light, "directional_shadow_max_distance", 95.0)
-		_set_property_if_present(light, "directional_shadow_fade_start", 0.72)
+		light.shadow_blur = 1.35
+		_set_property_if_present(light, "directional_shadow_max_distance", 80.0)
+		_set_property_if_present(light, "directional_shadow_fade_start", 0.80)
 
 	var world_environment := get_node_or_null("Environment/WorldEnvironment") as WorldEnvironment
 	if not world_environment or not world_environment.environment:
 		return
 	var environment := world_environment.environment.duplicate() as Environment
 	world_environment.environment = environment
-	environment.ambient_light_color = Color(0.34, 0.39, 0.58, 1.0)
-	environment.ambient_light_energy = 0.62
-	environment.ambient_light_sky_contribution = 0.22
-	environment.tonemap_exposure = 0.95
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.64, 0.76, 0.88, 1.0)
+	environment.ambient_light_energy = 0.74
+	environment.ambient_light_sky_contribution = 0.12
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_exposure = 0.92
+	environment.tonemap_white = 2.2
+	environment.glow_enabled = true
+	environment.glow_strength = 0.10
+	environment.glow_bloom = 0.025
+	environment.glow_hdr_threshold = 0.72
 	environment.fog_enabled = true
-	environment.fog_density = 0.0025
-	environment.fog_light_color = Color(0.10, 0.13, 0.22, 1.0)
+	environment.fog_density = 0.0016
+	environment.fog_light_color = Color(0.32, 0.42, 0.55, 1.0)
+	environment.fog_aerial_perspective = 0.18
+	environment.fog_sky_affect = 0.10
 
 
 func _ensure_fixed_shadow_cover() -> void:
@@ -1133,20 +1520,10 @@ func _server_spawn_ammo_packs() -> void:
 		return
 
 	var total = Network.players.size()
-	var small_n: int
-	var medium_n: int
-	var large_n: int
-
-	if total <= 8:
-		small_n = AMMO_PACK_COUNT_SMALL_8
-		medium_n = AMMO_PACK_COUNT_MEDIUM_8
-		large_n = AMMO_PACK_COUNT_LARGE_8
-	else:
-		# 24 浜轰笂闄愭寜姣斾緥
-		var ratio = float(total) / 24.0
-		small_n = int(round(AMMO_PACK_COUNT_SMALL_24 * ratio))
-		medium_n = int(round(AMMO_PACK_COUNT_MEDIUM_24 * ratio))
-		large_n = int(round(AMMO_PACK_COUNT_LARGE_24 * ratio))
+	var ammo_counts: Dictionary = LevelLayout.ammo_pack_counts(total)
+	var small_n: int = int(ammo_counts.get("small", 0))
+	var medium_n: int = int(ammo_counts.get("medium", 0))
+	var large_n: int = int(ammo_counts.get("large", 0))
 
 	print("[Level] Spawning ammo packs: ", small_n, " small, ", medium_n, " medium, ", large_n, " large")
 
@@ -1155,7 +1532,7 @@ func _server_spawn_ammo_packs() -> void:
 
 	# 闅忔満鏁ｈ惤(閬垮厤閲嶅彔)
 	var used_positions: Array[Vector3] = []
-	var min_distance = 5.0
+	var min_distance: float = LevelLayout.AMMO_PACK_MIN_DISTANCE
 	var spawn_data: Array = []
 	var index = 0
 
@@ -1187,19 +1564,7 @@ func _server_spawn_ammo_packs() -> void:
 
 
 func _get_random_ammo_position(used: Array[Vector3], min_dist: float) -> Vector3:
-	for attempt in range(20):
-		var angle = randf() * TAU
-		var radius = randf_range(5.0, AMMO_PACK_MAP_RADIUS)
-		var pos = Vector3(cos(angle) * radius, 0.5, sin(angle) * radius)
-		var ok = true
-		for u in used:
-			if pos.distance_to(u) < min_dist:
-				ok = false
-				break
-		if ok:
-			return pos
-	# 鍏滃簳:杩斿洖涓績闄勮繎
-	return Vector3(randf_range(-5, 5), 0.5, randf_range(-5, 5))
+	return get_grounded_spawn_position(LevelLayout.random_ammo_position(used, min_dist)) + Vector3.UP * 0.08
 
 
 func _get_or_create_ammo_container() -> Node3D:
@@ -1225,60 +1590,312 @@ func _rpc_spawn_ammo_packs(spawn_data: Array) -> void:
 func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 	var pos: Vector3 = data.get("position", Vector3.ZERO)
 	var type: int = data.get("type", AmmoPickup.AmmoType.SMALL)
-	var node = Area3D.new()
+	var node: Area3D = Area3D.new()
 	node.set_script(ammo_script)
 	node.name = data.get("name", "AmmoPack_" + str(type))
-	node.global_position = pos
 	node.set("ammo_type", type)
 	node.collision_layer = 4  # ammo layer
 
-	# 瑙嗚
-	var mesh_inst = MeshInstance3D.new()
-	mesh_inst.name = "Mesh"
-	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(0.4, 0.4, 0.4)
-	mesh_inst.mesh = box_mesh
+	# Visual marker.
+	var marker_color: Color = AmmoPickup.AMMO_COLORS.get(type, Color.WHITE)
+	var visual_path: String = AmmoPickup.visual_scene_path_for_type(type)
+	var visual_scene: Resource = load(visual_path)
+	if visual_scene is PackedScene:
+		var visual_root: Node = (visual_scene as PackedScene).instantiate()
+		visual_root.name = "AmmoBoxVisual"
+		node.add_child(visual_root)
+		if visual_root is Node3D:
+			var visual_node: Node3D = visual_root as Node3D
+			visual_node.scale = AmmoPickup.visual_scale_for_type(type)
+			visual_node.rotation.y = fposmod(float(abs(hash(str(node.name)))), TAU)
+	else:
+		push_warning("Ammo visual did not load, using fallback marker: " + visual_path)
+		var mesh_inst: MeshInstance3D = MeshInstance3D.new()
+		mesh_inst.name = "Mesh"
+		var box_mesh: BoxMesh = BoxMesh.new()
+		box_mesh.size = Vector3(0.4, 0.4, 0.4)
+		mesh_inst.mesh = box_mesh
+		var mat: StandardMaterial3D = StandardMaterial3D.new()
+		mat.albedo_color = marker_color
+		mat.emission_enabled = true
+		mat.emission = marker_color
+		mat.emission_energy_multiplier = 0.5
+		mesh_inst.set_surface_override_material(0, mat)
+		node.add_child(mesh_inst)
 
-	var mat = StandardMaterial3D.new()
-	var colors = {
-		AmmoPickup.AmmoType.SMALL: Color(0.7, 0.7, 0.7),
-		AmmoPickup.AmmoType.MEDIUM: Color(0.3, 0.6, 1.0),
-		AmmoPickup.AmmoType.LARGE: Color(1.0, 0.5, 0.0)
-	}
-	mat.albedo_color = colors.get(type, Color.WHITE)
-	mat.emission_enabled = true
-	mat.emission = mat.albedo_color
-	mat.emission_energy_multiplier = 0.5
-	mesh_inst.set_surface_override_material(0, mat)
-	node.add_child(mesh_inst)
-
-	# 鏍囩
-	var label = Label3D.new()
+	# Floating pickup label.
+	var label: Label3D = Label3D.new()
 	label.name = "Label"
-	label.text = ["+30", "+60", "MAX"][type]
-	label.position = Vector3(0, 0.4, 0)
+	label.text = str(AmmoPickup.AMMO_LABELS.get(type, "?"))
+	label.position = Vector3(0, AmmoPickup.label_height_for_type(type), 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	# Label3D 涓嶆敮鎸?modulate(3D 鑺傜偣),鐢?modulate 閫氳繃鏉愯川鎴?outline_colors
-	label.outline_modulate = mat.albedo_color
+	label.outline_modulate = marker_color
 	node.add_child(label)
 
-	# 纰版挒
-	var coll = CollisionShape3D.new()
-	var sphere = SphereShape3D.new()
-	sphere.radius = 0.8
+	# Pickup trigger shape.
+	var coll: CollisionShape3D = CollisionShape3D.new()
+	coll.name = "PickupTrigger"
+	var sphere: SphereShape3D = SphereShape3D.new()
+	sphere.radius = AmmoPickup.collision_radius_for_type(type)
 	coll.shape = sphere
 	node.add_child(coll)
 
 	container.add_child(node, true)
+	node.position = pos
 	node.set_deferred("ammo_type", type)
+
+
+func _server_spawn_party_monster_accessory_pickups() -> void:
+	if not multiplayer.is_server():
+		return
+	var total_players: int = max(Network.players.size(), 1)
+	var pickup_count: int = clampi(total_players * 3 + 8, PARTY_MONSTER_ACCESSORY_MIN_PICKUPS, PARTY_MONSTER_ACCESSORY_MAX_PICKUPS)
+	var accessory_ids: Array = PartyMonsterAccessoryCatalogScript.random_accessory_ids(_party_monster_rng.randi(), pickup_count, false)
+	var container: Node3D = _get_or_create_party_monster_accessory_container()
+	var used_positions: Array[Vector3] = []
+	var spawn_data: Array = []
+	for index: int in range(accessory_ids.size()):
+		var accessory_id: String = str(accessory_ids[index])
+		var pos: Vector3 = _get_random_party_monster_accessory_position(used_positions, PARTY_MONSTER_ACCESSORY_MIN_DISTANCE)
+		var data: Dictionary = {
+			"name": "PartyMonsterAccessory_%03d_%s" % [index, accessory_id],
+			"accessory_id": accessory_id,
+			"position": pos,
+		}
+		_spawn_one_party_monster_accessory(container, data)
+		spawn_data.append(data)
+		used_positions.append(pos)
+	_rpc_spawn_party_monster_accessories.rpc(spawn_data)
+
+
+func _get_random_party_monster_accessory_position(used: Array[Vector3], min_dist: float) -> Vector3:
+	return get_grounded_spawn_position(LevelLayout.random_ammo_position(used, min_dist)) + Vector3.UP * 0.10
+
+
+func _get_or_create_party_monster_accessory_container() -> Node3D:
+	var existing: Node = get_node_or_null("PartyMonsterAccessoryContainer")
+	if existing:
+		for child: Node in existing.get_children():
+			child.free()
+		return existing as Node3D
+	var container: Node3D = Node3D.new()
+	container.name = "PartyMonsterAccessoryContainer"
+	add_child(container)
+	return container
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_party_monster_accessories(spawn_data: Array) -> void:
+	var container: Node3D = _get_or_create_party_monster_accessory_container()
+	for raw_data: Variant in spawn_data:
+		var data: Dictionary = raw_data as Dictionary
+		_spawn_one_party_monster_accessory(container, data)
+
+
+func _spawn_one_party_monster_accessory(container: Node3D, data: Dictionary) -> void:
+	var accessory_id: String = str(data.get("accessory_id", ""))
+	if PartyMonsterAccessoryCatalogScript.get_accessory(accessory_id).is_empty():
+		return
+	var node: Area3D = Area3D.new()
+	node.set_script(PartyMonsterAccessoryPickupScript)
+	node.name = str(data.get("name", "PartyMonsterAccessory"))
+	node.collision_layer = 4
+	node.set("accessory_id", accessory_id)
+	container.add_child(node, true)
+	node.position = data.get("position", Vector3.ZERO)
+
+
+func _server_reset_party_monster_bounty_cycle() -> void:
+	party_monster_bounty_next_timer = PARTY_MONSTER_BOUNTY_FIRST_DELAY
+	party_monster_bounty_clear_timer = 0.0
+	_set_party_monster_bounty([], 0.0)
+
+
+func _server_process_party_monster_bounties(delta: float) -> void:
+	if not multiplayer.is_server():
+		return
+	if not party_monster_bounty_accessories.is_empty():
+		party_monster_bounty_marked_count = _count_party_monster_bounty_marked_players()
+		if party_monster_bounty_marked_count <= 0:
+			party_monster_bounty_clear_timer = maxf(0.0, party_monster_bounty_clear_timer - delta)
+			if party_monster_bounty_clear_timer <= 0.0:
+				_set_party_monster_bounty([], 0.0)
+				party_monster_bounty_next_timer = PARTY_MONSTER_BOUNTY_ESCAPE_REST_SECONDS
+				return
+		else:
+			party_monster_bounty_clear_timer = PARTY_MONSTER_BOUNTY_CLEAR_GRACE
+		if party_monster_bounty_remaining <= 0.0:
+			_set_party_monster_bounty([], 0.0)
+			party_monster_bounty_next_timer = PARTY_MONSTER_BOUNTY_REST_SECONDS
+		return
+	party_monster_bounty_next_timer = maxf(0.0, party_monster_bounty_next_timer - delta)
+	if party_monster_bounty_next_timer <= 0.0:
+		_server_start_new_party_monster_bounty()
+
+
+func _server_start_new_party_monster_bounty() -> void:
+	var target_count: int = 2 if _party_monster_rng.randf() < 0.55 else 1
+	var carried_pool: Array = _party_monster_bounty_candidate_ids()
+	var target_ids: Array = _pick_party_monster_bounty_ids(carried_pool, target_count, true)
+	if target_ids.is_empty():
+		target_ids = PartyMonsterAccessoryCatalogScript.random_accessory_ids(_party_monster_rng.randi(), target_count, true)
+	if target_ids.is_empty():
+		party_monster_bounty_next_timer = PARTY_MONSTER_BOUNTY_REST_SECONDS
+		return
+	_set_party_monster_bounty(target_ids, PARTY_MONSTER_BOUNTY_ACTIVE_SECONDS)
+
+
+func _party_monster_bounty_candidate_ids() -> Array:
+	var result: Array = []
+	for raw_info: Variant in Network.players.values():
+		var info: Dictionary = raw_info as Dictionary
+		var role: int = int(info.get("role", Network.Role.NONE))
+		if role != Network.Role.CHAMELEON and role != Network.Role.STALKER:
+			continue
+		if not bool(info.get("alive", true)):
+			continue
+		var model_id: String = CharacterSkinCatalog.normalize(str(info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+		if not CharacterSkinCatalog.is_party_monster(model_id):
+			continue
+		var loadout: Dictionary = PartyMonsterAccessoryCatalogScript.sanitize_loadout(info.get("party_monster_accessories", {}), model_id)
+		for raw_id: Variant in loadout.values():
+			var accessory_id: String = PartyMonsterAccessoryCatalogScript.normalize_accessory_id(str(raw_id))
+			if accessory_id.is_empty() or result.has(accessory_id):
+				continue
+			result.append(accessory_id)
+	return result
+
+
+func _pick_party_monster_bounty_ids(accessory_ids: Array, count: int, unique_slots: bool) -> Array:
+	var pool: Array = []
+	for raw_id: Variant in accessory_ids:
+		var accessory_id: String = PartyMonsterAccessoryCatalogScript.normalize_accessory_id(str(raw_id))
+		if accessory_id.is_empty() or pool.has(accessory_id):
+			continue
+		pool.append(accessory_id)
+	var result: Array = []
+	var used_slots := {}
+	while not pool.is_empty() and result.size() < count:
+		var index: int = _party_monster_rng.randi_range(0, pool.size() - 1)
+		var accessory_id: String = str(pool[index])
+		pool.remove_at(index)
+		var slot: String = PartyMonsterAccessoryCatalogScript.accessory_slot(accessory_id)
+		if unique_slots and used_slots.has(slot):
+			continue
+		used_slots[slot] = true
+		result.append(accessory_id)
+	return result
+
+
+func _set_party_monster_bounty(accessory_ids: Array, remaining: float) -> void:
+	var clean_ids: Array = []
+	for raw_id: Variant in accessory_ids:
+		var accessory_id: String = PartyMonsterAccessoryCatalogScript.normalize_accessory_id(str(raw_id))
+		if accessory_id.is_empty() or clean_ids.has(accessory_id):
+			continue
+		clean_ids.append(accessory_id)
+	party_monster_bounty_clear_timer = PARTY_MONSTER_BOUNTY_CLEAR_GRACE if not clean_ids.is_empty() else 0.0
+	_rpc_set_party_monster_bounty.rpc(clean_ids, maxf(remaining, 0.0))
+
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_set_party_monster_bounty(accessory_ids: Array, remaining: float) -> void:
+	party_monster_bounty_accessories = accessory_ids.duplicate()
+	party_monster_bounty_remaining = maxf(remaining, 0.0)
+	party_monster_bounty_clear_timer = PARTY_MONSTER_BOUNTY_CLEAR_GRACE if not party_monster_bounty_accessories.is_empty() else 0.0
+	if party_monster_bounty_accessories.is_empty():
+		party_monster_bounty_remaining = 0.0
+	var label: String = PartyMonsterAccessoryCatalogScript.bounty_label(party_monster_bounty_accessories)
+	if not party_monster_bounty_accessories.is_empty() and DisplayServer.get_name() != "headless":
+		show_combat_feedback("BOUNTY: " + label, Color(1.0, 0.30, 0.95, 1.0), 1.6)
+	_refresh_party_monster_bounty_marks()
+	_update_status_hud()
+	_update_party_monster_hunt_hud()
+
+
+func _refresh_party_monster_bounty_marks() -> void:
+	party_monster_bounty_marked_count = _count_party_monster_bounty_marked_players()
+	if not players_container:
+		return
+	var label: String = PartyMonsterAccessoryCatalogScript.bounty_label(party_monster_bounty_accessories)
+	for raw_player: Node in players_container.get_children():
+		var player: Node = raw_player
+		if not player.has_method("set_party_monster_bounty_marked"):
+			continue
+		var peer_id: int = int(str(player.name))
+		var info: Dictionary = Network.players.get(peer_id, {})
+		var marked: bool = _should_mark_party_monster_bounty_player(info)
+		player.set_party_monster_bounty_marked(marked, party_monster_bounty_accessories, label)
+
+
+func _count_party_monster_bounty_marked_players() -> int:
+	var count := 0
+	for raw_info: Variant in Network.players.values():
+		var info: Dictionary = raw_info as Dictionary
+		if _should_mark_party_monster_bounty_player(info):
+			count += 1
+	return count
+
+
+func _should_mark_party_monster_bounty_player(info: Dictionary) -> bool:
+	if party_monster_bounty_accessories.is_empty():
+		return false
+	var role: int = int(info.get("role", Network.Role.NONE))
+	if role != Network.Role.CHAMELEON and role != Network.Role.STALKER:
+		return false
+	if not bool(info.get("alive", true)):
+		return false
+	var model_id: String = CharacterSkinCatalog.normalize(str(info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	if not CharacterSkinCatalog.is_party_monster(model_id):
+		return false
+	var loadout: Dictionary = PartyMonsterAccessoryCatalogScript.sanitize_loadout(info.get("party_monster_accessories", {}), model_id)
+	return PartyMonsterAccessoryCatalogScript.loadout_has_any_accessory(loadout, party_monster_bounty_accessories)
 
 
 # =============================================================================
 # 瀹㈡埛绔?闃舵浜嬩欢鍥炶皟
 # =============================================================================
 
+func _on_skin_config_started(remaining: float) -> void:
+	game_state = GameState.SKIN_CONFIG
+	skin_config_remaining = maxf(0.0, remaining)
+	match_intro_remaining = 0.0
+	prep_remaining = 0.0
+	_set_preparation_room_active(true)
+	_hide_match_intro_overlay()
+	if main_menu:
+		main_menu.hide_menu()
+	_set_hud_visible(true)
+	_show_character_setup_overlay()
+	_update_card_hud()
+	_update_mouse_capture()
+	print("[Level] Client received: skin config starting, ", remaining, "s remaining")
+
+
+func _on_match_intro_started(remaining: float) -> void:
+	game_state = GameState.MATCH_INTRO
+	match_intro_remaining = maxf(0.0, remaining)
+	skin_config_remaining = 0.0
+	prep_remaining = 0.0
+	_set_preparation_room_active(true)
+	_hide_character_setup_overlay()
+	if main_menu:
+		main_menu.hide_menu()
+	_set_hud_visible(true)
+	_update_card_hud()
+	_set_match_intro_locked(true)
+	_update_match_intro_ui()
+	_update_mouse_capture()
+	print("[Level] Client received: match intro starting, ", remaining, "s remaining")
+
+
 func _on_prep_phase_started(remaining: float) -> void:
 	game_state = GameState.PREP
+	match_intro_remaining = 0.0
+	_set_preparation_room_active(true)
+	_hide_character_setup_overlay()
+	_hide_match_intro_overlay()
+	_set_match_intro_locked(false)
 	prep_remaining = remaining
 	_set_preparation_gate_open(false)
 	if main_menu:
@@ -1303,9 +1920,13 @@ func _on_prep_phase_started(remaining: float) -> void:
 
 func _on_prep_phase_ended() -> void:
 	game_state = GameState.PLAY
+	match_intro_remaining = 0.0
+	_hide_match_intro_overlay()
+	_set_match_intro_locked(false)
 	_set_hud_visible(true)
 	_update_card_hud()
 	_set_preparation_gate_open(true)
+	_set_preparation_room_active(false)
 	# 闅愯棌鍊掕鏃?HUD
 	if prep_timer_label:
 		prep_timer_label.visible = false
@@ -1317,6 +1938,10 @@ func _on_prep_phase_ended() -> void:
 
 func _on_match_started() -> void:
 	game_state = GameState.PLAY
+	match_intro_remaining = 0.0
+	_set_preparation_room_active(false)
+	_hide_match_intro_overlay()
+	_set_match_intro_locked(false)
 	match_remaining = float(Network.lobby_config.get("match_duration_sec", 600))
 	_apply_configured_gravity()
 	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
@@ -1414,17 +2039,47 @@ func _update_prep_ui() -> void:
 		prep_timer_label.modulate = Color(1, 1, 1, 1)
 
 
+func _set_preparation_room_active(active: bool) -> void:
+	if not preparation_room:
+		return
+	preparation_room.visible = active
+	_set_preparation_room_collisions_enabled(active)
+	if active:
+		_set_preparation_gate_open(false)
+
+
+func _set_preparation_room_collisions_enabled(enabled: bool) -> void:
+	if not preparation_room:
+		return
+	var shapes: Array[Node] = preparation_room.find_children("*", "CollisionShape3D", true, false)
+	for node in shapes:
+		var shape: CollisionShape3D = node as CollisionShape3D
+		if shape == null:
+			continue
+		shape.disabled = (not enabled) or _is_legacy_preparation_wall_or_gate(shape)
+
+
+func _is_legacy_preparation_wall_or_gate(shape: CollisionShape3D) -> bool:
+	var current: Node = shape
+	while current and current != preparation_room:
+		var node_name: String = String(current.name)
+		if node_name == "WallNorth" or node_name == "WallSouth" or node_name == "WallEast" or node_name == "WallWest" or node_name == "Gate":
+			return true
+		current = current.get_parent()
+	return false
+
+
 func _set_preparation_gate_open(open: bool) -> void:
 	if not preparation_room:
 		return
-	var gate = preparation_room.get_node_or_null("Gate")
+	var gate: Node = preparation_room.get_node_or_null("Gate")
 	if not gate:
 		return
-	gate.visible = not open
+	gate.visible = false
 	for child in gate.get_children():
 		if child is CollisionShape3D:
-			child.disabled = open
-	print("[Level] Preparation gate ", "opened" if open else "closed")
+			(child as CollisionShape3D).disabled = true
+	print("[Level] Preparation gate ", "opened" if open else "closed", " (legacy gate collider disabled)")
 
 
 func _ensure_status_hud() -> void:
@@ -1498,6 +2153,176 @@ func _ensure_card_hud() -> void:
 	_update_card_hud()
 
 
+func _ensure_party_monster_hunt_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	party_monster_hunt_hud = hud.get_node_or_null("PartyMonsterHuntHUD")
+	if not party_monster_hunt_hud:
+		party_monster_hunt_hud = PartyMonsterHuntHUDScript.new()
+		party_monster_hunt_hud.name = "PartyMonsterHuntHUD"
+		hud.add_child(party_monster_hunt_hud)
+	_update_party_monster_hunt_hud()
+
+
+func _update_party_monster_hunt_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not party_monster_hunt_hud:
+		_ensure_party_monster_hunt_hud()
+	if not party_monster_hunt_hud:
+		return
+	if main_menu and main_menu.is_menu_visible():
+		party_monster_hunt_hud.clear()
+		return
+	var local_id: int = multiplayer.get_unique_id()
+	var local_info: Dictionary = Network.players.get(local_id, {})
+	var local_model: String = CharacterSkinCatalog.normalize(str(local_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+	var local_is_party_monster := CharacterSkinCatalog.is_party_monster(local_model)
+	var bounty_active := game_state == GameState.PLAY and not party_monster_bounty_accessories.is_empty()
+	var should_show := game_state == GameState.PLAY and (bounty_active or local_is_party_monster)
+	if not should_show:
+		party_monster_hunt_hud.clear()
+		return
+	var loadout: Dictionary = PartyMonsterAccessoryCatalogScript.sanitize_loadout(local_info.get("party_monster_accessories", {}), local_model)
+	var loadout_summary := PartyMonsterAccessoryCatalogScript.loadout_summary(loadout, 4) if local_is_party_monster else ""
+	var local_player = _get_local_player()
+	var marked := false
+	if local_player and local_player.has_method("is_party_monster_bounty_marked"):
+		marked = bool(local_player.is_party_monster_bounty_marked())
+	var escape_hint := PartyMonsterAccessoryCatalogScript.bounty_escape_hint(loadout, party_monster_bounty_accessories) if marked else ""
+	party_monster_hunt_hud.set_hunt_state(
+		should_show,
+		marked,
+		PartyMonsterAccessoryCatalogScript.bounty_label(party_monster_bounty_accessories),
+		party_monster_bounty_remaining,
+		PARTY_MONSTER_BOUNTY_ACTIVE_SECONDS,
+		party_monster_bounty_next_timer,
+		party_monster_bounty_marked_count,
+		loadout_summary,
+		escape_hint
+	)
+
+
+func _ensure_character_setup_overlay() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var hud := get_node_or_null("HUDCanvas") as CanvasLayer
+	if not hud:
+		return
+	for child in hud.get_children():
+		if child is CharacterSetupOverlay:
+			character_setup_overlay = child as CharacterSetupOverlay
+			break
+	if not character_setup_overlay:
+		character_setup_overlay = CharacterSetupOverlayScript.new() as CharacterSetupOverlay
+		character_setup_overlay.name = "CharacterSetupOverlay"
+		hud.add_child(character_setup_overlay)
+
+
+func _show_character_setup_overlay() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not character_setup_overlay:
+		_ensure_character_setup_overlay()
+	if character_setup_overlay:
+		character_setup_overlay.show_setup(skin_config_remaining)
+
+
+func _update_character_setup_ui() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if character_setup_overlay and game_state == GameState.SKIN_CONFIG:
+		character_setup_overlay.set_remaining(skin_config_remaining)
+
+
+func _hide_character_setup_overlay() -> void:
+	if character_setup_overlay and is_instance_valid(character_setup_overlay):
+		character_setup_overlay.hide_setup()
+
+
+func _on_player_character_model_changed(peer_id: int, model_id: String) -> void:
+	var player_node = players_container.get_node_or_null(str(peer_id)) if players_container else null
+	if player_node and player_node.has_method("set_character_model"):
+		player_node.set_character_model(model_id)
+	if player_node and player_node.has_method("set_party_monster_accessory_loadout") and Network.players.has(peer_id):
+		var info: Dictionary = Network.players.get(peer_id, {})
+		player_node.set_party_monster_accessory_loadout(info.get("party_monster_accessories", {}))
+	_refresh_party_monster_bounty_marks()
+	_update_party_monster_hunt_hud()
+
+
+func _on_player_party_monster_accessories_changed(peer_id: int, loadout: Dictionary) -> void:
+	var player_node = players_container.get_node_or_null(str(peer_id)) if players_container else null
+	if player_node and player_node.has_method("set_party_monster_accessory_loadout"):
+		player_node.set_party_monster_accessory_loadout(loadout)
+	_refresh_party_monster_bounty_marks()
+	_update_party_monster_hunt_hud()
+
+
+func _ensure_hider_party_monster_defaults() -> void:
+	if not multiplayer.is_server():
+		return
+	for pid in Network.players.keys():
+		var info: Dictionary = Network.players.get(pid, {})
+		var role := int(info.get("role", Network.Role.NONE))
+		if role == Network.Role.HUNTER or role == Network.Role.SPECTATOR or role == Network.Role.NONE:
+			continue
+		var current_model := CharacterSkinCatalog.normalize(str(info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
+		if CharacterSkinCatalog.is_party_monster(current_model):
+			continue
+		if current_model == CharacterSkinCatalog.DEFAULT_ID or current_model == CharacterSkinCatalog.HUNTER_SHOOTER_ID:
+			Network.server_set_player_character_model(int(pid), CharacterSkinCatalog.party_monster_default_id())
+
+
+func _ensure_match_intro_overlay() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	match_intro_overlay = null
+	for child in hud.get_children():
+		if child is MatchIntroOverlay and String(child.name) == "MatchIntroOverlay":
+			match_intro_overlay = child as MatchIntroOverlay
+			break
+	if not match_intro_overlay:
+		match_intro_overlay = MatchIntroOverlayScript.new() as MatchIntroOverlay
+		match_intro_overlay.name = "MatchIntroOverlay"
+		hud.add_child(match_intro_overlay)
+
+
+func _update_match_intro_ui() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not match_intro_overlay:
+		_ensure_match_intro_overlay()
+	if not match_intro_overlay:
+		return
+	if game_state != GameState.MATCH_INTRO:
+		match_intro_overlay.hide_countdown()
+		return
+	if not match_intro_overlay.visible:
+		match_intro_overlay.show_countdown(match_intro_remaining)
+	else:
+		match_intro_overlay.set_remaining(match_intro_remaining)
+
+
+func _hide_match_intro_overlay() -> void:
+	if match_intro_overlay and is_instance_valid(match_intro_overlay):
+		match_intro_overlay.hide_countdown()
+
+
+func _set_match_intro_locked(locked: bool) -> void:
+	if not players_container:
+		return
+	for player in players_container.get_children():
+		if player.has_method("set_match_intro_locked"):
+			player.set_match_intro_locked(locked)
+
+
 func _set_hud_visible(visible_value: bool) -> void:
 	if prep_timer_label:
 		prep_timer_label.visible = false
@@ -1511,6 +2336,8 @@ func _set_hud_visible(visible_value: bool) -> void:
 		card_hud.visible = visible_value and not main_menu.is_menu_visible()
 	if match_status_hud:
 		match_status_hud.visible = visible_value and (game_state == GameState.PREP or game_state == GameState.PLAY) and not main_menu.is_menu_visible()
+	if party_monster_hunt_hud and not visible_value:
+		party_monster_hunt_hud.clear()
 
 
 func _update_status_hud() -> void:
@@ -1521,22 +2348,30 @@ func _update_status_hud() -> void:
 	if not status_label.visible:
 		return
 	var role = Network.get_my_role()
-	var phase_key = ["LOBBY", "PREP", "PLAY", "END"][game_state]
+	var phase_key = ["LOBBY", "CARD_DRAFT", "SKIN_CONFIG", "MATCH_INTRO", "PREP", "PLAY", "END"][game_state]
 	var phase = I18n.t("phase." + phase_key)
 	var lines := [
 		"%s: %s" % [I18n.t("phase"), phase],
 		"%s: %s" % [I18n.t("role"), _localized_role(role)],
 		"%s: %d | %s: %d | Props: %d" % [I18n.t("players"), Network.players.size(), I18n.t("role.hunter"), Network.get_hunters().size(), Network.get_props().size()],
 	]
-	if game_state == GameState.PREP:
+	if game_state == GameState.SKIN_CONFIG:
+		lines.append("SKIN CONFIG: %ds" % int(ceil(skin_config_remaining)))
+	elif game_state == GameState.PREP:
 		lines.append("%s: %ds" % [I18n.t("prep_remaining"), int(ceil(prep_remaining))])
 	elif game_state == GameState.PLAY:
 		lines.append("%s: %ds" % [I18n.t("match_remaining"), int(ceil(match_remaining))])
+		if not party_monster_bounty_accessories.is_empty():
+			lines.append("BOUNTY: %s (%ds) | MARKED: %d" % [PartyMonsterAccessoryCatalogScript.bounty_label(party_monster_bounty_accessories), int(ceil(party_monster_bounty_remaining)), party_monster_bounty_marked_count])
+		elif party_monster_bounty_next_timer > 0.0:
+			lines.append("NEXT BOUNTY: %ds" % int(ceil(party_monster_bounty_next_timer)))
 	lines.append("%s: %.1f m/s²" % [I18n.t("gravity_status"), active_gravity_mps2])
 	if gravity_event_remaining > 0.0:
 		lines.append("%s: %ds" % [gravity_event_label, int(ceil(gravity_event_remaining))])
 	var local_player = _get_local_player()
 	if local_player:
+		if local_player.has_method("is_party_monster_bounty_marked") and local_player.is_party_monster_bounty_marked():
+			lines.append("MARKED: swap a bounty accessory")
 		if local_player.has_method("get_health"):
 			lines.append("%s: %d" % [I18n.t("health"), int(local_player.get_health())])
 		if local_player.has_node("WeaponSystem"):
@@ -1638,7 +2473,7 @@ func _on_card_drafts_completed() -> void:
 		return
 	if game_state != GameState.CARD_DRAFT:
 		return
-	_server_start_prep_phase()
+	_server_start_skin_config_phase()
 
 
 func _on_card_activated(peer_id: int, card_id: String, slot_index: int) -> void:

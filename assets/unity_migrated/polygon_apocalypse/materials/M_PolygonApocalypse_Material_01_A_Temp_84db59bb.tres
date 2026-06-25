@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "PolygonApocalypse_Material_01_A_Temp"
+albedo_color = Color(0.4044118, 0.4044118, 0.4044118, 0.091)
+metallic = 0
+roughness = 0.8
+cull_mode = 0
+transparency = 1

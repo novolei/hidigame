@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://rdtkt0bu3vre"]
+
+[ext_resource type="PackedScene" uid="uid://bxhewvniye73c" path="res://assets/characters/party_monster/party_monster_skin.tscn" id="1_ugk46"]
+
+[sub_resource type="Environment" id="Environment_x4cbe"]
+background_mode = 1
+background_color = Color(0.72, 0.84, 0.82, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.76, 0.9, 0.86, 1)
+ambient_light_energy = 0.82
+reflected_light_source = 1
+tonemap_mode = 2
+tonemap_exposure = 0.92
+tonemap_white = 3.2
+
+[node name="PartyMonsterLitPreview" type="Node3D" unique_id=1140658844]
+
+[node name="PreviewEnvironment" type="WorldEnvironment" parent="." unique_id=1130174296]
+environment = SubResource("Environment_x4cbe")
+
+[node name="PartyMonsterSkin" parent="." unique_id=690286025 instance=ExtResource("1_ugk46")]
+transform = Transform3D(0.95105654, 0, -0.309017, 0, 1, 0, 0.309017, 0, 0.95105654, 0, 0, 0)
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1554387114]
+transform = Transform3D(0.8660254, 0.30783075, -0.3940054, 0, 0.7880108, 0.6156615, 0.5, -0.5331785, 0.68243736, 0, 0, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.22
+shadow_enabled = true
+shadow_blur = 1.5
+
+[node name="SoftFillLight" type="OmniLight3D" parent="." unique_id=1461495501]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 1.8, 2.4)
+light_color = Color(0.72, 0.92, 0.88, 1)
+light_energy = 0.58
+omni_attenuation = 0.38
+
+[node name="FaceLight" type="OmniLight3D" parent="." unique_id=1712905218]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.15, 1.3, 2.2)
+light_color = Color(1, 0.82, 0.68, 1)
+light_energy = 0.36
+omni_range = 4.0
+omni_attenuation = 0.34
+
+[node name="PreviewCamera" type="Camera3D" parent="." unique_id=742687414]
+transform = Transform3D(1, 0, 0, 0, 0.99546874, 0.09508957, 0, -0.09508957, 0.99546874, 0, 1.1, 3.35)
+current = true
+fov = 32.0

@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://cysrnl6lo43oa"]
 
 [ext_resource type="Material" uid="uid://dyd2nh7h1m61x" path="res://Low Poly Food Asset Pack/Kyle Fuji/Materials/M_wood.tres" id="1_t7xxe"]
-[ext_resource type="PackedScene" uid="uid://ckfla4klph51u" path="res://World Environments/night_sun.tscn" id="2_ft2po"]
 [ext_resource type="PackedScene" uid="uid://dctx7sbnoqhyc" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/banana.tscn" id="4_q7mbg"]
 [ext_resource type="PackedScene" uid="uid://bhsyy64fc1ujw" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Fruits/banana_bunch.tscn" id="5_psagd"]
 [ext_resource type="PackedScene" uid="uid://pj1tqjoale5s" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/broccoli.tscn" id="6_qp3wc"]

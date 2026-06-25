@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-06-24T23:40:00+08:00",
+  "source": "Meshy Text to 3D v2 preview + refine with PBR",
+  "format": "glb",
+  "assets": [
+    {
+      "id": "small_ammo_box_30",
+      "ammo_amount": 30,
+      "file": "res://assets/pickups/ammo_boxes/small_ammo_box_30.glb",
+      "preview_task_id": "019efa36-7c27-7d57-af86-3f51b2418fee",
+      "refine_task_id": "019efa38-4426-71d9-864c-148fe5c380b1",
+      "prompt": "Stylized low-poly game prop: compact metal small ammo box for +30 ammo pickup, yellow hazard stripes, visible bullet icons, rugged edges, closed lid, readable silhouette, PBR game asset, no text labels, no character, neutral background"
+    },
+    {
+      "id": "medium_ammo_crate_60",
+      "ammo_amount": 60,
+      "file": "res://assets/pickups/ammo_boxes/medium_ammo_crate_60.glb",
+      "preview_task_id": "019efa3a-2977-7370-a933-53cba149002c",
+      "refine_task_id": "019efa3c-a27d-75cc-b17e-7be865645a37",
+      "prompt": "Stylized low-poly game prop: medium tactical ammunition crate for +60 ammo pickup, olive green military supply box, hinged lid slightly open showing magazines and cartridges, chunky readable silhouette, PBR game asset, no character, neutral background"
+    },
+    {
+      "id": "large_ammo_supply_box_120",
+      "ammo_amount": 120,
+      "file": "res://assets/pickups/ammo_boxes/large_ammo_supply_box_120.glb",
+      "preview_task_id": "019efa3e-9074-744e-8a03-4a56300c07c4",
+      "refine_task_id": "019efa40-9401-76ae-9838-fa618359a954",
+      "prompt": "Stylized low-poly game prop: large heavy ammunition resupply box that fills ammo to 120, reinforced steel case, red high-visibility panels, chunky handles, stacked magazine slots, readable from distance, PBR game asset, no character, neutral background"
+    },
+    {
+      "id": "special_ammo_cache",
+      "ammo_amount": 0,
+      "special_effect": true,
+      "file": "res://assets/pickups/ammo_boxes/special_ammo_cache.glb",
+      "preview_task_id": "019efa42-f2ad-7fba-a9a1-3cd0cdaa884e",
+      "refine_task_id": "019efa45-6c52-750f-a66d-51fcfacee60a",
+      "prompt": "Stylized low-poly game prop: special experimental ammunition cache for rare hidden pickup, compact sci-fi ammo box with blue glowing energy slots and armored casing, stealthy but collectible silhouette, PBR game asset, no character, neutral background"
+    }
+  ]
+}

@@ -56,8 +56,6 @@
 [ext_resource type="PackedScene" uid="uid://di4vpmce4ecn8" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/steak.tscn" id="40_6wr2x"]
 [ext_resource type="PackedScene" uid="uid://cgdoiq1xbrrog" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/egg.tscn" id="41_6kyu2"]
 [ext_resource type="PackedScene" uid="uid://d1bs5rh4lxa3" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Protein/egg_cooked.tscn" id="42_3weh7"]
-[ext_resource type="PackedScene" uid="uid://gdcfiypidkka" path="res://World Environments/daylight_sun.tscn" id="57_lcnwl"]
-[ext_resource type="PackedScene" uid="uid://wv5rrjf8ay6a" path="res://World Environments/daylight_world_environment.tscn" id="58_0ad50"]
 [ext_resource type="PackedScene" uid="uid://ruiphn4wlnup" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Vegetables/zucchini.tscn" id="59_0ad50"]
 [ext_resource type="PackedScene" uid="uid://scy5a7eo76p4" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_cola.tscn" id="60_ylvrp"]
 [ext_resource type="PackedScene" uid="uid://jn6x4tfmlsv7" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_beer.tscn" id="61_eul5v"]

@@ -1,5 +1,7 @@
 extends Node3D
 
+const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
+
 var failures: Array[String] = []
 
 
@@ -59,6 +61,9 @@ func _run() -> void:
 		_expect(turret.get_recoil_offset_for_test().length() > 0.02, "Auto turret should kick with a visible recoil offset while firing")
 		_expect(turret.get_recoil_rotation_for_test().length() > 0.01, "Auto turret should apply a small firing shake rotation")
 		_expect(turret.get_muzzle_flash_count_for_test() >= 1, "Auto turret should spawn a cartoon muzzle flash while firing")
+		_expect(turret.get_hovl_projectile_effect_count_for_test() >= 1, "Auto turret should layer a Hovl energy projectile over its machine-gun tracer")
+		var hovl_effect_ids: Array[String] = turret.get_hovl_projectile_effect_ids_for_test()
+		_expect(hovl_effect_ids.has("projectile_08_energy"), "Auto turret should use the Hovl energy projectile preset for machine-gun shots: " + str(hovl_effect_ids))
 
 	chameleon.apply_prop_disguise({
 		"id": "turret_test_crate",
@@ -88,6 +93,22 @@ func _run() -> void:
 		await get_tree().process_frame
 		scan_target = turret.force_scan_for_test()
 		_expect(scan_target == chameleon, "Auto turret should acquire only a truly visible prop model in its forward cone: " + str(turret.get_target_scan_debug_for_test(chameleon)))
+		var decoy := CardDecoyTargetScript.new() as CardDecoyTarget
+		decoy.name = "CardDecoyPriorityTest"
+		add_child(decoy)
+		decoy.configure(chameleon, 15.0, Vector3(0.0, 0.0, 1.8), false, 20.0)
+		decoy.global_position = Vector3(0.0, 0.0, -5.5)
+		await get_tree().process_frame
+		scan_target = turret.force_scan_for_test()
+		_expect(scan_target == decoy, "Auto turret should prioritize active card decoys over visible real Props")
+		turret.force_apply_hit_for_test(decoy)
+		turret.force_apply_hit_for_test(decoy)
+		await get_tree().process_frame
+		_expect(not is_instance_valid(decoy) or decoy.get_health() <= 0.0, "Card decoy should be a damageable turret target")
+		chameleon.apply_card_effect("prop_empty_bullet")
+		_expect(turret.is_overheated(), "Empty Bullet should drain automatic turret resources into overheat")
+		turret.overheat_cooldown = 0.0
+		turret.heat_shots = 0
 		for i in range(10):
 			turret.force_apply_hit_for_test(chameleon)
 		await get_tree().process_frame
@@ -134,6 +155,14 @@ func _run() -> void:
 		turret._process(8.6)
 		_expect(not turret.is_overheated(), "Auto turret should recover after the overheat cooldown")
 		_expect(turret.get_heat_shots() == 0, "Auto turret heat counter should reset after cooling")
+		hunter.call("_client_card_screen_impairment", "PAINT", 1.0)
+		_expect(hunter.has_card_screen_impairment_overlay_for_test(), "Paint/flash card effects should create a local screen impairment overlay")
+		stalker.apply_card_effect("prop_emergency_conceal")
+		_expect(stalker.has_card_stasis(), "Emergency Conceal should put the Prop into a stone stasis state")
+		stalker.apply_card_effect("prop_extreme_immunity")
+		stalker.position = Vector3(4.0, 0.0, -8.0)
+		hunter.apply_card_effect("hunter_gravity_net")
+		_expect(is_equal_approx(stalker.get_card_speed_multiplier_for_test(), 1.0), "Extreme Immunity should block Hunter control card slowdown")
 
 	hunter.queue_free()
 	chameleon.queue_free()

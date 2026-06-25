@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "PolygonApocalypse_Background_Bunker"
+albedo_color = Color(0.09834559, 0.125, 0.123897046, 1)
+metallic = 0
+roughness = 1
+cull_mode = 0
+shading_mode = 0
+disable_receive_shadows = true

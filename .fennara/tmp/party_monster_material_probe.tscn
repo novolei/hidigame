@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://dn6vqyac5xbd5"]
+
+[ext_resource type="PackedScene" uid="uid://bxhewvniye73c" path="res://assets/characters/party_monster/party_monster_skin.tscn" id="1_dwa13"]
+
+[sub_resource type="Environment" id="Environment_dwa13"]
+background_mode = 1
+background_color = Color(0.7, 0.82, 0.9, 1)
+background_energy_multiplier = 0.82
+ambient_light_source = 2
+ambient_light_color = Color(0.58, 0.68, 0.82, 1)
+ambient_light_sky_contribution = 0.1
+ambient_light_energy = 0.72
+tonemap_mode = 2
+tonemap_exposure = 0.88
+tonemap_white = 3.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_twe63"]
+albedo_color = Color(0.61, 0.54, 0.43, 1)
+metallic = 0.08
+metallic_specular = 0.42
+roughness = 0.52
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_hugor"]
+material = SubResource("StandardMaterial3D_twe63")
+top_radius = 3.0
+bottom_radius = 3.12
+height = 0.16
+radial_segments = 96
+rings = 1
+
+[node name="PartyMonsterMaterialProbe" type="Node3D" unique_id=1683811771]
+metadata/__editor_changed = true
+
+[node name="ProbeWorldEnvironment" type="WorldEnvironment" parent="." unique_id=1836151398]
+environment = SubResource("Environment_dwa13")
+
+[node name="WarmKeyLight" type="DirectionalLight3D" parent="." unique_id=1429807622]
+transform = Transform3D(0.8290376, -0.47422248, 0.29632708, 0, 0.52991927, 0.8480481, -0.5591929, -0.7030638, 0.439323, 0, 0, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 0.86
+light_specular = 0.72
+shadow_enabled = true
+shadow_blur = 1.2
+
+[node name="SoftFrontFill" type="OmniLight3D" parent="." unique_id=1850378713]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 3.3)
+light_color = Color(0.76, 0.88, 1, 1)
+light_energy = 0.22
+light_specular = 0.18
+omni_range = 6.0
+
+[node name="NeutralPreviewBase" type="MeshInstance3D" parent="." unique_id=1634084138]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, 0)
+mesh = SubResource("CylinderMesh_hugor")
+
+[node name="Probe_party_monster_c01" parent="." unique_id=690286025 instance=ExtResource("1_dwa13")]
+transform = Transform3D(0.9848077, 0, -0.17364818, 0, 1, 0, 0.17364818, 0, 0.9848077, -1.75, 0, 0)
+
+[node name="Probe_party_monster_c11" parent="." unique_id=455793488 instance=ExtResource("1_dwa13")]
+character_model_id = "party_monster_c11"
+
+[node name="Probe_party_monster_masktint02" parent="." unique_id=1384921449 instance=ExtResource("1_dwa13")]
+transform = Transform3D(0.9848077, 0, 0.17364818, 0, 1, 0, -0.17364818, 0, 0.9848077, 1.75, 0, 0)
+character_model_id = "party_monster_masktint02"
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=930766439]
+transform = Transform3D(1, 0, 0, 0, 0.9979904, 0.06336448, 0, -0.06336448, 0.9979904, 0, 1.35, 6.3)
+current = true
+fov = 42.0
+far = 80.0

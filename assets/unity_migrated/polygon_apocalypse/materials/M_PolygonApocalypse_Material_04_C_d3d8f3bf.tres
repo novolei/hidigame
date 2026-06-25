@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" format=3]
+[ext_resource type="Texture2D" path="res://assets/unity_migrated/polygon_apocalypse/Textures/Alts/PolygonApocalypse_Texture_04_C.png" id="1_albedo"]
+[ext_resource type="Texture2D" path="res://assets/unity_migrated/polygon_apocalypse/Textures/Misc/PolygonApocalypse_Normal.png" id="2_normal"]
+
+[resource]
+resource_name = "PolygonApocalypse_Material_04_C"
+albedo_color = Color(1, 1, 1, 1)
+metallic = 0
+roughness = 0.8
+cull_mode = 0
+albedo_texture = ExtResource("1_albedo")
+normal_enabled = true
+normal_texture = ExtResource("2_normal")

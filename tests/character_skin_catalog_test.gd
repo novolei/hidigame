@@ -3,9 +3,14 @@ extends SceneTree
 
 func _init() -> void:
 	var failures: Array[String] = []
+	var party_monster_count := 0
 	for model in CharacterSkinCatalog.all():
 		var model_id := str(model.get("id", ""))
 		var scene_path := str(model.get("scene", ""))
+		if CharacterSkinCatalog.is_party_monster(model_id):
+			party_monster_count += 1
+			if scene_path != CharacterSkinCatalog.PARTY_MONSTER_SCENE_PATH:
+				failures.append("Party Monster variants should use the shared wrapper scene")
 		if scene_path.is_empty():
 			continue
 		var scene := load(scene_path)
@@ -241,6 +246,19 @@ func _init() -> void:
 		if node:
 			node.free()
 
+	if party_monster_count < 36:
+		failures.append("Party Monster catalog should expose all imported variants; got %d" % party_monster_count)
+	if CharacterSkinCatalog.normalize(CharacterSkinCatalog.party_monster_default_id()) != CharacterSkinCatalog.party_monster_default_id():
+		failures.append("Party Monster default id should normalize to itself")
+	var party_monster_model := CharacterSkinCatalog.get_model(CharacterSkinCatalog.party_monster_default_id())
+	var party_monster_offset: Vector3 = party_monster_model.get("offset", Vector3.ZERO)
+	if absf(party_monster_offset.y - CharacterSkinCatalog.PARTY_MONSTER_GAMEPLAY_GROUND_OFFSET) > 0.001:
+		failures.append("Party Monster gameplay offset should match the grounded visual calibration")
+	if party_monster_offset.y > -0.15:
+		failures.append("Party Monster gameplay offset should sink the round visual toward the floor")
+	_append_party_monster_pbr_failures(failures)
+	_append_character_setup_overlay_perf_failures(failures)
+
 	if failures.is_empty():
 		print("[CharacterSkinCatalogTest] PASS")
 		quit(0)
@@ -248,6 +266,141 @@ func _init() -> void:
 		for failure in failures:
 			push_error("[CharacterSkinCatalogTest] " + failure)
 		quit(1)
+
+
+func _append_character_setup_overlay_perf_failures(failures: Array[String]) -> void:
+	var overlay_path := "res://scripts/character_setup_overlay.gd"
+	if not FileAccess.file_exists(overlay_path):
+		failures.append("Character setup overlay script should exist")
+		return
+	var overlay_source := FileAccess.get_file_as_string(overlay_path)
+	for forbidden_token in ["SMOKE_TEXTURE_PATH", "NOISE_TEXTURE_PATH", "_make_haze_material", "_add_preview_mist", "ThumbViewport", "_make_skin_thumbnail_viewport", "_thumbnail_queue", "THUMBNAILS_PER_FRAME"]:
+		if overlay_source.contains(forbidden_token):
+			failures.append("Character setup overlay should not use heavy smoke or per-card 3D thumbnail token: %s" % forbidden_token)
+	if not overlay_source.contains("SETUP_BACKGROUND_COLOR := Color(0.76, 0.88, 0.98, 1.0)"):
+		failures.append("Character setup overlay should use the opaque pale sky-blue background")
+	if not overlay_source.contains("TextureRect.new()") or not overlay_source.contains("ImageTexture.create_from_image"):
+		failures.append("Character setup overlay should use lightweight generated 2D skin thumbnails")
+	if not overlay_source.contains("SubViewport.UPDATE_DISABLED") or not overlay_source.contains("_request_preview_model_load"):
+		failures.append("Character setup overlay should idle its 3D preview viewport and defer preview model loading")
+
+
+func _append_party_monster_pbr_failures(failures: Array[String]) -> void:
+	_expect_party_monster_shader_source("res://assets/characters/party_monster/party_monster_default_pbr.gdshader", failures)
+	_expect_party_monster_shader_source("res://assets/characters/party_monster/party_monster_mask_tint.gdshader", failures)
+	var default_skin: Node = _instantiate_party_monster_skin("party_monster_c01", failures)
+	if default_skin:
+		_expect_party_monster_shader_texture(default_skin, "MainBody01", "albedo_texture", "DefaultPBR01_Albedo.png", failures)
+		_expect_party_monster_shader_texture(default_skin, "Eye01", "albedo_texture", "DefaultPBR01_Albedo.png", failures)
+		_expect_party_monster_shader_texture(default_skin, "Mouth01", "albedo_texture", "DefaultPBR01_Albedo.png", failures)
+		_expect_party_monster_shader_texture(default_skin, "Glove01", "albedo_texture", "DefaultPBR02_Albedo.png", failures)
+		_expect_party_monster_shader_texture(default_skin, "Hat16", "albedo_texture", "DefaultPBR02_Albedo.png", failures)
+		default_skin.free()
+
+	var mask_tint_skin: Node = _instantiate_party_monster_skin("party_monster_masktint01", failures)
+	if mask_tint_skin:
+		_expect_party_monster_shader_texture(mask_tint_skin, "MainBody01", "albedo_texture", "MaskTintPBR/Albedo01.png", failures)
+		_expect_party_monster_shader_texture(mask_tint_skin, "Glove01", "albedo_texture", "MaskTintPBR/Albedo02.png", failures)
+		mask_tint_skin.free()
+
+
+func _expect_party_monster_shader_source(shader_path: String, failures: Array[String]) -> void:
+	if not FileAccess.file_exists(shader_path):
+		failures.append("Party Monster shader should exist: %s" % shader_path)
+		return
+	var shader_source: String = FileAccess.get_file_as_string(shader_path)
+	if not shader_source.contains("cull_back"):
+		failures.append("Party Monster shader should keep backface culling to avoid hollow interiors: %s" % shader_path)
+	if shader_source.contains("cull_disabled"):
+		failures.append("Party Monster shader should not render model interiors double-sided: %s" % shader_path)
+	for forbidden_token in ["albedo_boost", "ambient_fill", "EMISSION", "roughness_floor", "ALPHA", "blend_", "DIFFUSE_LIGHT", "SPECULAR_LIGHT", "_party_monster_soft_vinyl_tone", "_party_monster_toy_tone", "toy_midtone_lift", "toy_highlight_milk", "RIM =", "AO = 1.0", "ROUGHNESS = toy_roughness"]:
+		if shader_source.contains(forbidden_token):
+			failures.append("Party Monster shader should stay as a lightweight opaque PBR bridge without old bias, transparency, custom-light, fixed-AO, or extra tone token %s in %s" % [forbidden_token, shader_path])
+	if not shader_source.contains("METALLIC = clamp(unity_metallic * metallic_strength"):
+		failures.append("Party Monster shader should keep imported metallic as a tunable PBR channel: %s" % shader_path)
+	if not shader_source.contains("ROUGHNESS = clamp(1.0 - unity_smoothness, min_roughness, max_roughness)"):
+		failures.append("Party Monster shader should use Unity smoothness with bounded Godot roughness instead of a flat material: %s" % shader_path)
+	if not shader_source.contains("AO = mix(1.0, unity_occlusion, occlusion_strength)"):
+		failures.append("Party Monster shader should preserve imported AO at a tunable strength for 3D form: %s" % shader_path)
+	if not shader_source.contains("SPECULAR = specular_level"):
+		failures.append("Party Monster shader should expose a lightweight specular control: %s" % shader_path)
+	for required_token in ["surface_tint", "pastel_blend", "saturation", "highlight_rolloff", "shadow_warmth"]:
+		if not shader_source.contains(required_token):
+			failures.append("Party Monster shader should expose lightweight warm soft-toy color control %s in %s" % [required_token, shader_path])
+	if shader_path.ends_with("party_monster_default_pbr.gdshader"):
+		if not shader_source.contains("ALBEDO = final_albedo"):
+			failures.append("Party Monster default PBR should keep opaque albedo color shaping inside a lightweight final_albedo path")
+		if not shader_source.contains("float unity_metallic = clamp(metallic_smoothness.r"):
+			failures.append("Party Monster default PBR should read metallic from metallic-smoothness red channel")
+		if not shader_source.contains("float unity_smoothness = clamp(metallic_smoothness.a"):
+			failures.append("Party Monster default PBR should read Unity smoothness from metallic-smoothness alpha channel")
+		if not shader_source.contains("float unity_occlusion = clamp(ambient_occlusion.g"):
+			failures.append("Party Monster default PBR should read occlusion from AO green channel")
+	if shader_path.ends_with("party_monster_mask_tint.gdshader"):
+		if not shader_source.contains("ALBEDO = final_albedo"):
+			failures.append("Party Monster mask tint should keep the Unity mask-tinted albedo without extra tone mapping")
+		if not shader_source.contains("vec3 tinted = clamp((base * tint).rgb"):
+			failures.append("Party Monster mask tint should preserve Unity multiply tint blending")
+		if not shader_source.contains("float unity_metallic = clamp(sam.b"):
+			failures.append("Party Monster mask tint should read metallic from SAM blue channel")
+		if not shader_source.contains("float unity_smoothness = clamp(sam.r"):
+			failures.append("Party Monster mask tint should read Unity smoothness from SAM red channel")
+		if not shader_source.contains("float unity_occlusion = clamp(sam.g"):
+			failures.append("Party Monster mask tint should read occlusion from SAM green channel")
+		if not shader_source.contains("float mask_amount = clamp"):
+			failures.append("Party Monster mask tint shader should clamp mask accumulation before tint blending")
+
+
+func _instantiate_party_monster_skin(model_id: String, failures: Array[String]) -> Node:
+	var scene_path: String = CharacterSkinCatalog.PARTY_MONSTER_SCENE_PATH
+	var loaded_scene: Variant = load(scene_path)
+	if not loaded_scene is PackedScene:
+		failures.append("Party Monster wrapper did not load as PackedScene: %s" % scene_path)
+		return null
+	var skin: Node = (loaded_scene as PackedScene).instantiate()
+	if skin == null:
+		failures.append("Party Monster wrapper did not instantiate for material checks")
+		return null
+	if not skin.has_method("set_character_model_id") or not skin.has_method("_build_skin"):
+		failures.append("Party Monster wrapper should expose runtime skin build methods")
+		skin.free()
+		return null
+	skin.call("set_character_model_id", model_id)
+	skin.call("_build_skin")
+	return skin
+
+
+func _expect_party_monster_shader_texture(skin: Node, mesh_name: String, parameter_name: String, expected_path_fragment: String, failures: Array[String]) -> void:
+	var material: Material = _find_mesh_material(skin, mesh_name)
+	if material == null:
+		failures.append("Party Monster mesh should receive a material override: %s" % mesh_name)
+		return
+	if not material is ShaderMaterial:
+		failures.append("Party Monster mesh should use the restored PBR shader material: %s" % mesh_name)
+		return
+	var texture_value: Variant = (material as ShaderMaterial).get_shader_parameter(parameter_name)
+	if not texture_value is Texture2D:
+		failures.append("Party Monster mesh %s should expose shader texture parameter %s" % [mesh_name, parameter_name])
+		return
+	var texture_path: String = (texture_value as Texture2D).resource_path
+	if not texture_path.contains(expected_path_fragment):
+		failures.append("Party Monster mesh %s should use %s; got %s" % [mesh_name, expected_path_fragment, texture_path])
+
+
+func _find_mesh_material(node: Node, mesh_name: String) -> Material:
+	if node is MeshInstance3D and String(node.name) == mesh_name:
+		var mesh_instance := node as MeshInstance3D
+		var override_material: Material = mesh_instance.get_surface_override_material(0)
+		if override_material:
+			return override_material
+		if mesh_instance.mesh and mesh_instance.mesh.get_surface_count() > 0:
+			return mesh_instance.mesh.surface_get_material(0)
+		return null
+	for child in node.get_children():
+		var found := _find_mesh_material(child, mesh_name)
+		if found:
+			return found
+	return null
 
 
 func _count_triangles(node: Node) -> int:
@@ -263,10 +416,10 @@ func _count_triangles(node: Node) -> int:
 				if arrays.size() > Mesh.ARRAY_INDEX and arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
 					indices = arrays[Mesh.ARRAY_INDEX]
 				if not indices.is_empty():
-					total += int(indices.size() / 3)
+					total += floori(float(indices.size()) / 3.0)
 				else:
 					var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-					total += int(vertices.size() / 3)
+					total += floori(float(vertices.size()) / 3.0)
 	for child in node.get_children():
 		total += _count_triangles(child)
 	return total

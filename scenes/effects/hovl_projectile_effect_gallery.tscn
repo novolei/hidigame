@@ -1,0 +1,4649 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/hovl_projectile_effect.gd" id="1_1o86j"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail59.png" id="2_418d1"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Leaf2.png" id="3_ic3lq"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Point12.png" id="4_rgrfu"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Romb3.png" id="5_04cy2"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/BloodAnim2.png" id="6_pkabw"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail22.png" id="7_e2jj7"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail55.png" id="8_jvkt3"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/HandPaintedLightning2.png" id="9_jwq67"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Point5.png" id="10_718g5"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/TrailPart4.png" id="11_xyke0"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Mask46.png" id="12_h4vge"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Smoke21.png" id="13_6k74s"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Ice2.png" id="14_4asoc"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Snow5.png" id="15_a6nv5"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Point11.png" id="16_l52po"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail60.png" id="17_te7dv"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Gradient14.png" id="18_0vk8b"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Smoke3.png" id="19_2ua4d"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Noise35t.png" id="20_shlxx"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Waves21.png" id="21_58fe8"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail21.png" id="22_23bup"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/TrailGradient21.png" id="23_prmef"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Debris2.png" id="24_e76y8"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Smoke23.png" id="25_un64x"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle96.png" id="26_l4cnt"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Flare6.png" id="27_f32fe"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Water2.png" id="28_5oxi5"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Line3.png" id="29_hap1l"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Flash5.png" id="30_5pvqd"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Point19.png" id="31_nkqkf"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Snow4.png" id="32_je05m"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Shuriken10.png" id="33_40rod"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle98.png" id="34_cvs5f"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Flare2.png" id="35_515u3"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail61.png" id="36_mwvs8"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Flash23.png" id="37_m6ka7"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Arrow8.png" id="38_s0q7m"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail48.png" id="39_eg56y"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle93.png" id="40_qk4tx"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle41.png" id="41_vs5dd"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle38.png" id="42_4qaa8"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Circle17.png" id="43_0jhai"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Trail44.png" id="44_ftdw6"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Gold2.png" id="45_5cx1d"]
+[ext_resource type="Texture2D" path="res://assets/effects/hovl_projectiles/textures/Noise41.png" id="46_4jl0h"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ioc3x"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.34, 1, 0.28, 0.72)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_4pi4i"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p4s8v"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.88, 1, 0.32, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_w15wj"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tyglk"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.34, 1, 0.28, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6k6tf"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wkgic"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.88, 1, 0.32, 1)
+albedo_texture = ExtResource("2_418d1")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ofvl6"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pkajr"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.34, 1, 0.28, 0.72)
+albedo_texture = ExtResource("3_ic3lq")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_o7s2j"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u4cow"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.34, 1, 0.28, 0.72)
+albedo_texture = ExtResource("4_rgrfu")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_misc2"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jw4d8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.88, 1, 0.32, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_0jn7g"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yd8gy"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.745, 1, 0.31, 0.93)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3sykx"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xejls"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.61, 1, 0.3, 0.86)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_rit14"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qyw2w"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.47500002, 1, 0.29, 0.79)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_8n384"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qp2w0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.08, 0.06, 0.78)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_f1vo0"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1ns3b"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.45, 0, 0.02, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_4ri8v"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_d0030"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.08, 0.06, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_enqni"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ni5mj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.45, 0, 0.02, 1)
+albedo_texture = ExtResource("5_04cy2")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ek6su"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4v2eb"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.08, 0.06, 0.78)
+albedo_texture = ExtResource("6_pkabw")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_uhnog"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bf8j8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.08, 0.06, 0.78)
+albedo_texture = ExtResource("7_e2jj7")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_mktp8"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e63lw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.45, 0, 0.02, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_2v787"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ltkc5"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.5875, 0.02, 0.03, 0.945)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_8l7gw"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6prr8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.725, 0.04, 0.04, 0.89)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_1aeaf"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dt4mn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8625, 0.06, 0.049999997, 0.835)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_mt6d1"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yprll"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.46, 0.68, 1, 0.78)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_4xor3"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_x0yaw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.98, 1, 0.28, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_jhyse"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lgct6"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.46, 0.68, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_1mt81"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oleik"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.98, 1, 0.28, 1)
+albedo_texture = ExtResource("8_jvkt3")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ukiam"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jgccn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.46, 0.68, 1, 0.78)
+albedo_texture = ExtResource("9_jwq67")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_nq1eh"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_txb1u"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.46, 0.68, 1, 0.78)
+albedo_texture = ExtResource("10_718g5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_6pjgc"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ig2m7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.98, 1, 0.28, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_sksfu"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3ff4h"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8066667, 0.8933333, 0.52, 0.9266667)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_epq5r"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n6n7i"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.6333333, 0.78666663, 0.76, 0.8533333)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ifr01"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kjv38"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.34, 0.08, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_uk5vw"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fqnpn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.16, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_xxnai"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_esjre"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.34, 0.08, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_rctco"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lfewc"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.16, 1)
+albedo_texture = ExtResource("11_xyke0")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_70kvu"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ra1pm"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.34, 0.08, 0.82)
+albedo_texture = ExtResource("12_h4vge")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_c5dkh"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fpglr"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.34, 0.08, 0.82)
+albedo_texture = ExtResource("13_6k74s")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_1nqsl"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_eu6fs"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.16, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_w7e0d"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4245w"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.76, 0.14, 0.955)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_duwyq"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y1d2g"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.62, 0.12, 0.90999997)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_j2pm6"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cjl11"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.48000002, 0.099999994, 0.865)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6aix2"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_itl4b"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.9, 1, 0.72)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_qr1pj"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_khnfu"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.9, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6hvqk"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_riqgj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.9, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_j4p68"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_h1yc3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.9, 1, 1, 1)
+albedo_texture = ExtResource("14_4asoc")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_2m3uo"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e3ec8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.9, 1, 0.72)
+albedo_texture = ExtResource("15_a6nv5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_5ex56"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ingx0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.9, 1, 0.72)
+albedo_texture = ExtResource("16_l52po")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_wh1xu"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vnqo1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.9, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_n8chw"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vdkms"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.975, 1, 0.93)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_4klf0"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e7hag"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.65999997, 0.95, 1, 0.86)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_v4dh0"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bcgjt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.53999996, 0.92499995, 1, 0.79)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_eg654"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nr2f2"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.36, 1, 0.76)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_b466v"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l8jyf"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.25, 0.84, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_1ah3h"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6j2hp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.36, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ttbqg"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vjjk3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.25, 0.84, 1, 1)
+albedo_texture = ExtResource("17_te7dv")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_myubc"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0i5k3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.36, 1, 0.76)
+albedo_texture = ExtResource("16_l52po")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_u8afx"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_refou"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.36, 1, 0.76)
+albedo_texture = ExtResource("18_0vk8b")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_atnl0"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6dhvm"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.25, 0.84, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_27n6e"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5hvga"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.3825, 0.71999997, 1, 0.94)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_4buph"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yrl1y"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.515, 0.6, 1, 0.88)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_qpkuc"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dpqbt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.6475, 0.48000002, 1, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_y0wck"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_j3cf1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.72, 1, 0.88, 0.48)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_1bguv"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_drisp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.22, 0.95, 0.74, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_01avf"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ibtlv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.72, 1, 0.88, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_yoc1n"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4dane"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.22, 0.95, 0.74, 1)
+albedo_texture = ExtResource("19_2ua4d")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_4hycr"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glswg"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.72, 1, 0.88, 0.48)
+albedo_texture = ExtResource("20_shlxx")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_bae5h"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wvxwt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.72, 1, 0.88, 0.48)
+albedo_texture = ExtResource("5_04cy2")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_vc7vm"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bkd0u"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.22, 0.95, 0.74, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_poklm"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qh1fj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.345, 0.9625, 0.775, 0.87)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_w04a5"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y04p1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.47, 0.975, 0.81, 0.74)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_22tt8"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sji7a"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.595, 0.9875, 0.845, 0.61)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_yngni"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e68cq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.14, 0.96, 1, 0.7)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_nnghw"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_72rxu"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.34, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ywu4w"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sw2mi"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.14, 0.96, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6n18i"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k483w"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.34, 1, 1)
+albedo_texture = ExtResource("21_58fe8")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_l6jrh"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4wcmp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.14, 0.96, 1, 0.7)
+albedo_texture = ExtResource("20_shlxx")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ij42y"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sb6kw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.14, 0.96, 1, 0.7)
+albedo_texture = ExtResource("16_l52po")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_lqn0k"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ehtrm"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.34, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_2tdlr"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wx5fi"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.095, 0.495, 1, 0.925)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_5d6yk"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v0ncp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.11, 0.65, 1, 0.85)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_awofy"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mu4oe"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.125, 0.805, 1, 0.775)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_wt7qx"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cu3bn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.78, 0.32, 0.72)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_ilexf"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_t34u6"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.24, 0.92, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_1ssdt"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6eom2"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.78, 0.32, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_latck"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u7ob4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.24, 0.92, 1, 1)
+albedo_texture = ExtResource("22_23bup")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_bwlfp"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kq745"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.78, 0.32, 0.72)
+albedo_texture = ExtResource("23_prmef")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_sbkq4"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7yjf1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.78, 0.32, 0.72)
+albedo_texture = ExtResource("24_e76y8")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_aeivl"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xgjyx"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.24, 0.92, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ql388"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tvkt7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.43, 0.885, 0.83, 0.93)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_urw6k"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gdyyk"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.62, 0.85, 0.65999997, 0.86)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_esk0y"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5plwp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.81, 0.815, 0.49, 0.79)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7ajsv"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k6vb3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.44, 1, 0.06, 0.7)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_00x1s"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_67e41"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.95, 1, 0.2, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_gt84m"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ywhd5"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.44, 1, 0.06, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_fiyql"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y3ob1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.95, 1, 0.2, 1)
+albedo_texture = ExtResource("13_6k74s")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_q53hh"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gjgax"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.44, 1, 0.06, 0.7)
+albedo_texture = ExtResource("25_un64x")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_boa3k"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5570w"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.44, 1, 0.06, 0.7)
+albedo_texture = ExtResource("10_718g5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_x3kqk"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_elbmk"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.95, 1, 0.2, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_imxnu"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_s8puh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8225, 1, 0.165, 0.925)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_l2jmk"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_s1cae"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.695, 1, 0.13, 0.85)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7nxru"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8nl4y"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.5675, 1, 0.095, 0.775)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ixrk3"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3k8hn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.86, 1, 0.54)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_qka8d"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_llxew"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.86, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_0qefu"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_do3n5"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.86, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_v5w31"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r13h1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.86, 1, 1, 1)
+albedo_texture = ExtResource("26_l4cnt")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_eq1h3"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0tioq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.86, 1, 0.54)
+albedo_texture = ExtResource("27_f32fe")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_a8llg"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e6orc"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.86, 1, 0.54)
+albedo_texture = ExtResource("28_5oxi5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_20rke"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m76ds"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.86, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_m0ey5"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e20ki"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.79714286, 0.98, 1, 0.9342857)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ywrq8"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wo5bf"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.7342857, 0.96, 1, 0.8685714)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7vmqq"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q53gq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.67142856, 0.94, 1, 0.80285716)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_c7vf0"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_igsw6"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.6085714, 0.92, 1, 0.73714286)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6x3fr"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pa8uh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.54571426, 0.9, 1, 0.67142856)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ymji1"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1m4u2"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.48285714, 0.88, 1, 0.6057143)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_kgp4t"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_18o41"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.9, 0.8)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_uwt6q"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_erkjg"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.92, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_2p71w"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_42v44"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.9, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_xj56o"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ft2g4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.92, 1, 1)
+albedo_texture = ExtResource("2_418d1")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_6rlo5"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_i2gnd"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.9, 0.8)
+albedo_texture = ExtResource("29_hap1l")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_52f5g"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tbqy4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.9, 0.8)
+albedo_texture = ExtResource("30_5pvqd")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_72x15"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u27io"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.42, 0.92, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_05l0h"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5efhj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.61333334, 0.94666666, 0.96666664, 0.93333334)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_eipwd"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ahnxr"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.80666673, 0.97333336, 0.93333334, 0.8666667)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_11uet"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nx47v"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.55, 0.62, 1, 0.78)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_fjjm0"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vun2w"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.36, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_gtclr"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lp7xp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.55, 0.62, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_1ia6h"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_83m8u"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.36, 1)
+albedo_texture = ExtResource("9_jwq67")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_uf5lq"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_niq3q"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.55, 0.62, 1, 0.78)
+albedo_texture = ExtResource("8_jvkt3")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_pfosk"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wbawq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.55, 0.62, 1, 0.78)
+albedo_texture = ExtResource("31_nkqkf")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_7jnqi"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qv05o"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.36, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_auaej"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u28v6"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.85, 0.87333333, 0.5733334, 0.9266667)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_o57r6"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dxwpy"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.7, 0.74666667, 0.7866667, 0.8533333)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_bw7h2"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ptjpv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.62, 1, 0.64)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_y3xp4"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_faabk"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_c3fbo"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jk1de"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.62, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_i2jqw"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_huotu"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8, 1, 1, 1)
+albedo_texture = ExtResource("28_5oxi5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ip5h6"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fqteb"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.62, 1, 0.64)
+albedo_texture = ExtResource("26_l4cnt")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_x8uc5"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2esmo"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.08, 0.62, 1, 0.64)
+albedo_texture = ExtResource("32_je05m")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_8h06s"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_d3drd"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.8, 1, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_do1fa"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ashru"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.62, 0.905, 1, 0.90999997)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_2qij0"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_drdy0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.44, 0.81, 1, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_363qy"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_aj6co"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.26, 0.71500003, 1, 0.73)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_wkgtx"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3j7u4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.96, 0.96, 1, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_6s61h"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_t483a"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 0.56, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_nisse"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u3tom"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.96, 0.96, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ah7wh"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_np5k8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 0.56, 1, 1)
+albedo_texture = ExtResource("33_40rod")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_s8jk8"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ihsj0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.96, 0.96, 1, 0.82)
+albedo_texture = ExtResource("34_cvs5f")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_3fdsl"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tdv33"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.96, 0.96, 1, 0.82)
+albedo_texture = ExtResource("4_rgrfu")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_o3gq6"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xmnie"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 0.56, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_l55n5"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_agiwh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.375, 0.65999997, 1, 0.955)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_dprma"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_haq2r"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.57, 0.76, 1, 0.90999997)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_chjkd"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m0jyh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.765, 0.86, 1, 0.865)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_fho6d"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3co6a"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.2, 0.78)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_8i7u5"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_88dht"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.76, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_wpkb2"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kheps"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.2, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_51r1b"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l487x"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.76, 1)
+albedo_texture = ExtResource("35_515u3")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_pyic0"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_86uqy"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.2, 0.78)
+albedo_texture = ExtResource("4_rgrfu")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ltvsg"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rlv57"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.2, 0.78)
+albedo_texture = ExtResource("36_mwvs8")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_jxt6h"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_quqoy"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.76, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3w2yj"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q8or7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.96500003, 0.62, 0.945)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_at4y4"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_a7i4x"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.93, 0.48, 0.89)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_gv8vp"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2qas3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.895, 0.33999997, 0.835)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_xckac"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n6jvf"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 1, 0.58, 0.72)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_dbiua"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_laeh7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.28, 0.5, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_jd6t2"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_j0qwt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 1, 0.58, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_dbmqq"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hsgo2"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.28, 0.5, 1)
+albedo_texture = ExtResource("37_m6ka7")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_0cl66"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_84v1l"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 1, 0.58, 0.72)
+albedo_texture = ExtResource("16_l52po")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_n4j7j"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7um6j"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.28, 0.5, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_qupvu"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cwwgc"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.795, 0.46, 0.52, 0.93)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_k4vjh"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_si8qv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.59000003, 0.64, 0.53999996, 0.86)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_artmp"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2nja0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.385, 0.82000005, 0.56, 0.79)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ukty3"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ulrqt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_8esxw"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wlkn2"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.42, 0.12, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_hjhpt"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5gnv3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_64iey"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1lntt"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.42, 0.12, 1)
+albedo_texture = ExtResource("38_s0q7m")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_nxlqa"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_587nl"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 0.82)
+albedo_texture = ExtResource("39_eg56y")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_k51n1"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f6w14"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 0.82)
+albedo_texture = ExtResource("29_hap1l")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_qdywm"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xhjnk"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.42, 0.12, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_yl2bt"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oyoq0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.58666664, 0.22, 0.94)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_gyubh"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wog4r"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.75333333, 0.32, 0.88)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_oovca"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fp2nu"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.72, 0.12, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_gyqek"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3kkqp"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.25, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_uukyt"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lbact"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.72, 0.12, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_jhg6y"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gltqu"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.25, 1)
+albedo_texture = ExtResource("40_qk4tx")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_qfgsu"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nm351"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.72, 0.12, 0.82)
+albedo_texture = ExtResource("9_jwq67")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_cuvf8"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l8cxb"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.72, 0.12, 0.82)
+albedo_texture = ExtResource("31_nkqkf")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_k7uxn"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2pg1h"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.25, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_oltfi"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0ee85"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.93, 0.2175, 0.955)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_orqw2"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ckd7m"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.185, 0.90999997)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_tjmq4"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p5v8r"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.79, 0.1525, 0.865)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_dp4fs"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ggctg"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.2, 0.08, 0.34, 0.76)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_nssi4"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tgdwr"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.24, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ehdyt"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_altaw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.2, 0.08, 0.34, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7te8c"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c0uyn"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.24, 1, 1)
+albedo_texture = ExtResource("21_58fe8")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_mx5sh"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oc88k"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.2, 0.08, 0.34, 0.76)
+albedo_texture = ExtResource("25_un64x")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_r1g2w"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uhjwv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.2, 0.08, 0.34, 0.76)
+albedo_texture = ExtResource("10_718g5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_lk8nh"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nme4h"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.78, 0.24, 1, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_drsyd"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qsjt8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.635, 0.19999999, 0.83500004, 0.94)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7ea4j"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_erycy"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.48999998, 0.16, 0.67, 0.88)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_8mba7"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1w828"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.34499997, 0.12, 0.505, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_m1hhm"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xyd4c"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.1, 1, 0.36, 0.74)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_yugev"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xdryo"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.76, 1, 0.2, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_th447"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3lyo0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.1, 1, 0.36, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_xcqn4"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1w08p"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.76, 1, 0.2, 1)
+albedo_texture = ExtResource("39_eg56y")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_4gb1i"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wi3hq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.1, 1, 0.36, 0.74)
+albedo_texture = ExtResource("31_nkqkf")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_d12rw"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2wna1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.1, 1, 0.36, 0.74)
+albedo_texture = ExtResource("41_vs5dd")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_l8q2p"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3be1m"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.76, 1, 0.2, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_npv2x"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gi56q"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.595, 1, 0.24000001, 0.935)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_o7g5w"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fm58m"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.43, 1, 0.28, 0.87)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ibrnc"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_euc3t"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.26500002, 1, 0.32, 0.805)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_50m4x"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_v7c6p"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 0.28, 1, 0.74)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_x4n32"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ruux7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3iih5"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vld21"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 0.28, 1, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3kly0"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ri2x1"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 1)
+albedo_texture = ExtResource("22_23bup")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_0d5qh"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1ipmc"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 0.28, 1, 0.74)
+albedo_texture = ExtResource("4_rgrfu")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_l8v7o"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_a2bw8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 0.28, 1, 0.74)
+albedo_texture = ExtResource("27_f32fe")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_xt3nl"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ujq06"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.42, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_hne1n"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bod13"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.9085714, 0.82857144, 0.50285715, 0.9628571)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_edn5a"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4oc2f"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.81714284, 0.73714286, 0.5857143, 0.92571425)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_g3201"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ie7ev"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.7257143, 0.6457143, 0.6685715, 0.88857144)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_hkgd5"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tw7yq"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.6342857, 0.55428576, 0.7514286, 0.85142857)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3815d"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grb0i"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.54285717, 0.46285716, 0.83428574, 0.8142857)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_l8gyo"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_48gll"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.4514286, 0.3714286, 0.91714287, 0.7771429)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_b48ej"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vm27b"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0, 0.85, 0.32, 0.76)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_778kb"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gmtj4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 1, 0.82, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_72hee"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xc0ih"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0, 0.85, 0.32, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_agh72"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hnwl8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 1, 0.82, 1)
+albedo_texture = ExtResource("42_4qaa8")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_uy6f8"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_d1te5"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0, 0.85, 0.32, 0.76)
+albedo_texture = ExtResource("43_0jhai")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_ccofw"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_044t3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0, 0.85, 0.32, 0.76)
+albedo_texture = ExtResource("44_ftdw6")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_gpnit"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6qmcv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.36, 1, 0.82, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6j6qr"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f4fmv"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.27, 0.9625, 0.695, 0.94)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_i2ihs"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tnijw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.18, 0.925, 0.57, 0.88)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_t2lio"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2h5pl"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.09, 0.88750005, 0.445, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_slh42"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pf4fh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.62, 0.08, 0.82)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_20tgo"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n0n1v"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.28, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ifybn"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kjajd"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.62, 0.08, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_bjrub"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cfbg7"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.28, 1)
+albedo_texture = ExtResource("45_5cx1d")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_i3g1y"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w7hdh"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.62, 0.08, 0.82)
+albedo_texture = ExtResource("46_4jl0h")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_n1o27"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jcf6q"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.62, 0.08, 0.82)
+albedo_texture = ExtResource("27_f32fe")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_wcma0"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hxs5j"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.28, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_f36jk"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bpg3q"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.845, 0.23, 0.955)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_3gjk3"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m2lxx"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.77, 0.18, 0.90999997)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_7i14h"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vjiv3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.695, 0.13, 0.865)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_kfe1d"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e87t8"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.08, 0.8)
+disable_receive_shadows = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_gd56d"]
+size = Vector3(0.12, 0.12, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_erqb4"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.46, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_4aavm"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4xnfw"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.08, 0.22)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_k0gr4"]
+radius = 0.34
+height = 0.68
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vo7gl"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.46, 1)
+albedo_texture = ExtResource("39_eg56y")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_pg2yh"]
+size = Vector2(0.54, 0.54)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8adc3"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.08, 0.8)
+albedo_texture = ExtResource("30_5pvqd")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_asvv3"]
+size = Vector2(0.72, 0.72)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cm3fa"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.86, 0.08, 0.8)
+albedo_texture = ExtResource("10_718g5")
+disable_receive_shadows = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_2iil2"]
+size = Vector2(0.9, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7v6yx"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 1, 0.46, 1)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ai3g2"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ed1aj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.98, 0.4057143, 0.9714286)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_dc57l"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_o6nxb"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.96, 0.35142857, 0.94285715)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_fijan"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wbdp0"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.94, 0.29714286, 0.9142857)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_ciow6"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n8j67"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.92, 0.24285714, 0.8857143)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_5qhny"]
+radius = 0.053
+height = 0.106
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w4wbj"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.9, 0.18857142, 0.85714287)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_r8n35"]
+radius = 0.071
+height = 0.142
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jtfdo"]
+resource_local_to_scene = true
+transparency = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.88, 0.13428572, 0.82857144)
+disable_receive_shadows = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_6dk3j"]
+radius = 0.035
+height = 0.07
+
+[node name="HovlProjectileEffectGallery" type="Node3D" unique_id=1931191498]
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1676636234]
+transform = Transform3D(0.809017, -0.4368096, 0.39330506, 0, 0.66913056, 0.74314487, -0.58778524, -0.60121685, 0.541338, 0, 0, 0)
+light_energy = 2.2
+
+[node name="GalleryCamera" type="Camera3D" parent="." unique_id=819010361]
+transform = Transform3D(1, 0, 0, 0, 0.8290376, 0.5591929, 0, -0.5591929, 0.8290376, 0, 7.8, 12)
+current = true
+
+[node name="Effect_01_01_nature" type="Node3D" parent="." unique_id=890796696]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, 3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_01_nature"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_01_01_nature" unique_id=1605113757]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=741852196]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_ioc3x")
+mesh = SubResource("BoxMesh_4pi4i")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=1991176972]
+material_override = SubResource("StandardMaterial3D_p4s8v")
+mesh = SubResource("SphereMesh_w15wj")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=769332832]
+material_override = SubResource("StandardMaterial3D_tyglk")
+mesh = SubResource("SphereMesh_6k6tf")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=1784339519]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_wkgic")
+mesh = SubResource("QuadMesh_ofvl6")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=629758720]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_pkajr")
+mesh = SubResource("QuadMesh_o7s2j")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=1117252582]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_u4cow")
+mesh = SubResource("QuadMesh_misc2")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=1121723841]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_jw4d8")
+mesh = SubResource("SphereMesh_0jn7g")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=1167000515]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_yd8gy")
+mesh = SubResource("SphereMesh_3sykx")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=486852845]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_xejls")
+mesh = SubResource("SphereMesh_rit14")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=2072143194]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_qyw2w")
+mesh = SubResource("SphereMesh_8n384")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_01_01_nature/ProjectileVisuals" unique_id=560591137]
+light_color = Color(0.88, 1, 0.32, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_02_02_blood" type="Node3D" parent="." unique_id=1424717536]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_02_blood"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_02_02_blood" unique_id=1028235182]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=692597303]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_qp2w0")
+mesh = SubResource("BoxMesh_f1vo0")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=347566167]
+material_override = SubResource("StandardMaterial3D_1ns3b")
+mesh = SubResource("SphereMesh_4ri8v")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=1188096840]
+material_override = SubResource("StandardMaterial3D_d0030")
+mesh = SubResource("SphereMesh_enqni")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=1491339977]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_ni5mj")
+mesh = SubResource("QuadMesh_ek6su")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=248833226]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_4v2eb")
+mesh = SubResource("QuadMesh_uhnog")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=802537805]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_bf8j8")
+mesh = SubResource("QuadMesh_mktp8")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=134931000]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_e63lw")
+mesh = SubResource("SphereMesh_2v787")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=1928697793]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_ltkc5")
+mesh = SubResource("SphereMesh_8l7gw")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=1001546935]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_6prr8")
+mesh = SubResource("SphereMesh_1aeaf")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=666137040]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_dt4mn")
+mesh = SubResource("SphereMesh_mt6d1")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_02_02_blood/ProjectileVisuals" unique_id=58091794]
+light_color = Color(0.45, 0, 0.02, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_03_03_electro" type="Node3D" parent="." unique_id=700006746]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_03_electro"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_03_03_electro" unique_id=2064381766]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=471162919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_yprll")
+mesh = SubResource("BoxMesh_4xor3")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=724758224]
+material_override = SubResource("StandardMaterial3D_x0yaw")
+mesh = SubResource("SphereMesh_jhyse")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=913604003]
+material_override = SubResource("StandardMaterial3D_lgct6")
+mesh = SubResource("SphereMesh_1mt81")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=105074650]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_oleik")
+mesh = SubResource("QuadMesh_ukiam")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=2121889448]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_jgccn")
+mesh = SubResource("QuadMesh_nq1eh")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=1808089995]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_txb1u")
+mesh = SubResource("QuadMesh_6pjgc")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=1893412054]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_ig2m7")
+mesh = SubResource("SphereMesh_sksfu")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=533697008]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, 0.24248712, -0.3)
+material_override = SubResource("StandardMaterial3D_3ff4h")
+mesh = SubResource("SphereMesh_epq5r")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=1810484343]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17, -0.29444864, -0.6)
+material_override = SubResource("StandardMaterial3D_n6n7i")
+mesh = SubResource("SphereMesh_ifr01")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_03_03_electro/ProjectileVisuals" unique_id=582240117]
+light_color = Color(0.98, 1, 0.28, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_04_04_fire" type="Node3D" parent="." unique_id=1081124624]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 3, 0)
+script = ExtResource("1_1o86j")
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_04_04_fire" unique_id=511658066]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1698017289]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_kjv38")
+mesh = SubResource("BoxMesh_uk5vw")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1576369005]
+material_override = SubResource("StandardMaterial3D_fqnpn")
+mesh = SubResource("SphereMesh_xxnai")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1743974268]
+material_override = SubResource("StandardMaterial3D_esjre")
+mesh = SubResource("SphereMesh_rctco")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1768212000]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_lfewc")
+mesh = SubResource("QuadMesh_70kvu")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=187877120]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_ra1pm")
+mesh = SubResource("QuadMesh_c5dkh")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1802368415]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_fpglr")
+mesh = SubResource("QuadMesh_1nqsl")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=831574992]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_eu6fs")
+mesh = SubResource("SphereMesh_w7e0d")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=794035243]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_4245w")
+mesh = SubResource("SphereMesh_duwyq")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1795296775]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_y1d2g")
+mesh = SubResource("SphereMesh_j2pm6")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=369971918]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_cjl11")
+mesh = SubResource("SphereMesh_6aix2")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_04_04_fire/ProjectileVisuals" unique_id=1600247778]
+light_color = Color(1, 0.9, 0.16, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_05_05_ice" type="Node3D" parent="." unique_id=1977868168]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, 3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_05_ice"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_05_05_ice" unique_id=1538106175]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=865056480]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_itl4b")
+mesh = SubResource("BoxMesh_qr1pj")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1683989861]
+material_override = SubResource("StandardMaterial3D_khnfu")
+mesh = SubResource("SphereMesh_6hvqk")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1383025925]
+material_override = SubResource("StandardMaterial3D_riqgj")
+mesh = SubResource("SphereMesh_j4p68")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=649090547]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_h1yc3")
+mesh = SubResource("QuadMesh_2m3uo")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1804514520]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_e3ec8")
+mesh = SubResource("QuadMesh_5ex56")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1088650766]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_ingx0")
+mesh = SubResource("QuadMesh_wh1xu")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=770852024]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_vnqo1")
+mesh = SubResource("SphereMesh_n8chw")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1242110849]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_vdkms")
+mesh = SubResource("SphereMesh_4klf0")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=730861788]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_e7hag")
+mesh = SubResource("SphereMesh_v4dh0")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=833173462]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_bcgjt")
+mesh = SubResource("SphereMesh_eg654")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_05_05_ice/ProjectileVisuals" unique_id=1260033554]
+light_color = Color(0.9, 1, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_06_06_magic" type="Node3D" parent="." unique_id=1807847322]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, 1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_06_magic"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_06_06_magic" unique_id=1441979340]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=383993449]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_nr2f2")
+mesh = SubResource("BoxMesh_b466v")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=2114058400]
+material_override = SubResource("StandardMaterial3D_l8jyf")
+mesh = SubResource("SphereMesh_1ah3h")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=1791369209]
+material_override = SubResource("StandardMaterial3D_6j2hp")
+mesh = SubResource("SphereMesh_ttbqg")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=1493579647]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_vjjk3")
+mesh = SubResource("QuadMesh_myubc")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=1582249481]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_0i5k3")
+mesh = SubResource("QuadMesh_u8afx")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=825503179]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_refou")
+mesh = SubResource("QuadMesh_atnl0")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=457809995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_6dhvm")
+mesh = SubResource("SphereMesh_27n6e")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=914081138]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_5hvga")
+mesh = SubResource("SphereMesh_4buph")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=1494701956]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_yrl1y")
+mesh = SubResource("SphereMesh_qpkuc")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=138814979]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_dpqbt")
+mesh = SubResource("SphereMesh_y0wck")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_06_06_magic/ProjectileVisuals" unique_id=434630807]
+light_color = Color(0.25, 0.84, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_07_07_wind" type="Node3D" parent="." unique_id=81448239]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_07_wind"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_07_07_wind" unique_id=2100021948]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=1824235993]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_j3cf1")
+mesh = SubResource("BoxMesh_1bguv")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=566783519]
+material_override = SubResource("StandardMaterial3D_drisp")
+mesh = SubResource("SphereMesh_01avf")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=2052029097]
+material_override = SubResource("StandardMaterial3D_ibtlv")
+mesh = SubResource("SphereMesh_yoc1n")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=1494385185]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_4dane")
+mesh = SubResource("QuadMesh_4hycr")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=627103008]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_glswg")
+mesh = SubResource("QuadMesh_bae5h")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=297049462]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_wvxwt")
+mesh = SubResource("QuadMesh_vc7vm")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=1705878705]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_bkd0u")
+mesh = SubResource("SphereMesh_poklm")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=1227236533]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_qh1fj")
+mesh = SubResource("SphereMesh_w04a5")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=119016838]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_y04p1")
+mesh = SubResource("SphereMesh_22tt8")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=708517204]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_sji7a")
+mesh = SubResource("SphereMesh_yngni")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_07_07_wind/ProjectileVisuals" unique_id=1047130828]
+light_color = Color(0.22, 0.95, 0.74, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_08_08_energy" type="Node3D" parent="." unique_id=437135423]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_08_energy"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_08_08_energy" unique_id=1330822364]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1216353629]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_e68cq")
+mesh = SubResource("BoxMesh_nnghw")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=372018363]
+material_override = SubResource("StandardMaterial3D_72rxu")
+mesh = SubResource("SphereMesh_ywu4w")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1841185022]
+material_override = SubResource("StandardMaterial3D_sw2mi")
+mesh = SubResource("SphereMesh_6n18i")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=246400661]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_k483w")
+mesh = SubResource("QuadMesh_l6jrh")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1381900939]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_4wcmp")
+mesh = SubResource("QuadMesh_ij42y")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1646151073]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_sb6kw")
+mesh = SubResource("QuadMesh_lqn0k")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1979434964]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_ehtrm")
+mesh = SubResource("SphereMesh_2tdlr")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1327423382]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_wx5fi")
+mesh = SubResource("SphereMesh_5d6yk")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=770054019]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_v0ncp")
+mesh = SubResource("SphereMesh_awofy")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=667606426]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_mu4oe")
+mesh = SubResource("SphereMesh_wt7qx")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_08_08_energy/ProjectileVisuals" unique_id=1595185782]
+light_color = Color(0.08, 0.34, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_09_09_trails" type="Node3D" parent="." unique_id=1906033411]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_09_trails"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_09_09_trails" unique_id=10896723]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=18549723]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_cu3bn")
+mesh = SubResource("BoxMesh_ilexf")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1489715739]
+material_override = SubResource("StandardMaterial3D_t34u6")
+mesh = SubResource("SphereMesh_1ssdt")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1290560114]
+material_override = SubResource("StandardMaterial3D_6eom2")
+mesh = SubResource("SphereMesh_latck")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=2046872896]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_u7ob4")
+mesh = SubResource("QuadMesh_bwlfp")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1507606017]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_kq745")
+mesh = SubResource("QuadMesh_sbkq4")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1765167705]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_7yjf1")
+mesh = SubResource("QuadMesh_aeivl")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1197364771]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_xgjyx")
+mesh = SubResource("SphereMesh_ql388")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1357519910]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_tvkt7")
+mesh = SubResource("SphereMesh_urw6k")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=648354237]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_gdyyk")
+mesh = SubResource("SphereMesh_esk0y")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=1606779840]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_5plwp")
+mesh = SubResource("SphereMesh_7ajsv")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_09_09_trails/ProjectileVisuals" unique_id=509606438]
+light_color = Color(0.24, 0.92, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_10_10_acid" type="Node3D" parent="." unique_id=94224141]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, 1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_10_acid"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_10_10_acid" unique_id=586485070]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1201852997]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_k6vb3")
+mesh = SubResource("BoxMesh_00x1s")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=39293050]
+material_override = SubResource("StandardMaterial3D_67e41")
+mesh = SubResource("SphereMesh_gt84m")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=662841453]
+material_override = SubResource("StandardMaterial3D_ywhd5")
+mesh = SubResource("SphereMesh_fiyql")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=914392497]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_y3ob1")
+mesh = SubResource("QuadMesh_q53hh")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1067170241]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_gjgax")
+mesh = SubResource("QuadMesh_boa3k")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1447038533]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_5570w")
+mesh = SubResource("QuadMesh_x3kqk")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1584306894]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_elbmk")
+mesh = SubResource("SphereMesh_imxnu")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=578122115]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_s8puh")
+mesh = SubResource("SphereMesh_l2jmk")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=2011221924]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_s1cae")
+mesh = SubResource("SphereMesh_7nxru")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1772891714]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_8nl4y")
+mesh = SubResource("SphereMesh_ixrk3")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_10_10_acid/ProjectileVisuals" unique_id=1688403987]
+light_color = Color(0.95, 1, 0.2, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_11_11_bubbles" type="Node3D" parent="." unique_id=1562584636]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, 0, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_11_bubbles"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_11_11_bubbles" unique_id=521790720]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=19125569]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_3k8hn")
+mesh = SubResource("BoxMesh_qka8d")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1229037417]
+material_override = SubResource("StandardMaterial3D_llxew")
+mesh = SubResource("SphereMesh_0qefu")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1369944690]
+material_override = SubResource("StandardMaterial3D_do3n5")
+mesh = SubResource("SphereMesh_v5w31")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=175130174]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_r13h1")
+mesh = SubResource("QuadMesh_eq1h3")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=59609519]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_0tioq")
+mesh = SubResource("QuadMesh_a8llg")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1770990494]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_e6orc")
+mesh = SubResource("QuadMesh_20rke")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=781364097]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_m76ds")
+mesh = SubResource("SphereMesh_m0ey5")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1800232509]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15320036, 0.19210717, -0.12857144)
+material_override = SubResource("StandardMaterial3D_e20ki")
+mesh = SubResource("SphereMesh_ywrq8")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1503821229]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.060398538, 0.26462328, -0.25714287)
+material_override = SubResource("StandardMaterial3D_wo5bf")
+mesh = SubResource("SphereMesh_7vmqq")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1290741455]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.26771647, 0.12892546, -0.3857143)
+material_override = SubResource("StandardMaterial3D_q53gq")
+mesh = SubResource("SphereMesh_c7vf0")
+
+[node name="ProjectileMote4" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1944270648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.29088423, -0.14008246, -0.51428574)
+material_override = SubResource("StandardMaterial3D_igsw6")
+mesh = SubResource("SphereMesh_6x3fr")
+
+[node name="ProjectileMote5" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=599004302]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.07756444, -0.339832, -0.64285713)
+material_override = SubResource("StandardMaterial3D_pa8uh")
+mesh = SubResource("SphereMesh_ymji1")
+
+[node name="ProjectileMote6" type="MeshInstance3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=1357614069]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23336333, -0.29262835, -0.7714286)
+material_override = SubResource("StandardMaterial3D_1m4u2")
+mesh = SubResource("SphereMesh_kgp4t")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_11_11_bubbles/ProjectileVisuals" unique_id=712482109]
+light_color = Color(0.86, 1, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_12_12_cuts" type="Node3D" parent="." unique_id=1161283725]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 0, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_12_cuts"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_12_12_cuts" unique_id=197206247]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=689226585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_18o41")
+mesh = SubResource("BoxMesh_uwt6q")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1508455827]
+material_override = SubResource("StandardMaterial3D_erkjg")
+mesh = SubResource("SphereMesh_2p71w")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1812187547]
+material_override = SubResource("StandardMaterial3D_42v44")
+mesh = SubResource("SphereMesh_xj56o")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1241875803]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_ft2g4")
+mesh = SubResource("QuadMesh_6rlo5")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1863222411]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_i2gnd")
+mesh = SubResource("QuadMesh_52f5g")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=86637064]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_tbqy4")
+mesh = SubResource("QuadMesh_72x15")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1284082201]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_u27io")
+mesh = SubResource("SphereMesh_05l0h")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=1838148780]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, 0.24248712, -0.3)
+material_override = SubResource("StandardMaterial3D_5efhj")
+mesh = SubResource("SphereMesh_eipwd")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=2096867056]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17, -0.29444864, -0.6)
+material_override = SubResource("StandardMaterial3D_ahnxr")
+mesh = SubResource("SphereMesh_11uet")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_12_12_cuts/ProjectileVisuals" unique_id=2076535799]
+light_color = Color(0.42, 0.92, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_13_13_lightning" type="Node3D" parent="." unique_id=1514697159]
+script = ExtResource("1_1o86j")
+effect_id = "projectile_13_lightning"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_13_13_lightning" unique_id=1613864844]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=325340096]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_nx47v")
+mesh = SubResource("BoxMesh_fjjm0")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=368171413]
+material_override = SubResource("StandardMaterial3D_vun2w")
+mesh = SubResource("SphereMesh_gtclr")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=964997408]
+material_override = SubResource("StandardMaterial3D_lp7xp")
+mesh = SubResource("SphereMesh_1ia6h")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=1109222443]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_83m8u")
+mesh = SubResource("QuadMesh_uf5lq")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=1699139323]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_niq3q")
+mesh = SubResource("QuadMesh_pfosk")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=412594521]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_wbawq")
+mesh = SubResource("QuadMesh_7jnqi")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=1212985513]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_qv05o")
+mesh = SubResource("SphereMesh_auaej")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=190632879]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, 0.24248712, -0.3)
+material_override = SubResource("StandardMaterial3D_u28v6")
+mesh = SubResource("SphereMesh_o57r6")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=1498479542]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17, -0.29444864, -0.6)
+material_override = SubResource("StandardMaterial3D_dxwpy")
+mesh = SubResource("SphereMesh_bw7h2")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_13_13_lightning/ProjectileVisuals" unique_id=276896436]
+light_color = Color(1, 1, 0.36, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_14_14_water" type="Node3D" parent="." unique_id=1729138117]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 0, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_14_water"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_14_14_water" unique_id=912485267]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=441426209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_ptjpv")
+mesh = SubResource("BoxMesh_y3xp4")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=211717719]
+material_override = SubResource("StandardMaterial3D_faabk")
+mesh = SubResource("SphereMesh_c3fbo")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=1216530505]
+material_override = SubResource("StandardMaterial3D_jk1de")
+mesh = SubResource("SphereMesh_i2jqw")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=439311464]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_huotu")
+mesh = SubResource("QuadMesh_ip5h6")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=1362593317]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_fqteb")
+mesh = SubResource("QuadMesh_x8uc5")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=440392999]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_2esmo")
+mesh = SubResource("QuadMesh_8h06s")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=1641762348]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_d3drd")
+mesh = SubResource("SphereMesh_do1fa")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=55463464]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_ashru")
+mesh = SubResource("SphereMesh_2qij0")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=46376382]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_drdy0")
+mesh = SubResource("SphereMesh_363qy")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=1441231603]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_aj6co")
+mesh = SubResource("SphereMesh_wkgtx")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_14_14_water/ProjectileVisuals" unique_id=640799812]
+light_color = Color(0.8, 1, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_15_15_shuriken" type="Node3D" parent="." unique_id=1026501885]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, 0, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_15_shuriken"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_15_15_shuriken" unique_id=909445997]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=319838760]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_3j7u4")
+mesh = SubResource("BoxMesh_6s61h")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=1644107985]
+material_override = SubResource("StandardMaterial3D_t483a")
+mesh = SubResource("SphereMesh_nisse")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=2009981950]
+material_override = SubResource("StandardMaterial3D_u3tom")
+mesh = SubResource("SphereMesh_ah7wh")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=774372697]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_np5k8")
+mesh = SubResource("QuadMesh_s8jk8")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=1337741682]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_ihsj0")
+mesh = SubResource("QuadMesh_3fdsl")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=594870887]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_tdv33")
+mesh = SubResource("QuadMesh_o3gq6")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=90392359]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_xmnie")
+mesh = SubResource("SphereMesh_l55n5")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=843883874]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_agiwh")
+mesh = SubResource("SphereMesh_dprma")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=222196797]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_haq2r")
+mesh = SubResource("SphereMesh_chjkd")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=515398945]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_m0jyh")
+mesh = SubResource("SphereMesh_fho6d")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_15_15_shuriken/ProjectileVisuals" unique_id=977311732]
+light_color = Color(0.18, 0.56, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_16_16_star" type="Node3D" parent="." unique_id=1899514308]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, -1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_16_star"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_16_16_star" unique_id=1276918610]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=1462764005]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_3co6a")
+mesh = SubResource("BoxMesh_8i7u5")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=564962000]
+material_override = SubResource("StandardMaterial3D_88dht")
+mesh = SubResource("SphereMesh_wpkb2")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=559668927]
+material_override = SubResource("StandardMaterial3D_kheps")
+mesh = SubResource("SphereMesh_51r1b")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=677366766]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_l487x")
+mesh = SubResource("QuadMesh_pyic0")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=564659988]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_86uqy")
+mesh = SubResource("QuadMesh_ltvsg")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=1352796829]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_rlv57")
+mesh = SubResource("QuadMesh_jxt6h")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=1686984471]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_quqoy")
+mesh = SubResource("SphereMesh_3w2yj")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=1354991158]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_q8or7")
+mesh = SubResource("SphereMesh_at4y4")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=356140228]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_a7i4x")
+mesh = SubResource("SphereMesh_gv8vp")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=310806240]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_2qas3")
+mesh = SubResource("SphereMesh_xckac")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_16_16_star/ProjectileVisuals" unique_id=1513362627]
+light_color = Color(1, 1, 0.76, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_17_17_heal" type="Node3D" parent="." unique_id=1746539571]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, -1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_17_heal"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_17_17_heal" unique_id=1597509603]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=1885889523]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_n6jvf")
+mesh = SubResource("BoxMesh_dbiua")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=60659365]
+material_override = SubResource("StandardMaterial3D_laeh7")
+mesh = SubResource("SphereMesh_jd6t2")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=773303602]
+material_override = SubResource("StandardMaterial3D_j0qwt")
+mesh = SubResource("SphereMesh_dbmqq")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=2128847829]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_hsgo2")
+mesh = SubResource("QuadMesh_0cl66")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=10310475]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_84v1l")
+mesh = SubResource("QuadMesh_n4j7j")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=303883707]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_7um6j")
+mesh = SubResource("SphereMesh_qupvu")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=2083372066]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_cwwgc")
+mesh = SubResource("SphereMesh_k4vjh")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=1390862648]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_si8qv")
+mesh = SubResource("SphereMesh_artmp")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=67799794]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_2nja0")
+mesh = SubResource("SphereMesh_ukty3")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_17_17_heal/ProjectileVisuals" unique_id=1477786627]
+light_color = Color(1, 0.28, 0.5, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_18_18_arrow" type="Node3D" parent="." unique_id=498229804]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_18_arrow"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_18_18_arrow" unique_id=844855395]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=1925791661]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_ulrqt")
+mesh = SubResource("BoxMesh_8esxw")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=1875967298]
+material_override = SubResource("StandardMaterial3D_wlkn2")
+mesh = SubResource("SphereMesh_hjhpt")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=211988337]
+material_override = SubResource("StandardMaterial3D_5gnv3")
+mesh = SubResource("SphereMesh_64iey")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=816322893]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_1lntt")
+mesh = SubResource("QuadMesh_nxlqa")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=455006401]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_587nl")
+mesh = SubResource("QuadMesh_k51n1")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=105961047]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_f6w14")
+mesh = SubResource("QuadMesh_qdywm")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=1921193133]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_xhjnk")
+mesh = SubResource("SphereMesh_yl2bt")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=104289237]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, 0.24248712, -0.3)
+material_override = SubResource("StandardMaterial3D_oyoq0")
+mesh = SubResource("SphereMesh_gyubh")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=377030136]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17, -0.29444864, -0.6)
+material_override = SubResource("StandardMaterial3D_wog4r")
+mesh = SubResource("SphereMesh_oovca")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_18_18_arrow/ProjectileVisuals" unique_id=1823470833]
+light_color = Color(1, 0.42, 0.12, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_19_19_sun" type="Node3D" parent="." unique_id=323995777]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, -1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_19_sun"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_19_19_sun" unique_id=1082991816]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1144715324]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_fp2nu")
+mesh = SubResource("BoxMesh_gyqek")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1581454932]
+material_override = SubResource("StandardMaterial3D_3kkqp")
+mesh = SubResource("SphereMesh_uukyt")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=2077698891]
+material_override = SubResource("StandardMaterial3D_lbact")
+mesh = SubResource("SphereMesh_jhg6y")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1032509003]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_gltqu")
+mesh = SubResource("QuadMesh_qfgsu")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1358933942]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_nm351")
+mesh = SubResource("QuadMesh_cuvf8")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=566678310]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_l8cxb")
+mesh = SubResource("QuadMesh_k7uxn")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1497165134]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_2pg1h")
+mesh = SubResource("SphereMesh_oltfi")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1447071759]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_0ee85")
+mesh = SubResource("SphereMesh_orqw2")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=429937401]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_ckd7m")
+mesh = SubResource("SphereMesh_tjmq4")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1810700230]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_p5v8r")
+mesh = SubResource("SphereMesh_dp4fs")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_19_19_sun/ProjectileVisuals" unique_id=1797983681]
+light_color = Color(1, 1, 0.25, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_20_20_black" type="Node3D" parent="." unique_id=562817383]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, -1.5, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_20_black"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_20_20_black" unique_id=1051050883]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=1999292]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_ggctg")
+mesh = SubResource("BoxMesh_nssi4")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=1107250991]
+material_override = SubResource("StandardMaterial3D_tgdwr")
+mesh = SubResource("SphereMesh_ehdyt")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=720262892]
+material_override = SubResource("StandardMaterial3D_altaw")
+mesh = SubResource("SphereMesh_7te8c")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=1358763974]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_c0uyn")
+mesh = SubResource("QuadMesh_mx5sh")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=830247008]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_oc88k")
+mesh = SubResource("QuadMesh_r1g2w")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=718612283]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_uhjwv")
+mesh = SubResource("QuadMesh_lk8nh")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=13034209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_nme4h")
+mesh = SubResource("SphereMesh_drsyd")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=1813238430]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_qsjt8")
+mesh = SubResource("SphereMesh_7ea4j")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=569910485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_erycy")
+mesh = SubResource("SphereMesh_8mba7")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=153076519]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_1w828")
+mesh = SubResource("SphereMesh_m1hhm")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_20_20_black/ProjectileVisuals" unique_id=258942029]
+light_color = Color(0.78, 0.24, 1, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_21_21_green" type="Node3D" parent="." unique_id=437457862]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, -3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_21_green"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_21_21_green" unique_id=365740572]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1263933285]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_xyd4c")
+mesh = SubResource("BoxMesh_yugev")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1264824333]
+material_override = SubResource("StandardMaterial3D_xdryo")
+mesh = SubResource("SphereMesh_th447")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=615757405]
+material_override = SubResource("StandardMaterial3D_3lyo0")
+mesh = SubResource("SphereMesh_xcqn4")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1986981665]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_1w08p")
+mesh = SubResource("QuadMesh_4gb1i")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1676629843]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_wi3hq")
+mesh = SubResource("QuadMesh_d12rw")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=175901849]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_2wna1")
+mesh = SubResource("QuadMesh_l8q2p")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1212285202]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_3be1m")
+mesh = SubResource("SphereMesh_npv2x")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=344705948]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_gi56q")
+mesh = SubResource("SphereMesh_o7g5w")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=919422827]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_fm58m")
+mesh = SubResource("SphereMesh_ibrnc")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=499027922]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_euc3t")
+mesh = SubResource("SphereMesh_50m4x")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_21_21_green/ProjectileVisuals" unique_id=1796212362]
+light_color = Color(0.76, 1, 0.2, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_22_22_star_sky" type="Node3D" parent="." unique_id=606211286]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, -3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_22_star_sky"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_22_22_star_sky" unique_id=1427269919]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1749190823]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_v7c6p")
+mesh = SubResource("BoxMesh_x4n32")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=972801803]
+material_override = SubResource("StandardMaterial3D_ruux7")
+mesh = SubResource("SphereMesh_3iih5")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1587543199]
+material_override = SubResource("StandardMaterial3D_vld21")
+mesh = SubResource("SphereMesh_3kly0")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=683032336]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_ri2x1")
+mesh = SubResource("QuadMesh_0d5qh")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1510251413]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_1ipmc")
+mesh = SubResource("QuadMesh_l8v7o")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=302128665]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_a2bw8")
+mesh = SubResource("QuadMesh_xt3nl")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1958939783]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_ujq06")
+mesh = SubResource("SphereMesh_hne1n")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1557654977]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15320036, 0.19210717, -0.12857144)
+material_override = SubResource("StandardMaterial3D_bod13")
+mesh = SubResource("SphereMesh_edn5a")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=877766639]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.060398538, 0.26462328, -0.25714287)
+material_override = SubResource("StandardMaterial3D_4oc2f")
+mesh = SubResource("SphereMesh_g3201")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=466066064]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.26771647, 0.12892546, -0.3857143)
+material_override = SubResource("StandardMaterial3D_ie7ev")
+mesh = SubResource("SphereMesh_hkgd5")
+
+[node name="ProjectileMote4" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=1585792722]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.29088423, -0.14008246, -0.51428574)
+material_override = SubResource("StandardMaterial3D_tw7yq")
+mesh = SubResource("SphereMesh_3815d")
+
+[node name="ProjectileMote5" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=524238952]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.07756444, -0.339832, -0.64285713)
+material_override = SubResource("StandardMaterial3D_grb0i")
+mesh = SubResource("SphereMesh_l8gyo")
+
+[node name="ProjectileMote6" type="MeshInstance3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=933735103]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23336333, -0.29262835, -0.7714286)
+material_override = SubResource("StandardMaterial3D_48gll")
+mesh = SubResource("SphereMesh_b48ej")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_22_22_star_sky/ProjectileVisuals" unique_id=2022137515]
+light_color = Color(1, 0.92, 0.42, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_23_23_green_alt" type="Node3D" parent="." unique_id=703906881]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_23_green_alt"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_23_23_green_alt" unique_id=1423888658]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=913839855]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_vm27b")
+mesh = SubResource("BoxMesh_778kb")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=450899]
+material_override = SubResource("StandardMaterial3D_gmtj4")
+mesh = SubResource("SphereMesh_72hee")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=681526466]
+material_override = SubResource("StandardMaterial3D_xc0ih")
+mesh = SubResource("SphereMesh_agh72")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=1764330909]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_hnwl8")
+mesh = SubResource("QuadMesh_uy6f8")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=469882855]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_d1te5")
+mesh = SubResource("QuadMesh_ccofw")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=918622700]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_044t3")
+mesh = SubResource("QuadMesh_gpnit")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=888192856]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_6qmcv")
+mesh = SubResource("SphereMesh_6j6qr")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=1243369601]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_f4fmv")
+mesh = SubResource("SphereMesh_i2ihs")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=58761780]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_tnijw")
+mesh = SubResource("SphereMesh_t2lio")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=1508701897]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_2h5pl")
+mesh = SubResource("SphereMesh_slh42")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_23_23_green_alt/ProjectileVisuals" unique_id=1944591380]
+light_color = Color(0.36, 1, 0.82, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_24_24_honey" type="Node3D" parent="." unique_id=401051397]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, -3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_24_honey"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_24_24_honey" unique_id=1842070599]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=577975453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_pf4fh")
+mesh = SubResource("BoxMesh_20tgo")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=72575214]
+material_override = SubResource("StandardMaterial3D_n0n1v")
+mesh = SubResource("SphereMesh_ifybn")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=945050498]
+material_override = SubResource("StandardMaterial3D_kjajd")
+mesh = SubResource("SphereMesh_bjrub")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=2124431244]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_cfbg7")
+mesh = SubResource("QuadMesh_i3g1y")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=1677322297]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_w7hdh")
+mesh = SubResource("QuadMesh_n1o27")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=837435012]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_jcf6q")
+mesh = SubResource("QuadMesh_wcma0")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=901685708]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_hxs5j")
+mesh = SubResource("SphereMesh_f36jk")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=874307982]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6226034e-17, 0.265, -0.225)
+material_override = SubResource("StandardMaterial3D_bpg3q")
+mesh = SubResource("SphereMesh_3gjk3")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=1105160238]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.31, 3.7962796e-17, -0.45)
+material_override = SubResource("StandardMaterial3D_m2lxx")
+mesh = SubResource("SphereMesh_7i14h")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=1626168142]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.521029e-17, -0.355, -0.675)
+material_override = SubResource("StandardMaterial3D_vjiv3")
+mesh = SubResource("SphereMesh_kfe1d")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_24_24_honey/ProjectileVisuals" unique_id=1493079332]
+light_color = Color(1, 0.92, 0.28, 1)
+light_energy = 1.35
+omni_range = 3.0
+
+[node name="Effect_25_25_yellow" type="Node3D" parent="." unique_id=1170997262]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, -3, 0)
+script = ExtResource("1_1o86j")
+effect_id = "projectile_25_yellow"
+travel_distance = 2.2
+travel_seconds = 0.8
+
+[node name="ProjectileVisuals" type="Node3D" parent="Effect_25_25_yellow" unique_id=239601590]
+
+[node name="ProjectileTrail" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=662009809]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.85)
+material_override = SubResource("StandardMaterial3D_e87t8")
+mesh = SubResource("BoxMesh_gd56d")
+
+[node name="ProjectileCore" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=222190651]
+material_override = SubResource("StandardMaterial3D_erqb4")
+mesh = SubResource("SphereMesh_4aavm")
+
+[node name="ProjectileHalo" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=617922847]
+material_override = SubResource("StandardMaterial3D_4xnfw")
+mesh = SubResource("SphereMesh_k0gr4")
+
+[node name="ProjectileTexture0" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=2109150472]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.12)
+material_override = SubResource("StandardMaterial3D_vo7gl")
+mesh = SubResource("QuadMesh_pg2yh")
+
+[node name="ProjectileTexture1" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=116321239]
+transform = Transform3D(0.637424, -0.77051324, 0, 0.77051324, 0.637424, 0, 0, 0, 1, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_8adc3")
+mesh = SubResource("QuadMesh_asvv3")
+
+[node name="ProjectileTexture2" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1094656448]
+transform = Transform3D(-0.18738131, -0.9822872, 0, 0.9822872, -0.18738131, 0, 0, 0, 1, 0, 0, 0.24)
+material_override = SubResource("StandardMaterial3D_cm3fa")
+mesh = SubResource("QuadMesh_2iil2")
+
+[node name="ProjectileMote0" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1200686052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0, 0)
+material_override = SubResource("StandardMaterial3D_7v6yx")
+mesh = SubResource("SphereMesh_ai3g2")
+
+[node name="ProjectileMote1" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=342034072]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15320036, 0.19210717, -0.12857144)
+material_override = SubResource("StandardMaterial3D_ed1aj")
+mesh = SubResource("SphereMesh_dc57l")
+
+[node name="ProjectileMote2" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1126715969]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.060398538, 0.26462328, -0.25714287)
+material_override = SubResource("StandardMaterial3D_o6nxb")
+mesh = SubResource("SphereMesh_fijan")
+
+[node name="ProjectileMote3" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1873045731]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.26771647, 0.12892546, -0.3857143)
+material_override = SubResource("StandardMaterial3D_wbdp0")
+mesh = SubResource("SphereMesh_ciow6")
+
+[node name="ProjectileMote4" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1655068315]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.29088423, -0.14008246, -0.51428574)
+material_override = SubResource("StandardMaterial3D_n8j67")
+mesh = SubResource("SphereMesh_5qhny")
+
+[node name="ProjectileMote5" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=570455124]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.07756444, -0.339832, -0.64285713)
+material_override = SubResource("StandardMaterial3D_w4wbj")
+mesh = SubResource("SphereMesh_r8n35")
+
+[node name="ProjectileMote6" type="MeshInstance3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1974095828]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.23336333, -0.29262835, -0.7714286)
+material_override = SubResource("StandardMaterial3D_jtfdo")
+mesh = SubResource("SphereMesh_6dk3j")
+
+[node name="ProjectileLight" type="OmniLight3D" parent="Effect_25_25_yellow/ProjectileVisuals" unique_id=1809467088]
+light_color = Color(1, 1, 0.46, 1)
+light_energy = 1.35
+omni_range = 3.0

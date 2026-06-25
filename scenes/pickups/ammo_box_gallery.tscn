@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://dhi47cvsnitdj"]
+
+[ext_resource type="PackedScene" uid="uid://cr6xcigll0gou" path="res://assets/pickups/ammo_boxes/small_ammo_box_30.glb" id="1_d5ko3"]
+[ext_resource type="PackedScene" uid="uid://cgjuikv6kt1tf" path="res://assets/pickups/ammo_boxes/medium_ammo_crate_60.glb" id="2_5dcxj"]
+[ext_resource type="PackedScene" uid="uid://ibwfobucd61r" path="res://assets/pickups/ammo_boxes/large_ammo_supply_box_120.glb" id="3_dawln"]
+[ext_resource type="PackedScene" uid="uid://pw1dssv35s1n" path="res://assets/pickups/ammo_boxes/special_ammo_cache.glb" id="4_5xbqd"]
+
+[node name="AmmoBoxGallery" type="Node3D" unique_id=2020416299]
+
+[node name="SmallAmmoBox30" parent="." unique_id=1389853455 instance=ExtResource("1_d5ko3")]
+transform = Transform3D(0.39944375, 0, -0.12978713, 0, 0.42, 0, 0.12978713, 0, 0.39944375, -2.1, 0, 0)
+
+[node name="SmallAmmoBox30Label" type="Label3D" parent="." unique_id=1608022500]
+transform = Transform3D(1, 0, 0, 0, 0.37460664, 0.92718387, 0, -0.92718387, 0.37460664, -2.1, 0.8, 0)
+pixel_size = 0.003
+modulate = Color(1, 0.92, 0.58, 1)
+text = "+30"
+font_size = 36
+
+[node name="MediumAmmoCrate60" parent="." unique_id=277114533 instance=ExtResource("2_5dcxj")]
+transform = Transform3D(0.39944375, 0, -0.12978713, 0, 0.42, 0, 0.12978713, 0, 0.39944375, -0.7, 0, 0)
+
+[node name="MediumAmmoCrate60Label" type="Label3D" parent="." unique_id=312915853]
+transform = Transform3D(1, 0, 0, 0, 0.37460664, 0.92718387, 0, -0.92718387, 0.37460664, -0.7, 0.8, 0)
+pixel_size = 0.003
+modulate = Color(1, 0.92, 0.58, 1)
+text = "+60"
+font_size = 36
+
+[node name="LargeAmmoSupplyBox120" parent="." unique_id=1466940571 instance=ExtResource("3_dawln")]
+transform = Transform3D(0.39944375, 0, -0.12978713, 0, 0.42, 0, 0.12978713, 0, 0.39944375, 0.7, 0, 0)
+
+[node name="LargeAmmoSupplyBox120Label" type="Label3D" parent="." unique_id=935715124]
+transform = Transform3D(1, 0, 0, 0, 0.37460664, 0.92718387, 0, -0.92718387, 0.37460664, 0.7, 0.8, 0)
+pixel_size = 0.003
+modulate = Color(1, 0.92, 0.58, 1)
+text = "FULL"
+font_size = 36
+
+[node name="SpecialAmmoCache" parent="." unique_id=1637011078 instance=ExtResource("4_5xbqd")]
+transform = Transform3D(0.39944375, 0, -0.12978713, 0, 0.42, 0, 0.12978713, 0, 0.39944375, 2.1, 0, 0)
+
+[node name="SpecialAmmoCacheLabel" type="Label3D" parent="." unique_id=361487962]
+transform = Transform3D(1, 0, 0, 0, 0.37460664, 0.92718387, 0, -0.92718387, 0.37460664, 2.1, 0.8, 0)
+pixel_size = 0.003
+modulate = Color(1, 0.92, 0.58, 1)
+text = "SPECIAL"
+font_size = 36
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=142820287]
+transform = Transform3D(0.81915206, 0.46984634, -0.32898995, 0, 0.57357645, 0.81915206, 0.57357645, -0.6710101, 0.46984634, 0, 0, 0)
+light_energy = 3.2
+
+[node name="FillLight" type="OmniLight3D" parent="." unique_id=449482677]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2, 4)
+light_energy = 2.0
+omni_range = 10.0
+
+[node name="GalleryCamera" type="Camera3D" parent="." unique_id=2074971189]
+transform = Transform3D(1, 0, 0, 0, 0.9304176, 0.3665012, 0, -0.3665012, 0.9304176, 0, 2, 4.6)
+current = true
+fov = 35.0

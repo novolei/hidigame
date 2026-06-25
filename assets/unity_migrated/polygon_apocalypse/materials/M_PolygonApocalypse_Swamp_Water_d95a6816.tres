@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "PolygonApocalypse_Swamp_Water"
+albedo_color = Color(0.38754323, 0.4705882, 0.4705882, 0.134)
+metallic = 0.118
+roughness = 0.831
+cull_mode = 0
+transparency = 1

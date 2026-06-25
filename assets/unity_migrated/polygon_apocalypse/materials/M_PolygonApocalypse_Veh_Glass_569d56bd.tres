@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3]
+[ext_resource type="Texture2D" path="res://assets/unity_migrated/polygon_apocalypse/Textures/Veh/PolygonApocalypse_Vehicle_Texture_01.png" id="1_albedo"]
+
+[resource]
+resource_name = "PolygonApocalypse_Veh_Glass"
+albedo_color = Color(0.58039576, 0.67540795, 0.8308824, 0.547)
+metallic = 0.2
+roughness = 0.493
+cull_mode = 0
+transparency = 1
+albedo_texture = ExtResource("1_albedo")

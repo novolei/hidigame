@@ -17,7 +17,10 @@ func _run() -> void:
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
 	await _test_level_start_match_path()
-	await _test_client_full_sync_spawns_player_nodes()
+	await _test_hunter_preparation_slots_are_separated()
+	await _test_preparation_room_legacy_colliders_stay_disabled()
+	await _test_preparation_room_hides_after_prep_phase()
+	await _test_client_full_sync_waits_until_prep_to_spawn_player_nodes()
 	await _test_single_player_character_test_start()
 	_test_auto_balance_preserves_selected_stalker_in_two_player_lobby()
 	_test_auto_assign_by_hunter_count()
@@ -58,6 +61,7 @@ func _reset_network_state() -> void:
 		"host_hunter_count": -1,
 		"host_stalker_count": -1,
 		"stalker_glass_alpha_max": 0.125,
+		"stalker_glass_material": "classic",
 		"auto_balance": true,
 		"role_locked": false,
 	}
@@ -139,6 +143,7 @@ func _test_lobby_ui_state() -> void:
 		"prep_duration_sec": 60,
 		"host_hunter_count": 2,
 		"stalker_glass_alpha_max": 0.16,
+		"stalker_glass_material": "liquid_glass",
 	}, true)
 
 	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
@@ -161,7 +166,8 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.duration_option.selected == 2, "Duration dropdown should select 15 min")
 	_expect(ui.prep_option.selected == 1, "Hide Prep dropdown should select 60 sec")
 	_expect(ui.hunter_count_option.selected == 2, "Hunter Count dropdown should select 2 Hunters")
-	_expect(absf(float(_selected_value(ui.stalker_glass_option)) - 0.16) < 0.001, "Stalker shimmer dropdown should follow lobby config")
+	_expect(absf(float(_selected_value(ui.stalker_glass_option)) - 0.16) < 0.001, "Stalker invisibility dropdown should follow lobby config")
+	_expect(str(_selected_value(ui.stalker_glass_material_option)) == "liquid_glass", "Stalker cloak dropdown should follow lobby config")
 	_expect(_tree_has_button_text(ui, "Host"), "Host player should be visible in player/team lists")
 	_expect(_tree_has_button_text(ui, "Guest"), "Joined player should be visible in user list")
 	_expect(ui.start_button.disabled, "Start should stay disabled until both Hunter and Prop teams exist")
@@ -180,7 +186,9 @@ func _test_lobby_ui_state() -> void:
 	ui._on_team_panel_input(click_event, Network.Role.SPECTATOR)
 	_expect(ui.selected_role == Network.Role.SPECTATOR, "Clicking spectators should choose spectator mode")
 	ui.stalker_glass_option.select(2)
-	_expect(absf(float(ui.get_host_config().get("stalker_glass_alpha_max", 0.0)) - 0.125) < 0.001, "Host config should publish Stalker glass visibility")
+	ui.stalker_glass_material_option.select(0)
+	_expect(absf(float(ui.get_host_config().get("stalker_glass_alpha_max", 0.0)) - 0.125) < 0.001, "Host config should publish Stalker invisibility strength")
+	_expect(str(ui.get_host_config().get("stalker_glass_material", "")) == "classic", "Host config should publish Stalker cloak material mode")
 
 	I18n.set_language_setting("zh")
 	await get_tree().process_frame
@@ -244,6 +252,8 @@ func _test_landing_join_form() -> void:
 func _test_level_start_match_path() -> void:
 	_reset_network_state()
 	Network.server_port = 19092
+	var host_error = Network.start_host("Host", "blue", Network.Role.CHAMELEON, "PLAY", "", CharacterSkinCatalog.party_monster_default_id())
+	_expect(host_error == OK, "Level test should start a local host peer")
 	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
 	var level = level_scene.instantiate()
 	get_tree().root.add_child(level)
@@ -274,7 +284,16 @@ func _test_level_start_match_path() -> void:
 	_expect(Network.get_props().size() == 1, "Start Match should keep one Prop")
 	_finish_all_card_drafts()
 	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.PREP, "Card draft completion should start hide prep")
+	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Card draft completion should start skin configuration")
+	_expect(int(ceil(level.skin_config_remaining)) == 20, "Skin configuration should start with a 20 second countdown")
+	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Prop players should receive a Party Monster default skin")
+	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Skin configuration completion should start the global match intro countdown")
+	_expect(int(ceil(level.match_intro_remaining)) == 3, "Match intro should start with a 3 second countdown")
+	level._process(level.MATCH_INTRO_DURATION + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.PREP, "Match intro completion should start hide prep")
 	_expect(int(round(level.prep_remaining)) == 60, "Prep should start with the full configured hide time after drafting")
 	level._apply_configured_gravity()
 	_expect(absf(level.active_gravity_mps2 - 14.7) < 0.01, "Level should apply configured lobby gravity")
@@ -289,7 +308,7 @@ func _test_level_start_match_path() -> void:
 	await get_tree().process_frame
 
 
-func _test_client_full_sync_spawns_player_nodes() -> void:
+func _test_client_full_sync_waits_until_prep_to_spawn_player_nodes() -> void:
 	_reset_network_state()
 	Network.server_port = 19094
 	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
@@ -306,7 +325,129 @@ func _test_client_full_sync_spawns_player_nodes() -> void:
 	await get_tree().process_frame
 
 	var players_container: Node = level.get_node("PlayersContainer")
-	_expect(players_container.has_node("2"), "Client full sync should instantiate missing player nodes")
+	_expect(not players_container.has_node("2"), "Client full sync should not spawn player nodes while the lobby is still open")
+
+	level.game_state = level.GameState.SKIN_CONFIG
+	level._ensure_player_nodes_from_network()
+	await get_tree().process_frame
+	_expect(not players_container.has_node("2"), "Skin selection should not spawn player nodes before the start countdown")
+
+	level.game_state = level.GameState.MATCH_INTRO
+	level._ensure_player_nodes_from_network()
+	await get_tree().process_frame
+	_expect(not players_container.has_node("2"), "The 3 second match intro countdown should not spawn player nodes early")
+
+	level._on_prep_phase_started(30.0)
+	await get_tree().process_frame
+	_expect(players_container.has_node("2"), "Prep start should spawn synced player nodes after skin selection and match intro")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
+func _test_hunter_preparation_slots_are_separated() -> void:
+	_reset_network_state()
+	Network.server_port = 19096
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	Network.players = {}
+	for pid in range(2, 10):
+		Network.players[pid] = _player("Hunter%d" % pid, Network.Role.HUNTER)
+
+	var slots: Array[Marker3D] = level._get_preparation_room_hunter_slots()
+	_expect(slots.size() >= 16, "Hunter preparation room should expose at least 16 spawn slots")
+
+	var positions: Array[Vector3] = []
+	for pid in range(2, 10):
+		positions.append(level.get_spawn_point_for_role(Network.Role.HUNTER, pid))
+	for i in range(positions.size()):
+		for j in range(i + 1, positions.size()):
+			_expect(positions[i].distance_to(positions[j]) >= 3.5, "Hunter preparation spawns should not overlap")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
+func _test_preparation_room_legacy_colliders_stay_disabled() -> void:
+	_reset_network_state()
+	Network.server_port = 19097
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var prep_room: Node3D = level.get_node("PreparationRoom") as Node3D
+	var legacy_collider_paths: Array[String] = [
+		"WallNorth/CollisionShape3D",
+		"WallSouth/CollisionShape3D",
+		"WallEast/CollisionShape3D",
+		"WallWest/CollisionShape3D",
+		"Gate/CollisionShape3D",
+	]
+	for collider_path in legacy_collider_paths:
+		var shape: CollisionShape3D = prep_room.get_node(collider_path) as CollisionShape3D
+		_expect(shape.disabled, "Legacy preparation collider should be disabled in the scene: %s" % collider_path)
+
+	level._set_preparation_room_active(true)
+	level._set_preparation_gate_open(false)
+	await get_tree().process_frame
+	for collider_path in legacy_collider_paths:
+		var shape: CollisionShape3D = prep_room.get_node(collider_path) as CollisionShape3D
+		_expect(shape.disabled, "Legacy preparation collider should not re-enable at runtime: %s" % collider_path)
+	var fence_shape: CollisionShape3D = prep_room.get_node("HunterHomeDecor/ArenaCircularFence00/CollisionShape3D") as CollisionShape3D
+	_expect(fence_shape != null and not fence_shape.disabled, "Circular arena fence collision should remain active during prep")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
+func _test_preparation_room_hides_after_prep_phase() -> void:
+	_reset_network_state()
+	Network.server_port = 19098
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	Network.players = {
+		1: _player("Host", Network.Role.CHAMELEON),
+		2: _player("Hunter", Network.Role.HUNTER),
+	}
+	var prep_room: Node3D = level.get_node("PreparationRoom") as Node3D
+	level.game_state = level.GameState.PREP
+	level._set_preparation_room_active(true)
+	await get_tree().process_frame
+	_expect(prep_room.visible, "Preparation room should be visible during prep")
+
+	level._on_prep_phase_ended()
+	await get_tree().process_frame
+	_expect(not prep_room.visible, "Preparation room should hide after hide prep ends")
+	var fence_shape: CollisionShape3D = prep_room.get_node("HunterHomeDecor/ArenaCircularFence00/CollisionShape3D") as CollisionShape3D
+	_expect(fence_shape != null and fence_shape.disabled, "Preparation room collisions should be disabled after hide prep ends")
 
 	level.set_process(false)
 	level.queue_free()
@@ -321,6 +462,8 @@ func _test_client_full_sync_spawns_player_nodes() -> void:
 func _test_single_player_character_test_start() -> void:
 	_reset_network_state()
 	Network.server_port = 19093
+	var host_error = Network.start_host("Solo", "blue", Network.Role.NONE, "SOLO", "", CharacterSkinCatalog.party_monster_default_id())
+	_expect(host_error == OK, "Single-player character test should start a local host peer")
 	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
 	var level = level_scene.instantiate()
 	get_tree().root.add_child(level)
@@ -343,7 +486,14 @@ func _test_single_player_character_test_start() -> void:
 	_expect(Network.get_props().size() == 1, "Single-player test should count the solo player as a prop")
 	_finish_all_card_drafts()
 	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.PREP, "Single-player card draft completion should enter PREP")
+	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Single-player card draft completion should enter skin configuration")
+	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Single-player prop should receive a Party Monster default skin")
+	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Single-player skin configuration should enter the match intro countdown")
+	level._process(level.MATCH_INTRO_DURATION + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.PREP, "Single-player match intro completion should enter PREP")
 
 	level.set_process(false)
 	level.queue_free()

@@ -1,4 +1,4 @@
-﻿extends CharacterBody3D
+extends CharacterBody3D
 class_name Character
 
 # =============================================================================
@@ -10,8 +10,10 @@ class_name Character
 #   - 鎴樻枟闃舵:鎵€鏈夎鑹叉寜鍚勮嚜閫昏緫杩愪綔
 # =============================================================================
 
-const NORMAL_SPEED = 6.8
-const SPRINT_SPEED = 10.4
+const WALK_SPEED = 5.4
+const RUN_SPEED = 11.0
+const NORMAL_SPEED = WALK_SPEED
+const SPRINT_SPEED = RUN_SPEED
 const JUMP_VELOCITY = 8.2
 const GROUND_ACCELERATION := 20.0
 const GROUND_DECELERATION := 24.0
@@ -21,9 +23,16 @@ const TURN_INPUT_DEADZONE := 0.05
 const SCULPT_FREE_FLY_ACCELERATION := 26.0
 const SCULPT_FREE_FLY_DECELERATION := 30.0
 const SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR := 0.72
-const FOOTSTEP_WALK_INTERVAL := 0.38
+const FOOTSTEP_WALK_INTERVAL := 0.48
 const FOOTSTEP_SPRINT_INTERVAL := 0.24
 const FOOTSTEP_MIN_SPEED := 0.6
+const FOOTSTEP_WALK_AUDIBLE := false
+const FOOTSTEP_WALK_VOLUME_DB := -18.0
+const FOOTSTEP_SPRINT_VOLUME_DB := -10.5
+const FOOTSTEP_WALK_PITCH_MIN := 0.88
+const FOOTSTEP_WALK_PITCH_MAX := 0.98
+const FOOTSTEP_SPRINT_PITCH_MIN := 1.02
+const FOOTSTEP_SPRINT_PITCH_MAX := 1.12
 const PROP_DISGUISE_HEIGHT_SPEED := 1.4
 const PROP_DISGUISE_MIN_HEIGHT_OFFSET := -1.5
 const PROP_DISGUISE_MAX_HEIGHT_OFFSET := 3.0
@@ -36,6 +45,16 @@ const PROP_COLLISION_MAX_HEIGHT := 3.20
 const PROP_PUSH_CONTACT_PADDING := 0.24
 const PROP_PUSH_FORWARD_REACH := 0.34
 const WORLD_COLLISION_MASK := 2
+const HOLOGRAM_FLAG_ACTION := "place_hologram_flag"
+const HOLOGRAM_FLAG_PLACEMENT_RANGE := 14.0
+const HOLOGRAM_FLAG_FALLBACK_DISTANCE := 4.5
+const HOLOGRAM_FLAG_GROUND_RAY_UP := 2.0
+const HOLOGRAM_FLAG_GROUND_RAY_DOWN := 10.0
+const UNSTUCK_ACTION := "unstuck"
+const UNSTUCK_RAY_UP := 12.0
+const UNSTUCK_RAY_DOWN := 36.0
+const UNSTUCK_CLEARANCE := 0.12
+const UNSTUCK_OVERHEAD_CHECK := 1.8
 const PROP_DISGUISE_GROUND_SNAP_UP := 2.5
 const PROP_DISGUISE_GROUND_SNAP_DOWN := 8.0
 const HUNTER_PROP_SENSE_GLOW_RANGE := 4.8
@@ -48,8 +67,12 @@ const HUNTER_PROP_SENSE_PING_RING_SPACING := 0.46
 const HUNTER_PROP_SENSE_PING_MIN_RINGS := 4
 const HUNTER_PROP_SENSE_PING_MAX_RINGS := 9
 const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
+const PARTY_MONSTER_BOUNTY_GLOW_RANGE := 5.8
+const PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT := 2.7
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
 const CardDatabase := preload("res://scripts/card_database.gd")
+const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
+const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
 const CHAMELEON_GPU_PBR_OVERLAY_SHADER := preload("res://shaders/chameleon_gpu_pbr_overlay.gdshader")
@@ -72,6 +95,29 @@ const SCULPT_MIN_WORLD_RADIUS := 0.08
 const SCULPT_MAX_WORLD_RADIUS := 0.46
 const SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS := SCULPT_MAX_WORLD_RADIUS * 1.6
 const SCULPT_DEFAULT_WORLD_RADIUS := 0.22
+const SKIN_PERFORMANCE_ACTIONS := ["dance", "victory"]
+const SKIN_PERFORMANCE_CAMERA_RETURN_DELAY := 1.0
+const SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET := 0.0
+const SKIN_PERFORMANCE_CAMERA_PITCH := deg_to_rad(-3.0)
+const SKIN_PERFORMANCE_CAMERA_SPRING_LENGTH := 5.2
+const SKIN_PERFORMANCE_CAMERA_FOV := 58.0
+const SKIN_PERFORMANCE_DISCO_LIGHT_COUNT := 3
+const SKIN_PERFORMANCE_DISCO_LIGHT_RANGE := 4.8
+const SKIN_PERFORMANCE_DISCO_LIGHT_ENERGY := 4.2
+const SKIN_PERFORMANCE_INPUT_START_BLOCK_SECONDS := 0.35
+const SKIN_PERFORMANCE_WHEEL_CHARGE_STEP := 0.34
+const SKIN_PERFORMANCE_WHEEL_OPPOSITE_DRAIN := 0.18
+const SKIN_PERFORMANCE_WHEEL_DECAY_PER_SECOND := 0.85
+const SKIN_PERFORMANCE_WHEEL_BAR_IDLE_SECONDS := 0.85
+const SKIN_PERFORMANCE_WHEEL_BAR_SEGMENT_HEIGHT := 0.38
+const SKIN_PERFORMANCE_CONFETTI_COUNT := 32
+const SKIN_PERFORMANCE_CONFETTI_COLORS := [
+	Color(1.0, 0.18, 0.36, 1.0),
+	Color(0.20, 0.76, 1.0, 1.0),
+	Color(1.0, 0.86, 0.18, 1.0),
+	Color(0.42, 1.0, 0.46, 1.0),
+	Color(0.94, 0.35, 1.0, 1.0),
+]
 
 enum SkinColor { BLUE, YELLOW, GREEN, RED }
 
@@ -82,6 +128,7 @@ var role: int = Network.Role.NONE
 
 # 鍑嗗闃舵閿佸畾鐘舵€?server 鎺у埗)
 var prep_phase_locked: bool = false
+var match_intro_locked: bool = false
 
 @onready var nickname: Label3D = $PlayerNick/Nickname
 
@@ -122,11 +169,14 @@ var _step_audio: AudioStreamPlayer3D = null
 var _disguise_audio: AudioStreamPlayer3D = null
 var _step_sounds: Array[AudioStream] = []
 var _footstep_timer := 0.0
+var _last_footstep_sprinting := false
 var _default_collision_shape: Shape3D = null
 var _default_collision_transform := Transform3D.IDENTITY
 
 var _current_speed: float
 var _respawn_point = Vector3(0, 5, 0)
+var _last_safe_ground_position: Vector3 = Vector3.ZERO
+var _last_safe_ground_valid: bool = false
 var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 var can_double_jump = true
@@ -137,8 +187,15 @@ var _card_speed_multiplier := 1.0
 var _card_damage_immunity_remaining := 0.0
 var _card_hunter_skill_immunity_remaining := 0.0
 var _card_silent_steps_remaining := 0.0
+var _card_stasis_remaining := 0.0
 var _card_original_scale := Vector3.ONE
 var _card_scale_effect_active := false
+var _card_screen_impairment_remaining := 0.0
+var _card_screen_impairment_layer: CanvasLayer = null
+var _card_screen_impairment_rect: ColorRect = null
+var _card_screen_impairment_label: Label = null
+var _card_screen_impairment_material: ShaderMaterial = null
+var _card_screen_impairment_tween: Tween = null
 var _camouflage_brush_locked := false
 var _camouflage_paint_texture: Texture2D = null
 var _camouflage_paint_textures: Dictionary = {}
@@ -163,6 +220,19 @@ var _last_sculpt_batch_msec := 0
 var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
+var _skin_performance_camera_active := false
+var _skin_performance_camera_state: Dictionary = {}
+var _skin_performance_camera_token := 0
+var _skin_performance_camera_action := ""
+var _skin_performance_input_block_remaining := 0.0
+var _skin_performance_wheel_dance_charge := 0.0
+var _skin_performance_wheel_victory_charge := 0.0
+var _skin_performance_wheel_bar_idle_remaining := 0.0
+var _skin_performance_wheel_bar_root: Node3D = null
+var _skin_performance_wheel_dance_fill: MeshInstance3D = null
+var _skin_performance_wheel_victory_fill: MeshInstance3D = null
+var _skin_performance_effect_root: Node3D = null
+var _skin_performance_effect_tween: Tween = null
 
 signal health_changed(value: float)
 
@@ -181,10 +251,14 @@ func _ready():
 	# 浠?Network 鍚屾瑙掕壊
 	_sync_role_from_network()
 	_sync_character_model_from_network()
+	_sync_party_monster_accessories_from_network()
 
 	# 鐩戝惉瑙掕壊鍙樺寲
 	if Network.player_role_changed.connect(_on_role_changed) != OK:
 		pass  # 宸茶繛鎺?
+
+	if Network.player_party_monster_accessories_changed.connect(_on_party_monster_accessories_changed) != OK:
+		pass
 
 	print("Debug: Player ", name, " ready - authority: ", get_multiplayer_authority(),
 		", local client: ", local_client_id, ", is_local: ", is_local_player,
@@ -234,8 +308,12 @@ var hunter_flashlight_system = null
 var hunter_prop_sense_system = null
 var hunter_auto_turret_system = null
 var _stalker_original_material_overrides := {}
+var _stalker_original_shadow_casting := {}
+var _stalker_original_visibility := {}
 var _stalker_ghost_material: ShaderMaterial = null
+var _stalker_ghost_material_key := ""
 var _stalker_glass_material: ShaderMaterial = null
+var _stalker_glass_material_key := ""
 var _stalker_visual_mode := "normal"
 var _stalker_visual_alpha := -1.0
 var _hunter_prop_sense_revealed := false
@@ -251,6 +329,13 @@ var _hunter_prop_sense_beep_stream: AudioStreamWAV = null
 var _hunter_prop_sense_ping_spawned := false
 var _hunter_prop_sense_ping_marker: Node3D = null
 var _hunter_prop_sense_ping_tween: Tween = null
+var _party_monster_accessory_loadout: Dictionary = {}
+var _party_monster_bounty_marked := false
+var _party_monster_bounty_accessory_ids: Array = []
+var _party_monster_bounty_label := ""
+var _party_monster_bounty_outline_nodes := {}
+var _party_monster_bounty_glow_light: OmniLight3D = null
+var _party_monster_bounty_marker_label: Label3D = null
 
 func _setup_chameleon_systems() -> void:
 	if not is_chameleon() or not is_multiplayer_authority():
@@ -349,9 +434,11 @@ func _refresh_stalker_visibility_view(force: bool = false) -> void:
 	var next_material: Material = null
 	match next_mode:
 		"ghost":
-			next_material = _get_stalker_ghost_material(_ghost_alpha_from_shadow(shadow_alpha))
+			var ghost_profile: String = _stalker_ghost_profile_for_viewer()
+			next_material = _get_stalker_ghost_material(_ghost_alpha_from_shadow(shadow_alpha, ghost_profile), ghost_profile)
 		"glass":
-			next_material = _get_stalker_glass_material(_glass_alpha_from_shadow(shadow_alpha))
+			var glass_profile: String = _stalker_glass_profile_for_viewer()
+			next_material = _get_stalker_glass_material(_glass_alpha_from_shadow(shadow_alpha, glass_profile), glass_profile)
 	if not force and next_mode == _stalker_visual_mode and is_equal_approx(shadow_alpha, _stalker_visual_alpha):
 		if next_mode == "normal" or _stalker_visual_meshes_have_material(next_material):
 			return
@@ -371,13 +458,17 @@ func _refresh_stalker_visibility_view(force: bool = false) -> void:
 
 
 func _get_stalker_visual_mode_for_viewer(shadow_alpha: float) -> String:
+	if _party_monster_bounty_marked:
+		return "normal"
 	if shadow_alpha >= 0.99:
 		return "normal"
 	if is_multiplayer_authority():
-		return "ghost"
+		return "glass" if _stalker_glass_material_mode() == "liquid_glass" else "ghost"
 
 	var viewer_role := _get_local_viewer_role()
 	if viewer_role == Network.Role.HUNTER:
+		return "glass"
+	if viewer_role == Network.Role.CHAMELEON and _stalker_glass_material_mode() == "liquid_glass":
 		return "glass"
 	return "ghost"
 
@@ -389,63 +480,151 @@ func _get_local_viewer_role() -> int:
 	return Network.Role.NONE
 
 
-func _ghost_alpha_from_shadow(shadow_alpha: float) -> float:
+func _stalker_ghost_profile_for_viewer() -> String:
+	if is_multiplayer_authority():
+		return "self"
+	var viewer_role: int = _get_local_viewer_role()
+	if viewer_role == Network.Role.CHAMELEON:
+		return "prop"
+	return "self"
+
+
+func _stalker_glass_profile_for_viewer() -> String:
+	if is_multiplayer_authority():
+		return "self"
+	var viewer_role: int = _get_local_viewer_role()
+	if viewer_role == Network.Role.CHAMELEON:
+		return "prop"
+	if viewer_role == Network.Role.HUNTER:
+		return "hunter"
+	return "self"
+
+
+func _ghost_alpha_from_shadow(shadow_alpha: float, profile: String = "prop") -> float:
+	if profile == "self":
+		return clampf(lerpf(0.095, 0.26, shadow_alpha), 0.095, 0.26)
 	return clampf(lerpf(0.24, 0.72, shadow_alpha), 0.24, 0.72)
 
 
-func _glass_alpha_from_shadow(shadow_alpha: float) -> float:
-	var ceiling := _stalker_glass_alpha_ceiling()
-	var floor_alpha := minf(0.018, ceiling * 0.22)
-	var reveal_alpha := minf(ceiling * 0.52, 0.065)
+func _glass_alpha_from_shadow(shadow_alpha: float, profile: String = "hunter") -> float:
+	var ceiling: float = _stalker_glass_alpha_ceiling(profile)
+	var floor_alpha: float = minf(0.018, ceiling * 0.22)
+	var reveal_alpha: float = minf(ceiling * 0.52, 0.065)
+	match profile:
+		"self":
+			floor_alpha = minf(0.038, ceiling * 0.30)
+			reveal_alpha = minf(0.095, ceiling * 0.66)
+		"prop":
+			floor_alpha = minf(0.085, ceiling * 0.62)
+			reveal_alpha = minf(0.200, ceiling * 0.92)
 	return clampf(lerpf(floor_alpha, reveal_alpha, shadow_alpha), floor_alpha, reveal_alpha)
 
 
-func _stalker_glass_alpha_ceiling() -> float:
-	return clampf(float(Network.lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
+func _stalker_glass_alpha_ceiling(profile: String = "hunter") -> float:
+	var base_ceiling: float = clampf(float(Network.lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
+	match profile:
+		"self":
+			return clampf(base_ceiling * 1.18, 0.09, 0.18)
+		"prop":
+			return clampf(base_ceiling * 1.65, 0.08, 0.35)
+	return base_ceiling
 
 
 func _apply_stalker_material(material: Material) -> void:
-	var meshes := _get_stalker_visual_meshes()
+	var meshes := _get_stalker_visual_meshes(true)
 	for mesh in meshes:
 		var id := mesh.get_instance_id()
 		if not _stalker_original_material_overrides.has(id):
 			_stalker_original_material_overrides[id] = mesh.material_override
+		if not _stalker_original_shadow_casting.has(id):
+			_stalker_original_shadow_casting[id] = mesh.cast_shadow
+		if not _stalker_original_visibility.has(id):
+			_stalker_original_visibility[id] = mesh.visible
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if _is_stalker_invisibility_feature_mesh(mesh):
+			mesh.visible = false
+			continue
+		mesh.visible = bool(_stalker_original_visibility.get(id, true))
 		mesh.material_override = material
 
 
 func _restore_stalker_materials() -> void:
-	var meshes := _get_stalker_visual_meshes()
+	var meshes := _get_stalker_visual_meshes(true)
 	for mesh in meshes:
 		var id := mesh.get_instance_id()
 		if _stalker_original_material_overrides.has(id):
 			mesh.material_override = _stalker_original_material_overrides[id]
 		else:
 			mesh.material_override = null
+		if _stalker_original_shadow_casting.has(id):
+			mesh.cast_shadow = int(_stalker_original_shadow_casting[id]) as GeometryInstance3D.ShadowCastingSetting
+		else:
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if _stalker_original_visibility.has(id):
+			mesh.visible = bool(_stalker_original_visibility[id])
 	_refresh_nickname_visibility()
 
 
 func _stalker_visual_meshes_have_material(material: Material) -> bool:
 	if not material:
 		return true
-	var meshes := _get_stalker_visual_meshes()
+	var meshes := _get_stalker_visual_meshes(true)
 	if meshes.is_empty():
 		return false
+	var shell_mesh_count := 0
 	for mesh in meshes:
+		var id := mesh.get_instance_id()
+		var expected_visible: bool = bool(_stalker_original_visibility.get(id, mesh.visible))
+		if _is_stalker_invisibility_feature_mesh(mesh):
+			if mesh.visible:
+				return false
+			if mesh.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				return false
+			continue
+		if mesh.visible != expected_visible:
+			return false
+		if not mesh.visible:
+			continue
+		shell_mesh_count += 1
 		if mesh.material_override != material:
 			return false
-	return true
+		if mesh.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			return false
+	return shell_mesh_count > 0
 
 
-func _get_stalker_visual_meshes() -> Array[MeshInstance3D]:
+func _is_stalker_invisibility_feature_mesh(mesh: MeshInstance3D) -> bool:
+	var node: Node = mesh
+	while node:
+		var name_lower: String = String(node.name).to_lower()
+		if name_lower.contains("eye") or name_lower.contains("face") or name_lower.contains("mouth") or name_lower.contains("smile") or name_lower.contains("pupil") or name_lower.contains("iris") or name_lower.contains("teeth") or name_lower.contains("tooth") or name_lower.contains("tongue") or name_lower.contains("nose"):
+			return true
+		node = node.get_parent()
+	return false
+
+
+func _get_stalker_visual_meshes(include_hidden: bool = false) -> Array[MeshInstance3D]:
 	var meshes: Array[MeshInstance3D] = []
-	if _prop_disguise_node and is_instance_valid(_prop_disguise_node) and _prop_disguise_node.visible:
-		_find_visible_meshes(_prop_disguise_node, meshes)
-	elif _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.visible:
-		_find_visible_meshes(_active_skin_node, meshes)
-	elif _robot_visual_root and _robot_visual_root.visible:
-		_find_visible_meshes(_robot_visual_root, meshes)
+	if _prop_disguise_node and is_instance_valid(_prop_disguise_node) and (include_hidden or _prop_disguise_node.visible):
+		if include_hidden:
+			_find_meshes(_prop_disguise_node, meshes)
+		else:
+			_find_visible_meshes(_prop_disguise_node, meshes)
+	elif _active_skin_node and is_instance_valid(_active_skin_node) and (include_hidden or _active_skin_node.visible):
+		if include_hidden:
+			_find_meshes(_active_skin_node, meshes)
+		else:
+			_find_visible_meshes(_active_skin_node, meshes)
+	elif _robot_visual_root and (include_hidden or _robot_visual_root.visible):
+		if include_hidden:
+			_find_meshes(_robot_visual_root, meshes)
+		else:
+			_find_visible_meshes(_robot_visual_root, meshes)
 	elif _body:
-		_find_visible_meshes(_body, meshes)
+		if include_hidden:
+			_find_meshes(_body, meshes)
+		else:
+			_find_visible_meshes(_body, meshes)
 	return meshes
 
 
@@ -485,6 +664,8 @@ func _should_show_nickname_for_local_viewer(stalker_shadow_alpha: float = -1.0) 
 	var local_id := multiplayer.get_unique_id()
 	if get_multiplayer_authority() == local_id:
 		return true
+	if _party_monster_bounty_marked:
+		return true
 	var viewer_role := _get_local_viewer_role()
 	if _is_cross_team_nameplate_hidden(viewer_role, role):
 		return false
@@ -504,39 +685,161 @@ func _is_cross_team_nameplate_hidden(viewer_role: int, target_role: int) -> bool
 	return false
 
 
-func _get_stalker_ghost_material(alpha: float) -> ShaderMaterial:
-	if not _stalker_ghost_material:
+func _get_stalker_ghost_material(alpha: float, profile: String = "prop") -> ShaderMaterial:
+	var cache_key: String = "classic_ghost:%s" % profile
+	if not _stalker_ghost_material or _stalker_ghost_material_key != cache_key:
 		var shader := Shader.new()
 		shader.code = """
 shader_type spatial;
-render_mode blend_mix, depth_prepass_alpha, cull_disabled, specular_schlick_ggx;
+render_mode blend_mix, depth_prepass_alpha, cull_back, specular_schlick_ggx;
 
 uniform vec4 tint : source_color = vec4(0.55, 0.82, 1.0, 1.0);
 uniform float alpha = 0.35;
+uniform float alpha_ceiling = 0.90;
+uniform float fresnel_alpha_boost = 0.20;
+uniform float veil_strength = 0.08;
+uniform float veil_alpha = 0.03;
+uniform float emission_strength = 0.12;
+uniform float roughness_power = 0.18;
+uniform float specular_power = 0.75;
 
 void fragment() {
-	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.0);
-	ALBEDO = tint.rgb;
-	ALPHA = clamp(alpha + fresnel * 0.20, 0.0, 0.9);
-	EMISSION = tint.rgb * (0.12 + fresnel * 0.35);
-	ROUGHNESS = 0.18;
+	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	float fresnel = pow(1.0 - view_dot, 2.0);
+	float veil_wave = sin(UV.y * 28.0 + TIME * 0.72 + sin(UV.x * 13.0 + TIME * 0.31)) * 0.5 + 0.5;
+	float veil = pow(veil_wave, 3.4) * veil_strength;
+	ALBEDO = tint.rgb * (0.10 + fresnel * 0.26 + veil * 0.18);
+	ALPHA = clamp(alpha + fresnel * fresnel_alpha_boost + veil * veil_alpha, 0.006, alpha_ceiling);
+	EMISSION = tint.rgb * emission_strength * (0.25 + fresnel * 0.55 + veil * 0.35);
+	ROUGHNESS = roughness_power;
 	METALLIC = 0.0;
-	SPECULAR = 0.75;
+	SPECULAR = specular_power;
+	RIM = 0.06;
 }
 """
 		_stalker_ghost_material = ShaderMaterial.new()
 		_stalker_ghost_material.resource_local_to_scene = true
+		_stalker_ghost_material.resource_name = "StalkerClassicShimmerSelf" if profile == "self" else "StalkerClassicShimmerProp"
 		_stalker_ghost_material.shader = shader
+		_stalker_ghost_material_key = cache_key
+		_configure_stalker_ghost_material(_stalker_ghost_material, profile)
 	_stalker_ghost_material.set_shader_parameter("alpha", alpha)
 	return _stalker_ghost_material
 
 
-func _get_stalker_glass_material(alpha: float) -> ShaderMaterial:
-	if not _stalker_glass_material:
-		var shader := Shader.new()
+func _configure_stalker_ghost_material(material: ShaderMaterial, profile: String = "prop") -> void:
+	if profile == "self":
+		material.set_shader_parameter("tint", Color(0.42, 0.50, 0.46, 1.0))
+		material.set_shader_parameter("alpha_ceiling", 0.34)
+		material.set_shader_parameter("fresnel_alpha_boost", 0.055)
+		material.set_shader_parameter("veil_strength", 0.18)
+		material.set_shader_parameter("veil_alpha", 0.018)
+		material.set_shader_parameter("emission_strength", 0.025)
+		material.set_shader_parameter("roughness_power", 0.08)
+		material.set_shader_parameter("specular_power", 0.62)
+		return
+	material.set_shader_parameter("tint", Color(0.55, 0.82, 1.0, 1.0))
+	material.set_shader_parameter("alpha_ceiling", 0.90)
+	material.set_shader_parameter("fresnel_alpha_boost", 0.20)
+	material.set_shader_parameter("veil_strength", 0.08)
+	material.set_shader_parameter("veil_alpha", 0.03)
+	material.set_shader_parameter("emission_strength", 0.12)
+	material.set_shader_parameter("roughness_power", 0.18)
+	material.set_shader_parameter("specular_power", 0.75)
+
+
+func _get_stalker_glass_material(alpha: float, profile: String = "hunter") -> ShaderMaterial:
+	var material_key: String = _stalker_glass_material_mode()
+	var cache_key: String = "%s:%s" % [material_key, profile]
+	if not _stalker_glass_material or _stalker_glass_material_key != cache_key:
+		_stalker_glass_material = ShaderMaterial.new()
+		_stalker_glass_material.resource_local_to_scene = true
+		_stalker_glass_material.resource_name = _stalker_glass_resource_name(material_key, profile)
+		_stalker_glass_material.shader = _build_stalker_glass_shader(material_key)
+		_stalker_glass_material_key = cache_key
+		_configure_stalker_glass_material(_stalker_glass_material, material_key, profile)
+	_stalker_glass_material.set_shader_parameter("alpha", alpha)
+	_stalker_glass_material.set_shader_parameter("visibility_ceiling", _stalker_glass_alpha_ceiling(profile))
+	return _stalker_glass_material
+
+
+func _stalker_glass_material_mode() -> String:
+	var configured: String = str(Network.lobby_config.get("stalker_glass_material", "classic"))
+	return "liquid_glass" if configured == "liquid_glass" else "classic"
+
+
+func _stalker_glass_resource_name(material_key: String, profile: String) -> String:
+	if material_key != "liquid_glass":
+		return "StalkerClassicShimmer"
+	match profile:
+		"self":
+			return "StalkerLiquidGlassSelf"
+		"prop":
+			return "StalkerLiquidGlassProp"
+	return "StalkerLiquidGlassHunter"
+
+
+func _build_stalker_glass_shader(material_key: String) -> Shader:
+	var shader := Shader.new()
+	if material_key == "liquid_glass":
 		shader.code = """
 shader_type spatial;
-render_mode blend_mix, depth_prepass_alpha, cull_disabled, specular_schlick_ggx;
+render_mode blend_mix, depth_prepass_alpha, cull_back, specular_schlick_ggx;
+
+uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear_mipmap;
+uniform vec3 tint : source_color = vec3(0.82, 0.94, 1.0);
+uniform float alpha = 0.025;
+uniform float visibility_ceiling = 0.125;
+uniform float refraction_strength = 0.052;
+uniform float fresnel_power = 1.15;
+uniform float emission_power = 0.20;
+uniform float specular_power = 1.0;
+uniform float roughness_power = 0.055;
+uniform float rim_power = 0.16;
+uniform float blur = 0.0;
+uniform float screen_color_bleed = 0.06;
+uniform float glass_highlight = 0.24;
+uniform float luminance_refraction = 1.05;
+uniform float rim_alpha_boost = 0.035;
+uniform float refracted_mix = 0.04;
+uniform float refracted_alpha_boost = 0.045;
+
+void fragment() {
+	vec3 view_normal = normalize(vec3(NORMAL.xy, 0.0));
+	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	float fresnel = pow(1.0 - view_dot, fresnel_power);
+	float edge_glint = pow(fresnel, 1.35);
+	vec2 liquid_wave = vec2(
+		sin((SCREEN_UV.y + TIME * 0.07) * 38.0),
+		cos((SCREEN_UV.x - TIME * 0.06) * 43.0)
+	) * refraction_strength * 0.18;
+	vec2 offset = view_normal.xy * refraction_strength * fresnel + liquid_wave * (0.25 + fresnel);
+	vec3 refracted = texture(screen_texture, SCREEN_UV + offset, blur).rgb;
+	vec3 base_screen = texture(screen_texture, SCREEN_UV, blur).rgb;
+	vec3 raw_delta = abs(refracted - base_screen);
+	vec3 distortion_delta = clamp(raw_delta, vec3(0.0), vec3(screen_color_bleed));
+	float distortion_luma = min(dot(distortion_delta, vec3(0.299, 0.587, 0.114)), screen_color_bleed);
+	float contrast_guard = 1.0 - smoothstep(0.18, 0.55, length(raw_delta));
+	float liquid_glint = pow(sin((SCREEN_UV.x * 77.0 - SCREEN_UV.y * 41.0 + TIME * 0.9)) * 0.5 + 0.5, 5.0) * edge_glint;
+	vec3 cloak_tint = tint * (0.035 + edge_glint * 0.16);
+	vec3 refractive_highlight = tint * distortion_luma * luminance_refraction * contrast_guard;
+	vec3 rim_highlight = tint * glass_highlight * (edge_glint + liquid_glint * 0.45);
+	vec3 safe_albedo = cloak_tint + refractive_highlight + rim_highlight;
+	float direct_refracted = step(0.90, refracted_mix);
+	vec3 blended_albedo = mix(safe_albedo, refracted, clamp(refracted_mix, 0.0, 1.0));
+	ALBEDO = mix(blended_albedo, refracted, direct_refracted);
+	ALPHA = clamp(alpha + edge_glint * min(rim_alpha_boost, visibility_ceiling * 0.42) + distortion_luma * 0.12 + direct_refracted * refracted_alpha_boost, 0.003, visibility_ceiling);
+	EMISSION = tint * emission_power * (0.08 + edge_glint * 0.55 + liquid_glint * 0.28 + distortion_luma * 1.2 * contrast_guard);
+	ROUGHNESS = roughness_power;
+	METALLIC = 0.0;
+	SPECULAR = specular_power;
+	RIM = rim_power;
+}
+"""
+		return shader
+	shader.code = """
+shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha, cull_back, specular_schlick_ggx;
 
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
 uniform vec4 edge_tint : source_color = vec4(0.50, 0.58, 0.62, 1.0);
@@ -544,6 +847,8 @@ uniform float alpha = 0.025;
 uniform float visibility_ceiling = 0.125;
 uniform float refraction_strength = 0.015;
 uniform float shimmer_strength = 0.006;
+uniform float screen_color_bleed = 0.022;
+uniform float highlight_strength = 0.13;
 
 void fragment() {
 	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
@@ -554,24 +859,88 @@ void fragment() {
 	vec2 wobble = normal_warp * refraction_strength * (0.12 + fresnel * 0.85) + heat_warp * (0.25 + fresnel);
 	vec3 refracted = texture(screen_texture, SCREEN_UV + wobble).rgb;
 	vec3 base_screen = texture(screen_texture, SCREEN_UV).rgb;
-	vec3 distortion_delta = abs(refracted - base_screen);
-	ALBEDO = mix(refracted, edge_tint.rgb, fresnel * 0.18);
-	ALPHA = clamp(alpha + fresnel * 0.045 + length(distortion_delta) * 0.05, 0.006, visibility_ceiling);
-	EMISSION = edge_tint.rgb * fresnel * 0.018;
-	ROUGHNESS = 0.04;
+	vec3 raw_delta = abs(refracted - base_screen);
+	vec3 distortion_delta = clamp(raw_delta, vec3(0.0), vec3(screen_color_bleed));
+	float distortion_luma = min(dot(distortion_delta, vec3(0.299, 0.587, 0.114)), screen_color_bleed);
+	float contrast_guard = 1.0 - smoothstep(0.10, 0.35, length(raw_delta));
+	float shimmer_glint = pow(shimmer, 5.0) * fresnel;
+	vec3 cloak_tint = edge_tint.rgb * (0.035 + fresnel * 0.18 + shimmer * 0.012);
+	vec3 shimmer_highlight = edge_tint.rgb * (distortion_luma * 1.35 * contrast_guard + shimmer_glint * highlight_strength);
+	ALBEDO = cloak_tint + shimmer_highlight;
+	ALPHA = clamp(alpha + fresnel * 0.035 + distortion_luma * 0.18 + shimmer_glint * 0.012, 0.004, visibility_ceiling);
+	EMISSION = edge_tint.rgb * (fresnel * 0.018 + shimmer_glint * 0.035);
+	ROUGHNESS = 0.035;
 	METALLIC = 0.0;
-	SPECULAR = 0.45;
+	SPECULAR = 0.62;
+	RIM = 0.08;
 }
 """
-		_stalker_glass_material = ShaderMaterial.new()
-		_stalker_glass_material.resource_local_to_scene = true
-		_stalker_glass_material.shader = shader
-		_stalker_glass_material.set_shader_parameter("edge_tint", Color(0.50, 0.58, 0.62, 1.0))
-		_stalker_glass_material.set_shader_parameter("refraction_strength", 0.015)
-		_stalker_glass_material.set_shader_parameter("shimmer_strength", 0.006)
-	_stalker_glass_material.set_shader_parameter("alpha", alpha)
-	_stalker_glass_material.set_shader_parameter("visibility_ceiling", _stalker_glass_alpha_ceiling())
-	return _stalker_glass_material
+	return shader
+
+
+func _configure_stalker_glass_material(material: ShaderMaterial, material_key: String, profile: String = "hunter") -> void:
+	if material_key == "liquid_glass":
+		var tint: Color = Color(0.82, 0.94, 1.0, 1.0)
+		var refraction_strength: float = 0.052
+		var fresnel_power: float = 1.15
+		var emission_power: float = 0.20
+		var specular_power: float = 1.0
+		var roughness_power: float = 0.055
+		var rim_power: float = 0.16
+		var screen_color_bleed: float = 0.035
+		var glass_highlight: float = 0.24
+		var luminance_refraction: float = 1.05
+		var rim_alpha_boost: float = 0.035
+		var refracted_mix: float = 0.04
+		var refracted_alpha_boost: float = 0.045
+		match profile:
+			"self":
+				tint = Color(0.42, 0.52, 0.48, 1.0)
+				refraction_strength = 0.090
+				fresnel_power = 0.95
+				emission_power = 0.12
+				specular_power = 1.20
+				roughness_power = 0.034
+				rim_power = 0.16
+				screen_color_bleed = 0.058
+				glass_highlight = 0.20
+				luminance_refraction = 1.22
+				rim_alpha_boost = 0.044
+				refracted_mix = 0.95
+				refracted_alpha_boost = 0.018
+			"prop":
+				tint = Color(0.58, 0.90, 1.0, 1.0)
+				refraction_strength = 0.067
+				fresnel_power = 0.92
+				emission_power = 0.36
+				specular_power = 1.15
+				roughness_power = 0.032
+				rim_power = 0.30
+				screen_color_bleed = 0.052
+				glass_highlight = 0.46
+				luminance_refraction = 1.45
+				rim_alpha_boost = 0.065
+				refracted_mix = 1.0
+		material.set_shader_parameter("tint", tint)
+		material.set_shader_parameter("refraction_strength", refraction_strength)
+		material.set_shader_parameter("fresnel_power", fresnel_power)
+		material.set_shader_parameter("emission_power", emission_power)
+		material.set_shader_parameter("specular_power", specular_power)
+		material.set_shader_parameter("roughness_power", roughness_power)
+		material.set_shader_parameter("rim_power", rim_power)
+		material.set_shader_parameter("blur", 0.0)
+		material.set_shader_parameter("screen_color_bleed", screen_color_bleed)
+		material.set_shader_parameter("glass_highlight", glass_highlight)
+		material.set_shader_parameter("luminance_refraction", luminance_refraction)
+		material.set_shader_parameter("rim_alpha_boost", rim_alpha_boost)
+		material.set_shader_parameter("refracted_mix", refracted_mix)
+		material.set_shader_parameter("refracted_alpha_boost", refracted_alpha_boost)
+		return
+	material.set_shader_parameter("edge_tint", Color(0.50, 0.58, 0.62, 1.0))
+	material.set_shader_parameter("refraction_strength", 0.015)
+	material.set_shader_parameter("shimmer_strength", 0.006)
+	material.set_shader_parameter("screen_color_bleed", 0.022)
+	material.set_shader_parameter("highlight_strength", 0.13)
 
 
 # =============================================================================
@@ -682,6 +1051,17 @@ func _on_ammo_changed(current_magazine: int, total_ammo: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
+	if event.is_action_pressed(UNSTUCK_ACTION):
+		_request_unstuck()
+		get_viewport().set_input_as_handled()
+		return
+	if match_intro_locked:
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed(HOLOGRAM_FLAG_ACTION):
+		if _request_hologram_flag_placement():
+			get_viewport().set_input_as_handled()
+		return
 
 	# Hunter 杈撳叆
 	if is_hunter():
@@ -756,9 +1136,103 @@ func _handle_stalker_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
+func _request_hologram_flag_placement() -> bool:
+	if _is_dead:
+		return true
+	var level := get_tree().get_current_scene() if get_tree() else null
+	if not level or not level.has_method("request_place_hologram_flag"):
+		return false
+	var owner_id := get_multiplayer_authority()
+	var flag_transform := _get_hologram_flag_placement_transform()
+	var accessories := get_party_monster_accessory_loadout()
+	level.call(
+		"request_place_hologram_flag",
+		owner_id,
+		flag_transform,
+		character_model_id,
+		accessories,
+		_get_hologram_skin_color(),
+		_get_hologram_player_height()
+	)
+	return true
+
+
+func _get_hologram_flag_placement_transform() -> Transform3D:
+	var camera := get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+	var ray_origin := global_position + Vector3.UP * 1.45
+	var forward := -global_transform.basis.z.normalized()
+	if camera:
+		ray_origin = camera.global_position
+		forward = -camera.global_transform.basis.z.normalized()
+	var target := ray_origin + forward * HOLOGRAM_FLAG_FALLBACK_DISTANCE
+	var world := get_world_3d()
+	if world:
+		var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + forward * HOLOGRAM_FLAG_PLACEMENT_RANGE, WORLD_COLLISION_MASK)
+		query.exclude = [get_rid()]
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		var hit := world.direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			target = hit.get("position", target)
+		target = _resolve_hologram_flag_ground_position(target)
+	var to_camera := ray_origin - target
+	to_camera.y = 0.0
+	if to_camera.length_squared() <= 0.001:
+		to_camera = -forward
+		to_camera.y = 0.0
+	if to_camera.length_squared() <= 0.001:
+		to_camera = Vector3.FORWARD
+	to_camera = to_camera.normalized()
+	var yaw := atan2(-to_camera.x, -to_camera.z)
+	return Transform3D(Basis(Vector3.UP, yaw), target)
+
+
+func _resolve_hologram_flag_ground_position(position: Vector3) -> Vector3:
+	var world := get_world_3d()
+	if not world:
+		return position
+	var query := PhysicsRayQueryParameters3D.create(
+		position + Vector3.UP * HOLOGRAM_FLAG_GROUND_RAY_UP,
+		position + Vector3.DOWN * HOLOGRAM_FLAG_GROUND_RAY_DOWN,
+		WORLD_COLLISION_MASK
+	)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := world.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return position
+	return hit.get("position", position)
+
+
+func _get_hologram_skin_color() -> int:
+	var owner_id := get_multiplayer_authority()
+	if Network.players.has(owner_id):
+		return int(Network.players[owner_id].get("skin", Network.SKIN_BLUE))
+	if Network.players.has(str(owner_id)):
+		return int(Network.players[str(owner_id)].get("skin", Network.SKIN_BLUE))
+	return Network.SKIN_BLUE
+
+
+func _get_hologram_player_height() -> float:
+	if _body and is_instance_valid(_body):
+		var bounds := _calculate_node_bounds(_body)
+		if bounds.size.y > 0.1:
+			return clampf(bounds.size.y, 0.8, 4.0)
+	if _collision_shape and _collision_shape.shape:
+		if _collision_shape.shape is CapsuleShape3D:
+			var capsule := _collision_shape.shape as CapsuleShape3D
+			return clampf(capsule.height + capsule.radius * 2.0, 0.8, 4.0)
+		if _collision_shape.shape is BoxShape3D:
+			return clampf((_collision_shape.shape as BoxShape3D).size.y, 0.8, 4.0)
+	return 2.0
+
+
 func _process_input_held():
 	# 鍦?_process 涓寔缁娴?shoot / paint 鎸変綇鐘舵€?
 	if not is_multiplayer_authority():
+		return
+	if match_intro_locked:
 		return
 
 	# Hunter 鎸佺画寮€鐏?
@@ -802,10 +1276,24 @@ func _sync_character_model_from_network() -> void:
 		set_character_model(CharacterSkinCatalog.DEFAULT_ID)
 
 
+func _sync_party_monster_accessories_from_network() -> void:
+	var my_id = str(name).to_int()
+	if Network.players.has(my_id):
+		set_party_monster_accessory_loadout(Network.players[my_id].get("party_monster_accessories", {}))
+	else:
+		set_party_monster_accessory_loadout({})
+
+
+func _on_party_monster_accessories_changed(peer_id: int, loadout: Dictionary) -> void:
+	if peer_id == str(name).to_int():
+		set_party_monster_accessory_loadout(loadout)
+
+
 func _on_role_changed(peer_id: int, new_role: int) -> void:
 	if peer_id == str(name).to_int():
 		role = new_role
 		_sync_character_model_from_network()
+		_sync_party_monster_accessories_from_network()
 		print("[Player ", name, "] Role updated to ", Network.role_to_string(new_role))
 		if new_role != Network.Role.STALKER and shadow_visibility:
 			_teardown_stalker_systems()
@@ -845,6 +1333,12 @@ func is_prop() -> bool:
 # =============================================================================
 func set_prep_locked(locked: bool) -> void:
 	prep_phase_locked = locked
+	_skin_performance_input_block_remaining = maxf(_skin_performance_input_block_remaining, SKIN_PERFORMANCE_INPUT_START_BLOCK_SECONDS)
+	if locked:
+		_restore_skin_performance_camera_now()
+		# Ready-room PREP suppresses hunter tools, but movement stays enabled.
+		_set_player_tint(Color(1, 1, 1))
+		return
 	if locked:
 		# 鍋滄浠讳綍绉诲姩
 		velocity = Vector3.ZERO
@@ -853,6 +1347,15 @@ func set_prep_locked(locked: bool) -> void:
 		_set_player_tint(Color(0.5, 0.5, 0.5))
 	else:
 		_set_player_tint(Color(1, 1, 1))
+
+
+func set_match_intro_locked(locked: bool) -> void:
+	match_intro_locked = locked
+	_skin_performance_input_block_remaining = maxf(_skin_performance_input_block_remaining, SKIN_PERFORMANCE_INPUT_START_BLOCK_SECONDS)
+	if locked:
+		_restore_skin_performance_camera_now()
+		velocity = Vector3.ZERO
+		_current_speed = 0.0
 
 
 func _set_player_tint(color: Color) -> void:
@@ -932,6 +1435,20 @@ func _force_skeleton_update_recursive(node: Node) -> void:
 func _physics_process(delta):
 	if not is_multiplayer_authority(): return
 
+	if match_intro_locked:
+		velocity = Vector3.ZERO
+		_current_speed = 0.0
+		_animate_body(Vector3.ZERO)
+		move_and_slide()
+		return
+
+	if _card_stasis_remaining > 0.0:
+		velocity = Vector3.ZERO
+		_current_speed = 0.0
+		_animate_body(Vector3.ZERO)
+		move_and_slide()
+		return
+
 	if _camouflage_brush_locked and _chameleon_sculpt_shell_active:
 		_process_sculpt_free_fly(delta)
 		move_and_slide()
@@ -944,10 +1461,7 @@ func _physics_process(delta):
 
 	# 鍑嗗闃舵 Hunter 閿佸畾(涓嶈兘绉诲姩)
 	if is_hunter() and prep_phase_locked:
-		velocity = Vector3.ZERO
-		_current_speed = 0.0
-		move_and_slide()
-		return
+		pass
 
 	var current_scene = get_tree().get_current_scene()
 	if current_scene and is_on_floor():
@@ -984,20 +1498,25 @@ func _physics_process(delta):
 	move_and_slide()
 	if _apply_prop_collision_impacts(impact_velocity) and impact_velocity.y <= 0.1:
 		velocity.y = minf(velocity.y, 0.0)
+	_update_safe_ground_position()
 	_animate_body(velocity)
 	_update_movement_audio(delta, was_on_floor)
 
 func _process(delta):
 	_process_card_effects(delta)
 	_process_camouflage_gpu_painter(delta)
+	if _skin_performance_input_block_remaining > 0.0:
+		_skin_performance_input_block_remaining = maxf(0.0, _skin_performance_input_block_remaining - delta)
 	if is_stalker():
 		_refresh_stalker_visibility_view(false)
 	else:
 		_refresh_nickname_visibility()
+	_process_party_monster_bounty_feedback(delta)
 	_process_hunter_prop_sense_feedback(delta)
 	if not is_multiplayer_authority():
 		_animate_remote_skin_from_network_motion(delta)
 		return
+	_process_skin_performance_wheel_bar(delta)
 	_check_fall_and_respawn()
 	# Hunter 鎸佺画寮€鐏娴?
 	_process_input_held()
@@ -1162,9 +1681,81 @@ func _check_fall_and_respawn():
 		_respawn()
 
 func _respawn():
-	global_transform.origin = _respawn_point
+	global_transform.origin = _find_safe_ground_position(_respawn_point)
 	velocity = Vector3.ZERO
 	clear_prop_disguise()
+	_update_safe_ground_position(true)
+
+
+func _request_unstuck() -> void:
+	global_transform.origin = _find_safe_ground_position(global_position)
+	velocity = Vector3.ZERO
+	_update_safe_ground_position(true)
+
+
+func _update_safe_ground_position(force: bool = false) -> void:
+	if _is_dead:
+		return
+	if not force and not is_on_floor():
+		return
+	if global_position.y < -14.0:
+		return
+	var hit := _ground_hit_for(global_position)
+	if hit.is_empty():
+		return
+	var hit_position: Vector3 = hit.get("position", global_position)
+	_last_safe_ground_position = hit_position + Vector3.UP * UNSTUCK_CLEARANCE
+	_last_safe_ground_valid = true
+
+
+func _find_safe_ground_position(anchor_position: Vector3) -> Vector3:
+	var candidates: Array[Vector3] = [anchor_position]
+	if _last_safe_ground_valid:
+		candidates.append(_last_safe_ground_position)
+	candidates.append(_respawn_point)
+	for radius in [1.5, 3.0, 5.0, 8.0]:
+		for index in range(8):
+			var angle: float = TAU * float(index) / 8.0
+			candidates.append(anchor_position + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius))
+
+	for candidate in candidates:
+		var hit := _ground_hit_for(candidate)
+		if hit.is_empty():
+			continue
+		var hit_position: Vector3 = hit.get("position", candidate)
+		var safe_position := hit_position + Vector3.UP * UNSTUCK_CLEARANCE
+		if _safe_position_has_overhead_clearance(safe_position):
+			return safe_position
+	return _respawn_point + Vector3.UP * UNSTUCK_CLEARANCE
+
+
+func _ground_hit_for(candidate: Vector3) -> Dictionary:
+	if not is_inside_tree() or not get_world_3d():
+		return {}
+	var from := candidate + Vector3.UP * UNSTUCK_RAY_UP
+	var to := candidate + Vector3.DOWN * UNSTUCK_RAY_DOWN
+	var query := PhysicsRayQueryParameters3D.create(from, to, WORLD_COLLISION_MASK)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+func _safe_position_has_overhead_clearance(candidate: Vector3) -> bool:
+	if not is_inside_tree() or not get_world_3d():
+		return true
+	var space_state := get_world_3d().direct_space_state
+	var offsets: Array[Vector3] = [Vector3.ZERO, Vector3(0.34, 0.0, 0.0), Vector3(-0.34, 0.0, 0.0), Vector3(0.0, 0.0, 0.34), Vector3(0.0, 0.0, -0.34)]
+	for offset in offsets:
+		var from := candidate + offset + Vector3.UP * 0.18
+		var to := candidate + offset + Vector3.UP * UNSTUCK_OVERHEAD_CHECK
+		var query := PhysicsRayQueryParameters3D.create(from, to, WORLD_COLLISION_MASK)
+		query.exclude = [get_rid()]
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		if not space_state.intersect_ray(query).is_empty():
+			return false
+	return true
 
 
 func apply_card_effect(card_id: String) -> void:
@@ -1187,7 +1778,7 @@ func apply_card_effect(card_id: String) -> void:
 			health = maxf(health, 65.0)
 			_sync_health.rpc(health)
 			_card_apply_status("damage_immunity", maxf(duration, 5.0))
-			_card_tint_for_duration(Color(0.42, 0.44, 0.46, 1.0), maxf(duration, 5.0))
+			_card_apply_stasis(maxf(duration, 5.0))
 		"prop_paint_bomb":
 			_card_apply_vision_impairment_to_role(Network.Role.HUNTER, float(card.get("radius", 20.0)), duration, "PAINT")
 		"prop_time_stop":
@@ -1195,7 +1786,7 @@ func apply_card_effect(card_id: String) -> void:
 		"prop_mist_clones":
 			_card_spawn_mist_clones(maxf(duration, 8.0))
 		"prop_sense":
-			_card_apply_role_scale(Network.Role.HUNTER, 35.0, 0.5, maxf(duration, 8.0))
+			_card_apply_visible_hunter_scale(35.0, 0.5, maxf(duration, 8.0))
 		"prop_empty_bullet":
 			_card_clear_hunter_ammo()
 		"prop_silent_steps":
@@ -1243,6 +1834,46 @@ func has_card_damage_immunity() -> bool:
 	return _card_damage_immunity_remaining > 0.0
 
 
+func has_card_hunter_skill_immunity() -> bool:
+	return _card_hunter_skill_immunity_remaining > 0.0
+
+
+func has_card_stasis() -> bool:
+	return _card_stasis_remaining > 0.0
+
+
+func get_card_screen_impairment_remaining() -> float:
+	return _card_screen_impairment_remaining
+
+
+func get_card_speed_multiplier_for_test() -> float:
+	return _card_speed_multiplier
+
+
+func get_walk_speed_for_test() -> float:
+	return WALK_SPEED
+
+
+func get_run_speed_for_test() -> float:
+	return RUN_SPEED
+
+
+func get_footstep_interval_for_test(sprinting: bool) -> float:
+	return _footstep_interval_for_mode(sprinting)
+
+
+func get_footstep_volume_db_for_test(sprinting: bool) -> float:
+	return _footstep_volume_for_mode(sprinting)
+
+
+func is_footstep_audible_for_test(sprinting: bool) -> bool:
+	return _footstep_is_audible_for_mode(sprinting)
+
+
+func has_card_screen_impairment_overlay_for_test() -> bool:
+	return _card_screen_impairment_rect != null and is_instance_valid(_card_screen_impairment_rect) and _card_screen_impairment_rect.visible
+
+
 func _process_card_effects(delta: float) -> void:
 	if _card_damage_immunity_remaining > 0.0:
 		_card_damage_immunity_remaining = maxf(0.0, _card_damage_immunity_remaining - delta)
@@ -1250,6 +1881,12 @@ func _process_card_effects(delta: float) -> void:
 		_card_hunter_skill_immunity_remaining = maxf(0.0, _card_hunter_skill_immunity_remaining - delta)
 	if _card_silent_steps_remaining > 0.0:
 		_card_silent_steps_remaining = maxf(0.0, _card_silent_steps_remaining - delta)
+	if _card_stasis_remaining > 0.0:
+		_card_stasis_remaining = maxf(0.0, _card_stasis_remaining - delta)
+		if is_zero_approx(_card_stasis_remaining):
+			_set_player_tint(Color(1, 1, 1))
+	if _card_screen_impairment_remaining > 0.0:
+		_card_screen_impairment_remaining = maxf(0.0, _card_screen_impairment_remaining - delta)
 	for key in _card_effect_timers.keys():
 		_card_effect_timers[key] = float(_card_effect_timers[key]) - delta
 		if float(_card_effect_timers[key]) > 0.0:
@@ -1277,6 +1914,8 @@ func _card_apply_status(status_id: String, duration: float, multiplier: float = 
 			_card_hunter_skill_immunity_remaining = maxf(_card_hunter_skill_immunity_remaining, duration)
 		"silent_steps":
 			_card_silent_steps_remaining = maxf(_card_silent_steps_remaining, duration)
+		"stasis":
+			_card_apply_stasis(duration)
 		"speed_multiplier_1_2":
 			_card_speed_multiplier = maxf(_card_speed_multiplier, 1.2)
 			_card_effect_timers["speed"] = maxf(float(_card_effect_timers.get("speed", 0.0)), duration)
@@ -1303,15 +1942,35 @@ func _card_apply_scale(multiplier: float, duration: float) -> void:
 	_card_feedback_to_owner("MICRO FORM", Color(0.72, 1.0, 0.82, 1.0), 0.8)
 
 
+func _card_apply_stasis(duration: float) -> void:
+	_card_stasis_remaining = maxf(_card_stasis_remaining, duration)
+	velocity = Vector3.ZERO
+	_current_speed = 0.0
+	_card_tint_for_duration(Color(0.42, 0.44, 0.46, 1.0), duration)
+	_card_feedback_to_owner("STONE STASIS", Color(0.74, 0.78, 0.80, 1.0), 0.9)
+
+
 func _card_apply_role_scale(target_role: int, radius: float, multiplier: float, duration: float) -> void:
 	for player in _card_players_in_radius(radius):
-		if int(player.role) == target_role:
+		if int(player.role) == target_role and not player._card_blocks_hunter_skill_effect():
 			player._card_apply_scale(multiplier, duration)
+
+
+func _card_apply_visible_hunter_scale(radius: float, multiplier: float, duration: float) -> void:
+	var affected := 0
+	for player in _card_players_in_radius(radius):
+		if not player.is_hunter():
+			continue
+		if not _card_has_line_of_sight_to_player(player, radius, 58.0):
+			continue
+		player._card_apply_scale(multiplier, duration)
+		affected += 1
+	_card_feedback_to_owner("SENSE %d" % affected, Color(0.72, 1.0, 0.82, 1.0), 0.8)
 
 
 func _card_apply_role_speed_multiplier(target_role: int, radius: float, multiplier: float, duration: float) -> void:
 	for player in _card_players_in_radius(radius):
-		if int(player.role) == target_role:
+		if int(player.role) == target_role and not player._card_blocks_hunter_skill_effect():
 			player.apply_card_status("speed_multiplier", duration, multiplier)
 			player._card_feedback_to_owner("SLOWED", Color(0.65, 0.78, 1.0, 1.0), 0.7)
 
@@ -1325,41 +1984,43 @@ func _card_apply_prop_aura_status(status_id: String, radius: float, duration: fl
 
 func _card_apply_vision_impairment_to_role(target_role: int, radius: float, duration: float, label: String) -> void:
 	for player in _card_players_in_radius(radius):
-		if int(player.role) == target_role:
+		if int(player.role) == target_role and not player._card_blocks_hunter_skill_effect():
 			player._card_feedback_to_owner(label, Color(1.0, 0.96, 0.72, 1.0), maxf(duration, 0.75))
 			player._card_tint_for_duration(Color(1.0, 0.96, 0.72, 1.0), minf(maxf(duration, 0.75), 2.0))
+			player._card_apply_screen_impairment(label, maxf(duration, 0.75))
+
+
+func _card_blocks_hunter_skill_effect() -> bool:
+	return is_prop() and _card_hunter_skill_immunity_remaining > 0.0
 
 
 func _card_spawn_decoy(duration: float, local_offset: Vector3) -> void:
 	var scene_root := get_tree().get_current_scene() if get_tree() else null
 	if not scene_root:
 		scene_root = self
-	var decoy := MeshInstance3D.new()
+	var decoy := CardDecoyTargetScript.new() as CardDecoyTarget
 	decoy.name = "CardDecoyEcho"
 	decoy.top_level = true
-	var mesh := CapsuleMesh.new()
-	mesh.radius = 0.34
-	mesh.height = 1.8
-	decoy.mesh = mesh
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Color(0.62, 0.92, 1.0, 0.34)
-	material.emission_enabled = true
-	material.emission = Color(0.2, 0.62, 1.0, 1.0)
-	material.emission_energy_multiplier = 0.35
-	decoy.material_override = material
 	scene_root.add_child(decoy)
-	decoy.global_position = global_position + global_transform.basis * local_offset + Vector3.UP * 0.9
-	var tween := decoy.create_tween()
-	tween.tween_interval(duration)
-	tween.tween_property(material, "albedo_color:a", 0.0, 0.35)
-	tween.tween_callback(decoy.queue_free)
+	decoy.configure(self, duration, local_offset, false, 45.0)
+	_card_feedback_to_owner("DECOY", Color(0.62, 0.92, 1.0, 1.0), 0.65)
 
 
 func _card_spawn_mist_clones(duration: float) -> void:
-	_card_spawn_decoy(duration, Vector3(1.4, 0.0, 0.6))
-	_card_spawn_decoy(duration, Vector3(-1.2, 0.0, -0.8))
+	_card_spawn_following_decoy(duration, Vector3(1.4, 0.0, 0.6))
+	_card_spawn_following_decoy(duration, Vector3(-1.2, 0.0, -0.8))
 	_card_feedback_to_owner("CLONES", Color(0.62, 0.92, 1.0, 1.0), 0.75)
+
+
+func _card_spawn_following_decoy(duration: float, local_offset: Vector3) -> void:
+	var scene_root := get_tree().get_current_scene() if get_tree() else null
+	if not scene_root:
+		scene_root = self
+	var decoy := CardDecoyTargetScript.new() as CardDecoyTarget
+	decoy.name = "CardMistClone"
+	decoy.top_level = true
+	scene_root.add_child(decoy)
+	decoy.configure(self, duration, local_offset, true, 30.0)
 
 
 func _card_portal_step() -> void:
@@ -1422,6 +2083,9 @@ func _card_clear_hunter_ammo() -> void:
 			if weapon.has_method("_sync_ammo_to_owner"):
 				weapon.call("_sync_ammo_to_owner")
 			player._card_feedback_to_owner("AMMO EMPTY", Color(1.0, 0.72, 0.25, 1.0), 0.9)
+		var turret := player.get_node_or_null("HunterAutoTurretSystem")
+		if turret and turret.has_method("drain_by_card"):
+			turret.call("drain_by_card", 8.0)
 
 
 func _card_refill_weapon(amount: int) -> void:
@@ -1461,6 +2125,34 @@ func _card_players_in_radius(radius: float) -> Array[Character]:
 	return result
 
 
+func _card_has_line_of_sight_to_player(player: Character, radius: float, half_angle_degrees: float) -> bool:
+	if not player or not is_instance_valid(player):
+		return false
+	var origin := global_position + Vector3.UP * 1.1
+	var target := player.global_position + Vector3.UP * 1.0
+	var to_target := target - origin
+	if to_target.length() > radius:
+		return false
+	var forward := -global_transform.basis.z
+	if _spring_arm_offset:
+		forward = -_spring_arm_offset.global_transform.basis.z
+	forward.y = 0.0
+	var flat_to_target := to_target
+	flat_to_target.y = 0.0
+	if forward.length_squared() > 0.0001 and flat_to_target.length_squared() > 0.0001:
+		var angle := rad_to_deg(acos(clampf(forward.normalized().dot(flat_to_target.normalized()), -1.0, 1.0)))
+		if angle > half_angle_degrees:
+			return false
+	if not get_world_3d():
+		return true
+	var query := PhysicsRayQueryParameters3D.create(origin, target, 0xFFFFFFFF)
+	query.exclude = [get_rid(), player.get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return hit.is_empty()
+
+
 func _card_grounded_position(candidate: Vector3) -> Vector3:
 	if not get_world_3d():
 		return candidate
@@ -1483,10 +2175,141 @@ func _client_card_feedback(text: String, color: Color, duration: float) -> void:
 
 func _card_feedback_to_owner(text: String, color: Color, duration: float = 0.75) -> void:
 	var owner_id := get_multiplayer_authority()
-	if multiplayer.is_server() and multiplayer.multiplayer_peer and owner_id != 1:
+	if multiplayer == null:
+		return
+	if _card_can_rpc_to_owner(owner_id):
 		_client_card_feedback.rpc_id(owner_id, text, color, duration)
 	elif owner_id == multiplayer.get_unique_id() or not multiplayer.multiplayer_peer:
 		_client_card_feedback(text, color, duration)
+
+
+func _card_apply_screen_impairment(label: String, duration: float) -> void:
+	var owner_id := get_multiplayer_authority()
+	if _card_can_rpc_to_owner(owner_id):
+		_client_card_screen_impairment.rpc_id(owner_id, label, duration)
+	elif owner_id == multiplayer.get_unique_id() or not multiplayer.multiplayer_peer:
+		_client_card_screen_impairment(label, duration)
+
+
+func _card_can_rpc_to_owner(owner_id: int) -> bool:
+	if owner_id == multiplayer.get_unique_id():
+		return false
+	if not multiplayer.is_server() or not multiplayer.multiplayer_peer:
+		return false
+	if multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		return false
+	return multiplayer.get_peers().has(owner_id)
+
+
+@rpc("authority", "call_local", "reliable")
+func _client_card_screen_impairment(label: String, duration: float) -> void:
+	if not is_multiplayer_authority() and multiplayer.multiplayer_peer:
+		return
+	_card_screen_impairment_remaining = maxf(_card_screen_impairment_remaining, duration)
+	_ensure_card_screen_impairment_layer()
+	if not _card_screen_impairment_rect:
+		return
+	var mode := label.to_upper()
+	var tint := Color(1.0, 1.0, 1.0, 0.82)
+	var blur_strength := 0.0
+	var noise_strength := 0.0
+	if mode == "PAINT":
+		tint = Color(0.86, 0.68, 1.0, 0.42)
+		blur_strength = 4.5
+		noise_strength = 0.16
+	elif mode == "JAMMED":
+		tint = Color(0.48, 0.78, 1.0, 0.34)
+		blur_strength = 2.0
+		noise_strength = 0.22
+	else:
+		tint = Color(1.0, 1.0, 1.0, 0.86)
+		blur_strength = 0.75
+		noise_strength = 0.04
+	_card_screen_impairment_rect.visible = true
+	_card_screen_impairment_rect.modulate = Color.WHITE
+	if _card_screen_impairment_material:
+		_card_screen_impairment_material.set_shader_parameter("tint", tint)
+		_card_screen_impairment_material.set_shader_parameter("blur_strength", blur_strength)
+		_card_screen_impairment_material.set_shader_parameter("noise_strength", noise_strength)
+		_card_screen_impairment_material.set_shader_parameter("duration_alpha", 1.0)
+	if _card_screen_impairment_label:
+		_card_screen_impairment_label.text = mode
+		_card_screen_impairment_label.visible = true
+	if _card_screen_impairment_tween and _card_screen_impairment_tween.is_valid():
+		_card_screen_impairment_tween.kill()
+	_card_screen_impairment_tween = create_tween()
+	_card_screen_impairment_tween.tween_interval(maxf(duration - 0.45, 0.08))
+	if _card_screen_impairment_material:
+		_card_screen_impairment_tween.tween_property(_card_screen_impairment_material, "shader_parameter/duration_alpha", 0.0, 0.45)
+	else:
+		_card_screen_impairment_tween.tween_property(_card_screen_impairment_rect, "modulate:a", 0.0, 0.45)
+	_card_screen_impairment_tween.tween_callback(_hide_card_screen_impairment)
+
+
+func _ensure_card_screen_impairment_layer() -> void:
+	if _card_screen_impairment_layer and is_instance_valid(_card_screen_impairment_layer):
+		return
+	_card_screen_impairment_layer = CanvasLayer.new()
+	_card_screen_impairment_layer.name = "CardScreenImpairmentLayer"
+	_card_screen_impairment_layer.layer = 96
+	add_child(_card_screen_impairment_layer)
+	_card_screen_impairment_rect = ColorRect.new()
+	_card_screen_impairment_rect.name = "CardScreenImpairment"
+	_card_screen_impairment_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_screen_impairment_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_card_screen_impairment_rect.visible = false
+	_card_screen_impairment_material = ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 0.75);
+uniform float blur_strength = 2.0;
+uniform float noise_strength = 0.08;
+uniform float duration_alpha = 1.0;
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void fragment() {
+	vec2 pixel = SCREEN_PIXEL_SIZE * blur_strength;
+	vec4 color = texture(screen_texture, SCREEN_UV) * 0.34;
+	color += texture(screen_texture, SCREEN_UV + vec2(pixel.x, 0.0)) * 0.14;
+	color += texture(screen_texture, SCREEN_UV - vec2(pixel.x, 0.0)) * 0.14;
+	color += texture(screen_texture, SCREEN_UV + vec2(0.0, pixel.y)) * 0.14;
+	color += texture(screen_texture, SCREEN_UV - vec2(0.0, pixel.y)) * 0.14;
+	color += texture(screen_texture, SCREEN_UV + vec2(pixel.x, pixel.y)) * 0.05;
+	color += texture(screen_texture, SCREEN_UV - vec2(pixel.x, pixel.y)) * 0.05;
+	float grain = (hash(UV * vec2(211.0, 163.0) + TIME * 13.0) - 0.5) * noise_strength;
+	COLOR = mix(color, tint, tint.a) + vec4(vec3(grain), 0.0);
+	COLOR.a = clamp(duration_alpha, 0.0, 1.0);
+}
+"""
+	_card_screen_impairment_material.shader = shader
+	_card_screen_impairment_rect.material = _card_screen_impairment_material
+	_card_screen_impairment_layer.add_child(_card_screen_impairment_rect)
+	_card_screen_impairment_label = Label.new()
+	_card_screen_impairment_label.name = "CardScreenImpairmentLabel"
+	_card_screen_impairment_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_screen_impairment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_card_screen_impairment_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_card_screen_impairment_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_card_screen_impairment_label.position = Vector2(-130.0, 72.0)
+	_card_screen_impairment_label.size = Vector2(260.0, 44.0)
+	_card_screen_impairment_label.add_theme_font_size_override("font_size", 28)
+	_card_screen_impairment_label.add_theme_color_override("font_color", Color(0.04, 0.05, 0.06, 0.76))
+	_card_screen_impairment_label.visible = false
+	_card_screen_impairment_layer.add_child(_card_screen_impairment_label)
+
+
+func _hide_card_screen_impairment() -> void:
+	_card_screen_impairment_remaining = 0.0
+	if _card_screen_impairment_rect and is_instance_valid(_card_screen_impairment_rect):
+		_card_screen_impairment_rect.visible = false
+	if _card_screen_impairment_label and is_instance_valid(_card_screen_impairment_label):
+		_card_screen_impairment_label.visible = false
 
 @rpc("any_peer", "reliable")
 func change_nick(new_nick: String):
@@ -2747,11 +3570,16 @@ func _sanitize_camouflage_brush_radius(radius: float) -> float:
 func set_character_model(model_id: String) -> void:
 	var normalized := _resolve_character_model_for_role(model_id)
 	character_model_id = normalized
+	if CharacterSkinCatalog.is_party_monster(normalized):
+		_party_monster_accessory_loadout = PartyMonsterAccessoryCatalogScript.sanitize_loadout(_party_monster_accessory_loadout, normalized)
+	else:
+		_party_monster_accessory_loadout.clear()
 	_remote_visual_position_initialized = false
 	if not _body:
 		return
 
 	if normalized == CharacterSkinCatalog.GODOT_ROBOT_ID:
+		_restore_skin_performance_camera_now()
 		if _active_skin_node and is_instance_valid(_active_skin_node):
 			if _active_skin_node.get_parent():
 				_active_skin_node.get_parent().remove_child(_active_skin_node)
@@ -2771,6 +3599,7 @@ func set_character_model(model_id: String) -> void:
 		return
 
 	if _active_skin_node and is_instance_valid(_active_skin_node):
+		_restore_skin_performance_camera_now()
 		if _active_skin_node.get_parent():
 			_active_skin_node.get_parent().remove_child(_active_skin_node)
 		_active_skin_node.queue_free()
@@ -2780,12 +3609,16 @@ func set_character_model(model_id: String) -> void:
 		return
 
 	_active_skin_node.name = "CustomCharacterSkin"
+	if _active_skin_node.has_method("set_character_model_id"):
+		_active_skin_node.call("set_character_model_id", normalized)
+	_apply_party_monster_accessories_to_active_skin()
 	var model := CharacterSkinCatalog.get_model(normalized)
 	_active_skin_node.scale = model.get("scale", Vector3.ONE)
 	_active_skin_node.position = model.get("offset", Vector3.ZERO)
 	if _robot_visual_root:
 		_robot_visual_root.visible = false
 	_body.add_child(_active_skin_node)
+	_connect_active_skin_animation_signals()
 	_play_skin_action("idle")
 	if is_stalker():
 		_refresh_stalker_visibility_view(true)
@@ -2799,6 +3632,83 @@ func _resolve_character_model_for_role(model_id: String) -> String:
 	if role != Network.Role.HUNTER and normalized == CharacterSkinCatalog.HUNTER_SHOOTER_ID:
 		return CharacterSkinCatalog.BASIC_HUMANOID_ID
 	return normalized
+
+
+func set_party_monster_accessory_loadout(loadout: Dictionary) -> void:
+	if not CharacterSkinCatalog.is_party_monster(character_model_id):
+		_party_monster_accessory_loadout.clear()
+		_apply_party_monster_accessories_to_active_skin()
+		return
+	_party_monster_accessory_loadout = PartyMonsterAccessoryCatalogScript.sanitize_loadout(loadout, character_model_id)
+	_apply_party_monster_accessories_to_active_skin()
+	if _party_monster_bounty_marked:
+		_refresh_party_monster_bounty_visuals()
+
+
+func get_party_monster_accessory_loadout() -> Dictionary:
+	return _party_monster_accessory_loadout.duplicate(true)
+
+
+func has_party_monster_accessory(accessory_id: String) -> bool:
+	if not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return false
+	return PartyMonsterAccessoryCatalogScript.loadout_has_accessory(_party_monster_accessory_loadout, accessory_id)
+
+
+func _apply_party_monster_accessories_to_active_skin() -> void:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	if not _active_skin_node.has_method("set_accessory_loadout"):
+		return
+	_active_skin_node.call("set_accessory_loadout", _party_monster_accessory_loadout)
+
+
+func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: String = "") -> void:
+	var label := PartyMonsterAccessoryCatalogScript.accessory_label(accessory_id)
+	var replaced_label := PartyMonsterAccessoryCatalogScript.accessory_label(replaced_id) if not replaced_id.is_empty() else ""
+	var message := "EQUIPPED %s" % label.to_upper()
+	if not replaced_label.is_empty() and replaced_label != label:
+		message = "SWAPPED %s" % label.to_upper()
+	_card_feedback_to_owner(message, Color(1.0, 0.86, 0.25, 1.0), 1.0)
+
+
+func set_party_monster_bounty_marked(marked: bool, accessory_ids: Array = [], label: String = "") -> void:
+	var next_marked := marked and _is_prop_role() and bool(_is_network_marked_alive())
+	var was_marked := _party_monster_bounty_marked
+	_party_monster_bounty_marked = next_marked
+	_party_monster_bounty_accessory_ids = accessory_ids.duplicate()
+	_party_monster_bounty_label = label
+	if _party_monster_bounty_label.is_empty():
+		_party_monster_bounty_label = PartyMonsterAccessoryCatalogScript.bounty_label(_party_monster_bounty_accessory_ids)
+	if not _party_monster_bounty_marked:
+		_clear_party_monster_bounty_visuals()
+		if was_marked:
+			_card_feedback_to_owner("MARK CLEARED", Color(0.42, 1.0, 0.72, 1.0), 0.9)
+	else:
+		_ensure_party_monster_bounty_visuals()
+		_refresh_party_monster_bounty_visuals()
+		if not was_marked:
+			var escape_hint := PartyMonsterAccessoryCatalogScript.bounty_escape_hint(_party_monster_accessory_loadout, _party_monster_bounty_accessory_ids)
+			var feedback := "BOUNTY MARKED"
+			if not escape_hint.is_empty():
+				feedback = "MARKED: SWAP " + escape_hint.to_upper()
+			_card_feedback_to_owner(feedback, Color(1.0, 0.30, 0.95, 1.0), 1.25)
+	_refresh_nickname_visibility()
+	if is_stalker():
+		_refresh_stalker_visibility_view(true)
+
+
+func is_party_monster_bounty_marked() -> bool:
+	return _party_monster_bounty_marked
+
+
+func get_party_monster_bounty_outline_count() -> int:
+	var count := 0
+	for outline_id in _party_monster_bounty_outline_nodes.keys():
+		var outline = _party_monster_bounty_outline_nodes[outline_id]
+		if outline and is_instance_valid(outline):
+			count += 1
+	return count
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -2865,6 +3775,9 @@ func is_hunter_prop_sense_target() -> bool:
 
 
 func set_hunter_prop_sense_revealed(revealed: bool, intensity: float = 1.0, beep_interval: float = 1.0, visual_active: bool = true) -> void:
+	if revealed and _card_blocks_hunter_skill_effect():
+		_card_feedback_to_owner("IMMUNE", Color(0.62, 1.0, 0.74, 1.0), 0.55)
+		return
 	if revealed and (not is_hunter_prop_sense_target() or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node)):
 		revealed = false
 	if not revealed:
@@ -3090,7 +4003,7 @@ func _calculate_prop_disguise_bounds_in_body_space() -> AABB:
 
 
 func _find_prop_disguise_mesh_instances(node: Node, result: Array[MeshInstance3D]) -> void:
-	if node.name == "HunterPropSenseOutline":
+	if node.name == "HunterPropSenseOutline" or node.name == "PartyMonsterBountyOutline":
 		return
 	if node is MeshInstance3D:
 		result.append(node as MeshInstance3D)
@@ -3139,6 +4052,126 @@ func _clear_prop_disguise_node() -> void:
 	if _prop_disguise_node and is_instance_valid(_prop_disguise_node):
 		_prop_disguise_node.queue_free()
 	_prop_disguise_node = null
+
+
+func _process_party_monster_bounty_feedback(_delta: float) -> void:
+	if not _party_monster_bounty_marked:
+		return
+	if not _is_prop_role() or not _is_network_marked_alive():
+		_party_monster_bounty_marked = false
+		_clear_party_monster_bounty_visuals()
+		return
+	_ensure_party_monster_bounty_visuals()
+	_update_party_monster_bounty_feedback_transform()
+
+
+func _ensure_party_monster_bounty_visuals() -> void:
+	_clear_party_monster_bounty_outlines()
+	if not _party_monster_bounty_glow_light or not is_instance_valid(_party_monster_bounty_glow_light):
+		_party_monster_bounty_glow_light = OmniLight3D.new()
+		_party_monster_bounty_glow_light.name = "PartyMonsterBountyGlow"
+		_party_monster_bounty_glow_light.light_color = Color(1.0, 0.16, 0.92, 1.0)
+		_party_monster_bounty_glow_light.omni_range = PARTY_MONSTER_BOUNTY_GLOW_RANGE
+		_party_monster_bounty_glow_light.shadow_enabled = false
+		_party_monster_bounty_glow_light.top_level = true
+		add_child(_party_monster_bounty_glow_light)
+	_party_monster_bounty_glow_light.visible = true
+	_party_monster_bounty_glow_light.light_energy = 2.9
+	if not _party_monster_bounty_marker_label or not is_instance_valid(_party_monster_bounty_marker_label):
+		_party_monster_bounty_marker_label = Label3D.new()
+		_party_monster_bounty_marker_label.name = "PartyMonsterBountyMarker"
+		_party_monster_bounty_marker_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_party_monster_bounty_marker_label.modulate = Color(1.0, 0.92, 0.24, 1.0)
+		_party_monster_bounty_marker_label.outline_modulate = Color(0.55, 0.0, 0.42, 1.0)
+		_party_monster_bounty_marker_label.font_size = 34
+		_party_monster_bounty_marker_label.top_level = true
+		add_child(_party_monster_bounty_marker_label)
+	_party_monster_bounty_marker_label.visible = true
+	_party_monster_bounty_marker_label.text = "BOUNTY" if _party_monster_bounty_label.is_empty() else "BOUNTY: " + _party_monster_bounty_label
+
+
+func _refresh_party_monster_bounty_visuals() -> void:
+	if not _party_monster_bounty_marked:
+		_clear_party_monster_bounty_visuals()
+		return
+	_ensure_party_monster_bounty_visuals()
+	_update_party_monster_bounty_feedback_transform()
+
+
+func _clear_party_monster_bounty_outlines() -> void:
+	for outline_id in _party_monster_bounty_outline_nodes.keys():
+		var outline = _party_monster_bounty_outline_nodes[outline_id]
+		if outline and is_instance_valid(outline):
+			outline.queue_free()
+	_party_monster_bounty_outline_nodes.clear()
+
+
+func _get_party_monster_bounty_meshes() -> Array[MeshInstance3D]:
+	var raw_meshes: Array[MeshInstance3D] = _get_stalker_visual_meshes(true)
+	var result: Array[MeshInstance3D] = []
+	for mesh_instance in raw_meshes:
+		if not mesh_instance or not is_instance_valid(mesh_instance):
+			continue
+		if _is_feedback_outline_mesh(mesh_instance):
+			continue
+		result.append(mesh_instance)
+	return result
+
+
+func _is_feedback_outline_mesh(mesh_instance: MeshInstance3D) -> bool:
+	var node: Node = mesh_instance
+	while node:
+		var node_name := String(node.name)
+		if node_name == "HunterPropSenseOutline" or node_name == "PartyMonsterBountyOutline":
+			return true
+		node = node.get_parent()
+	return false
+
+
+func _update_party_monster_bounty_feedback_transform() -> void:
+	var anchor := _get_party_monster_bounty_position()
+	if _party_monster_bounty_glow_light and is_instance_valid(_party_monster_bounty_glow_light):
+		if _party_monster_bounty_glow_light.is_inside_tree():
+			_party_monster_bounty_glow_light.global_position = anchor
+		else:
+			_party_monster_bounty_glow_light.position = anchor
+		_party_monster_bounty_glow_light.light_energy = 2.4 + sin(Time.get_ticks_msec() / 1000.0 * 5.0) * 0.55
+	if _party_monster_bounty_marker_label and is_instance_valid(_party_monster_bounty_marker_label):
+		var label_position := _get_party_monster_bounty_label_position(anchor)
+		if _party_monster_bounty_marker_label.is_inside_tree():
+			_party_monster_bounty_marker_label.global_position = label_position
+		else:
+			_party_monster_bounty_marker_label.position = label_position
+
+
+func _get_party_monster_bounty_position() -> Vector3:
+	if _is_prop_disguised and _prop_disguise_node and is_instance_valid(_prop_disguise_node):
+		return get_hunter_prop_sense_position()
+	var meshes: Array[MeshInstance3D] = _get_party_monster_bounty_meshes()
+	var bounds := _calculate_meshes_world_bounds(meshes)
+	if bounds.size != Vector3.ZERO:
+		return bounds.position + bounds.size * 0.5
+	return _get_party_monster_bounty_base_position() + Vector3.UP * 1.35
+
+
+func _get_party_monster_bounty_label_position(anchor: Vector3) -> Vector3:
+	var base_position := _get_party_monster_bounty_base_position()
+	var label_y := maxf(anchor.y + 1.1, base_position.y + PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT)
+	return Vector3(base_position.x, label_y, base_position.z)
+
+
+func _get_party_monster_bounty_base_position() -> Vector3:
+	return global_position if is_inside_tree() else position
+
+
+func _clear_party_monster_bounty_visuals() -> void:
+	_clear_party_monster_bounty_outlines()
+	if _party_monster_bounty_glow_light and is_instance_valid(_party_monster_bounty_glow_light):
+		_party_monster_bounty_glow_light.queue_free()
+	_party_monster_bounty_glow_light = null
+	if _party_monster_bounty_marker_label and is_instance_valid(_party_monster_bounty_marker_label):
+		_party_monster_bounty_marker_label.queue_free()
+	_party_monster_bounty_marker_label = null
 
 
 func _ensure_hunter_prop_sense_feedback() -> void:
@@ -3830,57 +4863,397 @@ func _update_movement_audio(delta: float, was_on_floor: bool) -> void:
 
 	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
 	if is_on_floor() and horizontal_speed > FOOTSTEP_MIN_SPEED:
+		var sprinting := _is_sprint_footstep(horizontal_speed)
+		if sprinting != _last_footstep_sprinting:
+			_footstep_timer = 0.0
+			_last_footstep_sprinting = sprinting
 		_footstep_timer -= delta
 		if _footstep_timer <= 0.0:
-			_play_step_audio()
-			_footstep_timer = FOOTSTEP_SPRINT_INTERVAL if Input.is_action_pressed("shift") else FOOTSTEP_WALK_INTERVAL
+			if _footstep_is_audible_for_mode(sprinting):
+				_play_step_audio(sprinting)
+			_footstep_timer = _footstep_interval_for_mode(sprinting)
 	else:
 		_footstep_timer = 0.0
+		_last_footstep_sprinting = false
 
 
-func _play_step_audio() -> void:
+func _is_sprint_footstep(horizontal_speed: float) -> bool:
+	return Input.is_action_pressed("shift") and horizontal_speed > WALK_SPEED * 0.75
+
+
+func _footstep_interval_for_mode(sprinting: bool) -> float:
+	return FOOTSTEP_SPRINT_INTERVAL if sprinting else FOOTSTEP_WALK_INTERVAL
+
+
+func _footstep_volume_for_mode(sprinting: bool) -> float:
+	return FOOTSTEP_SPRINT_VOLUME_DB if sprinting else FOOTSTEP_WALK_VOLUME_DB
+
+
+func _footstep_is_audible_for_mode(sprinting: bool) -> bool:
+	return true if sprinting else FOOTSTEP_WALK_AUDIBLE
+
+
+func _play_step_audio(sprinting: bool = false) -> void:
+	if not _footstep_is_audible_for_mode(sprinting):
+		return
 	if _card_silent_steps_remaining > 0.0:
 		return
 	if not _step_audio or _step_sounds.is_empty():
 		return
 	_step_audio.stream = _step_sounds.pick_random()
-	_play_audio(_step_audio)
+	_step_audio.volume_db = _footstep_volume_for_mode(sprinting)
+	var pitch_min := FOOTSTEP_SPRINT_PITCH_MIN if sprinting else FOOTSTEP_WALK_PITCH_MIN
+	var pitch_max := FOOTSTEP_SPRINT_PITCH_MAX if sprinting else FOOTSTEP_WALK_PITCH_MAX
+	_play_audio(_step_audio, pitch_min, pitch_max)
 
 
-func _play_audio(player: AudioStreamPlayer3D) -> void:
+func _play_audio(player: AudioStreamPlayer3D, pitch_min: float = 0.94, pitch_max: float = 1.06) -> void:
 	if not player or not player.stream:
 		return
-	player.pitch_scale = randf_range(0.94, 1.06)
+	player.pitch_scale = randf_range(pitch_min, pitch_max)
 	player.play()
 
 
+func play_skin_action(action: String) -> void:
+	_play_skin_action(action)
+
+
+func request_skin_performance_action(action: String) -> bool:
+	var normalized := action.strip_edges().to_lower()
+	if not SKIN_PERFORMANCE_ACTIONS.has(normalized):
+		return false
+	if _skin_performance_camera_active:
+		return true
+	if match_intro_locked or prep_phase_locked or _skin_performance_input_block_remaining > 0.0 or _is_dead:
+		_reset_skin_performance_wheel_bar()
+		return true
+	if _is_prop_disguised or not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return true
+	if _active_skin_node.has_method("has_action") and not bool(_active_skin_node.call("has_action", normalized)):
+		return true
+	_push_skin_performance_wheel_bar(normalized)
+	return true
+
+
+func _push_skin_performance_wheel_bar(action: String) -> void:
+	_ensure_skin_performance_wheel_bar()
+	_skin_performance_wheel_bar_idle_remaining = SKIN_PERFORMANCE_WHEEL_BAR_IDLE_SECONDS
+	if action == "dance":
+		_skin_performance_wheel_dance_charge = clampf(_skin_performance_wheel_dance_charge + SKIN_PERFORMANCE_WHEEL_CHARGE_STEP, 0.0, 1.0)
+		_skin_performance_wheel_victory_charge = maxf(0.0, _skin_performance_wheel_victory_charge - SKIN_PERFORMANCE_WHEEL_OPPOSITE_DRAIN)
+	elif action == "victory":
+		_skin_performance_wheel_victory_charge = clampf(_skin_performance_wheel_victory_charge + SKIN_PERFORMANCE_WHEEL_CHARGE_STEP, 0.0, 1.0)
+		_skin_performance_wheel_dance_charge = maxf(0.0, _skin_performance_wheel_dance_charge - SKIN_PERFORMANCE_WHEEL_OPPOSITE_DRAIN)
+	_refresh_skin_performance_wheel_bar_visuals()
+	if _skin_performance_wheel_dance_charge >= 1.0 or _skin_performance_wheel_victory_charge >= 1.0:
+		var selected_action := "dance" if _skin_performance_wheel_dance_charge >= _skin_performance_wheel_victory_charge else "victory"
+		_reset_skin_performance_wheel_bar()
+		_play_skin_action(selected_action)
+
+
+func _process_skin_performance_wheel_bar(delta: float) -> void:
+	if match_intro_locked or prep_phase_locked or _is_dead or _skin_performance_camera_active:
+		_reset_skin_performance_wheel_bar()
+		return
+	if not _skin_performance_wheel_bar_root or not is_instance_valid(_skin_performance_wheel_bar_root):
+		return
+	_face_skin_performance_wheel_bar_to_camera()
+	if _skin_performance_wheel_bar_idle_remaining > 0.0:
+		_skin_performance_wheel_bar_idle_remaining = maxf(0.0, _skin_performance_wheel_bar_idle_remaining - delta)
+		return
+	_skin_performance_wheel_dance_charge = maxf(0.0, _skin_performance_wheel_dance_charge - SKIN_PERFORMANCE_WHEEL_DECAY_PER_SECOND * delta)
+	_skin_performance_wheel_victory_charge = maxf(0.0, _skin_performance_wheel_victory_charge - SKIN_PERFORMANCE_WHEEL_DECAY_PER_SECOND * delta)
+	_refresh_skin_performance_wheel_bar_visuals()
+	if _skin_performance_wheel_dance_charge <= 0.0 and _skin_performance_wheel_victory_charge <= 0.0:
+		_reset_skin_performance_wheel_bar()
+
+
+func _ensure_skin_performance_wheel_bar() -> void:
+	if _skin_performance_wheel_bar_root and is_instance_valid(_skin_performance_wheel_bar_root):
+		return
+	var root := Node3D.new()
+	root.name = "SkinPerformanceWheelBar"
+	root.position = Vector3(0.86, 1.48, 0.0)
+	add_child(root)
+	_skin_performance_wheel_bar_root = root
+	root.add_child(_make_skin_performance_wheel_bar_piece("DanceBarBack", Color(0.03, 0.04, 0.06, 0.58), Vector3(0.0, 0.24, 0.0), Vector3(0.12, 0.42, 0.022)))
+	root.add_child(_make_skin_performance_wheel_bar_piece("VictoryBarBack", Color(0.03, 0.04, 0.06, 0.58), Vector3(0.0, -0.24, 0.0), Vector3(0.12, 0.42, 0.022)))
+	root.add_child(_make_skin_performance_wheel_bar_piece("WheelBarSplit", Color(1.0, 1.0, 1.0, 0.42), Vector3.ZERO, Vector3(0.16, 0.025, 0.03)))
+	_skin_performance_wheel_dance_fill = _make_skin_performance_wheel_bar_piece("DanceBarFill", Color(0.18, 0.78, 1.0, 0.92), Vector3(0.0, 0.05, 0.018), Vector3(0.075, SKIN_PERFORMANCE_WHEEL_BAR_SEGMENT_HEIGHT, 0.028))
+	_skin_performance_wheel_victory_fill = _make_skin_performance_wheel_bar_piece("VictoryBarFill", Color(1.0, 0.42, 0.88, 0.92), Vector3(0.0, -0.05, 0.018), Vector3(0.075, SKIN_PERFORMANCE_WHEEL_BAR_SEGMENT_HEIGHT, 0.028))
+	root.add_child(_skin_performance_wheel_dance_fill)
+	root.add_child(_skin_performance_wheel_victory_fill)
+	_refresh_skin_performance_wheel_bar_visuals()
+	_face_skin_performance_wheel_bar_to_camera()
+
+
+func _make_skin_performance_wheel_bar_piece(node_name: String, color: Color, local_position: Vector3, size: Vector3) -> MeshInstance3D:
+	var piece := MeshInstance3D.new()
+	piece.name = node_name
+	piece.position = local_position
+	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	piece.mesh = mesh
+	mesh.material = _make_skin_performance_wheel_bar_material(color)
+	return piece
+
+
+func _make_skin_performance_wheel_bar_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.no_depth_test = true
+	material.disable_fog = true
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = 0.35
+	return material
+
+
+func _refresh_skin_performance_wheel_bar_visuals() -> void:
+	var dance_amount := clampf(_skin_performance_wheel_dance_charge, 0.0, 1.0)
+	var victory_amount := clampf(_skin_performance_wheel_victory_charge, 0.0, 1.0)
+	var half_height := SKIN_PERFORMANCE_WHEEL_BAR_SEGMENT_HEIGHT * 0.5
+	if _skin_performance_wheel_dance_fill and is_instance_valid(_skin_performance_wheel_dance_fill):
+		_skin_performance_wheel_dance_fill.visible = dance_amount > 0.01
+		_skin_performance_wheel_dance_fill.scale = Vector3(1.0, maxf(dance_amount, 0.01), 1.0)
+		_skin_performance_wheel_dance_fill.position.y = 0.24 - half_height + half_height * dance_amount
+	if _skin_performance_wheel_victory_fill and is_instance_valid(_skin_performance_wheel_victory_fill):
+		_skin_performance_wheel_victory_fill.visible = victory_amount > 0.01
+		_skin_performance_wheel_victory_fill.scale = Vector3(1.0, maxf(victory_amount, 0.01), 1.0)
+		_skin_performance_wheel_victory_fill.position.y = -0.24 + half_height - half_height * victory_amount
+
+
+func _face_skin_performance_wheel_bar_to_camera() -> void:
+	if not _skin_performance_wheel_bar_root or not is_instance_valid(_skin_performance_wheel_bar_root):
+		return
+	var camera := get_viewport().get_camera_3d()
+	if camera:
+		_skin_performance_wheel_bar_root.global_basis = camera.global_basis
+
+
+func _reset_skin_performance_wheel_bar() -> void:
+	_skin_performance_wheel_dance_charge = 0.0
+	_skin_performance_wheel_victory_charge = 0.0
+	_skin_performance_wheel_bar_idle_remaining = 0.0
+	_skin_performance_wheel_dance_fill = null
+	_skin_performance_wheel_victory_fill = null
+	if _skin_performance_wheel_bar_root and is_instance_valid(_skin_performance_wheel_bar_root):
+		_skin_performance_wheel_bar_root.queue_free()
+	_skin_performance_wheel_bar_root = null
+
+
+func _connect_active_skin_animation_signals() -> void:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	if not _active_skin_node.has_signal("action_finished"):
+		return
+	var callback := Callable(self, "_on_active_skin_action_finished")
+	if not _active_skin_node.is_connected("action_finished", callback):
+		_active_skin_node.connect("action_finished", callback)
+
+
+func _play_skin_reaction(action: String) -> void:
+	if _is_prop_disguised:
+		return
+	_play_skin_action(action)
+
+
 func _play_skin_action(action: String) -> void:
-	if not _active_skin_node:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
 		return
 
-	match action:
+	var normalized := action.strip_edges().to_lower()
+	if _skin_performance_camera_active and not SKIN_PERFORMANCE_ACTIONS.has(normalized) and normalized != "idle":
+		_restore_skin_performance_camera_now()
+	var did_play := false
+	match normalized:
 		"move":
 			if _active_skin_node.has_method("set_walk_run_blending"):
 				_active_skin_node.call("set_walk_run_blending", 1.0 if Input.is_action_pressed("shift") else 0.25)
 			if _active_skin_node.has_method("move"):
 				_active_skin_node.call("move")
+				did_play = true
 			elif _active_skin_node.has_method("run"):
 				_active_skin_node.call("run")
-			elif _active_skin_node.has_method("idle"):
-				_active_skin_node.call("idle")
+				did_play = true
 		"jump":
 			if _active_skin_node.has_method("jump"):
 				_active_skin_node.call("jump")
-			elif _active_skin_node.has_method("idle"):
-				_active_skin_node.call("idle")
+				did_play = true
 		"fall":
 			if _active_skin_node.has_method("fall"):
 				_active_skin_node.call("fall")
-			elif _active_skin_node.has_method("idle"):
-				_active_skin_node.call("idle")
+				did_play = true
 		_:
-			if _active_skin_node.has_method("idle"):
-				_active_skin_node.call("idle")
+			if _active_skin_node.has_method(normalized):
+				_active_skin_node.call(normalized)
+				did_play = true
+			elif _active_skin_node.has_method("play_action"):
+				did_play = bool(_active_skin_node.call("play_action", normalized))
+
+	if not did_play and _active_skin_node.has_method("idle"):
+		_active_skin_node.call("idle")
+	if did_play and SKIN_PERFORMANCE_ACTIONS.has(normalized):
+		_begin_skin_performance_camera(normalized)
+
+
+func _get_skin_performance_front_camera_yaw() -> float:
+	var visual_yaw := 0.0
+	if _body and is_instance_valid(_body):
+		visual_yaw = _body.rotation.y
+	elif _active_skin_node and is_instance_valid(_active_skin_node):
+		visual_yaw = _active_skin_node.rotation.y
+	return wrapf(visual_yaw + SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET, -PI, PI)
+
+
+func _begin_skin_performance_camera(action: String) -> void:
+	if not is_multiplayer_authority() or not _spring_arm_offset:
+		return
+	if not _spring_arm_offset.has_method("capture_camera_rig_state") or not _spring_arm_offset.has_method("set_camera_rig_pose"):
+		return
+	_skin_performance_camera_token += 1
+	_reset_skin_performance_wheel_bar()
+	_skin_performance_camera_action = action
+	if not _skin_performance_camera_active:
+		_skin_performance_camera_state = _spring_arm_offset.call("capture_camera_rig_state") as Dictionary
+	_skin_performance_camera_active = true
+	if _spring_arm_offset.has_method("set_camera_input_locked"):
+		_spring_arm_offset.call("set_camera_input_locked", true)
+	var performance_yaw := _get_skin_performance_front_camera_yaw()
+	_spring_arm_offset.call("set_camera_rig_pose", performance_yaw, SKIN_PERFORMANCE_CAMERA_PITCH, SKIN_PERFORMANCE_CAMERA_SPRING_LENGTH, SKIN_PERFORMANCE_CAMERA_FOV, true)
+	_start_skin_performance_effects()
+	var animation_length := _get_active_skin_current_animation_length()
+	var fallback_delay := maxf(animation_length, 1.0) + SKIN_PERFORMANCE_CAMERA_RETURN_DELAY
+	_restore_skin_performance_camera_after_delay(_skin_performance_camera_token, fallback_delay)
+
+
+func _get_active_skin_current_animation_length() -> float:
+	if _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.has_method("get_current_animation_length"):
+		return float(_active_skin_node.call("get_current_animation_length"))
+	return 0.0
+
+
+func _on_active_skin_action_finished(action_name: String, _clip_name: String) -> void:
+	if not _skin_performance_camera_active:
+		return
+	if action_name != _skin_performance_camera_action:
+		return
+	_restore_skin_performance_camera_after_delay(_skin_performance_camera_token, SKIN_PERFORMANCE_CAMERA_RETURN_DELAY)
+
+
+func _restore_skin_performance_camera_now() -> void:
+	if not _skin_performance_camera_active:
+		_clear_skin_performance_effects()
+		return
+	_skin_performance_camera_token += 1
+	_clear_skin_performance_effects()
+	if _spring_arm_offset and _spring_arm_offset.has_method("apply_camera_rig_state"):
+		_spring_arm_offset.call("apply_camera_rig_state", _skin_performance_camera_state, true)
+		if _spring_arm_offset.has_method("set_camera_input_locked"):
+			_spring_arm_offset.call("set_camera_input_locked", false)
+	_skin_performance_camera_state = {}
+	_skin_performance_camera_action = ""
+	_skin_performance_camera_active = false
+
+
+func _restore_skin_performance_camera_after_delay(token: int, delay: float) -> void:
+	await get_tree().create_timer(maxf(delay, 0.0)).timeout
+	if token != _skin_performance_camera_token or not _skin_performance_camera_active:
+		return
+	if _spring_arm_offset and _spring_arm_offset.has_method("apply_camera_rig_state"):
+		_spring_arm_offset.call("apply_camera_rig_state", _skin_performance_camera_state, false)
+		if _spring_arm_offset.has_method("set_camera_input_locked"):
+			_spring_arm_offset.call("set_camera_input_locked", false)
+	_skin_performance_camera_state = {}
+	_skin_performance_camera_action = ""
+	_skin_performance_camera_active = false
+	_clear_skin_performance_effects()
+
+
+func _start_skin_performance_effects() -> void:
+	_clear_skin_performance_effects()
+	var root := Node3D.new()
+	root.name = "SkinPerformanceEffects"
+	root.position = Vector3(0.0, 2.2, 0.0)
+	add_child(root)
+	_skin_performance_effect_root = root
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	_skin_performance_effect_tween = tween
+
+	for i in range(SKIN_PERFORMANCE_CONFETTI_COUNT):
+		var paper := MeshInstance3D.new()
+		paper.name = "Confetti%02d" % i
+		paper.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(randf_range(0.035, 0.06), randf_range(0.006, 0.012), randf_range(0.075, 0.13))
+		paper.mesh = mesh
+		var material := StandardMaterial3D.new()
+		material.albedo_color = SKIN_PERFORMANCE_CONFETTI_COLORS[i % SKIN_PERFORMANCE_CONFETTI_COLORS.size()]
+		material.emission_enabled = true
+		material.emission = material.albedo_color
+		material.emission_energy_multiplier = 0.65
+		material.disable_receive_shadows = true
+		mesh.material = material
+		paper.position = Vector3(randf_range(-0.38, 0.38), randf_range(0.02, 0.48), randf_range(-0.38, 0.38))
+		paper.rotation_degrees = Vector3(randf_range(0.0, 180.0), randf_range(0.0, 180.0), randf_range(0.0, 180.0))
+		root.add_child(paper)
+		var duration := randf_range(1.0, 1.65)
+		var target_position := paper.position + Vector3(randf_range(-0.92, 0.92), randf_range(-1.05, -0.46), randf_range(-0.92, 0.92))
+		tween.tween_property(paper, "position", target_position, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tween.tween_property(paper, "rotation_degrees", paper.rotation_degrees + Vector3(randf_range(260.0, 720.0), randf_range(260.0, 720.0), randf_range(260.0, 720.0)), duration)
+		tween.tween_property(paper, "scale", Vector3.ONE * 0.18, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+	for i in range(SKIN_PERFORMANCE_DISCO_LIGHT_COUNT):
+		var angle := TAU * float(i) / float(SKIN_PERFORMANCE_DISCO_LIGHT_COUNT)
+		var color: Color = SKIN_PERFORMANCE_CONFETTI_COLORS[(i + 1) % SKIN_PERFORMANCE_CONFETTI_COLORS.size()]
+		var light := OmniLight3D.new()
+		light.name = "DiscoLight%02d" % i
+		light.light_color = color
+		light.light_energy = SKIN_PERFORMANCE_DISCO_LIGHT_ENERGY
+		light.light_specular = 0.9
+		light.omni_range = SKIN_PERFORMANCE_DISCO_LIGHT_RANGE
+		light.omni_attenuation = 0.35
+		light.shadow_enabled = false
+		light.position = Vector3(cos(angle) * 1.35, -0.95 + float(i % 2) * 0.28, sin(angle) * 1.35)
+		root.add_child(light)
+
+		var marker := MeshInstance3D.new()
+		marker.name = "DiscoLightMarker%02d" % i
+		marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var marker_mesh := SphereMesh.new()
+		marker_mesh.radius = 0.055
+		marker_mesh.height = 0.11
+		marker.mesh = marker_mesh
+		var marker_material := StandardMaterial3D.new()
+		marker_material.albedo_color = color
+		marker_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		marker_material.emission_enabled = true
+		marker_material.emission = color
+		marker_material.emission_energy_multiplier = 2.2
+		marker_material.disable_receive_shadows = true
+		marker.mesh.material = marker_material
+		marker.position = light.position
+		root.add_child(marker)
+
+		tween.tween_property(light, "light_energy", SKIN_PERFORMANCE_DISCO_LIGHT_ENERGY * 1.18, 0.42).set_delay(float(i) * 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(marker, "scale", Vector3.ONE * 1.22, 0.42).set_delay(float(i) * 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(light, "light_energy", SKIN_PERFORMANCE_DISCO_LIGHT_ENERGY, 0.42).set_delay(0.46 + float(i) * 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(marker, "scale", Vector3.ONE, 0.42).set_delay(0.46 + float(i) * 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _clear_skin_performance_effects() -> void:
+	if _skin_performance_effect_tween and _skin_performance_effect_tween.is_valid():
+		_skin_performance_effect_tween.kill()
+	_skin_performance_effect_tween = null
+	if _skin_performance_effect_root and is_instance_valid(_skin_performance_effect_root):
+		_skin_performance_effect_root.queue_free()
+	_skin_performance_effect_root = null
 
 
 func _animate_remote_skin_from_network_motion(delta: float) -> void:
@@ -4123,6 +5496,7 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 	if health <= 0.0:
 		_server_die(attacker_id)
 	else:
+		_play_skin_reaction("get_hit")
 		_sync_health.rpc(health)
 
 
@@ -4197,6 +5571,7 @@ func _broadcast_death(killer_id: int):
 	_is_dead = true
 	health = 0.0
 	print("[Combat] ", name, " was killed by ", killer_id)
+	_play_skin_reaction("die")
 	var death_position := global_position
 	if _is_prop_role():
 		_spawn_prop_death_smoke(_get_prop_death_effect_position())
@@ -4215,7 +5590,10 @@ func _sync_health(new_health: float):
 		health = 0.0
 		health_changed.emit(health)
 		return
+	var previous_health := health
 	health = new_health
+	if health > 0.0 and previous_health > health:
+		_play_skin_reaction("get_hit")
 	if health <= 0.0:
 		_is_dead = true
 	if health > 0.0 and _prop_death_visual_hidden:
@@ -4260,6 +5638,7 @@ func apply_network_alive_state(alive: bool) -> void:
 
 func _play_prop_death_vanish() -> void:
 	_clear_hunter_prop_sense_feedback()
+	_clear_party_monster_bounty_visuals()
 	if not _is_prop_disguised or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
 		_set_character_visual_visible(false)
 		_prop_death_visual_hidden = true
@@ -4284,6 +5663,7 @@ func _play_prop_death_vanish() -> void:
 
 func _clear_dead_prop_disguise_after_vanish() -> void:
 	_clear_hunter_prop_sense_feedback()
+	_clear_party_monster_bounty_visuals()
 	_clear_prop_disguise_node()
 	_set_character_visual_visible(false)
 	_is_prop_disguised = false

@@ -223,9 +223,12 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 			damage_dealt *= DAMAGE_FALLOFF_FACTOR
 
 		# 击中 Props 玩家
-		if hit_target and hit_target.is_in_group("players") and hit_target.has_method("take_damage"):
+		if hit_target and _is_damageable_weapon_target(hit_target):
 			hit_target.take_damage(damage_dealt, sender_id, is_headshot)
-			if hit_target.has_method("is_disguised") and hit_target.is_disguised():
+			if hit_target.has_method("is_card_decoy_target") and hit_target.is_card_decoy_target():
+				feedback_text = "DECOY HIT -%d" % int(round(damage_dealt))
+				feedback_color = Color(0.62, 0.92, 1.0, 1.0)
+			elif hit_target.has_method("is_disguised") and hit_target.is_disguised():
 				feedback_text = "DISGUISE HIT -%d" % int(round(damage_dealt))
 				feedback_color = Color(0.18, 1.0, 0.86, 1.0)
 			else:
@@ -239,6 +242,14 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 	_sync_ammo_to_owner()
 	_show_feedback_on_owner(feedback_text, feedback_color, 0.72)
 	weapon_fired.emit(hit_position, hit_target, is_headshot)
+
+
+func _is_damageable_weapon_target(target) -> bool:
+	if not target or not target.has_method("take_damage"):
+		return false
+	if target is Node and (target as Node).is_in_group("players"):
+		return true
+	return target.has_method("is_card_decoy_target") and target.is_card_decoy_target()
 
 
 func _server_scan(sender_id: int) -> void:

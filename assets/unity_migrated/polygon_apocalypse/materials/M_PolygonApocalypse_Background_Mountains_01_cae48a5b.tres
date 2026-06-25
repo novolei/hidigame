@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "PolygonApocalypse_Background_Mountains_01"
+albedo_color = Color(0.8588236, 0.67058825, 0.4901961, 1)
+metallic = 0
+roughness = 1
+cull_mode = 0
+shading_mode = 0
+disable_receive_shadows = true

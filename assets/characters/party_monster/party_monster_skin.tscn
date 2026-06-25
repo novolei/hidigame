@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bxhewvniye73c"]
+
+[ext_resource type="Script" uid="uid://b2guos6lnjevh" path="res://assets/characters/party_monster/party_monster_skin.gd" id="1_x8s6r"]
+
+[node name="PartyMonsterSkin" type="Node3D" unique_id=690286025]
+script = ExtResource("1_x8s6r")

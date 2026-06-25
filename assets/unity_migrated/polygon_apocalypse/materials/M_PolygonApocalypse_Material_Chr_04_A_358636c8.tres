@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "PolygonApocalypse_Material_Chr_04_A"
+albedo_color = Color(1, 1, 1, 1)
+metallic = 0
+roughness = 0.5
+cull_mode = 0
+transparency = 1

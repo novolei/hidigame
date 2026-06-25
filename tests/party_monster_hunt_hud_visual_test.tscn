@@ -1,0 +1,132 @@
+[gd_scene format=3 uid="uid://gxvribb55pt0"]
+
+[ext_resource type="Script" uid="uid://mrn28h83h7yu" path="res://tests/party_monster_hunt_hud_visual_test.gd" id="1_p5b1x"]
+[ext_resource type="Script" uid="uid://b8hqijhl78e03" path="res://scripts/party_monster_hunt_hud.gd" id="1_ywljr"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ywljr"]
+bg_color = Color(0.025, 0.035, 0.048, 0.78)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.22, 0.78, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.42)
+shadow_size = 10
+
+[node name="PartyMonsterHuntHUDVisualTest" type="Control" unique_id=1170140908]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 1280.0
+offset_bottom = 720.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_p5b1x")
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=2083052748]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.025, 0.035, 0.05, 1)
+
+[node name="MarkedHuntHUD" type="Control" parent="." unique_id=310053707]
+custom_minimum_size = Vector2(360, 218)
+anchors_preset = 0
+offset_left = 902.0
+offset_top = 118.0
+offset_right = 1262.0
+offset_bottom = 336.0
+mouse_filter = 2
+script = ExtResource("1_ywljr")
+qa_preview_state = true
+
+[node name="HuntPanel" type="PanelContainer" parent="MarkedHuntHUD" unique_id=915282103]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ywljr")
+
+[node name="ContentMargin" type="MarginContainer" parent="MarkedHuntHUD/HuntPanel" unique_id=1693792783]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="HuntStack" type="VBoxContainer" parent="MarkedHuntHUD/HuntPanel/ContentMargin" unique_id=806672135]
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="TitleLabel" type="Label" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=330288267]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.22, 0.78, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.75)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 21
+text = "YOU ARE MARKED"
+text_overrun_behavior = 3
+uppercase = true
+
+[node name="TargetLabel" type="Label" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=978793192]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.75)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 17
+text = "Target  Eyes 02 or Mouth 05"
+text_overrun_behavior = 3
+
+[node name="BountyTimerBar" type="ProgressBar" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=1545825911]
+modulate = Color(1, 0.22, 0.78, 1)
+custom_minimum_size = Vector2(318, 10)
+layout_mode = 2
+max_value = 78.0
+value = 31.0
+show_percentage = false
+
+[node name="MarkedCountLabel" type="Label" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=1738907694]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.84, 0.92, 0.92)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.75)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 15
+text = "Marked  2"
+text_overrun_behavior = 3
+
+[node name="LoadoutLabel" type="Label" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=1741861122]
+custom_minimum_size = Vector2(318, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.94, 0.42, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.75)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 15
+text = "Traits  Eyes 02 / Mouth 05 / Nose 01 / +2"
+autowrap_mode = 3
+text_overrun_behavior = 3
+
+[node name="EscapeLabel" type="Label" parent="MarkedHuntHUD/HuntPanel/ContentMargin/HuntStack" unique_id=2107812550]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.94, 0.32, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.75)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 16
+text = "Swap  Eyes or Mouth"
+text_overrun_behavior = 3
+uppercase = true

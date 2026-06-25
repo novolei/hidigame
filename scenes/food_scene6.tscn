@@ -1,8 +1,6 @@
 [gd_scene format=3 uid="uid://to18f2jyqcds"]
 
 [ext_resource type="Material" uid="uid://mwjxjakpho40" path="res://Low Poly Food Asset Pack/Kyle Fuji/Materials/M_marble.tres" id="1_l2ihc"]
-[ext_resource type="PackedScene" uid="uid://ckfla4klph51u" path="res://World Environments/night_sun.tscn" id="2_yu1lf"]
-[ext_resource type="PackedScene" uid="uid://b4xa8uasph3vh" path="res://World Environments/night_world_environment.tscn" id="3_aie65"]
 [ext_resource type="PackedScene" uid="uid://scy5a7eo76p4" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_cola.tscn" id="4_a1gj8"]
 [ext_resource type="PackedScene" uid="uid://jn6x4tfmlsv7" path="res://Low Poly Food Asset Pack/Kyle Fuji/Prefabs/Junk Food/soda_can_beer.tscn" id="5_l3u3u"]
 

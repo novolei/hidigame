@@ -21,6 +21,7 @@ const FOV_SMOOTHING: float = 10.0
 var _target_spring_length := 5.0
 var _target_fov := 68.0
 var _camera: Camera3D = null
+var _camera_input_locked := false
 
 
 func _ready() -> void:
@@ -47,6 +48,8 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority() or not _spring_arm:
 		return
+	if _camera_input_locked:
+		return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 
@@ -57,13 +60,63 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not button_event.pressed:
 			return
 		if button_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom_camera(-1.0)
+			_request_owner_skin_performance_action("dance")
 		elif button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom_camera(1.0)
+			_request_owner_skin_performance_action("victory")
+
+
+func _request_owner_skin_performance_action(action: String) -> bool:
+	var owner := get_parent()
+	if owner and owner.has_method("request_skin_performance_action"):
+		return bool(owner.call("request_skin_performance_action", action))
+	return false
 
 
 func _on_fov_changed(value: float) -> void:
+	if _camera_input_locked:
+		return
 	_target_fov = value
+
+
+func set_camera_input_locked(locked: bool) -> void:
+	_camera_input_locked = locked
+
+
+func capture_camera_rig_state() -> Dictionary:
+	return {
+		"offset_rotation": rotation,
+		"spring_rotation": _spring_arm.rotation if _spring_arm else Vector3.ZERO,
+		"spring_length": _spring_arm.spring_length if _spring_arm else _target_spring_length,
+		"target_spring_length": _target_spring_length,
+		"camera_fov": _camera.fov if _camera else _target_fov,
+		"target_fov": _target_fov,
+	}
+
+
+func apply_camera_rig_state(state: Dictionary, immediate: bool = false) -> void:
+	if state.is_empty():
+		return
+	rotation = state.get("offset_rotation", rotation)
+	if _spring_arm:
+		_spring_arm.rotation = state.get("spring_rotation", _spring_arm.rotation)
+		_target_spring_length = float(state.get("target_spring_length", state.get("spring_length", _target_spring_length)))
+		if immediate:
+			_spring_arm.spring_length = float(state.get("spring_length", _target_spring_length))
+	_target_fov = float(state.get("target_fov", GameSettings.camera_fov))
+	if immediate and _camera:
+		_camera.fov = float(state.get("camera_fov", _target_fov))
+
+
+func set_camera_rig_pose(yaw: float, pitch: float, spring_length: float, fov: float, immediate: bool = false) -> void:
+	rotation.y = yaw
+	if _spring_arm:
+		_spring_arm.rotation.x = clampf(pitch, PITCH_MIN, PITCH_MAX)
+		_target_spring_length = spring_length
+		if immediate:
+			_spring_arm.spring_length = spring_length
+	_target_fov = fov
+	if immediate and _camera:
+		_camera.fov = fov
 
 
 func orbit_camera(relative: Vector2) -> void:

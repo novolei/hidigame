@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dvkp2yynhrelc"]
+
+[ext_resource type="Script" uid="uid://dd4y8ope74shk" path="res://tests/hologram_flag_test.gd" id="1_hvae2"]
+
+[node name="HologramFlagTest" type="Node3D" unique_id=173605978]
+script = ExtResource("1_hvae2")

@@ -1,0 +1,95 @@
+[gd_scene format=3 uid="uid://cgducsoxntx0j"]
+
+[ext_resource type="PackedScene" uid="uid://bxhewvniye73c" path="res://assets/characters/party_monster/party_monster_skin.tscn" id="1_83cvq"]
+
+[sub_resource type="Environment" id="Environment_83cvq"]
+background_mode = 1
+background_color = Color(0.54, 0.72, 0.69, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.82, 0.94, 0.9, 1)
+ambient_light_energy = 0.78
+tonemap_mode = 2
+tonemap_exposure = 0.86
+tonemap_white = 2.05
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0.56, 0.76, 0.72, 1)
+fog_density = 0.022
+fog_depth_begin = 5.0
+fog_depth_end = 10.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_072cp"]
+albedo_color = Color(0.84, 0.8, 0.7, 1)
+roughness = 0.58
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_g2n11"]
+material = SubResource("StandardMaterial3D_072cp")
+top_radius = 2.55
+bottom_radius = 2.55
+height = 0.06
+radial_segments = 128
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f88ln"]
+albedo_color = Color(0.58, 0.53, 0.41, 1)
+metallic = 0.55
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.34, 0.29, 0.18, 1)
+emission_energy_multiplier = 0.02
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_x0lgn"]
+material = SubResource("StandardMaterial3D_f88ln")
+top_radius = 2.64
+bottom_radius = 2.64
+height = 0.035
+radial_segments = 128
+rings = 1
+
+[node name="PartyMonsterMaterialReferencePreview" type="Node3D" unique_id=526187444]
+
+[node name="SoftToyEnvironment" type="WorldEnvironment" parent="." unique_id=2045550453]
+environment = SubResource("Environment_83cvq")
+
+[node name="SoftToyStage" type="Node3D" parent="." unique_id=1183716243]
+
+[node name="WarmCreamFloor" type="MeshInstance3D" parent="SoftToyStage" unique_id=971863876]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, 0)
+mesh = SubResource("CylinderMesh_g2n11")
+
+[node name="MutedGoldRim" type="MeshInstance3D" parent="SoftToyStage" unique_id=1236545111]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.015, 0)
+mesh = SubResource("CylinderMesh_x0lgn")
+
+[node name="CreamYellowMonster" parent="SoftToyStage" unique_id=690286025 instance=ExtResource("1_83cvq")]
+transform = Transform3D(0.97007763, 0, 0.31519735, 0, 1.02, 0, -0.31519735, 0, 0.97007763, -1.06, 0, 0)
+
+[node name="WarmOrangeMonster" parent="SoftToyStage" unique_id=749482545 instance=ExtResource("1_83cvq")]
+transform = Transform3D(1.02, 0, 0, 0, 1.02, 0, 0, 0, 1.02, 0.12, 0, -0.18)
+character_model_id = "party_monster_c06"
+
+[node name="CoolGreenMonster" parent="SoftToyStage" unique_id=898263890 instance=ExtResource("1_83cvq")]
+transform = Transform3D(0.9804869, 0, -0.2811501, 0, 1.02, 0, 0.2811501, 0, 0.9804869, 1.16, 0, 0.02)
+character_model_id = "party_monster_c08"
+
+[node name="WarmSoftKey" type="DirectionalLight3D" parent="SoftToyStage" unique_id=1033800615]
+transform = Transform3D(0.8290376, 0.3741731, -0.4155613, 0, 0.7431448, 0.6691306, 0.5591929, -0.55473447, 0.616095, 0, 0, 0)
+light_color = Color(0.98, 0.86, 0.72, 1)
+light_energy = 1.16
+shadow_enabled = true
+
+[node name="MintRim" type="DirectionalLight3D" parent="SoftToyStage" unique_id=1997842865]
+transform = Transform3D(-0.80901706, -0.14219812, 0.57032543, 0, 0.9702957, 0.2419219, -0.5877852, 0.19571894, -0.7849858, 0, 0, 0)
+light_color = Color(0.52, 0.76, 0.8, 1)
+light_energy = 0.36
+
+[node name="CreamFill" type="OmniLight3D" parent="SoftToyStage" unique_id=408135948]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 2, 2.65)
+light_color = Color(0.88, 0.95, 0.88, 1)
+light_energy = 0.78
+omni_range = 5.8
+
+[node name="SoftToyCamera" type="Camera3D" parent="SoftToyStage" unique_id=90182559]
+transform = Transform3D(1, 0, 0, 0, 0.99767053, 0.06821679, 0, -0.06821679, 0.99767053, 0, 1.16, 5.85)
+current = true
+fov = 29.0

@@ -10,8 +10,9 @@ func _ready() -> void:
 func _run() -> void:
 	_reset_network_state()
 	await _test_ammo_availability_state_controls_visibility_and_collision()
+	await _test_ammo_pickup_uses_meshy_visuals_and_sized_collision()
 	await _test_map_prop_network_state_application()
-	await _test_level_applies_map_prop_state_by_name()
+	_test_level_applies_map_prop_state_by_name()
 	await _test_map_prop_authoritative_impact_wakes_body()
 	_shutdown_network_state()
 
@@ -80,6 +81,44 @@ func _test_ammo_availability_state_controls_visibility_and_collision() -> void:
 	_expect(not collision.disabled, "Respawned ammo should re-enable its collision shape")
 
 	ammo.queue_free()
+	await get_tree().process_frame
+
+
+func _test_ammo_pickup_uses_meshy_visuals_and_sized_collision() -> void:
+	var level: Node = preload("res://scripts/level.gd").new()
+	var container: Node3D = Node3D.new()
+	container.name = "AmmoPackContainer"
+	level.add_child(container)
+	var ammo_script: Script = preload("res://scripts/ammo_pickup.gd")
+	var probe_types: Array[int] = [AmmoPickup.AmmoType.SMALL, AmmoPickup.AmmoType.MEDIUM, AmmoPickup.AmmoType.LARGE]
+
+	for ammo_type_value: int in probe_types:
+		var ammo_name: String = "AmmoMeshyProbe_%d" % ammo_type_value
+		var data: Dictionary = {"name": ammo_name, "position": Vector3.ZERO, "type": ammo_type_value}
+		level.call("_spawn_one_ammo", container, ammo_script, data)
+		var ammo: Area3D = container.get_node_or_null(ammo_name) as Area3D
+		_expect(ammo != null, "Level ammo spawn should create an Area3D for type %d" % ammo_type_value)
+		if ammo == null:
+			continue
+		var visual: Node3D = ammo.get_node_or_null("AmmoBoxVisual") as Node3D
+		_expect(visual != null, "Ammo pickup should use the Meshy ammo box visual for type %d" % ammo_type_value)
+		if visual != null:
+			var expected_scale: Vector3 = AmmoPickup.visual_scale_for_type(ammo_type_value)
+			_expect(visual.scale.distance_to(expected_scale) < 0.001, "Ammo Meshy visual scale should match type sizing")
+			_expect(expected_scale.distance_to(Vector3(0.42, 0.42, 0.42)) < 0.001, "Ammo Meshy visual should stay close to the 0.8m pickup size")
+		var label: Label3D = ammo.get_node_or_null("Label") as Label3D
+		_expect(label != null, "Ammo pickup should keep its floating label")
+		if label != null:
+			_expect(absf(label.position.y - 0.8) < 0.001, "Ammo label height should match the 0.8m pickup size")
+		var collision: CollisionShape3D = ammo.get_node_or_null("PickupTrigger") as CollisionShape3D
+		_expect(collision != null, "Ammo pickup should create a named pickup trigger")
+		if collision != null and collision.shape is SphereShape3D:
+			var sphere: SphereShape3D = collision.shape as SphereShape3D
+			var expected_radius: float = AmmoPickup.collision_radius_for_type(ammo_type_value)
+			_expect(absf(sphere.radius - expected_radius) < 0.001, "Ammo trigger radius should match type sizing")
+			_expect(absf(sphere.radius - 0.8) < 0.001, "Ammo trigger radius should preserve the original pickup marker radius")
+
+	level.free()
 	await get_tree().process_frame
 
 

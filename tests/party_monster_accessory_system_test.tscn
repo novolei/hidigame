@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cijydd53kje54"]
+
+[ext_resource type="Script" uid="uid://dnn5x21extv7f" path="res://tests/party_monster_accessory_system_test.gd" id="1_tt6vk"]
+
+[node name="PartyMonsterAccessorySystemTest" type="Node3D" unique_id=1561424347]
+script = ExtResource("1_tt6vk")

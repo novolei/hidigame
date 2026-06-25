@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://bvwb4r4k2odkc"]
+
+[ext_resource type="PackedScene" uid="uid://4g1bbb11lcjk" path="res://scenes/effects/hologram_flag.tscn" id="1_415kk"]
+
+[sub_resource type="Environment" id="Environment_hepo0"]
+background_mode = 1
+background_color = Color(0.015, 0.018, 0.022, 1)
+ambient_light_energy = 0.45
+glow_enabled = true
+glow_intensity = 0.9
+glow_strength = 1.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_5dc7a"]
+albedo_color = Color(0.045, 0.055, 0.065, 1)
+roughness = 0.78
+
+[sub_resource type="BoxMesh" id="BoxMesh_uoauw"]
+material = SubResource("StandardMaterial3D_5dc7a")
+size = Vector3(3.2, 0.035, 3.2)
+
+[node name="HologramFlagPreview" type="Node3D" unique_id=1085690657]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=136180124]
+environment = SubResource("Environment_hepo0")
+
+[node name="PreviewFloor" type="MeshInstance3D" parent="." unique_id=1890262794]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
+mesh = SubResource("BoxMesh_uoauw")
+
+[node name="HologramFlagPreviewInstance" parent="." unique_id=2048405609 instance=ExtResource("1_415kk")]
+owner_peer_id = 1
+character_model_id = "party_monster_c01"
+skin_color = 2
+
+[node name="PreviewKeyLight" type="DirectionalLight3D" parent="." unique_id=623803972]
+transform = Transform3D(0.81915206, -0.46984634, 0.32898995, 0, 0.57357645, 0.81915206, -0.57357645, -0.6710101, 0.46984634, 0, 0, 0)
+light_energy = 0.7
+
+[node name="PreviewCamera" type="Camera3D" parent="." unique_id=1821060354]
+transform = Transform3D(0.87621593, -0.06895677, 0.4769598, 0, 0.98971, 0.14308795, -0.48191875, -0.12537594, 0.86719966, 1.1, 0.75, 2)
+current = true
+fov = 36.0

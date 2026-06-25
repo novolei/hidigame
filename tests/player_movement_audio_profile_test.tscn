@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c2r1a5sx5chi1"]
+
+[ext_resource type="Script" uid="uid://cl7dbqg48vks8" path="res://tests/player_movement_audio_profile_test.gd" id="1_5jco2"]
+
+[node name="PlayerMovementAudioProfileTest" type="Node" unique_id=151425531]
+script = ExtResource("1_5jco2")

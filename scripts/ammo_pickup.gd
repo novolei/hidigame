@@ -44,6 +44,31 @@ const AMMO_LABELS := {
 const PICKUP_RANGE: float = 1.5
 const RESPAWN_TIME: float = 30.0
 
+const AMMO_VISUAL_SCENES := {
+	AmmoType.SMALL: "res://assets/pickups/ammo_boxes/small_ammo_box_30.glb",
+	AmmoType.MEDIUM: "res://assets/pickups/ammo_boxes/medium_ammo_crate_60.glb",
+	AmmoType.LARGE: "res://assets/pickups/ammo_boxes/large_ammo_supply_box_120.glb",
+	AmmoType.SPECIAL: "res://assets/pickups/ammo_boxes/special_ammo_cache.glb",
+}
+const AMMO_VISUAL_SCALES := {
+	AmmoType.SMALL: Vector3(0.42, 0.42, 0.42),
+	AmmoType.MEDIUM: Vector3(0.42, 0.42, 0.42),
+	AmmoType.LARGE: Vector3(0.42, 0.42, 0.42),
+	AmmoType.SPECIAL: Vector3(0.42, 0.42, 0.42),
+}
+const AMMO_COLLISION_RADII := {
+	AmmoType.SMALL: 0.8,
+	AmmoType.MEDIUM: 0.8,
+	AmmoType.LARGE: 0.8,
+	AmmoType.SPECIAL: 0.8,
+}
+const AMMO_LABEL_HEIGHTS := {
+	AmmoType.SMALL: 0.8,
+	AmmoType.MEDIUM: 0.8,
+	AmmoType.LARGE: 0.8,
+	AmmoType.SPECIAL: 0.8,
+}
+
 # -----------------------------------------------------------------------------
 # 状态
 # -----------------------------------------------------------------------------
@@ -52,8 +77,27 @@ var is_available: bool = true  # 是否可被拾取
 var respawn_timer: float = 0.0
 
 # 视觉节点
-@onready var mesh_instance: MeshInstance3D = $Mesh
-@onready var label_instance: Label3D = $Label
+@onready var mesh_instance: MeshInstance3D = get_node_or_null("Mesh") as MeshInstance3D
+@onready var label_instance: Label3D = get_node_or_null("Label") as Label3D
+
+
+static func visual_scene_path_for_type(type: int) -> String:
+	return str(AMMO_VISUAL_SCENES.get(type, AMMO_VISUAL_SCENES[AmmoType.SMALL]))
+
+
+static func visual_scale_for_type(type: int) -> Vector3:
+	var scale_value: Variant = AMMO_VISUAL_SCALES.get(type, AMMO_VISUAL_SCALES[AmmoType.SMALL])
+	if scale_value is Vector3:
+		return scale_value as Vector3
+	return AMMO_VISUAL_SCALES[AmmoType.SMALL] as Vector3
+
+
+static func collision_radius_for_type(type: int) -> float:
+	return float(AMMO_COLLISION_RADII.get(type, AMMO_COLLISION_RADII[AmmoType.SMALL]))
+
+
+static func label_height_for_type(type: int) -> float:
+	return float(AMMO_LABEL_HEIGHTS.get(type, AMMO_LABEL_HEIGHTS[AmmoType.SMALL]))
 
 
 # =============================================================================

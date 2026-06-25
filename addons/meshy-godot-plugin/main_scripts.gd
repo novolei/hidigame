@@ -7,18 +7,10 @@ var peerTCP: StreamPeerTCP
 var server_port = 5325
 var editor_interface: EditorInterface
 
-# --- Download / import progress toast (bottom-right editor overlay) ---
-var _active_download: HTTPRequest = null
-var _progress_panel: PanelContainer = null
-var _progress_title: Label = null
-var _progress_detail: Label = null
-var _progress_bar: ProgressBar = null
-var _progress_hide_at_msec: int = 0
-
 func _ready():
 	tcp_server = TCPServer.new()
 	
-	# 检查editor_interface是否已初始化
+	# Check if editor_interface is initialized
 	print("_ready: editor_interface initialization status: ", editor_interface != null)
 
 	# update status label
@@ -32,8 +24,6 @@ func _process(_delta):
 	if peerTCP != null:
 		# https://docs.godotengine.org/en/stable/classes/class_streampeertcp.html#class-streampeertcp
 		_handle_peer_tcp()
-	# Keep the download/import progress toast in sync each frame.
-	_update_download_progress()
 
 
 func _update_status_label():
@@ -45,151 +35,6 @@ func _update_status_label():
 	var bridge_button = $VBoxContainer/Bridge
 	if bridge_button:
 		bridge_button.text = "Stop Meshy Bridge" if bridge_running else "Run Meshy Bridge"
-
-# --- Progress toast -----------------------------------------------------------
-# A small non-blocking overlay pinned to the editor's bottom-right corner, so the
-# user sees download/import progress on any main-screen tab (not just the Meshy
-# tab, and without watching the Output console).
-
-func _ensure_progress_ui() -> void:
-	if _progress_panel and is_instance_valid(_progress_panel):
-		return
-	if not editor_interface:
-		return
-	var base = editor_interface.get_base_control()
-	if not base:
-		return
-
-	_progress_panel = PanelContainer.new()
-	_progress_panel.name = "MeshyProgressToast"
-	_progress_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Pin the panel's bottom-right corner 20px from the editor's bottom-right
-	# corner and let it grow up-left to fit its content, so text is never
-	# clipped regardless of the editor font scale / HiDPI. (A fixed-size rect
-	# was too small for the scaled font and overflowed.)
-	_progress_panel.anchor_left = 1.0
-	_progress_panel.anchor_top = 1.0
-	_progress_panel.anchor_right = 1.0
-	_progress_panel.anchor_bottom = 1.0
-	_progress_panel.offset_left = -20.0
-	_progress_panel.offset_top = -20.0
-	_progress_panel.offset_right = -20.0
-	_progress_panel.offset_bottom = -20.0
-	_progress_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_progress_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-
-	var margin = MarginContainer.new()
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 10)
-	_progress_panel.add_child(margin)
-
-	var vb = VBoxContainer.new()
-	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(vb)
-
-	_progress_title = Label.new()
-	_progress_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_progress_title.text = "Meshy"
-	vb.add_child(_progress_title)
-
-	_progress_detail = Label.new()
-	_progress_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(_progress_detail)
-
-	_progress_bar = ProgressBar.new()
-	_progress_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_progress_bar.min_value = 0.0
-	_progress_bar.max_value = 100.0
-	_progress_bar.custom_minimum_size = Vector2(300, 0)
-	vb.add_child(_progress_bar)
-
-	base.add_child(_progress_panel)
-	_progress_panel.visible = false
-
-func _show_progress(title: String, detail: String, ratio: float) -> void:
-	_ensure_progress_ui()
-	if not _progress_panel:
-		return
-	_progress_panel.visible = true
-	_progress_title.text = title
-	_progress_detail.text = detail
-	if ratio < 0.0:
-		# Indeterminate phase (e.g. importing): hide the bar, keep the text.
-		_progress_bar.visible = false
-	else:
-		_progress_bar.visible = true
-		_progress_bar.value = clampf(ratio, 0.0, 1.0) * 100.0
-
-func _finish_progress(detail: String) -> void:
-	# Show a final line, then auto-hide the toast shortly after.
-	_show_progress("Meshy", detail, 1.0)
-	_progress_hide_at_msec = Time.get_ticks_msec() + 2500
-
-func _update_download_progress() -> void:
-	# Poll the active download's byte counts and reflect them in the toast.
-	if _active_download and is_instance_valid(_active_download):
-		var total = _active_download.get_body_size()
-		var got = _active_download.get_downloaded_bytes()
-		if total > 0:
-			var pct = float(got) / float(total)
-			_show_progress("Meshy · Downloading model",
-				"%d%%  (%.1f / %.1f MB)" % [int(pct * 100.0), got / 1048576.0, total / 1048576.0], pct)
-		else:
-			_show_progress("Meshy · Downloading model", "%.1f MB downloaded" % (got / 1048576.0), -1.0)
-	# Auto-hide once the finish timer elapses.
-	if _progress_hide_at_msec > 0 and Time.get_ticks_msec() >= _progress_hide_at_msec:
-		_progress_hide_at_msec = 0
-		if _progress_panel and is_instance_valid(_progress_panel):
-			_progress_panel.visible = false
-
-func _exit_tree() -> void:
-	# The toast is parented to the editor base control (not to us), so free it
-	# explicitly on unload to avoid leaving an orphan overlay behind.
-	if _progress_panel and is_instance_valid(_progress_panel):
-		_progress_panel.queue_free()
-		_progress_panel = null
-
-# 创建一个新的3D场景
-func _create_new_3d_scene() -> Node3D:
-	if not editor_interface:
-		return null
-	
-	# 创建新的3D根节点
-	var root = Node3D.new()
-	root.name = "MeshyScene"
-	
-	# 使用编辑器接口创建新场景
-	# 首先需要将根节点包装成PackedScene并保存
-	var packed_scene = PackedScene.new()
-	packed_scene.pack(root)
-	
-	# 生成唯一的场景文件路径
-	var scene_path = "res://imported_models/meshy_scene_%d.tscn" % Time.get_unix_time_from_system()
-	
-	# 确保目录存在
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("res://imported_models"):
-		dir.make_dir("res://imported_models")
-	
-	# 保存场景
-	var error = ResourceSaver.save(packed_scene, scene_path)
-	if error != OK:
-		print("ERROR: Cannot save new scene: ", error)
-		root.queue_free()
-		return null
-	
-	# 在编辑器中打开这个场景
-	editor_interface.open_scene_from_path(scene_path)
-	
-	# 获取编辑后的场景根节点
-	var edited_root = editor_interface.get_edited_scene_root()
-	if edited_root:
-		print("New 3D scene created and opened: ", scene_path)
-		return edited_root
-	else:
-		print("ERROR: Failed to get edited scene root after opening")
-		return null
 
 func _on_open_meshy_pressed() -> void:
 	OS.shell_open("https://www.meshy.ai/")
@@ -319,35 +164,22 @@ func _download_and_import_file(json_payload):
 	add_child(http)
 	# connect signal
 	http.connect("request_completed", _on_download_completed.bind(json_payload))
-
-	# Track this request so _process can poll its byte counts for the toast.
-	_active_download = http
-	_show_progress("Meshy · Downloading model", "Starting…", 0.0)
-
+	
 	# start download
 	var error = http.request(json_payload.url)
 	if error != OK:
 		print("ERROR: download request failed: ", error)
-		_active_download = null
-		_finish_progress("Download failed")
 		http.queue_free()
 
 func _on_download_completed(result, response_code, headers, body, json_payload):
 	print("Download completed: result=", result, " response_code=", response_code, " data_size=", body.size())
-
-	# Stop polling the request for progress and release the node.
-	if _active_download and is_instance_valid(_active_download):
-		_active_download.queue_free()
-	_active_download = null
-
+	
 	if result != HTTPRequest.RESULT_SUCCESS:
 		print("ERROR: download failed: ", result)
-		_finish_progress("Download failed")
 		return
-
+	
 	if response_code != 200:
 		print("ERROR: download response code error: ", response_code)
-		_finish_progress("Download failed (HTTP %d)" % response_code)
 		return
 	
 	# save to project resource directory
@@ -356,9 +188,7 @@ func _on_download_completed(result, response_code, headers, body, json_payload):
 	if not dir.dir_exists(res_dir):
 		dir.make_dir(res_dir)
 	
-	# int() so the filename gets a clean unix-second stamp; the raw float would
-	# leave a fractional part (meshy_model_1781147046.00945.glb).
-	var file_name = "meshy_model_" + str(int(Time.get_unix_time_from_system())) + "." + json_payload.format
+	var file_name = "meshy_model_" + str(Time.get_unix_time_from_system()) + "." + json_payload.format
 	var file_path = res_dir.path_join(file_name)
 	
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
@@ -370,124 +200,70 @@ func _on_download_completed(result, response_code, headers, body, json_payload):
 		
 		# ensure file exists and is accessible
 		if FileAccess.file_exists(file_path):
-			# _wait_for_file_recognition triggers a single up-front filesystem
-			# scan and then polls until the import lands (with a GLTFDocument
-			# fallback on timeout).
-			print("File saved, waiting for Godot to recognize it...")
-
-			# 记下前端请求里的模型名,供 _continue_import 命名导入节点
-			_pending_import_name = json_payload.get("name", "")
-
-			_show_progress("Meshy · Importing", "Processing model…", -1.0)
-
-			# 使用定时器等待文件识别
+			# manually trigger file system scan
+			if editor_interface:
+				var filesystem = editor_interface.get_resource_filesystem()
+				filesystem.scan()
+			
+			# Use non-await method to wait for file recognition
 			_wait_for_file_recognition(file_path)
 		else:
 			print("ERROR: file not found: ", file_path)
 	else:
 		print("ERROR: cannot save file: ", file_path)
 
-# 存储待导入的文件路径和重试信息
-var _pending_import_path: String = ""
-# 来自前端请求 body 的模型名(与其它 bridge 对齐:优先用请求 name,缺失时回退文件名)
-var _pending_import_name: String = ""
-var _pending_import_retries: int = 0
-const IMPORT_MAX_RETRIES: int = 30  # 使用常量避免脚本重载时被重置
-var _import_check_timer: Timer = null
-
-# 修改_wait_for_file_recognition函数，使用Timer而不是await（避免脚本重载问题）
+# Modified _wait_for_file_recognition function to use Timer and signals instead of await
 func _wait_for_file_recognition(file_path: String) -> void:
 	print("Waiting for file recognition: ", file_path)
 	
-	# 存储待导入的文件路径
-	_pending_import_path = file_path
-	_pending_import_retries = 0
-
-	# Trigger ONE filesystem scan up front so the editor imports the file we
-	# just wrote even while it is unfocused. Godot otherwise only rescans on
-	# focus, so ResourceLoader never sees the file and we fall back to the
-	# uncompressed GLTFDocument path. Scanning once, early, also lets the import
-	# finish before any later focus-scan, avoiding the duplicate
-	# "Task 'reimport' already exists" race.
-	if editor_interface:
-		var fs = editor_interface.get_resource_filesystem()
-		if fs and not fs.is_scanning():
-			fs.scan()
-
-	# 如果已有定时器在运行，先停止
-	if _import_check_timer and is_instance_valid(_import_check_timer):
-		_import_check_timer.stop()
-		_import_check_timer.queue_free()
-	
-	# 创建定时器
-	_import_check_timer = Timer.new()
-	_import_check_timer.wait_time = 0.3
-	_import_check_timer.one_shot = false
-	add_child(_import_check_timer)
-	
-	# 连接超时信号
-	_import_check_timer.timeout.connect(_on_import_check_timeout)
-	
-	# 启动定时器
-	_import_check_timer.start()
-
-func _on_import_check_timeout() -> void:
-	if _pending_import_path.is_empty():
-		if _import_check_timer:
-			_import_check_timer.stop()
-			_import_check_timer.queue_free()
-			_import_check_timer = null
+	# If file already exists, continue directly
+	if ResourceLoader.exists(file_path):
+		print("File recognized: ", file_path)
+		_continue_import(file_path)
 		return
 		
-	_pending_import_retries += 1
-	print("Waiting for file recognition... Attempts: ", _pending_import_retries)
+	# Create timer
+	var timer = Timer.new()
+	timer.wait_time = 0.2
+	timer.one_shot = false
+	add_child(timer)
 	
-	# 检查文件是否已被识别
-	if ResourceLoader.exists(_pending_import_path):
-		print("File recognized: ", _pending_import_path)
-		var path_to_import = _pending_import_path
-		_pending_import_path = ""
-		
-		if _import_check_timer:
-			_import_check_timer.stop()
-			_import_check_timer.queue_free()
-			_import_check_timer = null
-		
-		# 延迟调用以确保文件系统完全就绪
-		call_deferred("_continue_import", path_to_import)
-		return
+	# Set counter
+	var retry_count = 0
+	var max_retries = 10
 	
-	# The up-front scan (in _wait_for_file_recognition) drives the import; here
-	# we only poll. If recognition never lands, the timeout below imports via
-	# GLTFDocument as a fallback.
+	# Connect timeout signal
+	timer.timeout.connect(func():
+		retry_count += 1
+		print("Waiting for file recognition... Attempts: ", retry_count)
 		
-	if _pending_import_retries >= IMPORT_MAX_RETRIES:
-		print("File recognition timeout! Attempting to import anyway...")
-		var path_to_import = _pending_import_path
-		_pending_import_path = ""
-		
-		if _import_check_timer:
-			_import_check_timer.stop()
-			_import_check_timer.queue_free()
-			_import_check_timer = null
-		
-		# 即使超时也尝试导入（会使用 GLTFDocument 后备方案）
-		call_deferred("_continue_import", path_to_import)
+		if ResourceLoader.exists(file_path):
+			print("File recognized: ", file_path)
+			timer.queue_free()
+			_continue_import(file_path)
+			return
+			
+		if retry_count >= max_retries:
+			print("File recognition timeout!")
+			timer.queue_free()
+	)
+	
+	# Start timer
+	timer.start()
 
-# 添加新函数，继续导入过程
+# Add new function to continue import process
 func _continue_import(file_path: String) -> void:
-	# 优先使用前端请求 body 里的 name(与 Unity/Blender/3dsMax/Maya 对齐),
-	# 为空时回退到从下载文件名推断
-	var name = _pending_import_name if _pending_import_name != "" else file_path.get_file().get_basename()
-
+	# Extract json_payload information from file_path (only extract name)
+	# var format = file_path.get_extension() # No longer rely on extension
+	var name = file_path.get_file().get_basename()
+	
 	var json_payload = {
-		# "format": format, # 格式将在_import_model中检测
+		# "format": format, # Format will be detected in _import_model
 		"name": name
 	}
 	
-	# 导入模型
+	# Import model
 	_import_model(file_path, json_payload)
-	_finish_progress("Imported: " + name)
 
 func _import_model(file_path, json_payload):
 	print("Preparing to detect and import model: ", file_path)
@@ -497,9 +273,9 @@ func _import_model(file_path, json_payload):
 		print("ERROR: Cannot open file for type detection: ", file_path)
 		return
 		
-	# 读取文件头部的魔数 (读取更多字节以检测FBX)
+	# Read file header magic number (read more bytes to detect FBX)
 	var magic_bytes = file.get_buffer(21) # FBX magic number is 21 bytes long
-	file.close() # 检测后关闭文件
+	file.close() # Close file after detection
 	
 	var detected_format = ""
 	
@@ -511,10 +287,10 @@ func _import_model(file_path, json_payload):
 	
 	if detected_format.is_empty(): # Only check for GLB and ZIP if FBX isn't detected
 		if magic_bytes.size() >= 4:
-			# 检查GLB魔数 "glTF" (0x676C5446)
+			# Check GLB magic number "glTF" (0x676C5446)
 			if magic_bytes[0] == 0x67 and magic_bytes[1] == 0x6C and magic_bytes[2] == 0x54 and magic_bytes[3] == 0x46:
 				detected_format = "glb"
-			# 检查ZIP魔数 "PK" (0x504B) - 只需要前两个字节
+			# Check ZIP magic number "PK" (0x504B) - only need first two bytes
 			elif magic_bytes[0] == 0x50 and magic_bytes[1] == 0x4B:
 				detected_format = "zip"
 			
@@ -524,9 +300,9 @@ func _import_model(file_path, json_payload):
 
 	print("Detected file format: ", detected_format)
 	
-	# 使用检测到的格式进行处理
+	# Process using detected format
 	match detected_format:
-		"glb", "gltf": # 仍然处理 gltf 以防万一，尽管魔数是 glb
+		"glb", "gltf": # Still handle gltf just in case, even though magic number is glb
 			_import_gltf(file_path, json_payload.name)
 		"fbx":
 			_import_fbx(file_path, json_payload.name)
@@ -538,54 +314,51 @@ func _import_model(file_path, json_payload):
 func _import_gltf(file_path, name):
 	print("Starting GLTF/GLB import")
 	
-	# 检查编辑器接口
+	# Check editor interface
 	if not editor_interface:
 		print("ERROR: editor_interface is null")
 		return
 		
-	# 检查场景根，如果没有打开的场景则创建一个新场景
+	# Check scene root
 	var edited_scene_root = editor_interface.get_edited_scene_root()
 	if not edited_scene_root:
-		print("No open scene, creating a new 3D scene...")
-		edited_scene_root = _create_new_3d_scene()
-		if not edited_scene_root:
-			print("ERROR: Failed to create new scene")
-			return
+		print("ERROR: No open scene")
+		return
 		
 	print("Scene root node: ", edited_scene_root.name)
 	
-	# 创建容器节点
+	# Create container node
 	var container = Node3D.new()
 	container.name = "Meshy_" + (name if name else "Model")
 	
-	# 添加到当前场景
+	# Add to current scene
 	edited_scene_root.add_child(container)
 	container.owner = edited_scene_root
 	
-	# 使用ResourceLoader加载场景
+	# Use ResourceLoader to load scene
 	print("Loading model: ", file_path)
 	var resource = ResourceLoader.load(file_path, "", ResourceLoader.CACHE_MODE_REUSE)
 	
 	if resource:
 		print("Resource loaded successfully: ", resource.get_class())
 		
-		# 根据资源类型进行处理
+		# Process based on resource type
 		if resource is PackedScene:
-			# 实例化场景
+			# Instantiate scene
 			var scene_instance = resource.instantiate()
 			print("Scene instantiated successfully: ", scene_instance.get_class())
 			
-			# 添加到容器
+			# Add to container
 			container.add_child(scene_instance)
 			
-			# 递归设置所有节点的所有权为场景根
+			# Recursively set ownership of all nodes to scene root
 			_recursive_set_owner(scene_instance, edited_scene_root)
 			
-			# 将实例保存为场景中的本地资源
+			# Save instance as local resource in scene
 			print("Converting instance to local resource")
 			scene_instance.owner = edited_scene_root
 			
-			# 将动画和材质等资源转为本地
+			# Convert animations and materials to local resources
 			_make_resources_local(scene_instance)
 		else:
 			print("Resource is not PackedScene type, cannot instantiate")
@@ -601,13 +374,13 @@ func _import_gltf(file_path, name):
 		if error == OK:
 			var scene = gltf.generate_scene(state)
 			if scene:
-				# 添加到容器
+				# Add to container
 				container.add_child(scene)
 				
-				# 设置所有权
+				# Set ownership
 				_recursive_set_owner(scene, edited_scene_root)
 				
-				# 将动画和材质等资源转为本地
+				# Convert animations and materials to local resources
 				_make_resources_local(scene)
 				
 				print("GLTFDocument import successful")
@@ -620,11 +393,11 @@ func _import_gltf(file_path, name):
 			container.queue_free()
 			return
 	
-	# 通知编辑器刷新和选择新节点
+	# Notify editor to refresh and select new node
 	editor_interface.get_selection().clear()
 	editor_interface.get_selection().add_node(container)
 	
-	# 标记场景为已修改，以便保存
+	# Mark scene as modified for saving
 	edited_scene_root.set_meta("__editor_changed", true)
 	
 	print("GLTF/GLB import successful: ", file_path)
@@ -632,31 +405,28 @@ func _import_gltf(file_path, name):
 func _import_fbx(file_path, name):
 	print("Starting FBX import")
 	
-	# 检查编辑器接口
+	# Check editor interface
 	if not editor_interface:
 		print("ERROR: editor_interface is null")
 		return
 		
-	# 检查场景根，如果没有打开的场景则创建一个新场景
+	# Check scene root
 	var edited_scene_root = editor_interface.get_edited_scene_root()
 	if not edited_scene_root:
-		print("No open scene, creating a new 3D scene...")
-		edited_scene_root = _create_new_3d_scene()
-		if not edited_scene_root:
-			print("ERROR: Failed to create new scene")
-			return
+		print("ERROR: No open scene")
+		return
 		
 	print("Scene root node: ", edited_scene_root.name)
 	
-	# 创建容器节点
+	# Create container node
 	var container = Node3D.new()
 	container.name = "Meshy_" + (name if name else "Model")
 	
-	# 添加到当前场景
+	# Add to current scene
 	edited_scene_root.add_child(container)
 	container.owner = edited_scene_root
 	
-	# 使用ResourceLoader加载场景
+	# Use ResourceLoader to load scene
 	print("Loading model: ", file_path)
 	# Godot 4.x has native FBX import support
 	
@@ -677,23 +447,23 @@ func _import_fbx(file_path, name):
 		await get_tree().create_timer(retry_delay).timeout # Wait before retrying
 		
 	if resource:
-		# 根据资源类型进行处理
+		# Process based on resource type
 		if resource is PackedScene:
-			# 实例化场景
+			# Instantiate scene
 			var scene_instance = resource.instantiate()
 			print("Scene instantiated successfully: ", scene_instance.get_class())
 			
-			# 添加到容器
+			# Add to container
 			container.add_child(scene_instance)
 			
-			# 递归设置所有节点的所有权为场景根
+			# Recursively set ownership of all nodes to scene root
 			_recursive_set_owner(scene_instance, edited_scene_root)
 			
-			# 将实例保存为场景中的本地资源
+			# Save instance as local resource in scene
 			print("Converting instance to local resource")
 			scene_instance.owner = edited_scene_root
 			
-			# 将动画和材质等资源转为本地
+			# Convert animations and materials to local resources
 			_make_resources_local(scene_instance)
 		else:
 			print("Resource is not PackedScene type, cannot instantiate")
@@ -704,83 +474,67 @@ func _import_fbx(file_path, name):
 		container.queue_free()
 		return
 	
-	# 通知编辑器刷新和选择新节点
+	# Notify editor to refresh and select new node
 	editor_interface.get_selection().clear()
 	editor_interface.get_selection().add_node(container)
 	
-	# 标记场景为已修改，以便保存
+	# Mark scene as modified for saving
 	edited_scene_root.set_meta("__editor_changed", true)
 	
 	print("FBX import successful: ", file_path)
 
-# 将节点及其子节点中的所有资源转为本地资源
+# Convert all resources in node and its children to local resources
 func _make_resources_local(node):
-	# 检查并处理动画播放器
+	# Check and process animation player
 	if node is AnimationPlayer:
 		_make_animations_local(node)
 	
-	# 处理网格实例
+	# Process mesh instance
 	if node is MeshInstance3D:
 		_make_mesh_local(node)
 	
-	# 递归处理所有子节点
+	# Recursively process all child nodes
 	for child in node.get_children():
 		_make_resources_local(child)
 
-# 将动画播放器中的动画转为本地资源
-func _make_animations_local(anim_player: AnimationPlayer):
-	# Godot 4.x 使用 AnimationLibrary 管理动画
-	var library_names = anim_player.get_animation_library_list()
-	
-	for lib_name in library_names:
-		var library = anim_player.get_animation_library(lib_name)
-		if not library:
-			continue
-			
-		# 制作库的副本
-		var local_library = AnimationLibrary.new()
-		var animation_names = library.get_animation_list()
-		
-		for anim_name in animation_names:
-			var animation = library.get_animation(anim_name)
-			if animation:
-				# 制作动画的副本
-				var local_animation = animation.duplicate()
-				local_library.add_animation(anim_name, local_animation)
-				print("Animation converted to local: ", lib_name + "/" + anim_name if lib_name else anim_name)
-		
-		# 移除旧库并添加新的本地库
-		anim_player.remove_animation_library(lib_name)
-		anim_player.add_animation_library(lib_name, local_library)
-	
-	print("All animations converted to local")
+# Convert animations in animation player to local resources
+func _make_animations_local(anim_player):
+	var animation_names = anim_player.get_animation_list()
+	for anim_name in animation_names:
+		var animation = anim_player.get_animation(anim_name)
+		if animation:
+			# Create a copy of the animation and replace the original
+			var local_animation = animation.duplicate()
+			anim_player.remove_animation(anim_name)
+			anim_player.add_animation(anim_name, local_animation)
+			print("Animation converted to local: ", anim_name)
 
-# 将网格实例中的网格和材质转为本地资源
+# Convert mesh and materials in mesh instance to local resources
 func _make_mesh_local(mesh_instance):
 	var mesh = mesh_instance.mesh
 	if mesh:
-		# 制作网格的副本
+		# Create a copy of the mesh
 		var local_mesh = mesh.duplicate()
 		mesh_instance.mesh = local_mesh
 		
-		# 处理网格中的材质
+		# Process materials in the mesh
 		var material_count = local_mesh.get_surface_count()
 		for i in range(material_count):
 			var material = local_mesh.surface_get_material(i)
 			if material:
-				# 制作材质的副本
+				# Create a copy of the material
 				var local_material = material.duplicate()
 				local_mesh.surface_set_material(i, local_material)
 		
 		print("Mesh and materials converted to local")
 
-# 递归设置所有节点的所有权
+# Recursively set ownership of all nodes
 func _recursive_set_owner(node, owner):
 	for child in node.get_children():
 		child.owner = owner
 		_recursive_set_owner(child, owner)
 
-# 计算子节点数量的辅助函数
+# Helper function to count child nodes
 func _count_children(node):
 	var count = 0
 	for child in node.get_children():
@@ -803,7 +557,7 @@ func _import_zip(file_path, name):
 		zip_reader.close()
 		return
 
-	# 创建解压目标目录
+	# Create extraction target directory
 	var base_extract_dir = "res://imported_models"
 	var extract_dir_name = "extracted_%s_%d" % [name, Time.get_unix_time_from_system()]
 	var extract_path = base_extract_dir.path_join(extract_dir_name)
@@ -825,27 +579,27 @@ func _import_zip(file_path, name):
 	var fbx_found = false
 	var extracted_fbx_path = ""
 
-	# 提取文件
+	# Extract files
 	for file_in_zip in files_in_zip:
 		var file_data = zip_reader.read_file(file_in_zip)
 		var target_file_path = extract_path.path_join(file_in_zip)
 		
-		# 确保目标文件的父目录存在 (处理ZIP内的目录结构)
+		# Ensure parent directory of target file exists (handle directory structure in ZIP)
 		var target_dir = target_file_path.get_base_dir()
 		if not DirAccess.dir_exists_absolute(target_dir):
 			err = dir_access.make_dir_recursive(target_dir)
 			if err != OK:
 				print("WARNING: Cannot create subdirectory: ", target_dir, " file: ", file_in_zip)
-				continue # 跳过这个文件
+				continue # Skip this file
 
-		# 写入文件
+		# Write file
 		var file_access = FileAccess.open(target_file_path, FileAccess.WRITE)
 		if file_access:
 			file_access.store_buffer(file_data)
 			file_access.close()
 			print("Extracted: ", target_file_path)
 			
-			# 检查是否是FBX文件
+			# Check if it's an FBX file
 			if file_in_zip.get_extension().to_lower() == "fbx":
 				fbx_found = true
 				extracted_fbx_path = target_file_path
@@ -855,19 +609,27 @@ func _import_zip(file_path, name):
 	zip_reader.close()
 	print("ZIP file extraction complete: ", extract_path)
 	
-	# 不手动调用 filesystem.scan()，让 Godot 自动检测新文件
-	# 这样可以避免与自动导入冲突产生的 "Task 'reimport' already exists" 错误
-	print("ZIP extraction complete, waiting for Godot to recognize files...")
+	# Manually trigger file system scan to ensure editor recognizes new files
+	if editor_interface:
+		print("Refreshing file system...")
+		var filesystem = editor_interface.get_resource_filesystem()
+		if filesystem:
+			filesystem.scan()
+			print("File system scan triggered.")
+		else:
+			print("WARNING: Could not get file system interface.")
+	else:
+		print("WARNING: editor_interface is null, cannot trigger file system scan.")
 
-	# 如果在ZIP中找到FBX文件，则导入它
+	# If FBX file found in ZIP, import it
 	if fbx_found:
 		print("FBX file found in ZIP, starting import: ", extracted_fbx_path)
-		# 调用 _wait_for_file_recognition 等待FBX文件被识别
+		# Call _wait_for_file_recognition to wait for FBX file to be recognized
 		_wait_for_file_recognition(extracted_fbx_path)
 	else:
 		print("WARNING: No FBX model found in ZIP. Skipping model import.")
 	
-	# 删除原始的（可能错误命名的）ZIP文件
+	# Delete original (possibly incorrectly named) ZIP file
 	var remove_err = DirAccess.remove_absolute(file_path)
 	if remove_err == OK:
 		print("Successfully deleted original ZIP file: ", file_path)

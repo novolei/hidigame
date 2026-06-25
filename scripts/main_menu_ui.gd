@@ -49,6 +49,7 @@ var duration_option: OptionButton
 var prep_option: OptionButton
 var hunter_count_option: OptionButton
 var stalker_glass_option: OptionButton
+var stalker_glass_material_option: OptionButton
 var start_button: Button
 var auto_assign_button: Button
 var chat_panel: PanelContainer
@@ -657,7 +658,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(players_hint_label)
 	box.add_child(_thin_separator())
 
-	map_option = _option(["Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "garden", "Japanese Town Street"], "map")
+	map_option = _option(["Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "garden", "Japanese Town Street", "Western Town Prop Hunt", "Polygon Apocalypse Bunker", "Polygon Apocalypse Interior", "Polygon Apocalypse City", "Polygon Apocalypse City URP", "Polygon Apocalypse City: Downtown Escape", "Polygon Apocalypse City: Quarantine Crossing", "Polygon Apocalypse City: Market Row", "Polygon Apocalypse City: Overpass Camp", "Polygon Apocalypse City: Warehouse Ward", "Polygon Apocalypse City URP: Downtown Escape", "Polygon Apocalypse City URP: Quarantine Crossing", "Polygon Apocalypse City URP: Market Row", "Polygon Apocalypse City URP: Overpass Camp", "Polygon Apocalypse City URP: Warehouse Ward"], "map")
 	variant_option = _option(["Default", "Low Ammo", "Fast Hunt"], "variant")
 	condition_option = _option(["Normal", "Rain", "Night"], "condition")
 	game_show_option = _option(["None", "Airdrop Show", "Chaos Show"], "game_show")
@@ -666,6 +667,7 @@ func _build_match_details_panel() -> Control:
 	prep_option = _option([30, 60, 120], "prep")
 	hunter_count_option = _option([-1, 1, 2, 3, 4, 5, 6, 7, 8], "hunters")
 	stalker_glass_option = _option([0.07, 0.105, 0.125, 0.16], "stalker_glass")
+	stalker_glass_material_option = _option(["classic", "liquid_glass"], "stalker_glass_material")
 
 	box.add_child(_option_group(I18n.t("level"), map_option))
 	box.add_child(_option_group(I18n.t("variant"), variant_option))
@@ -675,6 +677,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(_option_group(I18n.t("duration"), duration_option))
 	box.add_child(_option_group(I18n.t("hunter_count"), hunter_count_option))
 	box.add_child(_option_group(I18n.t("stalker_glass"), stalker_glass_option))
+	box.add_child(_option_group(I18n.t("stalker_glass_material"), stalker_glass_material_option))
 	box.add_child(_option_group(I18n.t("hide_prep"), prep_option))
 
 	auto_assign_button = _button(I18n.t("auto_assign"), false)
@@ -1037,6 +1040,7 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(prep_option, int(config.get("prep_duration_sec", 30)), 0)
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
 	_set_option_by_value(stalker_glass_option, float(config.get("stalker_glass_alpha_max", 0.125)), 2)
+	_set_option_by_value(stalker_glass_material_option, str(config.get("stalker_glass_material", "classic")), 0)
 
 
 func _collect_lobby_config() -> Dictionary:
@@ -1053,6 +1057,7 @@ func _collect_lobby_config() -> Dictionary:
 		"prep_duration_sec": int(_get_option_value(prep_option, 30)),
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
 		"stalker_glass_alpha_max": float(_get_option_value(stalker_glass_option, 0.125)),
+		"stalker_glass_material": str(_get_option_value(stalker_glass_material_option, "classic")),
 	}
 
 
@@ -1291,7 +1296,7 @@ func _get_option_value(option: OptionButton, fallback):
 
 
 func _set_config_enabled(enabled: bool) -> void:
-	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option, stalker_glass_option]
+	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option, stalker_glass_option, stalker_glass_material_option]
 	for option in options:
 		if option:
 			option.disabled = not enabled

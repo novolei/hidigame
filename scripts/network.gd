@@ -21,11 +21,13 @@ const SKIN_YELLOW := 1
 const SKIN_GREEN := 2
 const SKIN_RED := 3
 const CharacterSkinCatalogScript := preload("res://scripts/character_skin_catalog.gd")
+const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const CardDatabase := preload("res://scripts/card_database.gd")
 const CARD_DRAFT_TOTAL_SECONDS := 20.0
 const CARD_DRAFT_PICK_SECONDS := 10.0
 const CARD_DRAFT_REQUIRED_PICKS := 2
 const CARD_DRAFT_TIMER_SYNC_SECONDS := 0.25
+const SKIN_CONFIG_TOTAL_SECONDS := 20.0
 
 # -----------------------------------------------------------------------------
 # 角色枚举(全局共享,Character / Player / Network 都用这个)
@@ -59,6 +61,7 @@ var player_info: Dictionary = {
 	"nick": "host",
 	"skin": SKIN_BLUE,
 	"character_model": DEFAULT_CHARACTER_MODEL,
+	"party_monster_accessories": {},
 	"role": Role.NONE,
 	"alive": true,
 	"role_locked": false,
@@ -85,6 +88,7 @@ var lobby_config: Dictionary = {
 	"host_hunter_count": -1,         # -1 表示按 1:3 自动
 	"host_stalker_count": -1,        # -1 表示按 1:1 自动
 	"stalker_glass_alpha_max": 0.125,
+	"stalker_glass_material": "classic",
 	"auto_balance": true,
 	"role_locked": false             # 服务器锁定角色后为 true,准备阶段开始时
 }
@@ -100,6 +104,7 @@ signal player_disconnected(peer_id)
 signal server_disconnected
 signal roles_assigned()                              # 服务器完成角色分配
 signal lobby_config_updated(config)                  # host 改配置
+signal match_intro_started(remaining_sec: float)     # 全局正式开局倒计时开始
 signal prep_phase_started(remaining_sec: float)      # 准备阶段开始
 signal prep_phase_ended()                            # 准备阶段结束
 signal match_started()                               # 正式比赛开始
@@ -107,6 +112,9 @@ signal start_match_requested()                       # host 点击开始
 signal card_draft_updated(peer_id: int, draft_state: Dictionary)
 signal card_loadout_updated(peer_id: int, loadout: Array)
 signal card_activated(peer_id: int, card_id: String, slot_index: int)
+signal skin_config_started(remaining_sec: float)
+signal player_character_model_changed(peer_id: int, model_id: String)
+signal player_party_monster_accessories_changed(peer_id: int, loadout: Dictionary)
 signal card_drafts_completed()
 
 var card_drafts: Dictionary = {}
@@ -155,6 +163,16 @@ func _prop_role_count(lobby_players: Dictionary) -> int:
 
 
 @rpc("authority", "call_local", "reliable")
+func _rpc_match_intro_started(remaining_sec: float):
+	print("[Network] RPC match_intro_started RECEIVED, remaining=", remaining_sec)
+	match_intro_started.emit(remaining_sec)
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_skin_config_started(remaining_sec: float):
+	print("[Network] RPC skin_config_started RECEIVED, remaining=", remaining_sec)
+	skin_config_started.emit(remaining_sec)
+
+@rpc("authority", "call_local", "reliable")
 func _rpc_prep_phase_started(remaining_sec: float):
 	print("[Network] RPC prep_phase_started RECEIVED, remaining=", remaining_sec)
 	prep_phase_started.emit(remaining_sec)
@@ -170,6 +188,20 @@ func _rpc_match_started():
 	match_started.emit()
 
 # 服务器侧:广播给所有客户端
+func server_broadcast_match_intro_started(remaining_sec: float) -> void:
+	if not multiplayer.is_server():
+		return
+	print("[Network] SERVER broadcasting match_intro_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
+	_rpc_match_intro_started.rpc(remaining_sec)
+
+
+func server_broadcast_skin_config_started(remaining_sec: float) -> void:
+	if not multiplayer.is_server():
+		return
+	print("[Network] SERVER broadcasting skin_config_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
+	_rpc_skin_config_started.rpc(remaining_sec)
+
+
 func server_broadcast_prep_started(remaining_sec: float) -> void:
 	if not multiplayer.is_server():
 		return
@@ -524,6 +556,7 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	player_info["nick"] = nickname
 	player_info["skin"] = skin_str_to_e(skin_color_str)
 	player_info["character_model"] = normalize_character_model(character_model)
+	player_info["party_monster_accessories"] = normalize_party_monster_accessories({}, str(player_info["character_model"]))
 	player_info["role"] = host_role
 	player_info["alive"] = true
 	player_info["role_locked"] = false
@@ -590,6 +623,7 @@ func join_game(nickname: String, skin_color_str: String, address: String = SERVE
 	player_info["nick"] = nickname
 	player_info["skin"] = skin_enum
 	player_info["character_model"] = normalize_character_model(character_model)
+	player_info["party_monster_accessories"] = normalize_party_monster_accessories({}, str(player_info["character_model"]))
 	player_info["role"] = client_role
 	player_info["alive"] = true
 	player_info["role_locked"] = false
@@ -644,6 +678,112 @@ func _broadcast_player_role(peer_id: int, new_role: int) -> void:
 		return
 	players[peer_id]["role"] = new_role
 	player_role_changed.emit(peer_id, new_role)
+
+
+func request_set_character_model(model_id: String) -> void:
+	var normalized := normalize_character_model(model_id)
+	var default_loadout := normalize_party_monster_accessories({}, normalized)
+	player_info["character_model"] = normalized
+	player_info["party_monster_accessories"] = default_loadout
+	var local_id := multiplayer.get_unique_id()
+	if players.has(local_id):
+		players[local_id]["character_model"] = normalized
+		players[local_id]["party_monster_accessories"] = default_loadout
+		player_character_model_changed.emit(local_id, normalized)
+		player_party_monster_accessories_changed.emit(local_id, default_loadout)
+	if multiplayer.is_server():
+		server_set_player_character_model(local_id, normalized)
+	else:
+		_request_set_character_model_rpc.rpc_id(1, normalized)
+
+
+@rpc("any_peer", "reliable")
+func _request_set_character_model_rpc(model_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	server_set_player_character_model(multiplayer.get_remote_sender_id(), model_id)
+
+
+func server_set_player_character_model(peer_id: int, model_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	if not players.has(peer_id):
+		return
+	var normalized := normalize_character_model(model_id)
+	var default_loadout := normalize_party_monster_accessories({}, normalized)
+	players[peer_id]["character_model"] = normalized
+	players[peer_id]["party_monster_accessories"] = default_loadout
+	if peer_id == multiplayer.get_unique_id():
+		player_info["character_model"] = normalized
+		player_info["party_monster_accessories"] = default_loadout
+	player_character_model_changed.emit(peer_id, normalized)
+	player_party_monster_accessories_changed.emit(peer_id, default_loadout)
+	_broadcast_player_character_model.rpc(peer_id, normalized, default_loadout)
+	_broadcast_full_sync.rpc(players, lobby_config)
+	players_synced.emit(players)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _broadcast_player_character_model(peer_id: int, model_id: String, loadout: Dictionary = {}) -> void:
+	var normalized := normalize_character_model(model_id)
+	var clean_loadout := normalize_party_monster_accessories(loadout, normalized)
+	if players.has(peer_id):
+		players[peer_id]["character_model"] = normalized
+		players[peer_id]["party_monster_accessories"] = clean_loadout
+	if peer_id == multiplayer.get_unique_id():
+		player_info["character_model"] = normalized
+		player_info["party_monster_accessories"] = clean_loadout
+	player_character_model_changed.emit(peer_id, normalized)
+	player_party_monster_accessories_changed.emit(peer_id, clean_loadout)
+
+
+func request_set_party_monster_accessories(loadout: Dictionary) -> void:
+	var local_id := multiplayer.get_unique_id()
+	var model_id := str(player_info.get("character_model", DEFAULT_CHARACTER_MODEL))
+	var clean_loadout := normalize_party_monster_accessories(loadout, model_id)
+	player_info["party_monster_accessories"] = clean_loadout
+	if players.has(local_id):
+		players[local_id]["party_monster_accessories"] = clean_loadout
+		player_party_monster_accessories_changed.emit(local_id, clean_loadout)
+	if multiplayer.is_server():
+		server_set_player_party_monster_accessories(local_id, clean_loadout)
+	else:
+		_request_set_party_monster_accessories_rpc.rpc_id(1, clean_loadout)
+
+
+@rpc("any_peer", "reliable")
+func _request_set_party_monster_accessories_rpc(loadout: Dictionary) -> void:
+	if not multiplayer.is_server():
+		return
+	server_set_player_party_monster_accessories(multiplayer.get_remote_sender_id(), loadout)
+
+
+func server_set_player_party_monster_accessories(peer_id: int, loadout: Dictionary) -> void:
+	if not multiplayer.is_server():
+		return
+	if not players.has(peer_id):
+		return
+	var model_id := str(players[peer_id].get("character_model", DEFAULT_CHARACTER_MODEL))
+	var clean_loadout := normalize_party_monster_accessories(loadout, model_id)
+	players[peer_id]["party_monster_accessories"] = clean_loadout
+	if peer_id == multiplayer.get_unique_id():
+		player_info["party_monster_accessories"] = clean_loadout
+	player_party_monster_accessories_changed.emit(peer_id, clean_loadout)
+	_broadcast_player_party_monster_accessories.rpc(peer_id, clean_loadout)
+	_broadcast_full_sync.rpc(players, lobby_config)
+	players_synced.emit(players)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _broadcast_player_party_monster_accessories(peer_id: int, loadout: Dictionary) -> void:
+	if not players.has(peer_id):
+		return
+	var model_id := str(players[peer_id].get("character_model", DEFAULT_CHARACTER_MODEL))
+	var clean_loadout := normalize_party_monster_accessories(loadout, model_id)
+	players[peer_id]["party_monster_accessories"] = clean_loadout
+	if peer_id == multiplayer.get_unique_id():
+		player_info["party_monster_accessories"] = clean_loadout
+	player_party_monster_accessories_changed.emit(peer_id, clean_loadout)
 
 
 # =============================================================================
@@ -853,6 +993,8 @@ func _server_apply_lobby_config(new_config: Dictionary) -> void:
 			lobby_config[key] = new_config[key]
 	lobby_config["lobby_id"] = str(lobby_config.get("lobby_id", "")).to_upper()
 	lobby_config["stalker_glass_alpha_max"] = clampf(float(lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
+	if str(lobby_config.get("stalker_glass_material", "classic")) != "liquid_glass":
+		lobby_config["stalker_glass_material"] = "classic"
 	print("[Network] Lobby config updated: ", lobby_config)
 	lobby_config_updated.emit(lobby_config)
 	_broadcast_lobby_config.rpc(lobby_config)
@@ -887,6 +1029,7 @@ func _on_player_connected(id):
 func _register_player(new_player_info):
 	var new_player_id = multiplayer.get_remote_sender_id()
 	new_player_info["character_model"] = normalize_character_model(str(new_player_info.get("character_model", DEFAULT_CHARACTER_MODEL)))
+	new_player_info["party_monster_accessories"] = normalize_party_monster_accessories(new_player_info.get("party_monster_accessories", {}), str(new_player_info["character_model"]))
 	if not new_player_info.has("alive"):
 		new_player_info["alive"] = true
 	if multiplayer.is_server():
@@ -983,6 +1126,10 @@ func skin_str_to_e(s):
 		"green": return SKIN_GREEN
 		"red": return SKIN_RED
 		_: return SKIN_BLUE
+
+
+func normalize_party_monster_accessories(value, model_id: String = "") -> Dictionary:
+	return PartyMonsterAccessoryCatalogScript.sanitize_loadout(value, normalize_character_model(model_id))
 
 
 func normalize_character_model(model_id: String) -> String:

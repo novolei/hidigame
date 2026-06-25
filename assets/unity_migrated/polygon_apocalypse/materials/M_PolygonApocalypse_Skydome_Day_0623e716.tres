@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[sub_resource type="Shader" id="Shader_sky_gradient"]
+code = "shader_type spatial;\nrender_mode unshaded, cull_back, depth_draw_opaque;\n\nuniform vec4 color_top : source_color;\nuniform vec4 color_bottom : source_color;\nuniform float offset = 0.0;\nuniform float distance = 1.0;\nuniform float falloff = 1.0;\n\nvarying float world_y;\n\nvoid vertex() {\n    world_y = (MODEL_MATRIX * vec4(VERTEX, 1.0)).y;\n}\n\nvoid fragment() {\n    float safe_distance = max(abs(distance), 0.001);\n    float factor = clamp((offset + world_y) / safe_distance, 0.0, 1.0);\n    factor = clamp(pow(factor, max(falloff, 0.001)), 0.0, 1.0);\n    vec4 sky_color = mix(color_bottom, color_top, factor);\n    ALBEDO = sky_color.rgb;\n    EMISSION = sky_color.rgb;\n    ALPHA = 1.0;\n    ROUGHNESS = 1.0;\n}"
+
+[resource]
+resource_name = "PolygonApocalypse_Skydome_Day"
+shader = SubResource("Shader_sky_gradient")
+shader_parameter/color_top = Color(0.72794116, 0.3746756, 0.3746756, 0)
+shader_parameter/color_bottom = Color(0.875, 0.7131339, 0.50827205, 0)
+shader_parameter/offset = -52.9
+shader_parameter/distance = 536.2
+shader_parameter/falloff = 1

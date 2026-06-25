@@ -7,6 +7,10 @@ const GODOT_ROBOT_ID := "godot_robot"
 const BUD_ID := "bud"
 const WALKALL_ID := "walkall"
 const CUTE_ICE_CREAM_ID := "cute_ice_cream"
+const PARTY_MONSTER_DEFAULT_ID := "party_monster_c01"
+const PARTY_MONSTER_SCENE_PATH := "res://assets/characters/party_monster/party_monster_skin.tscn"
+const PARTY_MONSTER_MANIFEST_PATH := "res://assets/characters/party_monster/party_monster_manifest.json"
+const PARTY_MONSTER_GAMEPLAY_GROUND_OFFSET := -0.24
 const DEFAULT_ID := BASIC_HUMANOID_ID
 
 const MODELS := [
@@ -116,14 +120,18 @@ const MODELS := [
 	},
 ]
 
+static var _party_monster_model_cache: Array = []
+
 
 static func all() -> Array:
-	return MODELS
+	var models := MODELS.duplicate(true)
+	models.append_array(_party_monster_models())
+	return models
 
 
 static func normalize(id: String) -> String:
 	var normalized := id.strip_edges().to_lower()
-	for model in MODELS:
+	for model in all():
 		if str(model.get("id", "")) == normalized:
 			return normalized
 	return DEFAULT_ID
@@ -131,7 +139,7 @@ static func normalize(id: String) -> String:
 
 static func get_model(id: String) -> Dictionary:
 	var normalized := normalize(id)
-	for model in MODELS:
+	for model in all():
 		if str(model.get("id", "")) == normalized:
 			return model
 	return MODELS[0]
@@ -143,3 +151,42 @@ static func label_for(id: String) -> String:
 
 static func scene_path_for(id: String) -> String:
 	return str(get_model(id).get("scene", ""))
+
+
+static func is_party_monster(id: String) -> bool:
+	return normalize(id).begins_with("party_monster_")
+
+
+static func party_monster_default_id() -> String:
+	return PARTY_MONSTER_DEFAULT_ID
+
+
+static func hider_default_id() -> String:
+	return PARTY_MONSTER_DEFAULT_ID
+
+
+static func _party_monster_models() -> Array:
+	if not _party_monster_model_cache.is_empty():
+		return _party_monster_model_cache
+	if not FileAccess.file_exists(PARTY_MONSTER_MANIFEST_PATH):
+		return _party_monster_model_cache
+	var text := FileAccess.get_file_as_string(PARTY_MONSTER_MANIFEST_PATH)
+	var parsed: Variant = JSON.parse_string(text)
+	if not parsed is Dictionary:
+		return _party_monster_model_cache
+	var variants: Array = (parsed as Dictionary).get("variants", []) as Array
+	for entry in variants:
+		if not entry is Dictionary:
+			continue
+		var model_id := str((entry as Dictionary).get("id", "")).strip_edges().to_lower()
+		if model_id.is_empty():
+			continue
+		_party_monster_model_cache.append({
+			"id": model_id,
+			"label": str((entry as Dictionary).get("label", "Party Monster")),
+			"label_key": "character." + model_id,
+			"scene": PARTY_MONSTER_SCENE_PATH,
+			"scale": Vector3(0.82, 0.82, 0.82),
+			"offset": Vector3(0.0, PARTY_MONSTER_GAMEPLAY_GROUND_OFFSET, 0.0),
+		})
+	return _party_monster_model_cache

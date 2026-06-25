@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/polygon_apocalypse_map.gd" id="1_map"]
+
+[node name="PolygonApocalypseBuildingInteriorDressing" type="Node3D"]
+script = ExtResource("1_map")
+map_id = "building_interior_dressing"
+collision_budget = 1400

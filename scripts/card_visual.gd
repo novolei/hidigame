@@ -5,6 +5,9 @@ const CardDatabase := preload("res://scripts/card_database.gd")
 const SHADER := preload("res://shaders/card_sheen_3d.gdshader")
 const FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const VALUE_FONT_PATH := "res://assets/fonts/Saira-9.woff2"
+const DRAFT_HOVER_TILT_X := 0.26
+const DRAFT_HOVER_TILT_Y := 0.34
+const DRAFT_PRESS_TILT_RELIEF := 0.08
 const ICON_TEXTURE_PATHS := {
 	"flashlight": "res://assets/ui/skills/flashlight.png",
 	"stealth": "res://assets/ui/skills/stealth.png",
@@ -64,9 +67,13 @@ func _process(delta: float) -> void:
 	_press_amount = lerpf(_press_amount, 1.0 if button_pressed else 0.0, minf(delta * 16.0, 1.0))
 	if _shader_material:
 		_shader_material.set_shader_parameter("flash_phase", _flash_phase)
-		_shader_material.set_shader_parameter("flash_intensity", 0.72 if display_mode == "slot" else 1.0)
-		_shader_material.set_shader_parameter("tilt_x", (_hover_amount - _press_amount * 0.35) * 0.10)
-		_shader_material.set_shader_parameter("tilt_y", _hover_amount * 0.16)
+		_shader_material.set_shader_parameter("hover_amount", _hover_amount)
+		_shader_material.set_shader_parameter("flash_intensity", 0.92 + _hover_amount * 0.55)
+		_shader_material.set_shader_parameter("outline_intensity", 0.78 + _hover_amount * 0.72)
+		var pointer := _hover_pointer_offset()
+		var fallback_tilt := 1.0 if _hover_amount > 0.01 and pointer.length_squared() < 0.08 else 0.0
+		_shader_material.set_shader_parameter("tilt_x", ((-pointer.y + fallback_tilt) * _hover_amount * DRAFT_HOVER_TILT_X) - _press_amount * DRAFT_PRESS_TILT_RELIEF)
+		_shader_material.set_shader_parameter("tilt_y", (pointer.x + fallback_tilt * 0.65) * _hover_amount * DRAFT_HOVER_TILT_Y)
 	queue_redraw()
 
 
@@ -81,6 +88,16 @@ func _apply_visual_mode() -> void:
 	if _shader_material:
 		material = _shader_material
 	set_process(true)
+
+
+func _hover_pointer_offset() -> Vector2:
+	if size.x <= 0.0 or size.y <= 0.0 or not is_hovered() or disabled:
+		return Vector2.ZERO
+	var local := get_local_mouse_position()
+	return Vector2(
+		clampf((local.x / size.x - 0.5) * 2.0, -1.0, 1.0),
+		clampf((local.y / size.y - 0.5) * 2.0, -1.0, 1.0)
+	)
 
 
 func _draw() -> void:
@@ -113,18 +130,19 @@ func _draw() -> void:
 func _draw_card_image_area(inner: Rect2, card: Dictionary, is_slot: bool, accent: Color, alpha: float) -> void:
 	var bottom_height := inner.size.y * (0.24 if is_slot else 0.20)
 	var image_rect := Rect2(inner.position, Vector2(inner.size.x, inner.size.y - bottom_height))
+	var inner_corner := maxf((12.0 if is_slot else 24.0) - 4.0, 6.0)
 	var top := Color(0.92, 0.98, 1.0, 1.0 * alpha)
 	var bottom := Color(0.74, 0.84, 0.90, 1.0 * alpha)
-	draw_rect(image_rect, top, true)
+	_draw_round_rect_corners(image_rect, inner_corner, inner_corner, 0.0, 0.0, top, false, 0.0)
 	for i in range(10):
 		var t := float(i) / 9.0
 		var stripe := Rect2(image_rect.position + Vector2(0.0, image_rect.size.y * t), Vector2(image_rect.size.x, image_rect.size.y / 10.0 + 1.0))
-		draw_rect(stripe, top.lerp(bottom, t), true)
+		_draw_rounded_content_strip(stripe, image_rect, inner_corner, inner_corner, 0.0, 0.0, top.lerp(bottom, t))
 	if not is_slot:
 		var glow_center := image_rect.position + Vector2(image_rect.size.x * 0.50, image_rect.size.y * 0.42)
 		for r in range(5):
 			var glow_alpha := (0.11 - float(r) * 0.018) * alpha
-			draw_circle(glow_center, image_rect.size.y * (0.46 + float(r) * 0.09), Color(1.0, 1.0, 1.0, glow_alpha))
+			_draw_rounded_content_circle(glow_center, image_rect.size.y * (0.46 + float(r) * 0.09), image_rect, inner_corner, inner_corner, 0.0, 0.0, Color(1.0, 1.0, 1.0, glow_alpha))
 	else:
 		var scan_color := accent
 		scan_color.a = 0.08 * alpha
@@ -149,7 +167,8 @@ func _draw_card_image_area(inner: Rect2, card: Dictionary, is_slot: bool, accent
 func _draw_card_bottom(inner: Rect2, card: Dictionary, is_slot: bool, alpha: float) -> void:
 	var bottom_height := inner.size.y * (0.24 if is_slot else 0.20)
 	var bottom_rect := Rect2(inner.position + Vector2(0.0, inner.size.y - bottom_height), Vector2(inner.size.x, bottom_height))
-	draw_rect(bottom_rect, Color(0.02, 0.018, 0.022, 0.96 * alpha), true)
+	var inner_corner := maxf((12.0 if is_slot else 24.0) - 4.0, 6.0)
+	_draw_round_rect_corners(bottom_rect, 0.0, 0.0, inner_corner, inner_corner, Color(0.02, 0.018, 0.022, 0.96 * alpha), false, 0.0)
 	var name := CardDatabase.display_name_for_locale(card_id)
 	var code := str(card.get("code", ""))
 	var title_size := 14 if is_slot else 34
@@ -183,6 +202,10 @@ func _draw_auto_badge(inner: Rect2, alpha: float) -> void:
 
 
 func _draw_round_rect(rect: Rect2, corner: float, color: Color, border: bool, width: float) -> void:
+	_draw_round_rect_corners(rect, corner, corner, corner, corner, color, border, width)
+
+
+func _draw_round_rect_corners(rect: Rect2, top_left: float, top_right: float, bottom_right: float, bottom_left: float, color: Color, border: bool, width: float) -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color.TRANSPARENT if border else color
 	style.border_color = color if border else Color.TRANSPARENT
@@ -190,11 +213,51 @@ func _draw_round_rect(rect: Rect2, corner: float, color: Color, border: bool, wi
 	style.border_width_top = int(width)
 	style.border_width_right = int(width)
 	style.border_width_bottom = int(width)
-	style.corner_radius_top_left = int(corner)
-	style.corner_radius_top_right = int(corner)
-	style.corner_radius_bottom_left = int(corner)
-	style.corner_radius_bottom_right = int(corner)
+	style.corner_radius_top_left = int(top_left)
+	style.corner_radius_top_right = int(top_right)
+	style.corner_radius_bottom_left = int(bottom_left)
+	style.corner_radius_bottom_right = int(bottom_right)
 	draw_style_box(style, rect)
+
+
+func _draw_rounded_content_strip(strip: Rect2, clip_rect: Rect2, top_left: float, top_right: float, bottom_right: float, bottom_left: float, color: Color) -> void:
+	var y_mid := clampf(strip.get_center().y, clip_rect.position.y, clip_rect.end.y)
+	var left_inset := _rounded_corner_inset_for_y(y_mid, clip_rect, top_left, bottom_left)
+	var right_inset := _rounded_corner_inset_for_y(y_mid, Rect2(Vector2(clip_rect.position.x, clip_rect.position.y), clip_rect.size), top_right, bottom_right)
+	var clipped := Rect2(strip.position + Vector2(left_inset, 0.0), Vector2(maxf(strip.size.x - left_inset - right_inset, 0.0), strip.size.y))
+	if clipped.size.x <= 0.0 or clipped.size.y <= 0.0:
+		return
+	draw_rect(clipped, color, true)
+
+
+func _draw_rounded_content_circle(center: Vector2, radius: float, clip_rect: Rect2, top_left: float, top_right: float, bottom_right: float, bottom_left: float, color: Color) -> void:
+	var steps := maxi(18, int(radius / 3.0))
+	var strip_height := radius * 2.0 / float(steps)
+	for i in range(steps):
+		var y := center.y - radius + (float(i) + 0.5) * strip_height
+		if y < clip_rect.position.y or y > clip_rect.end.y:
+			continue
+		var dy := y - center.y
+		var half_width := sqrt(maxf(radius * radius - dy * dy, 0.0))
+		var strip := Rect2(Vector2(center.x - half_width, y - strip_height * 0.5), Vector2(half_width * 2.0, strip_height + 0.75))
+		var clipped_start := maxf(strip.position.x, clip_rect.position.x)
+		var clipped_end := minf(strip.end.x, clip_rect.end.x)
+		if clipped_end <= clipped_start:
+			continue
+		strip.position.x = clipped_start
+		strip.size.x = clipped_end - clipped_start
+		_draw_rounded_content_strip(strip, clip_rect, top_left, top_right, bottom_right, bottom_left, color)
+
+
+func _rounded_corner_inset_for_y(y: float, rect: Rect2, top_radius: float, bottom_radius: float) -> float:
+	var inset := 0.0
+	if top_radius > 0.0 and y < rect.position.y + top_radius:
+		var dy := rect.position.y + top_radius - y
+		inset = maxf(inset, top_radius - sqrt(maxf(top_radius * top_radius - dy * dy, 0.0)))
+	if bottom_radius > 0.0 and y > rect.end.y - bottom_radius:
+		var dy_bottom := y - (rect.end.y - bottom_radius)
+		inset = maxf(inset, bottom_radius - sqrt(maxf(bottom_radius * bottom_radius - dy_bottom * dy_bottom, 0.0)))
+	return inset
 
 
 func _draw_metal_edge(rect: Rect2, corner: float, card: Dictionary, alpha: float) -> void:
