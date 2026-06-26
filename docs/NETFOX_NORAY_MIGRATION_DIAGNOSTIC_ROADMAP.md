@@ -144,6 +144,8 @@ Status: Implemented for first end-to-end game client path. AL Noray server is de
 - Keep visual-only systems off headless server paths.
 - Add 2 / 4 / 8 / 16 bot smoke scripts for remote motion smoothness and CPU/network budget.
 
+Status: Implemented for the selected bridge architecture. Player movement is currently on the explicit owner-submit / server-forward / remote-render NetFox snapshot path with idle throttling, bounded interpolation/extrapolation, queue overflow telemetry, and byte-budget telemetry. True client-side prediction / rollback remains a later design upgrade rather than a blocker for this migration pass. `res://tests/character_skin_runtime_test.tscn` now includes a synthetic 2 / 4 / 8 / 16 remote-bot smoke that verifies bounded queues, interpolation, clamped extrapolation, and snapshot-overflow telemetry without requiring 24 real players.
+
 ### Phase 3: High-Impact Gameplay RPC Cleanup
 
 Focus areas:

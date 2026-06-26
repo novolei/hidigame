@@ -15,6 +15,7 @@ func _run() -> void:
 	await _test_remote_custom_skin_animates_from_network_motion()
 	await _test_public_server_skips_remote_skin_animation()
 	await _test_player_position_sync_budget()
+	_test_netfox_remote_motion_bot_smoke()
 
 	if failures.is_empty():
 		print("[CharacterSkinRuntimeTest] PASS")
@@ -175,6 +176,44 @@ func _test_player_position_sync_budget() -> void:
 		_expect(transform_sync_source.contains("extrapolate_clamped"), "Transform sync telemetry should expose clamped extrapolation as a stutter signal")
 	player.queue_free()
 	await get_tree().process_frame
+
+
+func _test_netfox_remote_motion_bot_smoke() -> void:
+	var previous_perf_log: String = OS.get_environment("MAOMAO_PERF_LOG")
+	OS.set_environment("MAOMAO_PERF_LOG", "1")
+	Network._reset_performance_telemetry_window()
+	var bot_counts: Array[int] = [2, 4, 8, 16]
+	for bot_count: int in bot_counts:
+		var roots: Array[CharacterBody3D] = []
+		for index: int in range(bot_count):
+			var root: CharacterBody3D = CharacterBody3D.new()
+			root.name = "SyntheticRemote" + str(bot_count) + "_" + str(index)
+			root.set_multiplayer_authority(100 + index)
+			add_child(root)
+			var transform_sync: NetfoxPlayerTransformSync = NetfoxPlayerTransformSync.new()
+			transform_sync.name = "NetfoxTransformSync"
+			root.add_child(transform_sync)
+			transform_sync.call("_resolve_root")
+			for sample_index: int in range(24):
+				var sample_position: Vector3 = Vector3(float(index), 0.0, float(sample_index) * 0.2)
+				var sample_velocity: Vector3 = Vector3(0.0, 0.0, 2.0)
+				transform_sync.call("_record_snapshot", sample_index, sample_position, sample_velocity)
+			var snapshots: Array = transform_sync.get("_snapshots") as Array
+			_expect(snapshots.size() <= transform_sync.max_snapshots, "Synthetic remote bot snapshots should stay bounded for " + str(bot_count) + " bots")
+			var interpolated: Dictionary = transform_sync.call("_sample_state", 10.5) as Dictionary
+			_expect(str(interpolated.get("mode", "")) == "interpolate", "Synthetic remote bot should interpolate mid-buffer samples for " + str(bot_count) + " bots")
+			var extrapolated: Dictionary = transform_sync.call("_sample_state", 99.0) as Dictionary
+			_expect(str(extrapolated.get("mode", "")) == "extrapolate_clamped", "Synthetic remote bot should clamp stale extrapolation for " + str(bot_count) + " bots")
+			roots.append(root)
+		for root: CharacterBody3D in roots:
+			root.free()
+	var summary: String = Network._format_performance_telemetry_events()
+	_expect(summary.contains("player_transform.snapshot_overflow"), "Synthetic 2/4/8/16 remote bot smoke should record snapshot overflow telemetry")
+	Network._reset_performance_telemetry_window()
+	if previous_perf_log.is_empty():
+		OS.unset_environment("MAOMAO_PERF_LOG")
+	else:
+		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
 
 
 func _spawn_player(peer_id: String) -> Node:
