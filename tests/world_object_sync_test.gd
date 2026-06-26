@@ -11,6 +11,7 @@ func _run() -> void:
 	_reset_network_state()
 	await _test_ammo_availability_state_controls_visibility_and_collision()
 	await _test_ammo_pickup_uses_meshy_visuals_and_sized_collision()
+	_test_map_prop_sync_budget_coalesces_motion()
 	await _test_map_prop_network_state_application()
 	_test_level_applies_map_prop_state_by_name()
 	await _test_map_prop_authoritative_impact_wakes_body()
@@ -120,6 +121,35 @@ func _test_ammo_pickup_uses_meshy_visuals_and_sized_collision() -> void:
 
 	level.free()
 	await get_tree().process_frame
+
+
+func _test_map_prop_sync_budget_coalesces_motion() -> void:
+	var budget: MapPropSyncBudget = MapPropSyncBudget.new()
+	var first_transform := Transform3D(Basis.IDENTITY, Vector3(1.0, 0.0, 0.0))
+	var latest_transform := Transform3D(Basis.IDENTITY, Vector3(2.0, 0.0, 0.0))
+	budget.queue_motion("MapProp_A", first_transform, Vector3(0.1, 0.0, 0.0), Vector3.ZERO, false)
+	budget.queue_motion("MapProp_A", latest_transform, Vector3(0.2, 0.0, 0.0), Vector3.UP, false)
+
+	var early_flush: Array[Dictionary] = budget.tick(0.05)
+	_expect(early_flush.is_empty(), "Map prop motion budget should wait for its flush interval")
+	_expect(budget.pending_count() == 1, "Map prop motion budget should coalesce repeated prop updates")
+
+	var flushed: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
+	_expect(flushed.size() == 1, "Map prop motion budget should flush one coalesced update")
+	if flushed.size() == 1:
+		var state: Dictionary = flushed[0]
+		var synced_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
+		var synced_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
+		var synced_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
+		_expect(str(state.get("prop_name", "")) == "MapProp_A", "Map prop motion budget should preserve stable prop name")
+		_expect(synced_transform.origin.distance_to(latest_transform.origin) < 0.001, "Map prop motion budget should keep the newest transform")
+		_expect(synced_linear_velocity.distance_to(Vector3(0.2, 0.0, 0.0)) < 0.001, "Map prop motion budget should keep the newest linear velocity")
+		_expect(synced_angular_velocity.distance_to(Vector3.UP) < 0.001, "Map prop motion budget should keep the newest angular velocity")
+	_expect(not budget.has_pending(), "Map prop motion budget should clear pending states after flush")
+
+	budget.queue_motion("MapProp_A", latest_transform, Vector3.ZERO, Vector3.ZERO, false)
+	budget.clear_motion("MapProp_A")
+	_expect(budget.drain().is_empty(), "Reliable rest sync should be able to clear pending motion updates")
 
 
 func _test_map_prop_network_state_application() -> void:

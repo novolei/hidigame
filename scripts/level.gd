@@ -15,6 +15,8 @@ extends Node3D
 const MatchIntroOverlayScript := preload("res://scripts/match_intro_overlay.gd")
 const CharacterSetupOverlayScript := preload("res://scripts/character_setup_overlay.gd")
 const LevelLayout := preload("res://scripts/level_layout_config.gd")
+const RuntimeModeScript := preload("res://scripts/runtime_mode.gd")
+const MapPropSyncBudgetScript := preload("res://scripts/map_prop_sync_budget.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PartyMonsterAccessoryPickupScript := preload("res://scripts/party_monster_accessory_pickup.gd")
 const PartyMonsterHuntHUDScript := preload("res://scripts/party_monster_hunt_hud.gd")
@@ -64,8 +66,7 @@ var room_toast_stack: VBoxContainer = null
 var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
 var _quit_confirm_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
-var _map_prop_pending_motion_sync: Dictionary = {}
-var _map_prop_motion_sync_elapsed: float = 0.0
+var _map_prop_sync_budget: MapPropSyncBudget = MapPropSyncBudgetScript.new()
 
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
@@ -101,7 +102,6 @@ const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
 const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
-const MAP_PROP_MOTION_SYNC_FLUSH_INTERVAL: float = 0.125
 const WORLD_COLLISION_MASK: int = 2
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
@@ -364,17 +364,25 @@ func _process(delta):
 
 
 func _is_dedicated_public_server_runtime() -> bool:
-	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+	return RuntimeModeScript.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
 func _process_map_prop_motion_sync(delta: float) -> void:
-	if multiplayer.multiplayer_peer == null or not multiplayer.is_server() or _map_prop_pending_motion_sync.is_empty():
+	if not RuntimeModeScript.is_multiplayer_server(multiplayer):
 		return
-	_map_prop_motion_sync_elapsed += delta
-	if _map_prop_motion_sync_elapsed < MAP_PROP_MOTION_SYNC_FLUSH_INTERVAL:
-		return
-	_map_prop_motion_sync_elapsed = 0.0
-	_flush_map_prop_motion_sync()
+	for state: Dictionary in _map_prop_sync_budget.tick(delta):
+		var prop_name: String = str(state.get("prop_name", ""))
+		var next_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
+		var next_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
+		var next_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
+		var next_sleeping: bool = bool(state.get("sleeping", false))
+		_rpc_sync_map_prop_motion_state.rpc(
+			prop_name,
+			next_transform,
+			next_linear_velocity,
+			next_angular_velocity,
+			next_sleeping
+		)
 
 
 # -----------------------------------------------------------------------------
@@ -1335,8 +1343,7 @@ func _server_spawn_map_props() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.randomize()
 	var container: Node3D = _get_or_create_map_prop_container()
-	_map_prop_pending_motion_sync.clear()
-	_map_prop_motion_sync_elapsed = 0.0
+	_map_prop_sync_budget.reset()
 	var used_positions: Array[Vector3] = []
 	var spawn_data: Array = []
 
@@ -1446,35 +1453,10 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 	if not multiplayer.is_server() or not prop:
 		return
 	if reliable:
-		_map_prop_pending_motion_sync.erase(prop.name)
+		_map_prop_sync_budget.clear_motion(prop.name)
 		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
-		_map_prop_pending_motion_sync[prop.name] = {
-			"transform": prop.global_transform,
-			"linear_velocity": prop.linear_velocity,
-			"angular_velocity": prop.angular_velocity,
-			"sleeping": prop.sleeping,
-		}
-
-
-func _flush_map_prop_motion_sync() -> void:
-	if _map_prop_pending_motion_sync.is_empty():
-		return
-	for raw_prop_name in _map_prop_pending_motion_sync.keys():
-		var prop_name := str(raw_prop_name)
-		var state: Dictionary = _map_prop_pending_motion_sync.get(raw_prop_name, {})
-		var next_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
-		var next_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
-		var next_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
-		var next_sleeping: bool = bool(state.get("sleeping", false))
-		_rpc_sync_map_prop_motion_state.rpc(
-			prop_name,
-			next_transform,
-			next_linear_velocity,
-			next_angular_velocity,
-			next_sleeping
-		)
-	_map_prop_pending_motion_sync.clear()
+		_map_prop_sync_budget.queue_motion(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
