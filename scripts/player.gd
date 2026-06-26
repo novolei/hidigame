@@ -2993,10 +2993,12 @@ func set_camouflage_paint_material_profile(profile: Dictionary) -> void:
 func submit_camouflage_brush_start(base_color: Color) -> void:
 	base_color.a = 1.0
 	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		Network.record_rpc_event("chameleon.paint_start", maxi(multiplayer.get_peers().size(), 1), 16)
 		_start_camouflage_brush_visual.rpc(base_color)
 	elif _should_apply_camouflage_brush_without_server_peer():
 		_start_camouflage_brush_visual(base_color)
 	else:
+		Network.record_rpc_event("chameleon.paint_start_request", 1, 16)
 		_request_camouflage_brush_start.rpc_id(1, base_color)
 
 
@@ -3019,10 +3021,12 @@ func submit_camouflage_brush_stroke(
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+		Network.record_rpc_event("chameleon.paint_stroke", maxi(multiplayer.get_peers().size(), 1), 96)
 		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	elif _should_apply_camouflage_brush_without_server_peer():
 		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	else:
+		Network.record_rpc_event("chameleon.paint_stroke_request", 1, 96)
 		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 
 
@@ -3055,12 +3059,18 @@ func submit_camouflage_brush_stroke_batch(
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
+	var clip_triangles: PackedVector2Array = clean_uv_clip.get("triangles", PackedVector2Array())
+	var clip_counts: PackedInt32Array = clean_uv_clip.get("counts", PackedInt32Array())
+	var approx_batch_bytes: int = 120 + clean_uvs.size() * 28 + world_positions.size() * 24 + clip_triangles.size() * 8 + clean_uv_footprint_metrics.size() * 4
+	Network.record_perf_event("skill.chameleon.paint_points", clean_uvs.size())
 	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
-		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		Network.record_rpc_event("chameleon.paint_batch", maxi(multiplayer.get_peers().size(), 1), approx_batch_bytes)
+		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	elif _should_apply_camouflage_brush_without_server_peer():
-		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	else:
-		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		Network.record_rpc_event("chameleon.paint_batch_request", 1, approx_batch_bytes)
+		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 
 
 func _should_apply_camouflage_brush_without_server_peer() -> bool:

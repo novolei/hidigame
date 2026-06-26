@@ -81,6 +81,14 @@ func _should_skip_dedicated_server_visuals() -> bool:
 	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
+func is_auto_turret_enabled() -> bool:
+	return bool(Network.lobby_config.get("hunter_auto_turret_enabled", true))
+
+
+func get_target_range() -> float:
+	return clampf(float(Network.lobby_config.get("hunter_auto_turret_range", TARGET_RANGE)), 8.0, 60.0)
+
+
 func _should_scan_targets() -> bool:
 	if multiplayer.is_server():
 		return true
@@ -106,6 +114,10 @@ func _process(delta: float) -> void:
 	if not _is_valid_hunter():
 		visible = false
 		return
+	if not is_auto_turret_enabled():
+		visible = false
+		_cached_target = null
+		return
 	var skip_visuals := _should_skip_dedicated_server_visuals()
 	visible = not skip_visuals
 	global_position = _get_hover_anchor_position()
@@ -125,6 +137,8 @@ func _process(delta: float) -> void:
 
 
 func force_scan_for_test() -> Node3D:
+	if not is_auto_turret_enabled():
+		return null
 	return _find_best_visible_prop_target()
 
 
@@ -187,10 +201,6 @@ func get_spread_degrees() -> float:
 	return SPREAD_DEGREES
 
 
-func get_target_range() -> float:
-	return TARGET_RANGE
-
-
 func get_shots_before_overheat() -> int:
 	return SHOTS_BEFORE_OVERHEAT
 
@@ -214,6 +224,7 @@ func is_overheated() -> bool:
 func drain_by_card(duration: float = OVERHEAT_COOLDOWN_SECONDS) -> void:
 	heat_shots = SHOTS_BEFORE_OVERHEAT
 	overheat_cooldown = maxf(overheat_cooldown, duration)
+	Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1), 12)
 	_broadcast_turret_overheat.rpc()
 
 
@@ -549,9 +560,10 @@ func _process_recoil(delta: float) -> void:
 
 
 func _find_best_visible_prop_target() -> Node3D:
-	if not _is_valid_hunter() or not is_inside_tree():
+	if not is_auto_turret_enabled() or not _is_valid_hunter() or not is_inside_tree():
 		return null
 	var origin := _get_muzzle_position()
+	var target_range := get_target_range()
 	var best_target: Node3D = null
 	var best_distance := INF
 	for node in get_tree().get_nodes_in_group("card_decoy_targets"):
@@ -562,7 +574,7 @@ func _find_best_visible_prop_target() -> Node3D:
 			continue
 		var aim_point := _get_target_aim_point(candidate)
 		var distance := origin.distance_to(aim_point)
-		if distance > TARGET_RANGE or distance >= best_distance:
+		if distance > target_range or distance >= best_distance:
 			continue
 		if not _is_inside_scan_cone(aim_point):
 			continue
@@ -580,7 +592,7 @@ func _find_best_visible_prop_target() -> Node3D:
 			continue
 		var aim_point := _get_target_aim_point(candidate)
 		var distance := origin.distance_to(aim_point)
-		if distance > TARGET_RANGE or distance >= best_distance:
+		if distance > target_range or distance >= best_distance:
 			continue
 		if not _is_inside_scan_cone(aim_point):
 			continue
@@ -725,14 +737,15 @@ func _has_line_of_sight(origin: Vector3, aim_point: Vector3, target: Node3D) -> 
 func _server_fire_at_target(target: Node3D) -> void:
 	if not multiplayer.is_server() or not target or not is_instance_valid(target):
 		return
-	if is_overheated():
+	if not is_auto_turret_enabled() or is_overheated():
 		return
 	var start := _get_muzzle_position()
 	var target_point := _get_target_aim_point(target)
 	var direction := (target_point - start).normalized()
 	direction = _apply_spread(direction)
 
-	var end := start + direction * TARGET_RANGE
+	var target_range := get_target_range()
+	var end := start + direction * target_range
 	var normal := Vector3.UP
 	var hit_prop := false
 	var hit_collider = null
@@ -757,10 +770,12 @@ func _server_fire_at_target(target: Node3D) -> void:
 			if target.has_method("take_damage"):
 				target.take_damage(DAMAGE_PER_BULLET, owner_peer_id, false)
 
+	Network.record_rpc_event("turret.shot", maxi(multiplayer.get_peers().size(), 1), 72)
 	_broadcast_turret_shot.rpc(start, end, normal, hit_prop)
 	heat_shots += 1
 	if heat_shots >= SHOTS_BEFORE_OVERHEAT:
 		overheat_cooldown = OVERHEAT_COOLDOWN_SECONDS
+		Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1), 12)
 		_broadcast_turret_overheat.rpc()
 
 
@@ -789,7 +804,7 @@ func _center_weighted_random() -> float:
 
 
 func _can_correct_near_miss_to_target(start: Vector3, end: Vector3, target_point: Vector3, target: Node3D) -> bool:
-	if start.distance_to(target_point) > TARGET_RANGE:
+	if start.distance_to(target_point) > get_target_range():
 		return false
 	if not _has_line_of_sight(start, target_point, target):
 		return false

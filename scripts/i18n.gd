@@ -66,6 +66,8 @@ var _translations := {
 		"hide_prep": "HIDE PREP",
 		"stalker_glass": "STALKER INVISIBILITY",
 		"stalker_glass_material": "STALKER CLOAK",
+		"auto_turret_enabled": "AUTO TURRET",
+		"auto_turret_range": "TURRET RANGE",
 		"auto_assign": "AUTO ASSIGN TEAMS",
 		"choose_side": "CHOOSE SIDE",
 		"unassigned": "UNASSIGNED PLAYER(S)",
@@ -225,6 +227,12 @@ var _translations := {
 		"option.stalker_glass.0.16": "VISIBLE",
 		"option.stalker_glass_material.classic": "CLASSIC SHIMMER",
 		"option.stalker_glass_material.liquid_glass": "LIQUID GLASS",
+		"option.auto_turret_enabled.true": "ON",
+		"option.auto_turret_enabled.false": "OFF",
+		"option.auto_turret_range.18": "SHORT 18M",
+		"option.auto_turret_range.26": "MEDIUM 26M",
+		"option.auto_turret_range.34": "STANDARD 34M",
+		"option.auto_turret_range.42": "LONG 42M",
 	},
 	"zh": {
 		"app.title": "Monster & Hunter",
@@ -276,6 +284,8 @@ var _translations := {
 		"duration": "回合时长",
 		"hunter_count": "猎手数量",
 		"hide_prep": "躲藏准备",
+		"auto_turret_enabled": "自动炮塔",
+		"auto_turret_range": "炮塔范围",
 		"auto_assign": "自动分配队伍",
 		"choose_side": "选择阵营",
 		"unassigned": "未分配玩家",
@@ -408,6 +418,12 @@ var _translations := {
 		"option.hunters.6": "6 名猎手",
 		"option.hunters.7": "7 名猎手",
 		"option.hunters.8": "8 名猎手",
+		"option.auto_turret_enabled.true": "开启",
+		"option.auto_turret_enabled.false": "关闭",
+		"option.auto_turret_range.18": "短 18 米",
+		"option.auto_turret_range.26": "中 26 米",
+		"option.auto_turret_range.34": "标准 34 米",
+		"option.auto_turret_range.42": "长 42 米",
 	}
 }
 

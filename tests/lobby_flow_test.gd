@@ -14,6 +14,8 @@ func _run() -> void:
 	_test_host_room_metadata()
 	_test_public_room_server_uses_empty_lobby_id()
 	_test_public_room_detached_launch_helpers()
+	_test_performance_telemetry_event_window()
+	_test_public_server_fallback_endpoints()
 	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
 	_test_join_address_port_parsing()
@@ -73,6 +75,8 @@ func _reset_network_state() -> void:
 		"host_stalker_count": -1,
 		"stalker_glass_alpha_max": 0.125,
 		"stalker_glass_material": "classic",
+		"hunter_auto_turret_enabled": true,
+		"hunter_auto_turret_range": 34.0,
 		"auto_balance": true,
 		"public_server": false,
 		"public_lobby": false,
@@ -153,6 +157,35 @@ func _test_public_room_detached_launch_helpers() -> void:
 		OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, previous_launch_mode)
 
 
+func _test_performance_telemetry_event_window() -> void:
+	_reset_network_state()
+	var previous_perf_log := OS.get_environment("MAOMAO_PERF_LOG")
+	OS.set_environment("MAOMAO_PERF_LOG", "1")
+	Network._reset_performance_telemetry_window()
+	Network.record_perf_event("skill.chameleon.paint_batch", 2, 128)
+	Network.record_rpc_event("weapon.fire_request", 1, 48)
+	Network.record_rpc_event("flashlight.pose", 3, 36)
+	var summary := Network._format_performance_telemetry_events()
+	_expect(summary.contains("rpc.flashlight.pose:3"), "Performance telemetry should rank and count repeated RPC recipients")
+	_expect(summary.contains("skill.chameleon.paint_batch:2"), "Performance telemetry should include skill event counts")
+	_expect(summary.contains("rpc.weapon.fire_request:1"), "Performance telemetry should include one-shot RPC events")
+	_expect(Network._performance_telemetry_total_event_bytes() == 284, "Performance telemetry should aggregate approximate event bytes")
+	Network._reset_performance_telemetry_window()
+	_expect(Network._format_performance_telemetry_events() == "-", "Performance telemetry reset should clear the event window")
+	if previous_perf_log.is_empty():
+		OS.unset_environment("MAOMAO_PERF_LOG")
+	else:
+		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
+
+
+func _test_public_server_fallback_endpoints() -> void:
+	_reset_network_state()
+	var endpoints := Network._public_lobby_endpoint_candidates(MainMenuUI.PUBLIC_SERVER_TARGET)
+	_expect(endpoints.size() >= 2, "Public lobby should keep at least one backup endpoint")
+	_expect(str(endpoints[0]) == "%s:%d" % [Network.PUBLIC_SERVER_ADDRESS, Network.SERVER_PORT], "Public lobby should try the primary VPS first")
+	_expect(endpoints.has("8.153.148.157:%d" % Network.SERVER_PORT), "Public lobby should keep the previous VPS as a backup endpoint")
+
+
 func _test_public_room_redirect_waits_for_room_sync() -> void:
 	_reset_network_state()
 	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -226,6 +259,8 @@ func _test_lobby_ui_state() -> void:
 		"host_hunter_count": 2,
 		"stalker_glass_alpha_max": 0.16,
 		"stalker_glass_material": "liquid_glass",
+		"hunter_auto_turret_enabled": false,
+		"hunter_auto_turret_range": 26.0,
 	}, true)
 
 	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
@@ -250,6 +285,8 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.hunter_count_option.selected == 2, "Hunter Count dropdown should select 2 Hunters")
 	_expect(absf(float(_selected_value(ui.stalker_glass_option)) - 0.16) < 0.001, "Stalker invisibility dropdown should follow lobby config")
 	_expect(str(_selected_value(ui.stalker_glass_material_option)) == "liquid_glass", "Stalker cloak dropdown should follow lobby config")
+	_expect(bool(_selected_value(ui.auto_turret_enabled_option)) == false, "Auto turret enable dropdown should follow lobby config")
+	_expect(int(_selected_value(ui.auto_turret_range_option)) == 26, "Auto turret range dropdown should follow lobby config")
 	_expect(_tree_has_button_text(ui, "Host"), "Host player should be visible in player/team lists")
 	_expect(_tree_has_button_text(ui, "Guest"), "Joined player should be visible in user list")
 	_expect(ui.start_button.disabled, "Start should stay disabled until both Hunter and Prop teams exist")
@@ -269,8 +306,12 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.selected_role == Network.Role.SPECTATOR, "Clicking spectators should choose spectator mode")
 	ui.stalker_glass_option.select(2)
 	ui.stalker_glass_material_option.select(0)
+	ui.auto_turret_enabled_option.select(0)
+	ui.auto_turret_range_option.select(2)
 	_expect(absf(float(ui.get_host_config().get("stalker_glass_alpha_max", 0.0)) - 0.125) < 0.001, "Host config should publish Stalker invisibility strength")
 	_expect(str(ui.get_host_config().get("stalker_glass_material", "")) == "classic", "Host config should publish Stalker cloak material mode")
+	_expect(bool(ui.get_host_config().get("hunter_auto_turret_enabled", false)), "Host config should publish automatic turret enablement")
+	_expect(absf(float(ui.get_host_config().get("hunter_auto_turret_range", 0.0)) - 34.0) < 0.001, "Host config should publish automatic turret range")
 
 	I18n.set_language_setting("zh")
 	await get_tree().process_frame

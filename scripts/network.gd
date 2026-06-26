@@ -11,7 +11,8 @@ extends Node
 
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
-const PUBLIC_SERVER_ADDRESS: String = "8.153.148.157"
+const PUBLIC_SERVER_ADDRESS: String = "1.13.175.170"
+const PUBLIC_SERVER_BACKUP_ADDRESSES := ["8.153.148.157"]
 const PUBLIC_ROOM_PORT_START: int = 8081
 const PUBLIC_ROOM_PORT_END: int = 8091
 const PUBLIC_ROOM_STATUS_INTERVAL_SEC := 1.0
@@ -26,6 +27,7 @@ const PUBLIC_ROOM_LAUNCH_MODE_DETACHED := "detached"
 const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 const PERF_TELEMETRY_INTERVAL_SEC := 10.0
 const PERF_TELEMETRY_SLOW_FRAME_MS := 50.0
+const PERF_TELEMETRY_MAX_EVENT_KEYS := 10
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
@@ -84,11 +86,17 @@ var _public_room_empty_elapsed := 0.0
 var _public_room_created_msec := 0
 var _public_room_runtime_ready := false
 var _public_room_status_dir := ""
+var _public_lobby_failover_endpoints: Array[String] = []
+var _public_lobby_failover_index := 0
+var _public_lobby_pending_context: Dictionary = {}
 var _perf_telemetry_elapsed := 0.0
 var _perf_telemetry_accumulated_delta := 0.0
 var _perf_telemetry_worst_delta := 0.0
 var _perf_telemetry_frames := 0
 var _perf_telemetry_slow_frames := 0
+var _perf_telemetry_enabled := false
+var _perf_telemetry_event_counts: Dictionary = {}
+var _perf_telemetry_event_bytes: Dictionary = {}
 
 
 func _runtime_debug_log(
@@ -146,6 +154,8 @@ var lobby_config: Dictionary = {
 	"host_stalker_count": -1,        # -1 表示按 1:1 自动
 	"stalker_glass_alpha_max": 0.125,
 	"stalker_glass_material": "classic",
+	"hunter_auto_turret_enabled": true,
+	"hunter_auto_turret_range": 34.0,
 	"auto_balance": true,
 	"public_server": false,
 	"public_lobby": false,
@@ -601,7 +611,8 @@ func _process(delta):
 
 
 func _process_performance_telemetry(delta: float) -> void:
-	if not _should_log_performance_telemetry():
+	_perf_telemetry_enabled = _should_log_performance_telemetry()
+	if not _perf_telemetry_enabled:
 		_reset_performance_telemetry_window()
 		return
 	_perf_telemetry_elapsed += delta
@@ -617,7 +628,9 @@ func _process_performance_telemetry(delta: float) -> void:
 		avg_delta_ms = (_perf_telemetry_accumulated_delta / float(_perf_telemetry_frames)) * 1000.0
 	var worst_delta_ms := _perf_telemetry_worst_delta * 1000.0
 	var peer_count := multiplayer.get_peers().size() if multiplayer.multiplayer_peer != null else 0
-	print("[Perf] role=%s fps=%.1f avg_ms=%.2f worst_ms=%.2f slow_frames=%d peers=%d players=%d rooms=%d room=%s port=%d" % [
+	var event_summary := _format_performance_telemetry_events()
+	var event_kb := float(_performance_telemetry_total_event_bytes()) / 1024.0
+	print("[Perf] role=%s fps=%.1f avg_ms=%.2f worst_ms=%.2f slow_frames=%d peers=%d players=%d rooms=%d room=%s port=%d event_kb=%.1f events=%s" % [
 		_performance_telemetry_role(),
 		Engine.get_frames_per_second(),
 		avg_delta_ms,
@@ -628,8 +641,37 @@ func _process_performance_telemetry(delta: float) -> void:
 		public_rooms.size(),
 		active_public_room_id if not active_public_room_id.is_empty() else "-",
 		server_port,
+		event_kb,
+		event_summary,
 	])
 	_reset_performance_telemetry_window()
+
+
+func is_performance_telemetry_enabled() -> bool:
+	return _perf_telemetry_enabled or _should_log_performance_telemetry()
+
+
+func record_perf_event(key: String, count: int = 1, approx_bytes: int = 0) -> void:
+	if count <= 0:
+		return
+	var clean_key := key.strip_edges()
+	if clean_key.is_empty():
+		return
+	if not is_performance_telemetry_enabled():
+		return
+	_perf_telemetry_event_counts[clean_key] = int(_perf_telemetry_event_counts.get(clean_key, 0)) + count
+	if approx_bytes > 0:
+		_perf_telemetry_event_bytes[clean_key] = int(_perf_telemetry_event_bytes.get(clean_key, 0)) + approx_bytes
+
+
+func record_rpc_event(key: String, recipient_count: int = 1, approx_bytes_per_recipient: int = 0) -> void:
+	var clean_key := key.strip_edges()
+	if clean_key.is_empty():
+		return
+	if not clean_key.begins_with("rpc."):
+		clean_key = "rpc." + clean_key
+	var recipients := maxi(recipient_count, 1)
+	record_perf_event(clean_key, recipients, maxi(approx_bytes_per_recipient, 0) * recipients)
 
 
 func _should_log_performance_telemetry() -> bool:
@@ -651,12 +693,46 @@ func _performance_telemetry_role() -> String:
 	return "client"
 
 
+func _format_performance_telemetry_events(max_keys: int = PERF_TELEMETRY_MAX_EVENT_KEYS) -> String:
+	if _perf_telemetry_event_counts.is_empty():
+		return "-"
+	var remaining: Array = _perf_telemetry_event_counts.keys()
+	var parts: Array[String] = []
+	while not remaining.is_empty() and parts.size() < max_keys:
+		var best_index := 0
+		var best_count := int(_perf_telemetry_event_counts.get(remaining[0], 0))
+		for index in range(1, remaining.size()):
+			var count := int(_perf_telemetry_event_counts.get(remaining[index], 0))
+			if count > best_count:
+				best_index = index
+				best_count = count
+		var best_key := str(remaining[best_index])
+		var bytes := int(_perf_telemetry_event_bytes.get(best_key, 0))
+		var label := "%s:%d" % [best_key, best_count]
+		if bytes > 0:
+			label += "/%.1fkb" % (float(bytes) / 1024.0)
+		parts.append(label)
+		remaining.remove_at(best_index)
+	if not remaining.is_empty():
+		parts.append("+%d" % remaining.size())
+	return ",".join(parts)
+
+
+func _performance_telemetry_total_event_bytes() -> int:
+	var total := 0
+	for value in _perf_telemetry_event_bytes.values():
+		total += int(value)
+	return total
+
+
 func _reset_performance_telemetry_window() -> void:
 	_perf_telemetry_elapsed = 0.0
 	_perf_telemetry_accumulated_delta = 0.0
 	_perf_telemetry_worst_delta = 0.0
 	_perf_telemetry_frames = 0
 	_perf_telemetry_slow_frames = 0
+	_perf_telemetry_event_counts.clear()
+	_perf_telemetry_event_bytes.clear()
 
 
 func _ready() -> void:
@@ -872,29 +948,84 @@ func _public_server_external_address(override_address: String = "") -> String:
 
 func join_public_lobby(nickname: String, skin_color_str: String, address: String = "%s:%d" % [PUBLIC_SERVER_ADDRESS, SERVER_PORT], client_role: int = Role.NONE, character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> int:
 	_redirecting_to_public_room = false
+	_public_lobby_failover_endpoints = _public_lobby_endpoint_candidates(address)
+	_public_lobby_failover_index = 0
+	_public_lobby_pending_context = {
+		"nick": nickname,
+		"skin": skin_color_str,
+		"role": client_role,
+		"character_model": character_model,
+	}
+	if _public_lobby_failover_endpoints.is_empty():
+		return ERR_INVALID_PARAMETER
+	return _connect_public_lobby_endpoint(_public_lobby_failover_endpoints[0])
+
+
+func _public_lobby_endpoint_candidates(preferred_address: String) -> Array[String]:
+	var endpoints: Array[String] = []
+	_append_public_lobby_endpoint(endpoints, preferred_address)
+	_append_public_lobby_endpoint(endpoints, "%s:%d" % [PUBLIC_SERVER_ADDRESS, SERVER_PORT])
+	for backup_address in PUBLIC_SERVER_BACKUP_ADDRESSES:
+		_append_public_lobby_endpoint(endpoints, "%s:%d" % [str(backup_address), SERVER_PORT])
+	return endpoints
+
+
+func _append_public_lobby_endpoint(endpoints: Array[String], endpoint_text: String) -> void:
+	var clean_text := endpoint_text.strip_edges()
+	if clean_text.is_empty():
+		return
+	var endpoint := _normalize_join_endpoint(clean_text)
+	var host := str(endpoint.get("address", PUBLIC_SERVER_ADDRESS)).strip_edges()
+	var port := int(endpoint.get("port", SERVER_PORT))
+	if host.is_empty() or port <= 0:
+		return
+	var normalized := "%s:%d" % [host, port]
+	if not endpoints.has(normalized):
+		endpoints.append(normalized)
+
+
+func _connect_public_lobby_endpoint(endpoint_text: String) -> int:
 	_close_current_peer()
 	var peer := ENetMultiplayerPeer.new()
-	var endpoint := _normalize_join_endpoint(address)
-	address = str(endpoint.get("address", PUBLIC_SERVER_ADDRESS))
+	var endpoint := _normalize_join_endpoint(endpoint_text)
+	var address := str(endpoint.get("address", PUBLIC_SERVER_ADDRESS))
 	server_port = int(endpoint.get("port", SERVER_PORT))
 	var error := peer.create_client(address, server_port)
 	if error != OK:
 		return error
 	multiplayer.multiplayer_peer = peer
-	if !nickname or nickname.strip_edges() == "":
+	var nickname := str(_public_lobby_pending_context.get("nick", ""))
+	if nickname.strip_edges().is_empty():
 		nickname = "Player_" + str(multiplayer.get_unique_id())
 	player_info["nick"] = nickname
-	player_info["skin"] = skin_str_to_e(skin_color_str)
-	player_info["character_model"] = normalize_character_model(character_model)
+	player_info["skin"] = skin_str_to_e(str(_public_lobby_pending_context.get("skin", "blue")))
+	player_info["character_model"] = normalize_character_model(str(_public_lobby_pending_context.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
 	player_info["party_monster_accessories"] = normalize_party_monster_accessories({}, str(player_info["character_model"]))
-	player_info["role"] = client_role
+	player_info["role"] = int(_public_lobby_pending_context.get("role", Role.NONE))
 	player_info["alive"] = true
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = ""
 	player_info["join_room_name"] = ""
 	players.clear()
+	_runtime_debug_log("[Network] Connecting public lobby endpoint ", endpoint_text)
 	public_lobby_connection_ready.emit()
 	return OK
+
+
+func _try_next_public_lobby_endpoint() -> bool:
+	while _public_lobby_failover_index + 1 < _public_lobby_failover_endpoints.size():
+		_public_lobby_failover_index += 1
+		var endpoint_text := _public_lobby_failover_endpoints[_public_lobby_failover_index]
+		_runtime_debug_log("[Network] Public lobby connection failed; trying backup endpoint ", endpoint_text)
+		if _connect_public_lobby_endpoint(endpoint_text) == OK:
+			return true
+	return false
+
+
+func _clear_public_lobby_failover() -> void:
+	_public_lobby_failover_endpoints.clear()
+	_public_lobby_failover_index = 0
+	_public_lobby_pending_context.clear()
 
 
 func request_public_room_list() -> void:
@@ -1863,6 +1994,8 @@ func _server_apply_lobby_config(new_config: Dictionary) -> void:
 	lobby_config["stalker_glass_alpha_max"] = clampf(float(lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
 	if str(lobby_config.get("stalker_glass_material", "classic")) != "liquid_glass":
 		lobby_config["stalker_glass_material"] = "classic"
+	lobby_config["hunter_auto_turret_enabled"] = bool(lobby_config.get("hunter_auto_turret_enabled", true))
+	lobby_config["hunter_auto_turret_range"] = clampf(float(lobby_config.get("hunter_auto_turret_range", 34.0)), 8.0, 60.0)
 	_runtime_debug_log("[Network] Lobby config updated: ", lobby_config)
 	lobby_config_updated.emit(lobby_config)
 	_broadcast_lobby_config.rpc(lobby_config)
@@ -1879,6 +2012,7 @@ func _broadcast_lobby_config(config: Dictionary):
 # =============================================================================
 
 func _on_connected_ok():
+	_clear_public_lobby_failover()
 	var peer_id = multiplayer.get_unique_id()
 	if not players.has(peer_id):
 		players[peer_id] = player_info.duplicate()
@@ -2005,8 +2139,12 @@ func _on_connection_failed():
 	players.clear()
 	if _redirecting_to_public_room:
 		_redirecting_to_public_room = false
+		_clear_public_lobby_failover()
 		public_room_join_failed.emit("join_status.failed")
 		return
+	if _try_next_public_lobby_endpoint():
+		return
+	_clear_public_lobby_failover()
 	public_lobby_snapshot_received.emit([])
 	server_disconnected.emit()
 

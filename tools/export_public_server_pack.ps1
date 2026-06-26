@@ -42,6 +42,8 @@ $serverExcludedExportFilters = @(
     "addons/godotsteam/*",
     "addons/godotsteam_server/*",
     "addons/terrain_3d/*",
+    "level/pkg.tscn",
+    "scenes/level/maps/Terrain/*",
     "addons/zylann.voxel/*"
 )
 
@@ -227,6 +229,8 @@ function Assert-SmokeLog {
         "addons/godotsteam/godotsteam.gdextension",
         "addons/godotsteam_server/godotsteam_server.gdextension",
         "addons/terrain_3d/terrain.gdextension",
+        "level/pkg.tscn",
+        "scenes/level/maps/Terrain/",
         "addons/zylann.voxel/voxel.gdextension",
         "addons/godot_ai/runtime/game_helper.gd",
         "uid://cnxneyd8ilml2",

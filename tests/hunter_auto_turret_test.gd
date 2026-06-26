@@ -94,6 +94,23 @@ func _run() -> void:
 		await get_tree().process_frame
 		scan_target = turret.force_scan_for_test()
 		_expect(scan_target == chameleon, "Auto turret should acquire only a truly visible prop model in its forward cone: " + str(turret.get_target_scan_debug_for_test(chameleon)))
+		Network.lobby_config["hunter_auto_turret_enabled"] = false
+		scan_target = turret.force_scan_for_test()
+		_expect(scan_target == null, "Auto turret should stay disabled when the lobby room setting turns it off")
+		Network.lobby_config["hunter_auto_turret_enabled"] = true
+		Network.lobby_config["hunter_auto_turret_range"] = 18.0
+		chameleon.position = Vector3(0.0, 0.0, -26.0)
+		await get_tree().process_frame
+		turret._process(0.0)
+		scan_target = turret.force_scan_for_test()
+		_expect(scan_target == null, "Auto turret should respect a short lobby range setting")
+		Network.lobby_config["hunter_auto_turret_range"] = 34.0
+		await get_tree().process_frame
+		turret._process(0.0)
+		scan_target = turret.force_scan_for_test()
+		_expect(scan_target == chameleon, "Auto turret should reacquire targets when the lobby range is extended")
+		chameleon.position = Vector3(0.0, 0.0, -8.0)
+		await get_tree().process_frame
 		var decoy := CardDecoyTargetScript.new() as CardDecoyTarget
 		decoy.name = "CardDecoyPriorityTest"
 		add_child(decoy)
@@ -189,6 +206,35 @@ func _reset_network_state() -> void:
 		1: _player("Hunter", Network.Role.HUNTER),
 		2: _player("Chameleon", Network.Role.CHAMELEON),
 		3: _player("Stalker", Network.Role.STALKER),
+	}
+	Network.lobby_config = {
+		"max_players": 24,
+		"lobby_id": "",
+		"room_name": "Private Match",
+		"steam_lobby_id": "",
+		"host_port": Network.SERVER_PORT,
+		"map": "Warehouse",
+		"variant": "Default",
+		"condition": "Normal",
+		"game_show": "None",
+		"gravity_mps2": 9.8,
+		"low_gravity_events": true,
+		"match_duration_sec": 600,
+		"prep_duration_sec": 30,
+		"host_hunter_count": -1,
+		"host_stalker_count": -1,
+		"stalker_glass_alpha_max": 0.125,
+		"stalker_glass_material": "classic",
+		"hunter_auto_turret_enabled": true,
+		"hunter_auto_turret_range": 34.0,
+		"auto_balance": true,
+		"public_server": false,
+		"public_lobby": false,
+		"public_room_id": "",
+		"public_address": "",
+		"host_peer_id": 1,
+		"host_peer_name": "",
+		"role_locked": false,
 	}
 
 

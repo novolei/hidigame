@@ -57,6 +57,7 @@ func _process(delta: float) -> void:
 		cooldown_remaining = maxf(0.0, cooldown_remaining - delta)
 		if cooldown_remaining <= 0.0:
 			if multiplayer.is_server():
+				Network.record_rpc_event("flashlight.state", maxi(multiplayer.get_peers().size(), 1), 24)
 				_sync_flashlight_state.rpc(false, DURATION, 0.0)
 			else:
 				_apply_flashlight_state(false, DURATION, 0.0)
@@ -95,6 +96,7 @@ func _publish_pose_update() -> void:
 	if multiplayer.is_server():
 		_server_update_flashlight_pose(owner_peer_id, _last_origin, _last_direction)
 	else:
+		Network.record_rpc_event("flashlight.pose_request", 1, 48)
 		_request_flashlight_pose.rpc_id(1, _last_origin, _last_direction)
 
 
@@ -106,6 +108,7 @@ func request_toggle() -> void:
 	if multiplayer.is_server():
 		_server_toggle_flashlight(owner_peer_id, _last_origin, _last_direction)
 	else:
+		Network.record_rpc_event("flashlight.toggle_request", 1, 48)
 		_request_flashlight_toggle.rpc_id(1, _last_origin, _last_direction)
 
 
@@ -165,6 +168,7 @@ func _server_toggle_flashlight(sender_id: int, origin: Vector3, direction: Vecto
 	if sender_id != owner_peer_id:
 		return
 	if active:
+		Network.record_rpc_event("flashlight.state", maxi(multiplayer.get_peers().size(), 1), 24)
 		_sync_flashlight_state.rpc(false, remaining, cooldown_remaining)
 		return
 	if cooldown_remaining > 0.0:
@@ -172,6 +176,7 @@ func _server_toggle_flashlight(sender_id: int, origin: Vector3, direction: Vecto
 	if remaining <= 0.0:
 		_start_flashlight_cooldown()
 		return
+	Network.record_rpc_event("flashlight.state", maxi(multiplayer.get_peers().size(), 1), 24)
 	_sync_flashlight_state.rpc(true, remaining, cooldown_remaining)
 	_server_update_flashlight_pose(sender_id, origin, direction)
 
@@ -180,6 +185,7 @@ func _server_update_flashlight_pose(sender_id: int, origin: Vector3, direction: 
 	if sender_id != owner_peer_id or not active:
 		return
 	var clean_direction := direction.normalized() if direction.length_squared() > 0.0001 else Vector3.FORWARD
+	Network.record_rpc_event("flashlight.pose", maxi(multiplayer.get_peers().size(), 1), 52)
 	_sync_flashlight_pose.rpc(origin, clean_direction, remaining)
 
 
@@ -249,6 +255,7 @@ func _set_light_enabled(enabled: bool) -> void:
 
 
 func _start_flashlight_cooldown() -> void:
+	Network.record_rpc_event("flashlight.state", maxi(multiplayer.get_peers().size(), 1), 24)
 	_sync_flashlight_state.rpc(false, 0.0, COOLDOWN)
 
 

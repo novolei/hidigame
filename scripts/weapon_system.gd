@@ -116,6 +116,7 @@ func request_fire() -> void:
 	if multiplayer.is_server():
 		_server_fire(owner_peer_id, aim_dir, shooter_pos)
 	else:
+		Network.record_rpc_event("weapon.fire_request", 1, 48)
 		_request_fire_rpc.rpc_id(1, aim_dir, shooter_pos)
 
 
@@ -126,6 +127,7 @@ func request_reload() -> void:
 	if multiplayer.is_server():
 		_server_start_reload()
 	else:
+		Network.record_rpc_event("weapon.reload_request", 1, 8)
 		_request_reload_rpc.rpc_id(1)
 
 
@@ -138,6 +140,7 @@ func request_scan() -> void:
 	if multiplayer.is_server():
 		_server_scan(owner_peer_id)
 	else:
+		Network.record_rpc_event("weapon.scan_request", 1, 8)
 		_request_scan_rpc.rpc_id(1)
 
 
@@ -232,6 +235,7 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 		if hit_target and _is_damageable_weapon_target(hit_target):
 			if hit_target is Node and (hit_target as Node).is_in_group("players"):
 				var hit_normal: Vector3 = result.get("normal", -aim_dir)
+				Network.record_rpc_event("weapon.green_blood", maxi(multiplayer.get_peers().size(), 1), 60)
 				_broadcast_green_blood_impact.rpc(hit_position, hit_normal, aim_dir)
 			hit_target.take_damage(damage_dealt, sender_id, is_headshot)
 			if hit_target.has_method("is_card_decoy_target") and hit_target.is_card_decoy_target():
@@ -245,6 +249,7 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 				feedback_color = Color(1.0, 0.86, 0.25, 1.0)
 
 	# 广播弹道视觉(给所有客户端显示弹道光线)
+	Network.record_rpc_event("weapon.tracer", maxi(multiplayer.get_peers().size(), 1), 40)
 	_broadcast_tracer.rpc(shooter_pos, hit_position)
 
 	ammo_changed.emit(current_magazine, total_ammo)
@@ -329,6 +334,7 @@ func _server_start_reload() -> void:
 	reload_started.emit(RELOAD_TIME)
 	if _should_log_runtime_debug():
 		print("[Weapon] Reload started")
+	Network.record_rpc_event("weapon.reload_state", maxi(multiplayer.get_peers().size(), 1), 8)
 	_broadcast_reload.rpc(true)
 	_sync_reload_to_owner(true)
 
@@ -345,6 +351,7 @@ func _server_start_reload() -> void:
 	reload_completed.emit()
 	ammo_changed.emit(current_magazine, total_ammo)
 	_sync_ammo_to_owner()
+	Network.record_rpc_event("weapon.reload_state", maxi(multiplayer.get_peers().size(), 1), 8)
 	_broadcast_reload.rpc(false)
 	_sync_reload_to_owner(false)
 	if _should_log_runtime_debug():
@@ -391,6 +398,7 @@ func _sync_ammo_to_owner() -> void:
 	if owner_peer_id == 1:
 		_sync_ammo(current_magazine, total_ammo)
 	else:
+		Network.record_rpc_event("weapon.ammo_owner", 1, 12)
 		_sync_ammo.rpc_id(owner_peer_id, current_magazine, total_ammo)
 
 
@@ -400,6 +408,7 @@ func _sync_reload_to_owner(reloading: bool) -> void:
 	if owner_peer_id == 1:
 		_sync_reload(reloading)
 	else:
+		Network.record_rpc_event("weapon.reload_owner", 1, 8)
 		_sync_reload.rpc_id(owner_peer_id, reloading)
 
 

@@ -376,6 +376,7 @@ func _process_map_prop_motion_sync(delta: float) -> void:
 		var next_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
 		var next_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
 		var next_sleeping: bool = bool(state.get("sleeping", false))
+		Network.record_rpc_event("map_prop.motion", maxi(Network.multiplayer.get_peers().size(), 1), 104)
 		_rpc_sync_map_prop_motion_state.rpc(
 			prop_name,
 			next_transform,
@@ -1454,6 +1455,7 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 		return
 	if reliable:
 		_map_prop_sync_budget.clear_motion(prop.name)
+		Network.record_rpc_event("map_prop.rest", maxi(Network.multiplayer.get_peers().size(), 1), 104)
 		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
 		_map_prop_sync_budget.queue_motion(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)

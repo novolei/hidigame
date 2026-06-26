@@ -91,6 +91,8 @@ var prep_option: OptionButton
 var hunter_count_option: OptionButton
 var stalker_glass_option: OptionButton
 var stalker_glass_material_option: OptionButton
+var auto_turret_enabled_option: OptionButton
+var auto_turret_range_option: OptionButton
 var start_button: Button
 var auto_assign_button: Button
 var chat_panel: PanelContainer
@@ -1623,6 +1625,8 @@ func _build_match_details_panel() -> Control:
 	hunter_count_option = _option([-1, 1, 2, 3, 4, 5, 6, 7, 8], "hunters")
 	stalker_glass_option = _option([0.07, 0.105, 0.125, 0.16], "stalker_glass")
 	stalker_glass_material_option = _option(["classic", "liquid_glass"], "stalker_glass_material")
+	auto_turret_enabled_option = _option([true, false], "auto_turret_enabled")
+	auto_turret_range_option = _option([18, 26, 34, 42], "auto_turret_range")
 
 	box.add_child(_option_group(I18n.t("level"), map_option))
 	box.add_child(_option_group(I18n.t("variant"), variant_option))
@@ -1633,6 +1637,8 @@ func _build_match_details_panel() -> Control:
 	box.add_child(_option_group(I18n.t("hunter_count"), hunter_count_option))
 	box.add_child(_option_group(I18n.t("stalker_glass"), stalker_glass_option))
 	box.add_child(_option_group(I18n.t("stalker_glass_material"), stalker_glass_material_option))
+	box.add_child(_option_group(I18n.t("auto_turret_enabled"), auto_turret_enabled_option))
+	box.add_child(_option_group(I18n.t("auto_turret_range"), auto_turret_range_option))
 	box.add_child(_option_group(I18n.t("hide_prep"), prep_option))
 
 	var can_manage := _can_manage_lobby()
@@ -1998,6 +2004,8 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
 	_set_option_by_value(stalker_glass_option, float(config.get("stalker_glass_alpha_max", 0.125)), 2)
 	_set_option_by_value(stalker_glass_material_option, str(config.get("stalker_glass_material", "classic")), 0)
+	_set_option_by_value(auto_turret_enabled_option, bool(config.get("hunter_auto_turret_enabled", true)), 0)
+	_set_option_by_value(auto_turret_range_option, int(round(float(config.get("hunter_auto_turret_range", 34.0)))), 2)
 
 
 func _collect_lobby_config() -> Dictionary:
@@ -2015,6 +2023,8 @@ func _collect_lobby_config() -> Dictionary:
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
 		"stalker_glass_alpha_max": float(_get_option_value(stalker_glass_option, 0.125)),
 		"stalker_glass_material": str(_get_option_value(stalker_glass_material_option, "classic")),
+		"hunter_auto_turret_enabled": bool(_get_option_value(auto_turret_enabled_option, true)),
+		"hunter_auto_turret_range": float(_get_option_value(auto_turret_range_option, 34)),
 	}
 
 
@@ -2267,7 +2277,7 @@ func _get_option_value(option: OptionButton, fallback):
 
 
 func _set_config_enabled(enabled: bool) -> void:
-	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option, stalker_glass_option, stalker_glass_material_option]
+	var options = [map_option, variant_option, condition_option, game_show_option, gravity_option, duration_option, prep_option, hunter_count_option, stalker_glass_option, stalker_glass_material_option, auto_turret_enabled_option, auto_turret_range_option]
 	for option in options:
 		if option:
 			option.disabled = not enabled
