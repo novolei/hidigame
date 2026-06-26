@@ -30,11 +30,11 @@ func _run() -> void:
 	var ginger_root := player.get_node_or_null("3DGodotRobot/CustomCharacterSkin")
 	var ginger_mesh := _find_first_mesh(ginger_root)
 	if not ginger_mesh:
-		failures.append("Rigged 24K gingerbread should expose a runtime paintable mesh")
+		failures.append("Rigged 6K gingerbread should expose a runtime paintable mesh")
 	else:
 		var tri_count := _count_triangles(ginger_mesh)
-		if tri_count < 18000 or tri_count > 30000:
-			failures.append("Rigged 24K gingerbread triangle count should stay near the 24K target; got %d" % tri_count)
+		if tri_count <= 0 or tri_count > 8000:
+			failures.append("Rigged 6K gingerbread triangle count should stay near the runtime paint budget; got %d" % tri_count)
 
 		var aabb := ginger_mesh.get_aabb()
 		var center := ginger_mesh.global_transform * (aabb.position + aabb.size * 0.5)
@@ -423,10 +423,10 @@ func _count_triangles(mesh_instance: MeshInstance3D) -> int:
 		if arrays.size() > Mesh.ARRAY_INDEX and arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
 			indices = arrays[Mesh.ARRAY_INDEX]
 		if not indices.is_empty():
-			total += int(indices.size() / 3)
+			total += int(indices.size() / 3.0)
 		else:
 			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-			total += int(vertices.size() / 3)
+			total += int(vertices.size() / 3.0)
 	return total
 
 
@@ -553,7 +553,7 @@ func _append_unique_sample_hit(hits: Array[Dictionary], seen_pixels: Dictionary,
 	if uv.x < 0.08 or uv.x > 0.92 or uv.y < 0.08 or uv.y > 0.92:
 		return false
 	var pixel := CamouflageSystem._brush_uv_to_pixel_center(hit.get("uv", Vector2.ZERO))
-	var key := "%d:%d" % [pixel.x / 8, pixel.y / 8]
+	var key := "%d:%d" % [pixel.x / 8.0, pixel.y / 8.0]
 	if seen_pixels.has(key):
 		return false
 	seen_pixels[key] = true

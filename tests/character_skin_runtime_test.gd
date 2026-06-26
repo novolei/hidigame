@@ -105,6 +105,7 @@ func _test_remote_custom_skin_animates_from_network_motion() -> void:
 
 	var current_animation_node := _custom_skin_current_animation_node(player)
 	_expect(current_animation_node == "Run", "Remote Sophia skin should play Run when network position changes; current=" + current_animation_node)
+	_expect(_remote_visual_policy_applied(player), "Remote custom skins should render without expensive shadow/GI contribution")
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -172,6 +173,34 @@ func _find_animation_tree(node: Node) -> AnimationTree:
 		if found:
 			return found
 	return null
+
+
+func _remote_visual_policy_applied(player: Node) -> bool:
+	var skin = player.get("_active_skin_node") as Node
+	if not skin:
+		return false
+	var stats := {"geometry_count": 0, "shadow_off": 0, "gi_disabled": 0, "lod_limited": 0}
+	_collect_remote_visual_policy_stats(skin, stats)
+	var geometry_count := int(stats.get("geometry_count", 0))
+	return geometry_count > 0 \
+		and int(stats.get("shadow_off", 0)) == geometry_count \
+		and int(stats.get("gi_disabled", 0)) == geometry_count \
+		and int(stats.get("lod_limited", 0)) == geometry_count
+
+
+func _collect_remote_visual_policy_stats(node: Node, stats: Dictionary) -> void:
+	if node is GeometryInstance3D:
+		var geometry := node as GeometryInstance3D
+		stats["geometry_count"] = int(stats.get("geometry_count", 0)) + 1
+		if geometry.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			stats["shadow_off"] = int(stats.get("shadow_off", 0)) + 1
+		if geometry.gi_mode == GeometryInstance3D.GI_MODE_DISABLED:
+			stats["gi_disabled"] = int(stats.get("gi_disabled", 0)) + 1
+		if geometry.lod_bias <= 0.651:
+			stats["lod_limited"] = int(stats.get("lod_limited", 0)) + 1
+	for child in node.get_children():
+		if child is Node:
+			_collect_remote_visual_policy_stats(child as Node, stats)
 
 
 func _has_descendant_named(node: Node, node_name: String) -> bool:

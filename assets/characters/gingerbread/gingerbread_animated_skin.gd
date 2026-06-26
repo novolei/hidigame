@@ -122,6 +122,7 @@ func _build_skin() -> void:
 	add_child(_model_root)
 	_prioritize_body_mesh(_model_root)
 	_hide_helper_meshes(_model_root)
+	_optimize_runtime_paint_meshes(_model_root)
 	_apply_textures(_model_root)
 	_animation_player = _find_animation_player(_model_root)
 	_skeleton = _find_skeleton(_model_root)
@@ -325,13 +326,13 @@ func _create_generated_animation_player() -> void:
 	_animation_player.add_animation_library("", library)
 
 
-func _add_locomotion_animation(library: AnimationLibrary, name: String, length: float, intensity: float) -> void:
+func _add_locomotion_animation(library: AnimationLibrary, action_name: String, length: float, intensity: float) -> void:
 	var keyframes := []
 	for step in range(5):
 		var time := length * float(step) / 4.0
 		var phase := TAU * float(step) / 4.0
 		keyframes.append({"time": time, "rotations": _locomotion_pose(phase, intensity)})
-	_add_pose_animation(library, name, length, true, keyframes)
+	_add_pose_animation(library, action_name, length, true, keyframes)
 
 
 func _add_prone_crawl_animation(library: AnimationLibrary) -> void:
@@ -520,9 +521,8 @@ func _optimize_runtime_paint_meshes(node: Node) -> void:
 		var mesh_instance := node as MeshInstance3D
 		var optimized := _build_runtime_paint_mesh(mesh_instance.mesh)
 		if optimized:
+			optimized.resource_name = "%s_runtime_6k" % str(mesh_instance.name)
 			mesh_instance.mesh = optimized
-			mesh_instance.skin = null
-			mesh_instance.skeleton = NodePath("")
 	for child in node.get_children():
 		_optimize_runtime_paint_meshes(child)
 
@@ -538,7 +538,7 @@ func _build_runtime_paint_mesh(source_mesh: Mesh) -> ArrayMesh:
 			continue
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-		var triangle_count := int(indices.size() / 3) if not indices.is_empty() else int(vertices.size() / 3)
+		var triangle_count := int(indices.size() / 3.0) if not indices.is_empty() else int(vertices.size() / 3.0)
 		if triangle_count <= RUNTIME_PAINT_TRIANGLE_LIMIT:
 			optimized.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		else:
@@ -553,17 +553,56 @@ func _build_runtime_paint_mesh(source_mesh: Mesh) -> ArrayMesh:
 
 func _sample_surface_arrays_for_runtime_paint(source_arrays: Array, triangle_count: int) -> Array:
 	var vertices: PackedVector3Array = source_arrays[Mesh.ARRAY_VERTEX]
-	var source_normals: PackedVector3Array = source_arrays[Mesh.ARRAY_NORMAL]
-	var source_uvs: PackedVector2Array = source_arrays[Mesh.ARRAY_TEX_UV]
-	var indices: PackedInt32Array = source_arrays[Mesh.ARRAY_INDEX]
+	var source_normals := PackedVector3Array()
+	var source_tangents := PackedFloat32Array()
+	var source_colors := PackedColorArray()
+	var source_uvs := PackedVector2Array()
+	var source_uv2s := PackedVector2Array()
+	var indices := PackedInt32Array()
+	var source_bones: Variant = source_arrays[Mesh.ARRAY_BONES]
+	var source_weights: Variant = source_arrays[Mesh.ARRAY_WEIGHTS]
+	if source_arrays[Mesh.ARRAY_NORMAL] is PackedVector3Array:
+		source_normals = source_arrays[Mesh.ARRAY_NORMAL]
+	if source_arrays[Mesh.ARRAY_TANGENT] is PackedFloat32Array:
+		source_tangents = source_arrays[Mesh.ARRAY_TANGENT]
+	if source_arrays[Mesh.ARRAY_COLOR] is PackedColorArray:
+		source_colors = source_arrays[Mesh.ARRAY_COLOR]
+	if source_arrays[Mesh.ARRAY_TEX_UV] is PackedVector2Array:
+		source_uvs = source_arrays[Mesh.ARRAY_TEX_UV]
+	if source_arrays[Mesh.ARRAY_TEX_UV2] is PackedVector2Array:
+		source_uv2s = source_arrays[Mesh.ARRAY_TEX_UV2]
+	if source_arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
+		indices = source_arrays[Mesh.ARRAY_INDEX]
 	var target_count := mini(RUNTIME_PAINT_TRIANGLE_TARGET, triangle_count)
 	var step := maxf(float(triangle_count) / float(target_count), 1.0)
+	var out_vertex_count := target_count * 3
 	var out_vertices := PackedVector3Array()
 	var out_normals := PackedVector3Array()
+	var out_tangents := PackedFloat32Array()
+	var out_colors := PackedColorArray()
 	var out_uvs := PackedVector2Array()
-	out_vertices.resize(target_count * 3)
-	out_normals.resize(target_count * 3)
-	out_uvs.resize(target_count * 3)
+	var out_uv2s := PackedVector2Array()
+	var out_bones := PackedInt32Array()
+	var out_weights := PackedFloat32Array()
+	var has_tangents := source_tangents.size() == vertices.size() * 4
+	var has_colors := source_colors.size() == vertices.size()
+	var has_uv2s := source_uv2s.size() == vertices.size()
+	var has_skinning: bool = (source_bones is PackedInt32Array or source_bones is PackedFloat32Array) \
+		and (source_weights is PackedFloat32Array or source_weights is PackedFloat64Array) \
+		and source_bones.size() >= vertices.size() * 4 \
+		and source_weights.size() >= vertices.size() * 4
+	out_vertices.resize(out_vertex_count)
+	out_normals.resize(out_vertex_count)
+	out_uvs.resize(out_vertex_count)
+	if has_tangents:
+		out_tangents.resize(out_vertex_count * 4)
+	if has_colors:
+		out_colors.resize(out_vertex_count)
+	if has_uv2s:
+		out_uv2s.resize(out_vertex_count)
+	if has_skinning:
+		out_bones.resize(out_vertex_count * 4)
+		out_weights.resize(out_vertex_count * 4)
 	for sample_index in range(target_count):
 		var triangle_index := mini(int(floor(float(sample_index) * step)), triangle_count - 1)
 		var vertex_indices := PackedInt32Array()
@@ -578,12 +617,24 @@ func _sample_surface_arrays_for_runtime_paint(source_arrays: Array, triangle_cou
 			vertex_indices[2] = triangle_index * 3 + 2
 		var write_index := sample_index * 3
 		for corner in range(3):
+			var out_index := write_index + corner
 			var source_index := clampi(vertex_indices[corner], 0, vertices.size() - 1)
-			out_vertices[write_index + corner] = vertices[source_index]
+			out_vertices[out_index] = vertices[source_index]
 			if source_normals.size() == vertices.size():
-				out_normals[write_index + corner] = source_normals[source_index]
+				out_normals[out_index] = source_normals[source_index]
+			if has_tangents:
+				for tangent_component in range(4):
+					out_tangents[out_index * 4 + tangent_component] = source_tangents[source_index * 4 + tangent_component]
+			if has_colors:
+				out_colors[out_index] = source_colors[source_index]
 			if source_uvs.size() == vertices.size():
-				out_uvs[write_index + corner] = source_uvs[source_index]
+				out_uvs[out_index] = source_uvs[source_index]
+			if has_uv2s:
+				out_uv2s[out_index] = source_uv2s[source_index]
+			if has_skinning:
+				for influence in range(4):
+					out_bones[out_index * 4 + influence] = int(source_bones[source_index * 4 + influence])
+					out_weights[out_index * 4 + influence] = float(source_weights[source_index * 4 + influence])
 		if source_normals.size() != vertices.size():
 			var normal := (out_vertices[write_index + 1] - out_vertices[write_index]).cross(out_vertices[write_index + 2] - out_vertices[write_index]).normalized()
 			out_normals[write_index] = normal
@@ -593,7 +644,16 @@ func _sample_surface_arrays_for_runtime_paint(source_arrays: Array, triangle_cou
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = out_vertices
 	arrays[Mesh.ARRAY_NORMAL] = out_normals
+	if has_tangents:
+		arrays[Mesh.ARRAY_TANGENT] = out_tangents
+	if has_colors:
+		arrays[Mesh.ARRAY_COLOR] = out_colors
 	arrays[Mesh.ARRAY_TEX_UV] = out_uvs
+	if has_uv2s:
+		arrays[Mesh.ARRAY_TEX_UV2] = out_uv2s
+	if has_skinning:
+		arrays[Mesh.ARRAY_BONES] = out_bones
+		arrays[Mesh.ARRAY_WEIGHTS] = out_weights
 	return arrays
 
 

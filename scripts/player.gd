@@ -70,6 +70,7 @@ const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
 const PARTY_MONSTER_BOUNTY_GLOW_RANGE := 5.8
 const PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT := 2.7
 const LOCAL_FEEDBACK_TRANSFORM_INTERVAL := 0.08
+const REMOTE_VISUAL_LOD_BIAS := 0.65
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
 const DEATH_DISSOLVE_SECONDS := 2.4
 const DEATH_DISSOLVE_NOISE_SCALE := 1.65
@@ -273,6 +274,7 @@ func _ready():
 	var is_local_player = is_multiplayer_authority()
 	var local_client_id = multiplayer.get_unique_id()
 	_robot_visual_root = get_node_or_null("3DGodotRobot/RobotArmature")
+	_apply_remote_visual_performance_policy(_robot_visual_root)
 	_cache_default_collision_shape()
 	_setup_player_audio()
 
@@ -672,6 +674,7 @@ func _restore_stalker_materials() -> void:
 			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		if _stalker_original_visibility.has(id):
 			mesh.visible = bool(_stalker_original_visibility[id])
+	_apply_remote_visual_performance_policy(self)
 	_refresh_nickname_visibility()
 
 
@@ -3884,6 +3887,7 @@ func set_character_model(model_id: String) -> void:
 	if _robot_visual_root:
 		_robot_visual_root.visible = false
 	_body.add_child(_active_skin_node)
+	_apply_remote_visual_performance_policy(_active_skin_node)
 	_connect_active_skin_animation_signals()
 	_play_skin_action("idle")
 	if is_stalker():
@@ -4011,6 +4015,7 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 	_prop_disguise_node.name = "PropDisguise"
 	_prop_disguise_height_offset = 0.0
 	_body.add_child(_prop_disguise_node)
+	_apply_remote_visual_performance_policy(_prop_disguise_node)
 	var visual_bounds := _align_prop_disguise_visual_to_ground()
 	if visual_bounds.size != Vector3.ZERO:
 		effective_preset["prop_height"] = visual_bounds.size.y
@@ -4825,6 +4830,23 @@ func _set_character_visual_visible(visible_value: bool) -> void:
 		_robot_visual_root.visible = visible_value and character_model_id == CharacterSkinCatalog.GODOT_ROBOT_ID
 	if _active_skin_node and is_instance_valid(_active_skin_node):
 		_active_skin_node.visible = visible_value and character_model_id != CharacterSkinCatalog.GODOT_ROBOT_ID
+
+
+func _apply_remote_visual_performance_policy(root: Node) -> void:
+	if root == null or is_multiplayer_authority():
+		return
+	_apply_remote_visual_performance_policy_recursive(root)
+
+
+func _apply_remote_visual_performance_policy_recursive(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var geometry := node as GeometryInstance3D
+		geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		geometry.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		geometry.lod_bias = minf(geometry.lod_bias, REMOTE_VISUAL_LOD_BIAS)
+	for child in node.get_children():
+		if child is Node:
+			_apply_remote_visual_performance_policy_recursive(child as Node)
 
 
 func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
