@@ -32,6 +32,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Player replication now uses NetFox tick snapshots with a public-internet interpolation buffer, bounded extrapolation, and render smoothing. Nickname remains spawn-only state, and remote animation/facing is still inferred locally from motion instead of synchronizing cosmetic animation and model rotation every network frame.
 - Chameleon sculpt remains lazy-initialized: non-Chameleon players cannot create it, and Chameleon players create/apply it only on the first valid sculpt batch.
 - Hunter flashlight pose updates now run on a budgeted roughly 8Hz path with movement/angle thresholds and a forced refresh window instead of pushing active pose state every frame-like tick.
+- Hunter flashlight pose updates now use `NetworkInterest` segment relevance for targeted fan-out. Toggle/cooldown state remains reliable room-wide sync, while continuous pose updates record actual recipients and skip peers far from the flashlight beam.
 - Hunter auto turret target scans are budgeted and restricted to server/owner/offline test contexts. Remote client copies render from synced events instead of scanning every player and decoy every frame.
 - Dedicated public room servers now skip local-only player audio creation and skip local rendering of weapon tracers, green blood impact VFX, turret model/audio, turret muzzle/projectile VFX, and flashlight light nodes.
 - Hunter prop sense and Party Monster bounty feedback now reuse existing local feedback nodes, update transforms on a small local budget, and skip dedicated public server visual/audio feedback work without clearing authoritative gameplay state.
@@ -133,6 +134,7 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/chameleon_sculpt_network_test.tscn`: CLI PASS after aligning the test with lazy sculpt initialization.
 - `res://tests/party_monster_accessory_system_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
 - `res://tests/hunter_prop_sense_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
+- `res://tests/hunter_prop_sense_test.tscn`: CLI PASS after adding Hunter flashlight pose targeted fan-out coverage.
 - `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after adding weapon visual RPC budget and relevance regressions that keep tracer/green-blood effects off reliable transport, target cosmetic fan-out by shot proximity, and preserve reliable ammo/reload/feedback sync.
 - `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after moving weapon shot relevance math into `NetworkInterest` and adding auto-turret shot visual targeted fan-out coverage.
 - `tools/export_public_server_pack.ps1`: PASS against `newrelease/maomao_server.pck` from an isolated temporary working directory; public lobby perf telemetry appears and startup logs no longer include Fennara, Godot AI, AmbientCG, Steam, Terrain3D, or Voxel startup noise.

@@ -14,6 +14,8 @@ const POSE_SYNC_MIN_POSITION_DELTA := 0.08
 const POSE_SYNC_MIN_DIRECTION_DOT := 0.9975
 const HEAD_HEIGHT := 1.45
 const HEAD_FORWARD_OFFSET := 0.35
+const POSE_VISUAL_RELEVANCE_RADIUS := 30.0
+const NetworkInterestScript := preload("res://scripts/network_interest.gd")
 
 var hunter_owner: CharacterBody3D = null
 var owner_camera: Camera3D = null
@@ -184,9 +186,45 @@ func _server_toggle_flashlight(sender_id: int, origin: Vector3, direction: Vecto
 func _server_update_flashlight_pose(sender_id: int, origin: Vector3, direction: Vector3) -> void:
 	if sender_id != owner_peer_id or not active:
 		return
-	var clean_direction := direction.normalized() if direction.length_squared() > 0.0001 else Vector3.FORWARD
-	Network.record_rpc_event("flashlight.pose", maxi(multiplayer.get_peers().size(), 1), 52)
-	_sync_flashlight_pose.rpc(origin, clean_direction, remaining)
+	var clean_direction: Vector3 = direction.normalized() if direction.length_squared() > 0.0001 else Vector3.FORWARD
+	_sync_flashlight_pose_to_recipients(origin, clean_direction, remaining)
+
+
+func _sync_flashlight_pose_to_recipients(origin: Vector3, direction: Vector3, server_remaining: float) -> void:
+	var segment_end: Vector3 = origin + direction * RANGE
+	var recipients: PackedInt32Array = _flashlight_pose_recipient_ids(origin, segment_end, owner_peer_id)
+	if recipients.is_empty():
+		return
+	Network.record_rpc_event("flashlight.pose", recipients.size(), 52)
+	for peer_id: int in recipients:
+		if peer_id == 1:
+			_sync_flashlight_pose(origin, direction, server_remaining)
+		else:
+			_sync_flashlight_pose.rpc_id(peer_id, origin, direction, server_remaining)
+
+
+func _flashlight_pose_recipient_ids(segment_start: Vector3, segment_end: Vector3, always_peer_id: int) -> PackedInt32Array:
+	var recipients: PackedInt32Array = PackedInt32Array()
+	if multiplayer.multiplayer_peer == null:
+		NetworkInterestScript.append_unique_peer_id(recipients, 1)
+		return recipients
+
+	if not _should_skip_visual_light() and (always_peer_id == 1 or NetworkInterestScript.is_peer_relevant_to_segment(_interest_tree(), _interest_scene(), 1, segment_start, segment_end, POSE_VISUAL_RELEVANCE_RADIUS)):
+		NetworkInterestScript.append_unique_peer_id(recipients, 1)
+
+	for peer_id: int in multiplayer.get_peers():
+		if peer_id == always_peer_id or NetworkInterestScript.is_peer_relevant_to_segment(_interest_tree(), _interest_scene(), peer_id, segment_start, segment_end, POSE_VISUAL_RELEVANCE_RADIUS):
+			NetworkInterestScript.append_unique_peer_id(recipients, peer_id)
+	return recipients
+
+
+func _interest_tree() -> SceneTree:
+	return get_tree() if is_inside_tree() else null
+
+
+func _interest_scene() -> Node:
+	var tree: SceneTree = _interest_tree()
+	return tree.get_current_scene() if tree else null
 
 
 @rpc("authority", "call_local", "reliable")

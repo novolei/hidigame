@@ -10,6 +10,12 @@ func _ready() -> void:
 func _run() -> void:
 	_reset_network_state()
 	var player_source := FileAccess.get_file_as_string("res://scripts/player.gd")
+	var flashlight_source := FileAccess.get_file_as_string("res://scripts/hunter_flashlight_system.gd")
+	_expect(flashlight_source.contains("func _sync_flashlight_pose_to_recipients"), "Hunter flashlight pose should flow through a targeted fan-out helper")
+	_expect(flashlight_source.contains("NetworkInterestScript.is_peer_relevant_to_segment"), "Hunter flashlight pose should use shared segment relevance")
+	_expect(flashlight_source.contains("_sync_flashlight_pose.rpc_id"), "Hunter flashlight pose should be sent with targeted rpc_id fan-out")
+	_expect(not flashlight_source.contains("_sync_flashlight_pose.rpc("), "Hunter flashlight pose should not broadcast every continuous pose update to all peers")
+	_expect(flashlight_source.contains("Network.record_rpc_event(\"flashlight.pose\", recipients.size(), 52)"), "Hunter flashlight pose telemetry should record actual recipient counts")
 	_expect(player_source.contains("_has_hunter_prop_sense_feedback"), "Hunter prop sense feedback should reuse existing local nodes")
 	_expect(player_source.contains("_clear_hunter_prop_sense_runtime_feedback_nodes"), "Dedicated public servers should clear only local Hunter sense feedback nodes")
 	_expect(player_source.contains("if not _should_render_local_feedback():\n\t\t_clear_hunter_prop_sense_runtime_feedback_nodes()\n\t\treturn"), "Dedicated public servers should keep Hunter sense state while clearing local feedback work")
