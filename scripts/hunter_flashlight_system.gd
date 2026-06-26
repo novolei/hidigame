@@ -8,7 +8,10 @@ const REVEAL_SECONDS := 3.5
 const RANGE := 22.0
 const SPOT_ANGLE := 42.0
 const LIGHT_ENERGY := 5.8
-const POSE_SYNC_INTERVAL := 0.05
+const POSE_SYNC_INTERVAL := 0.12
+const POSE_FORCE_SYNC_INTERVAL := 0.35
+const POSE_SYNC_MIN_POSITION_DELTA := 0.08
+const POSE_SYNC_MIN_DIRECTION_DOT := 0.9975
 const HEAD_HEIGHT := 1.45
 const HEAD_FORWARD_OFFSET := 0.35
 
@@ -19,8 +22,12 @@ var active := false
 var remaining := DURATION
 var cooldown_remaining := 0.0
 var _pose_sync_elapsed := 0.0
+var _pose_force_sync_elapsed := 0.0
 var _last_origin := Vector3.ZERO
 var _last_direction := Vector3.FORWARD
+var _last_sent_origin := Vector3.ZERO
+var _last_sent_direction := Vector3.FORWARD
+var _has_sent_pose := false
 var _light: SpotLight3D = null
 
 
@@ -62,16 +69,40 @@ func _process(delta: float) -> void:
 	if _is_local_owner():
 		_update_pose_from_owner()
 		_pose_sync_elapsed += delta
-		if _pose_sync_elapsed >= POSE_SYNC_INTERVAL:
-			_pose_sync_elapsed = 0.0
-			if multiplayer.is_server():
-				_server_update_flashlight_pose(owner_peer_id, _last_origin, _last_direction)
-			else:
-				_request_flashlight_pose.rpc_id(1, _last_origin, _last_direction)
+		_pose_force_sync_elapsed += delta
+		if _pose_sync_elapsed >= POSE_SYNC_INTERVAL and _should_publish_pose_update():
+			_publish_pose_update()
+
+
+func _should_publish_pose_update() -> bool:
+	if not _has_sent_pose:
+		return true
+	if _pose_force_sync_elapsed >= POSE_FORCE_SYNC_INTERVAL:
+		return true
+	if _last_origin.distance_to(_last_sent_origin) >= POSE_SYNC_MIN_POSITION_DELTA:
+		return true
+	var clean_direction := _last_direction.normalized() if _last_direction.length_squared() > 0.0001 else Vector3.FORWARD
+	var previous_direction := _last_sent_direction.normalized() if _last_sent_direction.length_squared() > 0.0001 else Vector3.FORWARD
+	return clean_direction.dot(previous_direction) <= POSE_SYNC_MIN_DIRECTION_DOT
+
+
+func _publish_pose_update() -> void:
+	_pose_sync_elapsed = 0.0
+	_pose_force_sync_elapsed = 0.0
+	_has_sent_pose = true
+	_last_sent_origin = _last_origin
+	_last_sent_direction = _last_direction.normalized() if _last_direction.length_squared() > 0.0001 else Vector3.FORWARD
+	if multiplayer.is_server():
+		_server_update_flashlight_pose(owner_peer_id, _last_origin, _last_direction)
+	else:
+		_request_flashlight_pose.rpc_id(1, _last_origin, _last_direction)
 
 
 func request_toggle() -> void:
 	_update_pose_from_owner()
+	_has_sent_pose = false
+	_pose_sync_elapsed = POSE_SYNC_INTERVAL
+	_pose_force_sync_elapsed = POSE_FORCE_SYNC_INTERVAL
 	if multiplayer.is_server():
 		_server_toggle_flashlight(owner_peer_id, _last_origin, _last_direction)
 	else:
@@ -96,6 +127,10 @@ func get_flashlight_range() -> float:
 
 func get_flashlight_half_angle_degrees() -> float:
 	return SPOT_ANGLE * 0.5
+
+
+func get_pose_sync_interval_for_test() -> float:
+	return POSE_SYNC_INTERVAL
 
 
 func get_reveal_seconds() -> float:
@@ -167,8 +202,8 @@ func _sync_flashlight_pose(origin: Vector3, direction: Vector3, server_remaining
 func _update_pose_from_owner() -> void:
 	if not hunter_owner:
 		return
-	var basis := owner_camera.global_transform.basis if owner_camera else hunter_owner.global_transform.basis
-	var direction := -basis.z.normalized()
+	var owner_basis := owner_camera.global_transform.basis if owner_camera else hunter_owner.global_transform.basis
+	var direction := -owner_basis.z.normalized()
 	var origin := hunter_owner.global_position + Vector3.UP * HEAD_HEIGHT + direction * HEAD_FORWARD_OFFSET
 	if owner_camera:
 		origin = hunter_owner.global_position + Vector3.UP * HEAD_HEIGHT + direction * HEAD_FORWARD_OFFSET
@@ -185,8 +220,14 @@ func _apply_flashlight_pose(origin: Vector3, direction: Vector3) -> void:
 		_light.look_at(_last_origin + _last_direction, Vector3.UP)
 
 
+func _should_skip_visual_light() -> bool:
+	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+
+
 func _ensure_light() -> void:
 	if _light and is_instance_valid(_light):
+		return
+	if _should_skip_visual_light():
 		return
 	_light = SpotLight3D.new()
 	_light.name = "HunterFlashlight"

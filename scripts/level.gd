@@ -54,7 +54,18 @@ var game_state: GameState = GameState.LOBBY
 var chat_visible = false
 var inventory_visible = false
 var pending_steam_join := {}
+var pending_direct_join_lobby_id := ""
+var pending_direct_join_waiting_for_sync := false
+var _public_room_join_timeout_token := 0
+var _public_lobby_room_request_token := 0
+var _returning_to_public_lobby := false
+var room_toast_layer: CanvasLayer = null
+var room_toast_stack: VBoxContainer = null
+var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
+var _quit_confirm_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
+var _map_prop_pending_motion_sync: Dictionary = {}
+var _map_prop_motion_sync_elapsed: float = 0.0
 
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
@@ -74,6 +85,7 @@ var party_monster_bounty_next_timer := 0.0
 var party_monster_bounty_marked_count := 0
 var party_monster_bounty_clear_timer := 0.0
 var _party_monster_rng := RandomNumberGenerator.new()
+var _party_monster_accessory_spawn_round := 0
 
 # -----------------------------------------------------------------------------
 # Spawn 浣嶇疆閰嶇疆
@@ -89,6 +101,7 @@ const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
 const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
+const MAP_PROP_MOTION_SYNC_FLUSH_INTERVAL: float = 0.125
 const WORLD_COLLISION_MASK: int = 2
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
@@ -120,26 +133,57 @@ const TANK_DEMO_MAP_SCENES := {
 	"Polygon Apocalypse City URP: Warehouse Ward": "res://scenes/level/maps/polygon_apocalypse_city_urp_warehouse_ward.tscn",
 }
 const MATCH_INTRO_DURATION := 3.0
+const PUBLIC_ROOM_JOIN_TIMEOUT_SEC := 40.0
+const PUBLIC_LOBBY_ROOM_REQUEST_TIMEOUT_SEC := 45.0
 const LOW_GRAVITY_MULTIPLIER := 0.42
 const LOW_GRAVITY_EVENT_DURATION := 24.0
 const LOW_GRAVITY_CHECK_INTERVAL := 18.0
 const LOW_GRAVITY_EVENT_CHANCE := 0.34
-const PARTY_MONSTER_ACCESSORY_MIN_PICKUPS := 12
-const PARTY_MONSTER_ACCESSORY_MAX_PICKUPS := 24
-const PARTY_MONSTER_ACCESSORY_MIN_DISTANCE := 7.0
+const PARTY_MONSTER_ACCESSORY_MIN_PICKUPS := 24
+const PARTY_MONSTER_ACCESSORY_MAX_PICKUPS := 48
+const PARTY_MONSTER_ACCESSORY_MIN_DISTANCE := 5.5
+const PARTY_MONSTER_ACCESSORY_MIN_PER_SLOT := 3
 const PARTY_MONSTER_BOUNTY_FIRST_DELAY := 18.0
 const PARTY_MONSTER_BOUNTY_ACTIVE_SECONDS := 78.0
 const PARTY_MONSTER_BOUNTY_REST_SECONDS := 22.0
 const PARTY_MONSTER_BOUNTY_ESCAPE_REST_SECONDS := 12.0
 const PARTY_MONSTER_BOUNTY_CLEAR_GRACE := 4.0
+
+
+func _runtime_debug_log(
+	value0: Variant = null,
+	value1: Variant = null,
+	value2: Variant = null,
+	value3: Variant = null,
+	value4: Variant = null,
+	value5: Variant = null,
+	value6: Variant = null,
+	value7: Variant = null,
+	value8: Variant = null,
+	value9: Variant = null,
+	value10: Variant = null,
+	value11: Variant = null
+) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11]:
+		if value != null:
+			output += str(value)
+	print(output)
+
+
 # -----------------------------------------------------------------------------
 # 鐢熷懡鍛ㄦ湡
 # -----------------------------------------------------------------------------
 func _ready():
+	add_to_group("party_monster_level")
 	_party_monster_rng.randomize()
-	if DisplayServer.get_name() == "headless":
-		print("Dedicated server starting...")
-		Network.start_host("", "")
+	if DisplayServer.get_name() == "headless" and (Network.is_public_lobby_server_command_line() or Network.is_public_room_server_command_line()):
+		_runtime_debug_log("Dedicated server starting...")
+		var server_error := Network.start_public_room_server_from_args() if Network.is_public_room_server_command_line() else Network.start_public_lobby_server()
+		if server_error != OK:
+			push_error("Dedicated server failed to start. ENet error: " + str(server_error))
 
 	_configure_match_lighting()
 	_ensure_fixed_shadow_cover()
@@ -150,6 +194,13 @@ func _ready():
 
 	main_menu.host_pressed.connect(_on_host_pressed)
 	main_menu.join_pressed.connect(_on_join_pressed)
+	main_menu.public_server_pressed.connect(_on_public_server_pressed)
+	main_menu.public_room_create_pressed.connect(_on_public_room_create_pressed)
+	main_menu.public_room_join_pressed.connect(_on_public_room_join_pressed)
+	main_menu.public_lobby_refresh_pressed.connect(_on_public_lobby_refresh_pressed)
+	main_menu.public_lobby_leave_pressed.connect(_on_public_lobby_leave_pressed)
+	main_menu.lobby_back_pressed.connect(_on_lobby_back_pressed)
+	main_menu.lobby_leave_pressed.connect(_on_lobby_leave_pressed)
 	main_menu.start_match_pressed.connect(_on_start_match_pressed)
 	main_menu.auto_assign_pressed.connect(_on_auto_assign_pressed)
 	main_menu.config_changed.connect(_on_lobby_config_changed)
@@ -178,8 +229,11 @@ func _ready():
 		Network.roles_assigned.connect(_on_roles_assigned)
 
 	Network.player_connected.connect(_refresh_lobby_ui)
-	Network.player_disconnected.connect(func(_pid): _refresh_lobby_ui())
+	Network.player_disconnected.connect(_on_network_player_disconnected)
 	Network.server_disconnected.connect(_on_server_disconnected)
+	Network.public_lobby_snapshot_received.connect(_on_public_lobby_snapshot_received)
+	Network.public_room_redirect_requested.connect(_on_public_room_redirect_requested)
+	Network.public_room_join_failed.connect(_on_public_room_join_failed)
 	Network.lobby_config_updated.connect(func(_config):
 		_refresh_lobby_ui()
 		if game_state == GameState.LOBBY:
@@ -213,7 +267,13 @@ func _ready():
 	_ensure_character_setup_overlay()
 
 	# Debug: 纭 HUD 鑺傜偣鎵惧埌
-	print("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
+	_runtime_debug_log("[Level] _ready: prep_timer_label = ", prep_timer_label, " HUDCanvas found = ", has_node("HUDCanvas"))
+	if Network.is_public_room_server():
+		call_deferred("_mark_public_room_runtime_ready")
+
+
+func _mark_public_room_runtime_ready() -> void:
+	Network.mark_public_room_runtime_ready()
 
 
 func _apply_selected_map_scene() -> void:
@@ -294,15 +354,34 @@ func _process(delta):
 			_server_process_party_monster_bounties(delta)
 		if multiplayer.is_server() and match_remaining <= 0.0:
 			_server_end_match()
+	_process_map_prop_motion_sync(delta)
+	if _is_dedicated_public_server_runtime():
+		return
 	_update_status_hud()
 	_update_party_monster_hunt_hud()
 	_update_skill_hud()
 	_update_mouse_capture()
 
 
+func _is_dedicated_public_server_runtime() -> bool:
+	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+
+
+func _process_map_prop_motion_sync(delta: float) -> void:
+	if multiplayer.multiplayer_peer == null or not multiplayer.is_server() or _map_prop_pending_motion_sync.is_empty():
+		return
+	_map_prop_motion_sync_elapsed += delta
+	if _map_prop_motion_sync_elapsed < MAP_PROP_MOTION_SYNC_FLUSH_INTERVAL:
+		return
+	_map_prop_motion_sync_elapsed = 0.0
+	_flush_map_prop_motion_sync()
+
+
 # -----------------------------------------------------------------------------
 # 涓昏彍鍗曞洖璋?# -----------------------------------------------------------------------------
 func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
 	var error = Network.start_host(nickname, skin, role, room_name, lobby_password, character_model)
 	if error:
 		push_warning("Could not host lobby. ENet error: " + str(error))
@@ -337,24 +416,224 @@ func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id:
 
 
 func _join_lobby_direct(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
-	var error = Network.join_game(nickname, skin, address, lobby_id, role, room_name, character_model)
+	var normalized_lobby_id := lobby_id.strip_edges().to_upper()
+	var error = Network.join_game(nickname, skin, address, normalized_lobby_id, role, room_name, character_model)
 	if error:
+		pending_direct_join_waiting_for_sync = false
+		pending_direct_join_lobby_id = ""
 		push_warning("Could not join lobby. ENet error: " + str(error))
+		main_menu.show_join_status(I18n.t("join_status.failed"), true)
 		return
-	main_menu.show_lobby(lobby_id.strip_edges().to_upper(), false)
+	pending_direct_join_lobby_id = normalized_lobby_id
+	pending_direct_join_waiting_for_sync = true
 	_set_hud_visible(false)
-	_refresh_lobby_ui()
+
+
+func _on_public_server_pressed(nickname: String, skin: String, role: int, character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
+	var error := Network.join_public_lobby(nickname, skin, MainMenuUI.PUBLIC_SERVER_TARGET, role, character_model)
+	if error != OK:
+		push_warning("Could not join public lobby. ENet error: " + str(error))
+		main_menu.show_join_status(I18n.t("join_status.failed"), true)
+		return
+	main_menu.show_public_lobby([], I18n.t("public_lobby.loading"))
+	_set_hud_visible(false)
+
+
+func _on_public_lobby_snapshot_received(rooms: Array) -> void:
+	if not main_menu or not main_menu.is_public_lobby_visible():
+		return
+	_returning_to_public_lobby = false
+	main_menu.update_public_lobby(rooms)
+	main_menu.show_public_lobby_status(I18n.t("public_lobby.connected"), false)
+	_set_hud_visible(false)
+
+
+func _on_public_room_create_pressed(room_name: String, lobby_password: String) -> void:
+	_start_public_lobby_room_request_timeout()
+	Network.request_create_public_room(room_name, lobby_password)
+
+
+func _on_public_room_join_pressed(room_id: String, lobby_password: String) -> void:
+	_start_public_lobby_room_request_timeout()
+	Network.request_join_public_room(room_id, lobby_password)
+
+
+func _on_public_lobby_refresh_pressed() -> void:
+	Network.request_public_room_list()
+
+
+func _on_public_lobby_leave_pressed() -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
+	Network.leave_public_lobby()
+	if main_menu:
+		main_menu.show_landing()
+		main_menu.show_menu()
+	_set_hud_visible(false)
+
+
+func _on_lobby_back_pressed() -> void:
+	_on_lobby_leave_pressed()
+
+
+func _on_lobby_leave_pressed() -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
+	if _is_public_room_client_context():
+		_return_to_public_server_lobby()
+		return
+	_reset_local_state_for_public_lobby()
+	Network.leave_current_lobby()
+	if main_menu:
+		main_menu.show_landing()
+		main_menu.show_menu()
+	_set_hud_visible(false)
+	_update_mouse_capture()
+
+
+func _cancel_public_room_join_timeout() -> void:
+	_public_room_join_timeout_token += 1
+
+
+func _cancel_public_lobby_room_request_timeout() -> void:
+	_public_lobby_room_request_token += 1
+
+
+func _start_public_lobby_room_request_timeout(status_key: String = "join_status.public_room_not_ready") -> void:
+	_cancel_public_lobby_room_request_timeout()
+	var token := _public_lobby_room_request_token
+	var timer := get_tree().create_timer(PUBLIC_LOBBY_ROOM_REQUEST_TIMEOUT_SEC)
+	timer.timeout.connect(func():
+		if token != _public_lobby_room_request_token:
+			return
+		if not main_menu or not main_menu.is_public_lobby_visible():
+			return
+		if str(main_menu.public_lobby_loading_text).is_empty():
+			return
+		main_menu.hide_public_lobby_loading()
+		main_menu.show_public_lobby_status(I18n.t(status_key), true)
+		Network.request_public_room_list()
+		_set_hud_visible(false)
+	)
+
+
+func _start_public_room_join_timeout() -> void:
+	_cancel_public_room_join_timeout()
+	var token := _public_room_join_timeout_token
+	var timer := get_tree().create_timer(PUBLIC_ROOM_JOIN_TIMEOUT_SEC)
+	timer.timeout.connect(func():
+		if token != _public_room_join_timeout_token:
+			return
+		if not pending_direct_join_waiting_for_sync:
+			return
+		_return_to_public_server_lobby("join_status.public_room_not_ready", true)
+	)
+
+
+func _is_public_room_client_context() -> bool:
+	return multiplayer.multiplayer_peer != null and bool(Network.lobby_config.get("public_server", false)) and not bool(Network.lobby_config.get("public_lobby", false)) and not multiplayer.is_server()
+
+
+func _return_to_public_server_lobby(status_key: String = "", is_error: bool = false) -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = true
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
+	_reset_local_state_for_public_lobby()
+	var nickname := str(Network.player_info.get("nick", ""))
+	var skin := Network._skin_e_to_str(int(Network.player_info.get("skin", Network.SKIN_BLUE)))
+	var role := int(Network.player_info.get("role", Network.Role.NONE))
+	var character_model := str(Network.player_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID))
+	var error := Network.join_public_lobby(nickname, skin, MainMenuUI.PUBLIC_SERVER_TARGET, role, character_model)
+	if error != OK:
+		_returning_to_public_lobby = false
+		if main_menu:
+			main_menu.show_landing()
+			main_menu.show_menu()
+			main_menu.show_join_status(I18n.t("join_status.failed"), true)
+		_set_hud_visible(false)
+		return
+	if main_menu:
+		main_menu.show_public_lobby([], I18n.t("public_lobby.loading"))
+		if not status_key.is_empty():
+			main_menu.show_public_lobby_status(I18n.t(status_key), is_error)
+		main_menu.show_menu()
+	_set_hud_visible(false)
+	_update_mouse_capture()
+
+
+func _reset_local_state_for_public_lobby() -> void:
+	game_state = GameState.LOBBY
+	prep_remaining = 0.0
+	skin_config_remaining = 0.0
+	match_intro_remaining = 0.0
+	match_remaining = 0.0
+	gravity_event_remaining = 0.0
+	low_gravity_check_remaining = 0.0
+	party_monster_bounty_accessories.clear()
+	party_monster_bounty_remaining = 0.0
+	party_monster_bounty_next_timer = 0.0
+	party_monster_bounty_marked_count = 0
+	party_monster_bounty_clear_timer = 0.0
+	chat_visible = false
+	inventory_visible = false
+	_known_player_names.clear()
+	_hologram_flag_states.clear()
+	_clear_local_hologram_flags()
+	_clear_runtime_container_children("MapPropContainer")
+	_clear_runtime_container_children("AmmoPackContainer")
+	_clear_runtime_container_children("PartyMonsterAccessoryContainer")
+	_clear_runtime_container_children("UnityDecorContainer")
+	if players_container:
+		for child in players_container.get_children():
+			child.queue_free()
+	if multiplayer_chat:
+		multiplayer_chat.set_chat_visible(false)
+	if inventory_ui:
+		inventory_ui.close_inventory()
+	_hide_character_setup_overlay()
+	_hide_match_intro_overlay()
+	_hide_quit_confirm_prompt()
+	if skill_hud:
+		skill_hud.clear_skills()
+	if card_hud:
+		card_hud.clear_cards()
+	if match_status_hud:
+		match_status_hud.clear()
+	if party_monster_hunt_hud:
+		party_monster_hunt_hud.clear()
+	_release_game_mouse()
+
+
+func _clear_runtime_container_children(container_name: String) -> void:
+	var container := get_node_or_null(container_name)
+	if not container:
+		return
+	for child in container.get_children():
+		child.queue_free()
 
 
 func _on_steam_lobby_created(success: bool, steam_lobby_id: String, message: String) -> void:
-	print("[SteamBridge] ", message, " id=", steam_lobby_id)
+	_runtime_debug_log("[SteamBridge] ", message, " id=", steam_lobby_id)
 	if success:
 		Network.lobby_config["steam_lobby_id"] = steam_lobby_id
 		_refresh_lobby_ui()
 
 
 func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: String, lobby_password: String, steam_lobby_id: String, message: String, host_port: int = -1) -> void:
-	print("[SteamBridge] ", message, " room=", room_name, " id=", steam_lobby_id)
+	_runtime_debug_log("[SteamBridge] ", message, " room=", room_name, " id=", steam_lobby_id)
 	if pending_steam_join.is_empty():
 		return
 	var join_data := pending_steam_join.duplicate()
@@ -376,10 +655,31 @@ func _on_steam_lobby_lookup_completed(found: bool, address: String, room_name: S
 
 
 func _on_server_disconnected() -> void:
+	if Network.is_redirecting_to_public_room():
+		return
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
 	if game_state == GameState.LOBBY and main_menu:
 		main_menu.show_landing()
 		main_menu.show_menu()
+		main_menu.show_join_status(I18n.t("join_status.failed"), true)
 		_set_hud_visible(false)
+
+
+func _show_synced_client_lobby() -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	var synced_lobby_id := str(Network.lobby_config.get("lobby_id", pending_direct_join_lobby_id)).strip_edges().to_upper()
+	if synced_lobby_id.is_empty():
+		synced_lobby_id = pending_direct_join_lobby_id
+	pending_direct_join_lobby_id = synced_lobby_id
+	main_menu.show_lobby(synced_lobby_id, false)
+	_set_hud_visible(false)
 
 
 func _hide_menu_after_spawn() -> void:
@@ -405,6 +705,7 @@ func _should_spawn_player_nodes() -> bool:
 # 鏈嶅姟鍣?鐜╁杩炴帴 / 瑙掕壊 / spawn
 # -----------------------------------------------------------------------------
 func _on_player_connected(peer_id, player_info):
+	_handle_room_player_joined(int(peer_id), player_info)
 	if _should_spawn_player_nodes():
 		_add_player(peer_id, player_info)
 	_refresh_lobby_ui()
@@ -412,7 +713,157 @@ func _on_player_connected(peer_id, player_info):
 		_server_sync_hologram_flags_to_peer(int(peer_id))
 
 
+func _on_network_player_disconnected(peer_id: int) -> void:
+	var nick := str(_known_player_names.get(peer_id, "Player"))
+	_known_player_names.erase(peer_id)
+	if peer_id != multiplayer.get_unique_id():
+		_push_room_event(I18n.tf("room_event.left", [nick]))
+	_refresh_lobby_ui()
+
+
+func _handle_room_player_joined(peer_id: int, info: Dictionary) -> void:
+	var nick := _player_name_for_event(peer_id, info)
+	_known_player_names[peer_id] = nick
+	if peer_id == multiplayer.get_unique_id():
+		return
+	_push_room_event(I18n.tf("room_event.joined", [nick]))
+
+
+func _remember_synced_player_names() -> void:
+	for pid in Network.players.keys():
+		var peer_id := int(pid)
+		var info: Dictionary = Network.players.get(pid, {})
+		_known_player_names[peer_id] = _player_name_for_event(peer_id, info)
+
+
+func _player_name_for_event(peer_id: int, info: Dictionary = {}) -> String:
+	var nick := str(info.get("nick", "")).strip_edges()
+	if nick.is_empty() and Network.players.has(peer_id):
+		nick = str(Network.players[peer_id].get("nick", "")).strip_edges()
+	if nick.is_empty() and _known_player_names.has(peer_id):
+		nick = str(_known_player_names[peer_id])
+	return nick if not nick.is_empty() else "Player"
+
+
+func _push_room_event(message_text: String) -> void:
+	_append_room_system_chat(message_text)
+	if DisplayServer.get_name() == "headless":
+		return
+	_show_room_toast(message_text)
+
+
+func _append_room_system_chat(message_text: String) -> void:
+	var nick := I18n.t("room_event.system")
+	if main_menu:
+		main_menu.add_lobby_chat_message(nick, message_text)
+	if multiplayer_chat:
+		multiplayer_chat.add_message(nick, message_text)
+
+
+func _ensure_room_toast_layer() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if room_toast_layer and is_instance_valid(room_toast_layer):
+		return
+	room_toast_layer = CanvasLayer.new()
+	room_toast_layer.name = "RoomToastLayer"
+	room_toast_layer.layer = 120
+	add_child(room_toast_layer)
+
+	var margin := MarginContainer.new()
+	margin.name = "RoomToastMargin"
+	margin.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	margin.offset_left = -430.0
+	margin.offset_top = 24.0
+	margin.offset_right = -24.0
+	margin.offset_bottom = 320.0
+	room_toast_layer.add_child(margin)
+
+	room_toast_stack = VBoxContainer.new()
+	room_toast_stack.name = "RoomToastStack"
+	room_toast_stack.alignment = BoxContainer.ALIGNMENT_END
+	room_toast_stack.add_theme_constant_override("separation", 8)
+	margin.add_child(room_toast_stack)
+
+
+func _show_room_toast(message_text: String) -> void:
+	_ensure_room_toast_layer()
+	if not room_toast_stack or not is_instance_valid(room_toast_stack):
+		return
+	var panel := PanelContainer.new()
+	panel.name = "RoomToast"
+	panel.custom_minimum_size = Vector2(360.0, 48.0)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.075, 0.070, 0.090, 0.94)
+	style.border_color = Color(0.95, 0.74, 0.20, 0.95)
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.modulate.a = 0.0
+	room_toast_stack.add_child(panel)
+
+	var label := Label.new()
+	label.text = message_text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	panel.add_child(label)
+
+	var tween := create_tween()
+	tween.tween_property(panel, "modulate:a", 1.0, 0.16)
+	tween.tween_interval(3.0)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.25)
+	tween.finished.connect(func():
+		if panel and is_instance_valid(panel):
+			panel.queue_free()
+	)
+
+
+func _on_public_room_redirect_requested(_address: String, _port: int, _room_name: String, lobby_id: String) -> void:
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_lobby_id = lobby_id.strip_edges().to_upper()
+	pending_direct_join_waiting_for_sync = true
+	_start_public_room_join_timeout()
+	if main_menu and main_menu.is_public_lobby_visible():
+		main_menu.show_public_lobby_status(I18n.t("join_status.connecting_room"), false)
+		main_menu.show_public_lobby_loading(I18n.t("join_status.connecting_room"))
+	_set_hud_visible(false)
+
+
+func _on_public_room_join_failed(reason_key: String) -> void:
+	_cancel_public_room_join_timeout()
+	_cancel_public_lobby_room_request_timeout()
+	_returning_to_public_lobby = false
+	pending_direct_join_waiting_for_sync = false
+	pending_direct_join_lobby_id = ""
+	if main_menu:
+		if main_menu.is_public_lobby_visible():
+			main_menu.hide_public_lobby_loading()
+			main_menu.show_public_lobby_status(I18n.t(reason_key), true)
+			if reason_key == "join_status.wrong_password":
+				main_menu.show_public_lobby_alert(I18n.t("public_lobby.password_problem"), true)
+		else:
+			main_menu.show_landing()
+			main_menu.show_menu()
+			main_menu.show_join_status(I18n.t(reason_key), true)
+	_set_hud_visible(false)
+
+
 func _on_players_synced(_all_players: Dictionary) -> void:
+	if pending_direct_join_waiting_for_sync and game_state == GameState.LOBBY and not multiplayer.is_server():
+		_show_synced_client_lobby()
+	_remember_synced_player_names()
 	if _should_spawn_player_nodes():
 		_ensure_player_nodes_from_network()
 	_refresh_party_monster_bounty_marks()
@@ -469,11 +920,14 @@ func _on_player_life_state_changed(peer_id: int, alive: bool) -> void:
 	if player_node and player_node.has_method("apply_network_alive_state"):
 		player_node.apply_network_alive_state(alive)
 	_update_status_hud()
+	_update_skill_hud()
+	_update_card_hud()
+	_update_mouse_capture()
 
 
 func _on_roles_assigned():
 	# 鎵€鏈夌閮?reposition(瑙掕壊鍒嗛厤瀹屾垚鍚庣粺涓€澶勭悊)
-	print("[Level] Roles assigned, repositioning all players")
+	_runtime_debug_log("[Level] Roles assigned, repositioning all players")
 	_ensure_player_nodes_from_network()
 	for pid in Network.players.keys():
 		_try_reposition_player(pid)
@@ -535,7 +989,7 @@ func _try_reposition_player(pid: int) -> bool:
 	elif role == Network.Role.HUNTER and player_node.has_method("set_prep_locked"):
 		player_node.set_prep_locked(false)
 
-	print("[Level] Reposition player ", pid, " to role=", Network.role_to_string(role), " pos=", new_pos)
+	_runtime_debug_log("[Level] Reposition player ", pid, " to role=", Network.role_to_string(role), " pos=", new_pos)
 	return true
 
 
@@ -699,10 +1153,10 @@ func _server_schedule_prep_phase() -> void:
 
 	# v0.3.3 淇:鍏佽鍗曚汉 host 涔熻兘瑙﹀彂 prep phase(鐢ㄤ簬寮€鍙戞祴璇?
 	if Network.players.size() < 1:
-		print("[Level] No players, aborting prep phase")
+		_runtime_debug_log("[Level] No players, aborting prep phase")
 		return
 	if Network.players.size() == 1:
-		print("[Level] Single player mode - proceeding with 1 player (dev test)")
+		_runtime_debug_log("[Level] Single player mode - proceeding with 1 player (dev test)")
 
 	# 鎵ц 1:3 鑷姩鍒嗛厤
 	Network.server_auto_balance_roles(true)
@@ -713,22 +1167,18 @@ func _server_schedule_prep_phase() -> void:
 
 
 func _on_lobby_config_changed(config: Dictionary) -> void:
-	if multiplayer.is_server():
-		Network.request_update_lobby_config(config)
+	Network.request_update_lobby_config(config)
 
 
 func _on_auto_assign_pressed(config: Dictionary) -> void:
-	if not multiplayer.is_server():
-		return
-	Network.request_update_lobby_config(config)
+	Network.request_auto_assign_roles(config)
 	await get_tree().process_frame
-	Network.server_auto_balance_roles(false)
 	_refresh_lobby_ui()
 
 
 func _on_start_match_pressed(config: Dictionary) -> void:
+	Network.request_update_lobby_config(config)
 	if multiplayer.is_server():
-		Network.request_update_lobby_config(config)
 		await get_tree().process_frame
 		_server_start_from_lobby()
 	else:
@@ -741,7 +1191,7 @@ func _server_start_from_lobby() -> void:
 	if game_state != GameState.LOBBY:
 		return
 	if not Network.can_start_lobby_match():
-		print("[Level] Lobby is not ready to start")
+		_runtime_debug_log("[Level] Lobby is not ready to start")
 		return
 	Network.server_auto_balance_roles(true)
 	await get_tree().process_frame
@@ -804,7 +1254,7 @@ func _server_start_prep_phase() -> void:
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
 	_server_spawn_unity_decorations()
-	print("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
+	_runtime_debug_log("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
 
 	# 閿佸畾鎵€鏈?Hunter
 	for pid in Network.get_hunters():
@@ -816,13 +1266,13 @@ func _server_start_prep_phase() -> void:
 			p.global_position = get_spawn_point_for_role(Network.Role.HUNTER, pid)
 
 	# 鍦?server 鏈湴绔嬪嵆鏇存柊 HUD
-	print("[Level] SERVER: prep_timer_label = ", prep_timer_label)
+	_runtime_debug_log("[Level] SERVER: prep_timer_label = ", prep_timer_label)
 	if prep_timer_label:
 		prep_timer_label.visible = false
 		_update_prep_ui()
-		print("[Level] SERVER: PrepTimerLabel shown, text=", prep_timer_label.text)
+		_runtime_debug_log("[Level] SERVER: PrepTimerLabel shown, text=", prep_timer_label.text)
 
-	print("[Level] Prep phase started, remaining: ", prep_remaining, "s")
+	_runtime_debug_log("[Level] Prep phase started, remaining: ", prep_remaining, "s")
 	Network.server_broadcast_prep_started(prep_remaining)
 
 
@@ -845,7 +1295,7 @@ func _server_end_prep_phase() -> void:
 
 	_set_preparation_room_active(false)
 
-	print("[Level] Prep phase ended, match started")
+	_runtime_debug_log("[Level] Prep phase ended, match started")
 	Network.server_broadcast_prep_ended()
 	_server_start_match()
 
@@ -867,7 +1317,7 @@ func _server_end_match() -> void:
 	_apply_configured_gravity()
 	Network.server_clear_match_cards()
 	_set_party_monster_bounty([], 0.0)
-	print("[Level] Match ended")
+	_runtime_debug_log("[Level] Match ended")
 	# TODO: 缁撶畻鑳滆礋(PoC-1 绠€鍖?鍚庣画 PoC 鍔?
 
 
@@ -885,6 +1335,8 @@ func _server_spawn_map_props() -> void:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.randomize()
 	var container: Node3D = _get_or_create_map_prop_container()
+	_map_prop_pending_motion_sync.clear()
+	_map_prop_motion_sync_elapsed = 0.0
 	var used_positions: Array[Vector3] = []
 	var spawn_data: Array = []
 
@@ -910,7 +1362,7 @@ func _server_spawn_map_props() -> void:
 		spawn_data.append(data)
 		used_positions.append(pos)
 
-	print("[Level] Spawning map props: ", spawn_data.size())
+	_runtime_debug_log("[Level] Spawning map props: ", spawn_data.size())
 	_rpc_spawn_map_props.rpc(spawn_data)
 
 
@@ -994,9 +1446,35 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 	if not multiplayer.is_server() or not prop:
 		return
 	if reliable:
+		_map_prop_pending_motion_sync.erase(prop.name)
 		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
-		_rpc_sync_map_prop_motion_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+		_map_prop_pending_motion_sync[prop.name] = {
+			"transform": prop.global_transform,
+			"linear_velocity": prop.linear_velocity,
+			"angular_velocity": prop.angular_velocity,
+			"sleeping": prop.sleeping,
+		}
+
+
+func _flush_map_prop_motion_sync() -> void:
+	if _map_prop_pending_motion_sync.is_empty():
+		return
+	for raw_prop_name in _map_prop_pending_motion_sync.keys():
+		var prop_name := str(raw_prop_name)
+		var state: Dictionary = _map_prop_pending_motion_sync.get(raw_prop_name, {})
+		var next_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
+		var next_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
+		var next_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
+		var next_sleeping: bool = bool(state.get("sleeping", false))
+		_rpc_sync_map_prop_motion_state.rpc(
+			prop_name,
+			next_transform,
+			next_linear_velocity,
+			next_angular_velocity,
+			next_sleeping
+		)
+	_map_prop_pending_motion_sync.clear()
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
@@ -1106,11 +1584,13 @@ func _rpc_sync_hologram_flags(states: Array) -> void:
 
 
 func _sanitize_hologram_flag_state(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> Dictionary:
+	var normalized_model: String = CharacterSkinCatalog.normalize(model_id)
+	var clean_accessory_loadout: Dictionary = PartyMonsterAccessoryCatalogScript.sanitize_loadout(accessory_loadout, normalized_model)
 	return {
 		"owner_peer_id": owner_id,
 		"transform": flag_transform,
-		"character_model_id": CharacterSkinCatalog.normalize(model_id),
-		"party_monster_accessories": accessory_loadout.duplicate(true),
+		"character_model_id": normalized_model,
+		"party_monster_accessories": clean_accessory_loadout,
 		"skin_color": clampi(skin_color, 0, 3),
 		"player_height": clampf(player_visual_height, 0.8, 4.0),
 	}
@@ -1223,7 +1703,7 @@ func _server_spawn_unity_decorations() -> void:
 		spawn_data.append(data)
 		used_positions.append(pos)
 
-	print("[Level] Spawning Unity decorations: ", spawn_data.size())
+	_runtime_debug_log("[Level] Spawning Unity decorations: ", spawn_data.size())
 	_rpc_spawn_unity_decorations.rpc(spawn_data)
 
 
@@ -1525,7 +2005,7 @@ func _server_spawn_ammo_packs() -> void:
 	var medium_n: int = int(ammo_counts.get("medium", 0))
 	var large_n: int = int(ammo_counts.get("large", 0))
 
-	print("[Level] Spawning ammo packs: ", small_n, " small, ", medium_n, " medium, ", large_n, " large")
+	_runtime_debug_log("[Level] Spawning ammo packs: ", small_n, " small, ", medium_n, " medium, ", large_n, " large")
 
 	var ammo_scene = preload("res://scripts/ammo_pickup.gd")
 	var container = _get_or_create_ammo_container()
@@ -1648,17 +2128,21 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 func _server_spawn_party_monster_accessory_pickups() -> void:
 	if not multiplayer.is_server():
 		return
+	_party_monster_accessory_spawn_round += 1
 	var total_players: int = max(Network.players.size(), 1)
-	var pickup_count: int = clampi(total_players * 3 + 8, PARTY_MONSTER_ACCESSORY_MIN_PICKUPS, PARTY_MONSTER_ACCESSORY_MAX_PICKUPS)
-	var accessory_ids: Array = PartyMonsterAccessoryCatalogScript.random_accessory_ids(_party_monster_rng.randi(), pickup_count, false)
+	var pickup_count: int = clampi(total_players * 4 + 20, PARTY_MONSTER_ACCESSORY_MIN_PICKUPS, PARTY_MONSTER_ACCESSORY_MAX_PICKUPS)
+	var spawn_seed: int = int(_party_monster_rng.randi() ^ (_party_monster_accessory_spawn_round * 4099) ^ Time.get_ticks_msec())
+	var spawn_rng := RandomNumberGenerator.new()
+	spawn_rng.seed = spawn_seed
+	var accessory_ids: Array = PartyMonsterAccessoryCatalogScript.random_balanced_accessory_ids(spawn_seed, pickup_count, PARTY_MONSTER_ACCESSORY_MIN_PER_SLOT)
 	var container: Node3D = _get_or_create_party_monster_accessory_container()
 	var used_positions: Array[Vector3] = []
 	var spawn_data: Array = []
 	for index: int in range(accessory_ids.size()):
 		var accessory_id: String = str(accessory_ids[index])
-		var pos: Vector3 = _get_random_party_monster_accessory_position(used_positions, PARTY_MONSTER_ACCESSORY_MIN_DISTANCE)
+		var pos: Vector3 = _get_random_party_monster_accessory_position(used_positions, PARTY_MONSTER_ACCESSORY_MIN_DISTANCE, spawn_rng)
 		var data: Dictionary = {
-			"name": "PartyMonsterAccessory_%03d_%s" % [index, accessory_id],
+			"name": "PartyMonsterAccessory_%02d_%03d_%s" % [_party_monster_accessory_spawn_round, index, accessory_id],
 			"accessory_id": accessory_id,
 			"position": pos,
 		}
@@ -1668,8 +2152,8 @@ func _server_spawn_party_monster_accessory_pickups() -> void:
 	_rpc_spawn_party_monster_accessories.rpc(spawn_data)
 
 
-func _get_random_party_monster_accessory_position(used: Array[Vector3], min_dist: float) -> Vector3:
-	return get_grounded_spawn_position(LevelLayout.random_ammo_position(used, min_dist)) + Vector3.UP * 0.10
+func _get_random_party_monster_accessory_position(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
+	return get_grounded_spawn_position(LevelLayout.random_ammo_position_with_rng(used, min_dist, rng)) + Vector3.UP * 0.10
 
 
 func _get_or_create_party_monster_accessory_container() -> Node3D:
@@ -1826,6 +2310,14 @@ func _refresh_party_monster_bounty_marks() -> void:
 		var info: Dictionary = Network.players.get(peer_id, {})
 		var marked: bool = _should_mark_party_monster_bounty_player(info)
 		player.set_party_monster_bounty_marked(marked, party_monster_bounty_accessories, label)
+	_refresh_party_monster_accessory_pickup_beacons()
+
+
+func _refresh_party_monster_accessory_pickup_beacons() -> void:
+	var tree := get_tree()
+	if not tree:
+		return
+	tree.call_group("party_monster_accessory_pickups", "refresh_bounty_beacon_visibility")
 
 
 func _count_party_monster_bounty_marked_players() -> int:
@@ -1869,7 +2361,7 @@ func _on_skin_config_started(remaining: float) -> void:
 	_show_character_setup_overlay()
 	_update_card_hud()
 	_update_mouse_capture()
-	print("[Level] Client received: skin config starting, ", remaining, "s remaining")
+	_runtime_debug_log("[Level] Client received: skin config starting, ", remaining, "s remaining")
 
 
 func _on_match_intro_started(remaining: float) -> void:
@@ -1886,7 +2378,7 @@ func _on_match_intro_started(remaining: float) -> void:
 	_set_match_intro_locked(true)
 	_update_match_intro_ui()
 	_update_mouse_capture()
-	print("[Level] Client received: match intro starting, ", remaining, "s remaining")
+	_runtime_debug_log("[Level] Client received: match intro starting, ", remaining, "s remaining")
 
 
 func _on_prep_phase_started(remaining: float) -> void:
@@ -1903,15 +2395,15 @@ func _on_prep_phase_started(remaining: float) -> void:
 	_set_hud_visible(true)
 	_update_card_hud()
 	_update_mouse_capture()
-	print("[Level] Client received: prep phase started, ", remaining, "s remaining")
+	_runtime_debug_log("[Level] Client received: prep phase started, ", remaining, "s remaining")
 	# 鏄剧ず鍊掕鏃?HUD
-	print("[Level] prep_timer_label = ", prep_timer_label, " is_inside_tree = ", prep_timer_label != null and prep_timer_label.is_inside_tree())
+	_runtime_debug_log("[Level] prep_timer_label = ", prep_timer_label, " is_inside_tree = ", prep_timer_label != null and prep_timer_label.is_inside_tree())
 	if prep_timer_label:
 		prep_timer_label.visible = false
 		_update_prep_ui()
-		print("[Level] PrepTimerLabel visible = ", prep_timer_label.visible, " text = ", prep_timer_label.text, " global_pos = ", prep_timer_label.global_position)
+		_runtime_debug_log("[Level] PrepTimerLabel visible = ", prep_timer_label.visible, " text = ", prep_timer_label.text, " global_pos = ", prep_timer_label.global_position)
 	else:
-		print("[Level] WARNING: prep_timer_label is null - HUDCanvas/PrepTimerLabel node not found!")
+		_runtime_debug_log("[Level] WARNING: prep_timer_label is null - HUDCanvas/PrepTimerLabel node not found!")
 
 	_ensure_player_nodes_from_network()
 	for pid in Network.players.keys():
@@ -2079,7 +2571,7 @@ func _set_preparation_gate_open(open: bool) -> void:
 	for child in gate.get_children():
 		if child is CollisionShape3D:
 			(child as CollisionShape3D).disabled = true
-	print("[Level] Preparation gate ", "opened" if open else "closed", " (legacy gate collider disabled)")
+	_runtime_debug_log("[Level] Preparation gate ", "opened" if open else "closed", " (legacy gate collider disabled)")
 
 
 func _ensure_status_hud() -> void:
@@ -2292,6 +2784,13 @@ func _ensure_match_intro_overlay() -> void:
 		match_intro_overlay = MatchIntroOverlayScript.new() as MatchIntroOverlay
 		match_intro_overlay.name = "MatchIntroOverlay"
 		hud.add_child(match_intro_overlay)
+	if match_intro_overlay:
+		if not match_intro_overlay.quit_confirmed.is_connected(_on_quit_confirmed):
+			match_intro_overlay.quit_confirmed.connect(_on_quit_confirmed)
+		if not match_intro_overlay.quit_cancelled.is_connected(_on_quit_cancelled):
+			match_intro_overlay.quit_cancelled.connect(_on_quit_cancelled)
+		if not match_intro_overlay.return_lobby_confirmed.is_connected(_on_return_lobby_confirmed):
+			match_intro_overlay.return_lobby_confirmed.connect(_on_return_lobby_confirmed)
 
 
 func _update_match_intro_ui() -> void:
@@ -2313,6 +2812,43 @@ func _update_match_intro_ui() -> void:
 func _hide_match_intro_overlay() -> void:
 	if match_intro_overlay and is_instance_valid(match_intro_overlay):
 		match_intro_overlay.hide_countdown()
+
+
+func _show_quit_confirm_prompt() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not match_intro_overlay:
+		_ensure_match_intro_overlay()
+	if not match_intro_overlay:
+		return
+	if not _is_quit_confirm_visible():
+		_quit_confirm_previous_mouse_mode = Input.mouse_mode
+	match_intro_overlay.show_quit_confirm(_is_public_room_client_context())
+	_release_game_mouse()
+
+
+func _hide_quit_confirm_prompt() -> void:
+	if match_intro_overlay and is_instance_valid(match_intro_overlay):
+		match_intro_overlay.hide_quit_confirm()
+	_update_mouse_capture()
+
+
+func _is_quit_confirm_visible() -> bool:
+	return match_intro_overlay != null and is_instance_valid(match_intro_overlay) and match_intro_overlay.is_quit_confirm_visible()
+
+
+func _on_quit_confirmed() -> void:
+	get_tree().quit()
+
+
+func _on_quit_cancelled() -> void:
+	_hide_quit_confirm_prompt()
+
+
+func _on_return_lobby_confirmed() -> void:
+	_hide_quit_confirm_prompt()
+	if _is_public_room_client_context():
+		_return_to_public_server_lobby("public_lobby.loading", false)
 
 
 func _set_match_intro_locked(locked: bool) -> void:
@@ -2353,6 +2889,7 @@ func _update_status_hud() -> void:
 	var lines := [
 		"%s: %s" % [I18n.t("phase"), phase],
 		"%s: %s" % [I18n.t("role"), _localized_role(role)],
+		"FPS: %d" % int(round(Engine.get_frames_per_second())),
 		"%s: %d | %s: %d | Props: %d" % [I18n.t("players"), Network.players.size(), I18n.t("role.hunter"), Network.get_hunters().size(), Network.get_props().size()],
 	]
 	if game_state == GameState.SKIN_CONFIG:
@@ -2431,6 +2968,11 @@ func _update_skill_hud() -> void:
 	if not local_player:
 		skill_hud.clear_skills()
 		return
+	if local_player.has_method("is_dead") and local_player.is_dead():
+		skill_hud.clear_skills()
+		if skill_hud.has_method("set_passive_skills"):
+			skill_hud.set_passive_skills([])
+		return
 	skill_hud.set_skills(_skill_hud_entries_for_player(local_player))
 	if skill_hud.has_method("set_passive_skills"):
 		skill_hud.set_passive_skills(_passive_skill_hud_entries_for_player(local_player))
@@ -2444,6 +2986,10 @@ func _update_card_hud() -> void:
 	if not card_hud:
 		return
 	if game_state == GameState.LOBBY or game_state == GameState.END:
+		card_hud.clear_cards()
+		return
+	var local_player = _get_local_player()
+	if local_player and local_player.has_method("is_dead") and local_player.is_dead():
 		card_hud.clear_cards()
 		return
 	card_hud.set_draft_state(Network.get_my_card_draft())
@@ -2591,11 +3137,12 @@ func _stalker_skill_hud_entries(local_player: Character) -> Array:
 	var shadow_alpha := 1.0
 	var reveal_lockout := 0.0
 	var grapple_cooldown := 0.0
-	if shadow_system:
-		if shadow_system.has_method("get_visibility_alpha"):
-			shadow_alpha = float(shadow_system.call("get_visibility_alpha"))
-		if shadow_system.has_method("get_flashlight_reveal_lockout_remaining"):
-			reveal_lockout = float(shadow_system.call("get_flashlight_reveal_lockout_remaining"))
+	if local_player.has_method("get_stalker_visibility_alpha"):
+		shadow_alpha = float(local_player.call("get_stalker_visibility_alpha"))
+	elif shadow_system and shadow_system.has_method("get_visibility_alpha"):
+		shadow_alpha = float(shadow_system.call("get_visibility_alpha"))
+	if shadow_system and shadow_system.has_method("get_flashlight_reveal_lockout_remaining"):
+		reveal_lockout = float(shadow_system.call("get_flashlight_reveal_lockout_remaining"))
 	if grapple_system and grapple_system.has_method("get_cooldown_remaining"):
 		grapple_cooldown = float(grapple_system.call("get_cooldown_remaining"))
 	return [
@@ -2666,6 +3213,8 @@ func _localized_role(role: int) -> String:
 func _should_capture_mouse() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
+	if _is_quit_confirm_visible():
+		return false
 	if main_menu and main_menu.is_menu_visible():
 		return false
 	if multiplayer_chat and multiplayer_chat.is_chat_visible():
@@ -2719,7 +3268,11 @@ func _input(event):
 	if event is InputEventMouseButton and event.pressed and _should_capture_mouse():
 		_capture_game_mouse()
 	if event is InputEventKey and event.pressed and not event.echo:
-		if _handle_card_hotkeys(event as InputEventKey):
+		var key_event := event as InputEventKey
+		if key_event.keycode == KEY_ESCAPE and _handle_escape_pressed():
+			get_viewport().set_input_as_handled()
+			return
+		if _handle_card_hotkeys(key_event):
 			get_viewport().set_input_as_handled()
 			return
 	if event.is_action_pressed("toggle_chat"):
@@ -2739,6 +3292,24 @@ func _input(event):
 		_debug_force_prep_phase()
 
 
+func _handle_escape_pressed() -> bool:
+	if _is_quit_confirm_visible():
+		_hide_quit_confirm_prompt()
+		return true
+	if main_menu and main_menu.is_menu_visible() and (main_menu.settings_visible or main_menu.lobby_chat_visible):
+		return false
+	if multiplayer_chat and multiplayer_chat.is_chat_visible():
+		return false
+	if inventory_visible:
+		return false
+	if card_hud and card_hud.has_method("is_drafting_active") and card_hud.is_drafting_active():
+		return false
+	if card_hud and card_hud.has_method("is_detail_visible") and card_hud.is_detail_visible():
+		return false
+	_show_quit_confirm_prompt()
+	return true
+
+
 func _handle_card_hotkeys(event: InputEventKey) -> bool:
 	if not card_hud:
 		return false
@@ -2756,6 +3327,9 @@ func _handle_card_hotkeys(event: InputEventKey) -> bool:
 	if main_menu and main_menu.is_menu_visible():
 		return false
 	if game_state != GameState.PREP and game_state != GameState.PLAY:
+		return false
+	var local_player = _get_local_player()
+	if local_player and local_player.has_method("is_dead") and local_player.is_dead():
 		return false
 	match event.keycode:
 		KEY_E:
@@ -2813,15 +3387,15 @@ func is_inventory_visible() -> bool:
 
 func _notification(what):
 	if what == NOTIFICATION_READY:
-		print("=== Prop Hunt v0.3.3 ===")
-		print("Controls:")
-		print("  WASD - Move | Shift - Sprint | Space - Jump")
-		print("  T - Toggle Chat | B - Toggle Inventory")
-		print("  F1 - Add random test item (debug)")
-		print("  F2 - Print inventory contents (debug)")
-		print("Match: ", Network.lobby_config.get("match_duration_sec", 600) / 60, " min")
-		print("Prep: ", Network.lobby_config.get("prep_duration_sec", 30), " s")
-		print("Ratio: 1 Hunter : 3 Props")
+		_runtime_debug_log("=== Prop Hunt v0.3.3 ===")
+		_runtime_debug_log("Controls:")
+		_runtime_debug_log("  WASD - Move | Shift - Sprint | Space - Jump")
+		_runtime_debug_log("  T - Toggle Chat | B - Toggle Inventory")
+		_runtime_debug_log("  F1 - Add random test item (debug)")
+		_runtime_debug_log("  F2 - Print inventory contents (debug)")
+		_runtime_debug_log("Match: ", Network.lobby_config.get("match_duration_sec", 600) / 60, " min")
+		_runtime_debug_log("Prep: ", Network.lobby_config.get("prep_duration_sec", 30), " s")
+		_runtime_debug_log("Ratio: 1 Hunter : 3 Props")
 
 
 func _on_inventory_closed():
@@ -2846,37 +3420,37 @@ func _debug_add_item():
 	if local_player:
 		var test_items = ["iron_sword", "health_potion", "leather_armor", "magic_gem", "iron_pickaxe"]
 		var random_item = test_items[randi() % test_items.size()]
-		print("Debug: Requesting to add ", random_item, " to player ", local_player.name)
+		_runtime_debug_log("Debug: Requesting to add ", random_item, " to player ", local_player.name)
 		local_player.request_add_item.rpc_id(1, random_item, 1)
 	else:
-		print("Debug: No local player found!")
+		_runtime_debug_log("Debug: No local player found!")
 
 
 func _debug_print_inventory():
 	var local_player = _get_local_player()
 	if local_player and local_player.get_inventory():
 		var inventory = local_player.get_inventory()
-		print("=== Inventory Debug ===")
+		_runtime_debug_log("=== Inventory Debug ===")
 		for i in range(inventory.slots.size()):
 			var slot = inventory.get_slot(i)
 			if slot and not slot.is_empty():
-				print("Slot ", i, ": ", slot.item_id, " x", slot.quantity)
-		print("=====================")
+				_runtime_debug_log("Slot ", i, ": ", slot.item_id, " x", slot.quantity)
+		_runtime_debug_log("=====================")
 	else:
-		print("No inventory found for local player")
+		_runtime_debug_log("No inventory found for local player")
 
 
 # Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase
 func _debug_force_prep_phase() -> void:
 	if not multiplayer.is_server():
-		print("[Debug] Only server can force prep phase")
+		_runtime_debug_log("[Debug] Only server can force prep phase")
 		return
 	if game_state != GameState.LOBBY:
-		print("[Debug] Already in progress (game_state=", game_state, ")")
+		_runtime_debug_log("[Debug] Already in progress (game_state=", game_state, ")")
 		return
 	if Network.players.size() < 1:
-		print("[Debug] No players yet")
+		_runtime_debug_log("[Debug] No players yet")
 		return
-	print("[Debug] F5: Force start prep phase (skip 2-player check)")
+	_runtime_debug_log("[Debug] F5: Force start prep phase (skip 2-player check)")
 	Network.server_auto_balance_roles(true)
 	_server_start_card_draft_phase()

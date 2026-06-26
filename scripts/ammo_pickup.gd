@@ -69,6 +69,26 @@ const AMMO_LABEL_HEIGHTS := {
 	AmmoType.SPECIAL: 0.8,
 }
 
+
+func _runtime_debug_log(
+	value0: Variant = null,
+	value1: Variant = null,
+	value2: Variant = null,
+	value3: Variant = null,
+	value4: Variant = null,
+	value5: Variant = null,
+	value6: Variant = null,
+	value7: Variant = null
+) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1, value2, value3, value4, value5, value6, value7]:
+		if value != null:
+			output += str(value)
+	print(output)
+
+
 # -----------------------------------------------------------------------------
 # 状态
 # -----------------------------------------------------------------------------
@@ -212,7 +232,7 @@ func _server_try_pickup_by_id(pid: int) -> void:
 		# TODO: 后续扩展
 		pass
 
-	print("[Ammo] Hunter ", pid, " picked up ", ammo_type, " (+", AMMO_AMOUNTS.get(ammo_type, 0), ")")
+	_runtime_debug_log("[Ammo] Hunter ", pid, " picked up ", ammo_type, " (+", AMMO_AMOUNTS.get(ammo_type, 0), ")")
 
 	# 隐藏 + 计时重置
 	_consume()
@@ -228,7 +248,7 @@ func _respawn() -> void:
 	if not multiplayer.is_server():
 		return
 	_set_available.rpc(true, 0.0)
-	print("[Ammo] ", ammo_type, " respawned at ", global_position)
+	_runtime_debug_log("[Ammo] ", ammo_type, " respawned at ", global_position)
 
 
 @rpc("authority", "call_local", "reliable")

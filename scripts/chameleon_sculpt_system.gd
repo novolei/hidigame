@@ -955,6 +955,8 @@ func _hide_shell() -> void:
 
 
 func _log_shell_spawn_summary() -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
 	if not shell or not is_instance_valid(shell):
 		return
 	var source_summary: Dictionary = shell.call("get_source_mesh_summary") if shell.has_method("get_source_mesh_summary") else {}

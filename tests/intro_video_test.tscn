@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cybivq0t7tb4x"]
+
+[ext_resource type="Script" uid="uid://c4d6o7e5crvd5" path="res://tests/intro_video_test.gd" id="1_qfqf8"]
+
+[node name="IntroVideoTest" type="Control" unique_id=382270682]
+layout_mode = 3
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_qfqf8")

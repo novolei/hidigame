@@ -11,10 +11,22 @@ extends Node
 
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
+const PUBLIC_SERVER_ADDRESS: String = "8.153.148.157"
+const PUBLIC_ROOM_PORT_START: int = 8081
+const PUBLIC_ROOM_PORT_END: int = 8091
+const PUBLIC_ROOM_STATUS_INTERVAL_SEC := 1.0
+const PUBLIC_LOBBY_ROOM_POLL_INTERVAL_SEC := 1.5
+const PUBLIC_ROOM_STALE_SECONDS := 20.0
+const PUBLIC_ROOM_READY_TIMEOUT_SEC := 30.0
+const PUBLIC_ROOM_START_GRACE_SECONDS := 45.0
+const PUBLIC_ROOM_EMPTY_TTL_SECONDS := 30.0
 const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
+const PERF_TELEMETRY_INTERVAL_SEC := 10.0
+const PERF_TELEMETRY_SLOW_FRAME_MS := 50.0
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
+const PUBLIC_SERVER_MAX_CLIENTS: int = 96
 const DEFAULT_CHARACTER_MODEL := "basic_humanoid"
 const SKIN_BLUE := 0
 const SKIN_YELLOW := 1
@@ -56,6 +68,48 @@ const ROLE_NAMES := {
 #   role_locked: 服务器是否已锁定该玩家的角色(防止客户端乱改)
 # -----------------------------------------------------------------------------
 var players: Dictionary = {}
+var public_rooms: Dictionary = {}
+var peer_rooms: Dictionary = {}
+var active_public_room_id := ""
+var _public_server_base_config: Dictionary = {}
+var _has_received_full_sync := false
+var _redirecting_to_public_room := false
+var _public_room_status_elapsed := 0.0
+var _public_lobby_poll_elapsed := 0.0
+var _public_lobby_snapshot_dirty := false
+var _public_room_empty_elapsed := 0.0
+var _public_room_created_msec := 0
+var _public_room_runtime_ready := false
+var _public_room_status_dir := ""
+var _perf_telemetry_elapsed := 0.0
+var _perf_telemetry_accumulated_delta := 0.0
+var _perf_telemetry_worst_delta := 0.0
+var _perf_telemetry_frames := 0
+var _perf_telemetry_slow_frames := 0
+
+
+func _runtime_debug_log(
+	value0: Variant = null,
+	value1: Variant = null,
+	value2: Variant = null,
+	value3: Variant = null,
+	value4: Variant = null,
+	value5: Variant = null,
+	value6: Variant = null,
+	value7: Variant = null,
+	value8: Variant = null,
+	value9: Variant = null,
+	value10: Variant = null,
+	value11: Variant = null
+) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11]:
+		if value != null:
+			output += str(value)
+	print(output)
+
 
 var player_info: Dictionary = {
 	"nick": "host",
@@ -90,6 +144,12 @@ var lobby_config: Dictionary = {
 	"stalker_glass_alpha_max": 0.125,
 	"stalker_glass_material": "classic",
 	"auto_balance": true,
+	"public_server": false,
+	"public_lobby": false,
+	"public_room_id": "",
+	"public_address": "",
+	"host_peer_id": 1,
+	"host_peer_name": "",
 	"role_locked": false             # 服务器锁定角色后为 true,准备阶段开始时
 }
 
@@ -116,6 +176,10 @@ signal skin_config_started(remaining_sec: float)
 signal player_character_model_changed(peer_id: int, model_id: String)
 signal player_party_monster_accessories_changed(peer_id: int, loadout: Dictionary)
 signal card_drafts_completed()
+signal public_room_redirect_requested(address: String, port: int, room_name: String, lobby_id: String)
+signal public_room_join_failed(reason_key: String)
+signal public_lobby_snapshot_received(rooms: Array)
+signal public_lobby_connection_ready()
 
 var card_drafts: Dictionary = {}
 var card_loadouts: Dictionary = {}
@@ -164,61 +228,61 @@ func _prop_role_count(lobby_players: Dictionary) -> int:
 
 @rpc("authority", "call_local", "reliable")
 func _rpc_match_intro_started(remaining_sec: float):
-	print("[Network] RPC match_intro_started RECEIVED, remaining=", remaining_sec)
+	_runtime_debug_log("[Network] RPC match_intro_started RECEIVED, remaining=", remaining_sec)
 	match_intro_started.emit(remaining_sec)
 
 @rpc("authority", "call_local", "reliable")
 func _rpc_skin_config_started(remaining_sec: float):
-	print("[Network] RPC skin_config_started RECEIVED, remaining=", remaining_sec)
+	_runtime_debug_log("[Network] RPC skin_config_started RECEIVED, remaining=", remaining_sec)
 	skin_config_started.emit(remaining_sec)
 
 @rpc("authority", "call_local", "reliable")
 func _rpc_prep_phase_started(remaining_sec: float):
-	print("[Network] RPC prep_phase_started RECEIVED, remaining=", remaining_sec)
+	_runtime_debug_log("[Network] RPC prep_phase_started RECEIVED, remaining=", remaining_sec)
 	prep_phase_started.emit(remaining_sec)
 
 @rpc("authority", "call_local", "reliable")
 func _rpc_prep_phase_ended():
-	print("[Network] RPC prep_phase_ended RECEIVED")
+	_runtime_debug_log("[Network] RPC prep_phase_ended RECEIVED")
 	prep_phase_ended.emit()
 
 @rpc("authority", "call_local", "reliable")
 func _rpc_match_started():
-	print("[Network] RPC match_started RECEIVED")
+	_runtime_debug_log("[Network] RPC match_started RECEIVED")
 	match_started.emit()
 
 # 服务器侧:广播给所有客户端
 func server_broadcast_match_intro_started(remaining_sec: float) -> void:
 	if not multiplayer.is_server():
 		return
-	print("[Network] SERVER broadcasting match_intro_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
+	_runtime_debug_log("[Network] SERVER broadcasting match_intro_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
 	_rpc_match_intro_started.rpc(remaining_sec)
 
 
 func server_broadcast_skin_config_started(remaining_sec: float) -> void:
 	if not multiplayer.is_server():
 		return
-	print("[Network] SERVER broadcasting skin_config_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
+	_runtime_debug_log("[Network] SERVER broadcasting skin_config_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
 	_rpc_skin_config_started.rpc(remaining_sec)
 
 
 func server_broadcast_prep_started(remaining_sec: float) -> void:
 	if not multiplayer.is_server():
 		return
-	print("[Network] SERVER broadcasting prep_phase_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
+	_runtime_debug_log("[Network] SERVER broadcasting prep_phase_started, remaining=", remaining_sec, " peer_count=", multiplayer.get_peers().size())
 	# call_local 模式下,server 调用时本地也会执行 emit,无需手动 emit
 	_rpc_prep_phase_started.rpc(remaining_sec)
 
 func server_broadcast_prep_ended() -> void:
 	if not multiplayer.is_server():
 		return
-	print("[Network] SERVER broadcasting prep_phase_ended")
+	_runtime_debug_log("[Network] SERVER broadcasting prep_phase_ended")
 	_rpc_prep_phase_ended.rpc()
 
 func server_broadcast_match_started() -> void:
 	if not multiplayer.is_server():
 		return
-	print("[Network] SERVER broadcasting match_started")
+	_runtime_debug_log("[Network] SERVER broadcasting match_started")
 	_rpc_match_started.rpc()
 
 # =============================================================================
@@ -523,10 +587,74 @@ func _rpc_card_activated(peer_id: int, card_id: String, slot_index: int) -> void
 
 
 func _process(delta):
+	_process_performance_telemetry(delta)
 	if multiplayer.multiplayer_peer != null and multiplayer.is_server() and _card_draft_active:
 		_server_process_card_drafts(delta)
-	if Input.is_action_just_pressed("quit"):
-		get_tree().quit(0)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		if is_public_lobby_server():
+			_public_lobby_process_rooms(delta)
+		elif is_public_room_server():
+			_public_room_process_heartbeat(delta)
+
+
+func _process_performance_telemetry(delta: float) -> void:
+	if not _should_log_performance_telemetry():
+		_reset_performance_telemetry_window()
+		return
+	_perf_telemetry_elapsed += delta
+	_perf_telemetry_accumulated_delta += delta
+	_perf_telemetry_worst_delta = maxf(_perf_telemetry_worst_delta, delta)
+	_perf_telemetry_frames += 1
+	if delta * 1000.0 >= PERF_TELEMETRY_SLOW_FRAME_MS:
+		_perf_telemetry_slow_frames += 1
+	if _perf_telemetry_elapsed < PERF_TELEMETRY_INTERVAL_SEC:
+		return
+	var avg_delta_ms := 0.0
+	if _perf_telemetry_frames > 0:
+		avg_delta_ms = (_perf_telemetry_accumulated_delta / float(_perf_telemetry_frames)) * 1000.0
+	var worst_delta_ms := _perf_telemetry_worst_delta * 1000.0
+	var peer_count := multiplayer.get_peers().size() if multiplayer.multiplayer_peer != null else 0
+	print("[Perf] role=%s fps=%.1f avg_ms=%.2f worst_ms=%.2f slow_frames=%d peers=%d players=%d rooms=%d room=%s port=%d" % [
+		_performance_telemetry_role(),
+		Engine.get_frames_per_second(),
+		avg_delta_ms,
+		worst_delta_ms,
+		_perf_telemetry_slow_frames,
+		peer_count,
+		players.size(),
+		public_rooms.size(),
+		active_public_room_id if not active_public_room_id.is_empty() else "-",
+		server_port,
+	])
+	_reset_performance_telemetry_window()
+
+
+func _should_log_performance_telemetry() -> bool:
+	var env := OS.get_environment("MAOMAO_PERF_LOG").strip_edges().to_lower()
+	if env == "1" or env == "true" or env == "yes" or env == "on":
+		return true
+	if env == "0" or env == "false" or env == "no" or env == "off":
+		return false
+	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false))
+
+
+func _performance_telemetry_role() -> String:
+	if is_public_lobby_server():
+		return "public_lobby"
+	if is_public_room_server():
+		return "public_room"
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		return "server"
+	return "client"
+
+
+func _reset_performance_telemetry_window() -> void:
+	_perf_telemetry_elapsed = 0.0
+	_perf_telemetry_accumulated_delta = 0.0
+	_perf_telemetry_worst_delta = 0.0
+	_perf_telemetry_frames = 0
+	_perf_telemetry_slow_frames = 0
+
 
 func _ready() -> void:
 	_card_rng.randomize()
@@ -542,6 +670,7 @@ func _ready() -> void:
 # =============================================================================
 
 func start_host(nickname: String, skin_color_str: String, host_role: int = Role.NONE, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+	_redirecting_to_public_room = false
 	_close_current_peer()
 	var peer = ENetMultiplayerPeer.new()
 	var requested_port := server_port
@@ -571,9 +700,12 @@ func start_host(nickname: String, skin_color_str: String, host_role: int = Role.
 	lobby_config["steam_lobby_id"] = ""
 	lobby_config["role_locked"] = false
 	lobby_config["host_port"] = server_port
-
-	if DisplayServer.get_name() == "headless":
-		return OK
+	lobby_config["public_server"] = false
+	lobby_config["public_lobby"] = false
+	lobby_config["public_room_id"] = ""
+	lobby_config["public_address"] = ""
+	lobby_config["host_peer_id"] = 1
+	lobby_config["host_peer_name"] = nickname
 
 	players[1] = player_info.duplicate()
 	player_connected.emit(1, players[1])
@@ -587,23 +719,647 @@ func _create_host_peer_with_port_fallback(peer: ENetMultiplayerPeer, requested_p
 		var error := peer.create_server(candidate_port, MAX_PLAYERS)
 		if error == OK:
 			if candidate_port != requested_port:
-				print("[Network] Default host port unavailable; using fallback port ", candidate_port)
+				_runtime_debug_log("[Network] Default host port unavailable; using fallback port ", candidate_port)
 			server_port = candidate_port
 			return OK
 		if offset == 0:
-			print("[Network] Could not create ENet host on port ", candidate_port, ": ", error)
+			_runtime_debug_log("[Network] Could not create ENet host on port ", candidate_port, ": ", error)
 		else:
-			print("[Network] Could not create ENet host fallback port ", candidate_port, ": ", error)
+			_runtime_debug_log("[Network] Could not create ENet host fallback port ", candidate_port, ": ", error)
 	return ERR_CANT_CREATE
 
 
 func _close_current_peer() -> void:
+	if is_public_room_server():
+		_delete_public_room_status_file()
 	if multiplayer.multiplayer_peer:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
+	_has_received_full_sync = false
+	_public_room_status_elapsed = 0.0
+	_public_lobby_poll_elapsed = 0.0
+	_public_lobby_snapshot_dirty = false
+	_public_room_empty_elapsed = 0.0
+	_public_room_runtime_ready = false
 
 
-func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+func start_public_lobby_server(public_address: String = "") -> int:
+	_redirecting_to_public_room = false
+	_close_current_peer()
+	players.clear()
+	card_drafts.clear()
+	card_loadouts.clear()
+	public_rooms.clear()
+	peer_rooms.clear()
+	active_public_room_id = ""
+	_public_room_status_dir = _public_room_status_directory()
+	_public_lobby_poll_elapsed = 0.0
+	_public_lobby_snapshot_dirty = false
+	_public_server_base_config = lobby_config.duplicate(true)
+
+	var peer := ENetMultiplayerPeer.new()
+	server_port = _env_int("MAOMAO_PUBLIC_PORT", SERVER_PORT)
+	var error := peer.create_server(server_port, PUBLIC_SERVER_MAX_CLIENTS)
+	if error != OK:
+		return error
+	multiplayer.multiplayer_peer = peer
+
+	lobby_config["room_name"] = "Public Lobby"
+	lobby_config["lobby_id"] = ""
+	lobby_config["steam_lobby_id"] = ""
+	lobby_config["role_locked"] = false
+	lobby_config["host_port"] = server_port
+	lobby_config["public_server"] = true
+	lobby_config["public_lobby"] = true
+	lobby_config["public_room_id"] = ""
+	lobby_config["public_address"] = _public_server_external_address(public_address)
+	lobby_config["host_peer_id"] = 0
+	lobby_config["host_peer_name"] = ""
+	_public_lobby_refresh_room_files()
+	_runtime_debug_log("[Network] Public lobby server listening on UDP ", server_port, " address=", lobby_config["public_address"])
+	return OK
+
+
+func start_public_room_server_from_args() -> int:
+	var port := _cmd_arg_int("--port", _env_int("MAOMAO_ROOM_PORT", server_port if server_port > 0 else PUBLIC_ROOM_PORT_START))
+	var room_name := _cmd_arg_value("--room-name", OS.get_environment("MAOMAO_ROOM_NAME"))
+	var lobby_password := _cmd_arg_value("--lobby-password", OS.get_environment("MAOMAO_ROOM_PASSWORD"))
+	var room_id := _cmd_arg_value("--room-id", OS.get_environment("MAOMAO_ROOM_ID"))
+	_public_room_status_dir = _cmd_arg_value("--status-dir", OS.get_environment("MAOMAO_ROOM_STATUS_DIR"))
+	return start_public_room_server(room_name, lobby_password, port, room_id)
+
+
+func start_public_room_server(room_name: String, lobby_password: String, port: int, room_id: String = "") -> int:
+	_redirecting_to_public_room = false
+	_close_current_peer()
+	players.clear()
+	card_drafts.clear()
+	card_loadouts.clear()
+	peer_rooms.clear()
+	_public_room_status_elapsed = 0.0
+	_public_room_empty_elapsed = 0.0
+	_public_room_runtime_ready = false
+	_public_room_created_msec = Time.get_ticks_msec()
+	active_public_room_id = _public_room_key(room_name if not room_name.strip_edges().is_empty() else room_id)
+	if not room_id.strip_edges().is_empty():
+		active_public_room_id = room_id.strip_edges().to_lower()
+
+	var peer := ENetMultiplayerPeer.new()
+	server_port = port if port > 0 else PUBLIC_ROOM_PORT_START
+	var error := peer.create_server(server_port, MAX_PLAYERS)
+	if error != OK:
+		return error
+	multiplayer.multiplayer_peer = peer
+
+	var normalized_room_name := _normalize_room_name(room_name, "Host")
+	lobby_config["room_name"] = normalized_room_name
+	lobby_config["lobby_id"] = _normalize_lobby_password(lobby_password)
+	lobby_config["steam_lobby_id"] = ""
+	lobby_config["role_locked"] = false
+	lobby_config["host_port"] = server_port
+	lobby_config["public_server"] = true
+	lobby_config["public_lobby"] = false
+	lobby_config["public_room_id"] = active_public_room_id
+	lobby_config["public_address"] = _public_server_external_address("")
+	lobby_config["host_peer_id"] = 0
+	lobby_config["host_peer_name"] = ""
+	_write_public_room_status()
+	_runtime_debug_log("[Network] Public room server listening on UDP ", server_port, " room=", normalized_room_name, " locked=", not str(lobby_config["lobby_id"]).is_empty())
+	return OK
+
+
+func mark_public_room_runtime_ready() -> void:
+	if not is_public_room_server():
+		return
+	_public_room_runtime_ready = true
+	_public_room_status_elapsed = 0.0
+	_write_public_room_status()
+
+
+func is_public_lobby_server() -> bool:
+	return multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false)) and bool(lobby_config.get("public_lobby", false))
+
+
+func is_public_room_server() -> bool:
+	return multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false)) and not bool(lobby_config.get("public_lobby", false))
+
+
+func is_public_lobby_server_command_line() -> bool:
+	if is_public_room_server_command_line():
+		return false
+	return _cmd_arg_has("--maomao-public-server") or _cmd_arg_has("--public-server") or OS.get_environment("MAOMAO_PUBLIC_SERVER") == "1"
+
+
+func is_public_room_server_command_line() -> bool:
+	return _cmd_arg_has("--maomao-room-server") or OS.get_environment("MAOMAO_ROOM_SERVER") == "1"
+
+
+func is_redirecting_to_public_room() -> bool:
+	return _redirecting_to_public_room
+
+
+func _public_server_external_address(override_address: String = "") -> String:
+	var address := override_address.strip_edges()
+	if address.is_empty():
+		address = _cmd_arg_value("--public-address", OS.get_environment("MAOMAO_PUBLIC_ADDRESS"))
+	if address.is_empty():
+		address = PUBLIC_SERVER_ADDRESS
+	return address
+
+
+func join_public_lobby(nickname: String, skin_color_str: String, address: String = "%s:%d" % [PUBLIC_SERVER_ADDRESS, SERVER_PORT], client_role: int = Role.NONE, character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> int:
+	_redirecting_to_public_room = false
+	_close_current_peer()
+	var peer := ENetMultiplayerPeer.new()
+	var endpoint := _normalize_join_endpoint(address)
+	address = str(endpoint.get("address", PUBLIC_SERVER_ADDRESS))
+	server_port = int(endpoint.get("port", SERVER_PORT))
+	var error := peer.create_client(address, server_port)
+	if error != OK:
+		return error
+	multiplayer.multiplayer_peer = peer
+	if !nickname or nickname.strip_edges() == "":
+		nickname = "Player_" + str(multiplayer.get_unique_id())
+	player_info["nick"] = nickname
+	player_info["skin"] = skin_str_to_e(skin_color_str)
+	player_info["character_model"] = normalize_character_model(character_model)
+	player_info["party_monster_accessories"] = normalize_party_monster_accessories({}, str(player_info["character_model"]))
+	player_info["role"] = client_role
+	player_info["alive"] = true
+	player_info["role_locked"] = false
+	player_info["join_lobby_id"] = ""
+	player_info["join_room_name"] = ""
+	players.clear()
+	public_lobby_connection_ready.emit()
+	return OK
+
+
+func request_public_room_list() -> void:
+	if multiplayer.multiplayer_peer == null:
+		return
+	_request_public_room_list_rpc.rpc_id(1)
+
+
+func request_create_public_room(room_name: String, lobby_password: String = "") -> void:
+	if multiplayer.multiplayer_peer == null:
+		return
+	var fallback_name := str(player_info.get("nick", "Host"))
+	_request_create_public_room_rpc.rpc_id(1, _normalize_room_name(room_name, fallback_name), _normalize_lobby_password(lobby_password))
+
+
+func request_join_public_room(room_id: String, lobby_password: String = "") -> void:
+	if multiplayer.multiplayer_peer == null:
+		return
+	_request_join_public_room_rpc.rpc_id(1, room_id.strip_edges().to_lower(), _normalize_lobby_password(lobby_password))
+
+
+func leave_public_lobby() -> void:
+	_redirecting_to_public_room = false
+	_close_current_peer()
+	players.clear()
+	public_lobby_snapshot_received.emit([])
+
+
+func leave_current_lobby() -> void:
+	_redirecting_to_public_room = false
+	_close_current_peer()
+	players.clear()
+	card_drafts.clear()
+	card_loadouts.clear()
+	_has_received_full_sync = false
+
+
+func _public_lobby_handle_room_request(peer_id: int, info: Dictionary) -> void:
+	players[peer_id] = info.duplicate(true)
+	_public_lobby_send_snapshot(peer_id)
+
+
+@rpc("any_peer", "reliable")
+func _request_public_room_list_rpc() -> void:
+	if not is_public_lobby_server():
+		return
+	_public_lobby_refresh_room_files()
+	_public_lobby_send_snapshot(multiplayer.get_remote_sender_id())
+
+
+@rpc("any_peer", "reliable")
+func _request_create_public_room_rpc(room_name: String, lobby_id: String) -> void:
+	if not is_public_lobby_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	var requester: Dictionary = players.get(peer_id, {})
+	var requester_name := str(requester.get("nick", "Host"))
+	var requested_room_name := _normalize_room_name(room_name, requester_name)
+	var room_id := _public_room_key(requested_room_name)
+	var requested_lobby_id := _normalize_lobby_password(lobby_id)
+	_public_lobby_refresh_room_files()
+	if public_rooms.has(room_id):
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_exists", false)
+		_public_lobby_send_snapshot(peer_id)
+		return
+	var port := _public_lobby_allocate_room_port()
+	if port <= 0:
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.no_public_room_ports", false)
+		return
+	var pid := _public_lobby_spawn_room_process(room_id, requested_room_name, requested_lobby_id, port)
+	if pid < 0:
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_spawn_failed", false)
+		return
+	var now := Time.get_unix_time_from_system()
+	public_rooms[room_id] = {
+		"room_id": room_id,
+		"room_name": requested_room_name,
+		"lobby_id": requested_lobby_id,
+		"locked": not requested_lobby_id.is_empty(),
+		"port": port,
+		"process_id": pid,
+		"host_peer_name": requester_name,
+		"player_count": 0,
+		"max_players": MAX_PLAYERS,
+		"created_unix": now,
+		"last_seen_unix": now,
+		"ready": false,
+	}
+	_runtime_debug_log("[Network] Public room created: ", requested_room_name, " port=", port, " pid=", pid)
+	_public_lobby_mark_snapshot_dirty()
+	_public_lobby_send_snapshot()
+	if not await _public_lobby_wait_for_room_ready(room_id):
+		public_rooms.erase(room_id)
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_ready", false)
+		_public_lobby_mark_snapshot_dirty()
+		_public_lobby_send_snapshot()
+		return
+	var ready_room: Dictionary = public_rooms.get(room_id, {})
+	_public_room_redirect_rpc.rpc_id(peer_id, _public_server_external_address(), int(ready_room.get("port", port)), str(ready_room.get("room_name", requested_room_name)), requested_lobby_id)
+
+
+@rpc("any_peer", "reliable")
+func _request_join_public_room_rpc(room_id: String, lobby_password: String) -> void:
+	if not is_public_lobby_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	_public_lobby_refresh_room_files()
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	if not public_rooms.has(normalized_room_id):
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_found", false)
+		_public_lobby_send_snapshot(peer_id)
+		return
+	var room: Dictionary = public_rooms.get(normalized_room_id, {})
+	var expected_lobby_id := str(room.get("lobby_id", ""))
+	if not expected_lobby_id.is_empty() and _normalize_lobby_password(lobby_password) != expected_lobby_id:
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.wrong_password", false)
+		return
+	if not await _public_lobby_wait_for_room_ready(normalized_room_id):
+		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_ready", false)
+		_public_lobby_send_snapshot(peer_id)
+		return
+	var ready_room: Dictionary = public_rooms.get(normalized_room_id, room)
+	_public_room_redirect_rpc.rpc_id(peer_id, _public_server_external_address(), int(ready_room.get("port", PUBLIC_ROOM_PORT_START)), str(ready_room.get("room_name", normalized_room_id)), expected_lobby_id)
+
+
+func _public_lobby_wait_for_room_ready(room_id: String, timeout_sec: float = PUBLIC_ROOM_READY_TIMEOUT_SEC) -> bool:
+	var normalized_room_id := room_id.strip_edges().to_lower()
+	var deadline_msec := Time.get_ticks_msec() + int(maxf(0.1, timeout_sec) * 1000.0)
+	while Time.get_ticks_msec() <= deadline_msec:
+		_public_lobby_refresh_room_files()
+		var room: Dictionary = public_rooms.get(normalized_room_id, {})
+		if _public_lobby_room_is_joinable(room, normalized_room_id):
+			return true
+		await get_tree().create_timer(0.15).timeout
+	_public_lobby_refresh_room_files()
+	var final_room: Dictionary = public_rooms.get(normalized_room_id, {})
+	return _public_lobby_room_is_joinable(final_room, normalized_room_id)
+
+
+func _public_lobby_room_is_joinable(room: Dictionary, room_id: String) -> bool:
+	if room.is_empty():
+		return false
+	if str(room.get("room_id", "")).strip_edges().to_lower() != room_id:
+		return false
+	if int(room.get("port", -1)) <= 0:
+		return false
+	if not bool(room.get("ready", false)):
+		return false
+	var last_seen := float(room.get("last_seen_unix", 0.0))
+	return Time.get_unix_time_from_system() - last_seen <= PUBLIC_ROOM_STALE_SECONDS
+
+
+func _public_lobby_allocate_room_port() -> int:
+	var used_ports: Array[int] = []
+	for raw_room in public_rooms.values():
+		var room: Dictionary = raw_room
+		used_ports.append(int(room.get("port", -1)))
+	var first_port := _env_int("MAOMAO_ROOM_PORT_START", PUBLIC_ROOM_PORT_START)
+	var last_port := _env_int("MAOMAO_ROOM_PORT_END", PUBLIC_ROOM_PORT_END)
+	for port in range(first_port, last_port + 1):
+		if not used_ports.has(port):
+			return port
+	return -1
+
+
+func _public_lobby_spawn_room_process(room_id: String, room_name: String, lobby_id: String, port: int) -> int:
+	var executable := OS.get_executable_path()
+	if executable.is_empty():
+		return -1
+	var args := PackedStringArray()
+	args.append("--headless")
+	var pck_path := OS.get_environment("MAOMAO_PCK")
+	if pck_path.is_empty():
+		pck_path = _cmd_arg_value("--main-pack", "")
+	if not pck_path.is_empty():
+		args.append("--main-pack")
+		args.append(pck_path)
+	args.append("--")
+	args.append("--maomao-room-server")
+	args.append("--port")
+	args.append(str(port))
+	args.append("--room-name")
+	args.append(room_name)
+	args.append("--lobby-password")
+	args.append(lobby_id)
+	args.append("--room-id")
+	args.append(room_id)
+	args.append("--public-address")
+	args.append(_public_server_external_address())
+	args.append("--status-dir")
+	args.append(_public_room_status_directory())
+	return OS.create_process(executable, args, false)
+
+
+func _public_lobby_process_rooms(delta: float) -> void:
+	_public_lobby_poll_elapsed += delta
+	if _public_lobby_poll_elapsed >= PUBLIC_LOBBY_ROOM_POLL_INTERVAL_SEC:
+		_public_lobby_poll_elapsed = 0.0
+		_public_lobby_refresh_room_files()
+	if _public_lobby_snapshot_dirty:
+		_public_lobby_snapshot_dirty = false
+		_public_lobby_send_snapshot()
+
+
+func _public_room_process_heartbeat(delta: float) -> void:
+	if active_public_room_id.is_empty():
+		return
+	_public_room_status_elapsed += delta
+	var room_age_msec := Time.get_ticks_msec() - _public_room_created_msec
+	if players.is_empty() and room_age_msec >= int(PUBLIC_ROOM_START_GRACE_SECONDS * 1000.0):
+		_public_room_empty_elapsed += delta
+	else:
+		_public_room_empty_elapsed = 0.0
+	if _public_room_status_elapsed >= PUBLIC_ROOM_STATUS_INTERVAL_SEC:
+		_public_room_status_elapsed = 0.0
+		_write_public_room_status()
+	if _public_room_empty_elapsed >= PUBLIC_ROOM_EMPTY_TTL_SECONDS:
+		_runtime_debug_log("[Network] Public room empty; shutting down room=", active_public_room_id)
+		_delete_public_room_status_file()
+		get_tree().quit(0)
+
+
+func _public_lobby_refresh_room_files() -> void:
+	var status_dir := _public_room_status_directory()
+	var dir := DirAccess.open(status_dir)
+	var now := Time.get_unix_time_from_system()
+	var seen_room_ids: Array[String] = []
+	if dir != null:
+		for file_name in DirAccess.get_files_at(status_dir):
+			if not file_name.ends_with(".json"):
+				continue
+			var path := status_dir.path_join(file_name)
+			var text := FileAccess.get_file_as_string(path)
+			var parsed = JSON.parse_string(text)
+			if not parsed is Dictionary:
+				continue
+			var room: Dictionary = parsed
+			var room_id := str(room.get("room_id", "")).strip_edges().to_lower()
+			if room_id.is_empty():
+				continue
+			var last_seen := float(room.get("last_seen_unix", now))
+			if now - last_seen > PUBLIC_ROOM_STALE_SECONDS:
+				DirAccess.remove_absolute(path)
+				continue
+			seen_room_ids.append(room_id)
+			var sanitized_room := _public_lobby_sanitize_room_record(room)
+			if not public_rooms.has(room_id) or public_rooms.get(room_id, {}) != sanitized_room:
+				_public_lobby_mark_snapshot_dirty()
+			public_rooms[room_id] = sanitized_room
+	var changed := false
+	for key in public_rooms.keys():
+		var room_id := str(key)
+		if seen_room_ids.has(room_id):
+			continue
+		var room: Dictionary = public_rooms.get(room_id, {})
+		var last_seen := float(room.get("last_seen_unix", now))
+		if now - last_seen > PUBLIC_ROOM_STALE_SECONDS:
+			public_rooms.erase(room_id)
+			changed = true
+	if changed:
+		_public_lobby_mark_snapshot_dirty()
+
+
+func _public_lobby_sanitize_room_record(room: Dictionary) -> Dictionary:
+	var room_id := str(room.get("room_id", "")).strip_edges().to_lower()
+	var lobby_id := _normalize_lobby_password(str(room.get("lobby_id", "")))
+	return {
+		"room_id": room_id,
+		"room_name": _normalize_room_name(str(room.get("room_name", room_id)), str(room.get("host_peer_name", "Host"))),
+		"lobby_id": lobby_id,
+		"locked": bool(room.get("locked", not lobby_id.is_empty())),
+		"port": int(room.get("port", PUBLIC_ROOM_PORT_START)),
+		"process_id": int(room.get("process_id", -1)),
+		"host_peer_name": str(room.get("host_peer_name", "")),
+		"player_count": clampi(int(room.get("player_count", 0)), 0, MAX_PLAYERS),
+		"max_players": int(room.get("max_players", MAX_PLAYERS)),
+		"created_unix": float(room.get("created_unix", Time.get_unix_time_from_system())),
+		"last_seen_unix": float(room.get("last_seen_unix", Time.get_unix_time_from_system())),
+		"ready": bool(room.get("ready", false)),
+	}
+
+
+func _public_lobby_mark_snapshot_dirty() -> void:
+	_public_lobby_snapshot_dirty = true
+
+
+func _public_lobby_send_snapshot(peer_id: int = 0) -> void:
+	var snapshot := _public_lobby_room_snapshot()
+	if peer_id > 0:
+		_public_lobby_snapshot_rpc.rpc_id(peer_id, snapshot)
+	else:
+		_public_lobby_snapshot_rpc.rpc(snapshot)
+
+
+func _public_lobby_room_snapshot() -> Array:
+	var rooms: Array = []
+	for raw_room in public_rooms.values():
+		var room: Dictionary = raw_room
+		rooms.append({
+			"room_id": str(room.get("room_id", "")),
+			"room_name": str(room.get("room_name", "Public Room")),
+			"locked": bool(room.get("locked", not str(room.get("lobby_id", "")).is_empty())),
+			"player_count": int(room.get("player_count", 0)),
+			"max_players": int(room.get("max_players", MAX_PLAYERS)),
+			"host_peer_name": str(room.get("host_peer_name", "")),
+			"port": int(room.get("port", PUBLIC_ROOM_PORT_START)),
+			"ready": bool(room.get("ready", true)),
+		})
+	rooms.sort_custom(func(a, b): return str(a.get("room_name", "")) < str(b.get("room_name", "")))
+	return rooms
+
+
+@rpc("authority", "call_remote", "reliable")
+func _public_lobby_snapshot_rpc(rooms: Array) -> void:
+	public_lobby_snapshot_received.emit(rooms.duplicate(true))
+
+
+func _write_public_room_status() -> void:
+	if active_public_room_id.is_empty():
+		return
+	var status_dir := _public_room_status_directory()
+	DirAccess.make_dir_recursive_absolute(status_dir)
+	var status := {
+		"room_id": active_public_room_id,
+		"room_name": str(lobby_config.get("room_name", "Public Room")),
+		"lobby_id": str(lobby_config.get("lobby_id", "")),
+		"locked": not str(lobby_config.get("lobby_id", "")).is_empty(),
+		"port": int(lobby_config.get("host_port", server_port)),
+		"host_peer_name": str(lobby_config.get("host_peer_name", "")),
+		"player_count": players.size(),
+		"max_players": int(lobby_config.get("max_players", MAX_PLAYERS)),
+		"created_unix": Time.get_unix_time_from_system() - (float(Time.get_ticks_msec() - _public_room_created_msec) / 1000.0),
+		"last_seen_unix": Time.get_unix_time_from_system(),
+		"ready": _public_room_runtime_ready,
+	}
+	var file := FileAccess.open(_public_room_status_path(active_public_room_id), FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(status))
+
+
+func _delete_public_room_status_file() -> void:
+	if active_public_room_id.is_empty():
+		return
+	var path := _public_room_status_path(active_public_room_id)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+
+
+func _public_room_status_directory() -> String:
+	if not _public_room_status_dir.strip_edges().is_empty():
+		return _public_room_status_dir.strip_edges()
+	var status_dir := OS.get_environment("MAOMAO_ROOM_STATUS_DIR").strip_edges()
+	if status_dir.is_empty():
+		status_dir = _cmd_arg_value("--status-dir", "").strip_edges()
+	if status_dir.is_empty():
+		status_dir = OS.get_user_data_dir().path_join("public_rooms")
+	_public_room_status_dir = status_dir
+	return status_dir
+
+
+func _public_room_status_path(room_id: String) -> String:
+	var safe_id := _public_room_key(room_id).replace("/", "_").replace("\\", "_").replace(":", "_")
+	return _public_room_status_directory().path_join(safe_id + ".json")
+
+
+func _server_prepare_public_room_host(peer_id: int, info: Dictionary) -> void:
+	if not is_public_room_server():
+		return
+	if int(lobby_config.get("host_peer_id", 0)) > 0:
+		return
+	lobby_config["host_peer_id"] = peer_id
+	lobby_config["host_peer_name"] = str(info.get("nick", "Host"))
+	_runtime_debug_log("[Network] Public room host assigned: peer=", peer_id, " name=", lobby_config["host_peer_name"])
+	_write_public_room_status()
+
+
+func _server_assign_public_room_host_if_needed() -> void:
+	if not is_public_room_server():
+		return
+	var current_host := int(lobby_config.get("host_peer_id", 0))
+	if current_host > 0 and players.has(current_host):
+		return
+	var ids := players.keys()
+	ids.sort()
+	if ids.is_empty():
+		lobby_config["host_peer_id"] = 0
+		lobby_config["host_peer_name"] = ""
+		lobby_config["role_locked"] = false
+		_write_public_room_status()
+		return
+	var next_host := int(ids[0])
+	lobby_config["host_peer_id"] = next_host
+	lobby_config["host_peer_name"] = str(players[next_host].get("nick", "Host"))
+	_runtime_debug_log("[Network] Public room host transferred: peer=", next_host, " name=", lobby_config["host_peer_name"])
+	_write_public_room_status()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _public_room_redirect_rpc(address: String, port: int, room_name: String, lobby_id: String) -> void:
+	public_room_redirect_requested.emit(address, port, room_name, lobby_id)
+	call_deferred("_connect_to_redirected_public_room", address, port, room_name, lobby_id)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _public_room_join_failed_rpc(reason_key: String, close_peer: bool = true) -> void:
+	public_room_join_failed.emit(reason_key)
+	if close_peer:
+		_close_current_peer()
+
+
+func _connect_to_redirected_public_room(address: String, port: int, room_name: String, lobby_id: String) -> void:
+	_redirecting_to_public_room = true
+	_close_current_peer()
+	await get_tree().process_frame
+	var target := "%s:%d" % [address, port]
+	var role := int(player_info.get("role", Role.NONE))
+	var character_model := str(player_info.get("character_model", DEFAULT_CHARACTER_MODEL))
+	var error: int = join_game(str(player_info.get("nick", "")), _skin_e_to_str(int(player_info.get("skin", SKIN_BLUE))), target, lobby_id, role, room_name, character_model)
+	if error != OK:
+		_redirecting_to_public_room = false
+		public_room_join_failed.emit("join_status.failed")
+
+
+func _cmd_arg_has(arg_name: String) -> bool:
+	for arg in _cmd_args():
+		if str(arg) == arg_name:
+			return true
+	return false
+
+
+func _cmd_arg_value(arg_name: String, fallback: String = "") -> String:
+	var args := _cmd_args()
+	for index in range(args.size()):
+		var arg := str(args[index])
+		if arg == arg_name and index + 1 < args.size():
+			return str(args[index + 1])
+		if arg.begins_with(arg_name + "="):
+			return arg.substr(arg_name.length() + 1)
+	return fallback
+
+
+func _cmd_arg_int(arg_name: String, fallback: int) -> int:
+	var value := _cmd_arg_value(arg_name, "")
+	if value.is_valid_int():
+		return int(value)
+	return fallback
+
+
+func _cmd_args() -> PackedStringArray:
+	var args := PackedStringArray()
+	args.append_array(OS.get_cmdline_args())
+	args.append_array(OS.get_cmdline_user_args())
+	return args
+
+
+func _env_int(env_name: String, fallback: int) -> int:
+	var value := OS.get_environment(env_name)
+	if value.is_valid_int():
+		return int(value)
+	return fallback
+
+
+func _public_room_key(room_name: String) -> String:
+	var key := room_name.strip_edges().to_lower()
+	return key if not key.is_empty() else "public-room"
+
+
+func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, lobby_id: String = "", client_role: int = Role.NONE, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> int:
 	_close_current_peer()
 	var peer = ENetMultiplayerPeer.new()
 	var endpoint := _normalize_join_endpoint(address)
@@ -629,6 +1385,7 @@ func join_game(nickname: String, skin_color_str: String, address: String = SERVE
 	player_info["role_locked"] = false
 	player_info["join_lobby_id"] = lobby_id.strip_edges().to_upper()
 	player_info["join_room_name"] = room_name.strip_edges()
+	return OK
 
 
 # =============================================================================
@@ -669,7 +1426,7 @@ func _server_apply_role(peer_id: int, new_role: int) -> void:
 	players[peer_id]["role"] = new_role
 	player_role_changed.emit(peer_id, new_role)
 	_broadcast_player_role.rpc(peer_id, new_role)
-	print("[Network] Player ", peer_id, " selected role: ", ROLE_NAMES.get(new_role, "Unknown"))
+	_runtime_debug_log("[Network] Player ", peer_id, " selected role: ", ROLE_NAMES.get(new_role, "Unknown"))
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -803,7 +1560,7 @@ func server_auto_balance_roles(lock_roles: bool = false) -> void:
 
 	var total = player_ids.size()
 	if total < 1:
-		print("[Network] Not enough players to start")
+		_runtime_debug_log("[Network] Not enough players to start")
 		return
 
 	# 单人开发测试保留玩家选择；正式比例从 2 人起至少给 1 个 Hunter。
@@ -825,7 +1582,7 @@ func server_auto_balance_roles(lock_roles: bool = false) -> void:
 			[only_id] if selected_role == Role.CHAMELEON else [],
 			lock_roles
 		)
-		print("[Network] Single-player dev assignment: ", only_id, " -> ", role_to_string(selected_role))
+		_runtime_debug_log("[Network] Single-player dev assignment: ", only_id, " -> ", role_to_string(selected_role))
 		roles_assigned.emit()
 		return
 
@@ -848,7 +1605,7 @@ func server_auto_balance_roles(lock_roles: bool = false) -> void:
 		stalker_count = min(props_count, selected_stalker_count)
 		chameleon_count = props_count - stalker_count
 
-	print("[Network] Auto-balance: total=", total, " hunters=", hunter_count,
+	_runtime_debug_log("[Network] Auto-balance: total=", total, " hunters=", hunter_count,
 		" stalkers=", stalker_count, " chameleons=", chameleon_count)
 
 	# 3. 收集所有玩家,按优先级排序(玩家自选的角色优先)
@@ -917,7 +1674,7 @@ func server_auto_balance_roles(lock_roles: bool = false) -> void:
 	lobby_config["actual_stalker_count"] = assigned_stalkers.size()
 	lobby_config["actual_chameleon_count"] = assigned_chameleons.size()
 
-	print("[Network] Roles assigned: H=", assigned_hunters.size(),
+	_runtime_debug_log("[Network] Roles assigned: H=", assigned_hunters.size(),
 		" S=", assigned_stalkers.size(), " C=", assigned_chameleons.size())
 
 	# 7. 广播给所有客户端
@@ -957,6 +1714,16 @@ func request_update_lobby_config(new_config: Dictionary) -> void:
 		_request_lobby_config_rpc.rpc_id(1, new_config)
 
 
+func request_auto_assign_roles(new_config: Dictionary) -> void:
+	if multiplayer.is_server():
+		_server_apply_lobby_config(new_config)
+		server_auto_balance_roles(false)
+		_broadcast_full_sync.rpc(players, lobby_config)
+		players_synced.emit(players)
+	else:
+		_request_auto_assign_rpc.rpc_id(1, new_config)
+
+
 func request_start_match() -> void:
 	if multiplayer.is_server():
 		start_match_requested.emit()
@@ -964,15 +1731,42 @@ func request_start_match() -> void:
 		_request_start_match_rpc.rpc_id(1)
 
 
+func can_peer_manage_lobby(peer_id: int) -> bool:
+	if peer_id == 1 and not bool(lobby_config.get("public_server", false)):
+		return true
+	var configured_host_id := int(lobby_config.get("host_peer_id", 1))
+	return configured_host_id > 0 and peer_id == configured_host_id
+
+
+func can_local_peer_manage_lobby() -> bool:
+	if multiplayer.multiplayer_peer == null:
+		return false
+	return can_peer_manage_lobby(multiplayer.get_unique_id())
+
+
 @rpc("any_peer", "reliable")
 func _request_start_match_rpc():
 	if not multiplayer.is_server():
 		return
 	var sender_id = multiplayer.get_remote_sender_id()
-	if sender_id != 1:
+	if not can_peer_manage_lobby(sender_id):
 		push_warning("Non-host tried to start match")
 		return
 	start_match_requested.emit()
+
+
+@rpc("any_peer", "reliable")
+func _request_auto_assign_rpc(new_config: Dictionary):
+	if not multiplayer.is_server():
+		return
+	var sender_id = multiplayer.get_remote_sender_id()
+	if not can_peer_manage_lobby(sender_id):
+		push_warning("Non-host tried to auto assign roles")
+		return
+	_server_apply_lobby_config(new_config)
+	server_auto_balance_roles(false)
+	_broadcast_full_sync.rpc(players, lobby_config)
+	players_synced.emit(players)
 
 
 @rpc("any_peer", "reliable")
@@ -980,22 +1774,22 @@ func _request_lobby_config_rpc(new_config: Dictionary):
 	if not multiplayer.is_server():
 		return
 	var sender_id = multiplayer.get_remote_sender_id()
-	# 只有 host(sender_id == 1)可以修改
-	if sender_id != 1:
+	if not can_peer_manage_lobby(sender_id):
 		push_warning("Non-host tried to update lobby config")
 		return
 	_server_apply_lobby_config(new_config)
 
 
 func _server_apply_lobby_config(new_config: Dictionary) -> void:
+	var protected_keys := ["public_server", "public_lobby", "public_room_id", "public_address", "host_peer_id", "host_peer_name", "host_port", "steam_lobby_id"]
 	for key in new_config.keys():
-		if lobby_config.has(key):
+		if lobby_config.has(key) and not protected_keys.has(str(key)):
 			lobby_config[key] = new_config[key]
 	lobby_config["lobby_id"] = str(lobby_config.get("lobby_id", "")).to_upper()
 	lobby_config["stalker_glass_alpha_max"] = clampf(float(lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
 	if str(lobby_config.get("stalker_glass_material", "classic")) != "liquid_glass":
 		lobby_config["stalker_glass_material"] = "classic"
-	print("[Network] Lobby config updated: ", lobby_config)
+	_runtime_debug_log("[Network] Lobby config updated: ", lobby_config)
 	lobby_config_updated.emit(lobby_config)
 	_broadcast_lobby_config.rpc(lobby_config)
 
@@ -1033,6 +1827,9 @@ func _register_player(new_player_info):
 	if not new_player_info.has("alive"):
 		new_player_info["alive"] = true
 	if multiplayer.is_server():
+		if is_public_lobby_server():
+			_public_lobby_handle_room_request(new_player_id, new_player_info)
+			return
 		var provided_id = str(new_player_info.get("join_lobby_id", "")).to_upper()
 		if not is_lobby_id_valid(provided_id):
 			push_warning("Peer " + str(new_player_id) + " joined with wrong lobby id")
@@ -1043,18 +1840,22 @@ func _register_player(new_player_info):
 			push_warning("Peer " + str(new_player_id) + " joined with wrong room name")
 			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
 			return
+		if is_public_room_server():
+			_server_prepare_public_room_host(new_player_id, new_player_info)
 	if not players.has(new_player_id):
 		players[new_player_id] = new_player_info.duplicate()
 	else:
 		players[new_player_id].merge(new_player_info, true)
 	player_connected.emit(new_player_id, players[new_player_id])
 	if multiplayer.is_server():
+		if is_public_room_server():
+			_write_public_room_status()
 		_broadcast_full_sync.rpc(players, lobby_config)
 
 
 @rpc("any_peer", "reliable")
 func _request_full_sync():
-	if not multiplayer.is_server():
+	if not multiplayer.is_server() or is_public_lobby_server():
 		return
 	var sender_id = multiplayer.get_remote_sender_id()
 	# 把所有玩家数据发给新客户端
@@ -1063,10 +1864,26 @@ func _request_full_sync():
 
 @rpc("authority", "call_remote", "reliable")
 func _broadcast_full_sync(all_players: Dictionary, config: Dictionary):
+	var previous_players := players.duplicate(true)
+	var should_emit_diffs := _has_received_full_sync
 	players = all_players
 	lobby_config = config
+	if _redirecting_to_public_room and bool(lobby_config.get("public_server", false)) and not bool(lobby_config.get("public_lobby", false)):
+		_redirecting_to_public_room = false
+	_has_received_full_sync = true
 	lobby_config_updated.emit(lobby_config)
+	if should_emit_diffs:
+		_emit_player_sync_diffs(previous_players, players)
 	players_synced.emit(players)
+
+
+func _emit_player_sync_diffs(previous_players: Dictionary, synced_players: Dictionary) -> void:
+	for pid in synced_players.keys():
+		if not previous_players.has(pid):
+			player_connected.emit(int(pid), synced_players[pid])
+	for pid in previous_players.keys():
+		if not synced_players.has(pid):
+			player_disconnected.emit(int(pid))
 
 
 func server_reset_alive_states() -> void:
@@ -1100,18 +1917,32 @@ func _on_player_disconnected(id):
 	players.erase(id)
 	player_disconnected.emit(id)
 	if multiplayer.is_server():
+		if is_public_lobby_server():
+			_public_lobby_mark_snapshot_dirty()
+			return
+		_server_assign_public_room_host_if_needed()
+		if is_public_room_server():
+			_write_public_room_status()
 		_broadcast_full_sync.rpc(players, lobby_config)
 
 
 func _on_connection_failed():
 	multiplayer.multiplayer_peer = null
 	players.clear()
+	if _redirecting_to_public_room:
+		_redirecting_to_public_room = false
+		public_room_join_failed.emit("join_status.failed")
+		return
+	public_lobby_snapshot_received.emit([])
 	server_disconnected.emit()
 
 
 func _on_server_disconnected():
+	if _redirecting_to_public_room:
+		return
 	multiplayer.multiplayer_peer = null
 	players.clear()
+	public_lobby_snapshot_received.emit([])
 	server_disconnected.emit()
 
 
@@ -1126,6 +1957,18 @@ func skin_str_to_e(s):
 		"green": return SKIN_GREEN
 		"red": return SKIN_RED
 		_: return SKIN_BLUE
+
+
+func _skin_e_to_str(skin_value: int) -> String:
+	match skin_value:
+		SKIN_YELLOW:
+			return "yellow"
+		SKIN_GREEN:
+			return "green"
+		SKIN_RED:
+			return "red"
+		_:
+			return "blue"
 
 
 func normalize_party_monster_accessories(value, model_id: String = "") -> Dictionary:

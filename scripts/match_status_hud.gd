@@ -12,6 +12,9 @@ const ICON_HEIGHT := 26.0
 const ALIVE_ICON_PATH := "res://addons/at-icons/node/heart.svg"
 const DEAD_ICON_PATH := "res://addons/at-icons/node3d/ghost.svg"
 const STOPWATCH_ICON_PATH := "res://addons/at-icons/node/stopwatch.svg"
+const ALIVE_ICON_TEXTURE := preload("res://addons/at-icons/node/heart.svg")
+const DEAD_ICON_TEXTURE := preload("res://addons/at-icons/node3d/ghost.svg")
+const STOPWATCH_ICON_TEXTURE := preload("res://addons/at-icons/node/stopwatch.svg")
 
 var props_total := 0
 var props_alive := 0
@@ -176,7 +179,8 @@ func _get_state_icon_texture(alive: bool) -> Texture2D:
 		return _state_icon_textures[key] as Texture2D
 	var path := ALIVE_ICON_PATH if alive else DEAD_ICON_PATH
 	var color_hex := "#ffffff" if alive else "#ff2828"
-	var texture := _load_tinted_svg_texture(path, color_hex)
+	var fallback_texture := ALIVE_ICON_TEXTURE if alive else DEAD_ICON_TEXTURE
+	var texture := _load_tinted_svg_texture(path, color_hex, fallback_texture)
 	if texture:
 		_state_icon_textures[key] = texture
 	return texture
@@ -186,22 +190,22 @@ func _get_stopwatch_texture() -> Texture2D:
 	var key := "stopwatch"
 	if _state_icon_textures.has(key):
 		return _state_icon_textures[key] as Texture2D
-	var texture := _load_tinted_svg_texture(STOPWATCH_ICON_PATH, "#fff2c8")
+	var texture := _load_tinted_svg_texture(STOPWATCH_ICON_PATH, "#fff2c8", STOPWATCH_ICON_TEXTURE)
 	if texture:
 		_state_icon_textures[key] = texture
 	return texture
 
 
-func _load_tinted_svg_texture(path: String, color_hex: String) -> Texture2D:
+func _load_tinted_svg_texture(path: String, color_hex: String, fallback_texture: Texture2D = null) -> Texture2D:
 	var svg := FileAccess.get_file_as_string(path)
 	if svg.is_empty():
-		return null
+		return fallback_texture
 	svg = svg.replace("#e0e0e0", color_hex)
 	svg = svg.replace("#fc7f7f", color_hex)
 	svg = svg.replace("fill=\"currentColor\"", "fill=\"" + color_hex + "\"")
 	var image := Image.new()
 	if image.load_svg_from_buffer(svg.to_utf8_buffer(), 2.0) != OK:
-		return null
+		return fallback_texture
 	return ImageTexture.create_from_image(image)
 
 

@@ -91,6 +91,10 @@ static func random_unity_decor_position(used: Array[Vector3], min_dist: float, r
 static func random_ammo_position(used: Array[Vector3], min_dist: float) -> Vector3:
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.randomize()
+	return random_ammo_position_with_rng(used, min_dist, rng)
+
+
+static func random_ammo_position_with_rng(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
 	return _random_zone_point(_ammo_route_centers(), used, min_dist, rng, AMMO_PACK_INNER_RADIUS, AMMO_PACK_OUTER_RADIUS, 0.5)
 
 

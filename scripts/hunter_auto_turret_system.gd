@@ -19,6 +19,7 @@ const MUZZLE_LOCAL_OFFSET := Vector3(0.0, 0.11, -0.72)
 const VISION_HALF_ANGLE_DEGREES := 50.0
 const TARGET_RANGE := 34.0
 const FIRE_INTERVAL := 0.5
+const TARGET_SCAN_INTERVAL := 0.12
 const DAMAGE_PER_BULLET := 10.0
 const SPREAD_DEGREES := 2.2
 const NEAR_MISS_HIT_RADIUS := 0.82
@@ -55,6 +56,8 @@ var _shot_stream: AudioStreamWAV = null
 var _shot_audio: AudioStreamPlayer3D = null
 var _overheat_audio: AudioStreamPlayer3D = null
 var _suppress_shot_audio_until_msec := 0
+var _target_scan_elapsed := TARGET_SCAN_INTERVAL
+var _cached_target: Node3D = null
 var _rng := RandomNumberGenerator.new()
 
 
@@ -74,20 +77,48 @@ func initialize(owner_node: Node3D) -> void:
 	_ensure_audio()
 
 
+func _should_skip_dedicated_server_visuals() -> bool:
+	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+
+
+func _should_scan_targets() -> bool:
+	if multiplayer.is_server():
+		return true
+	if not multiplayer.has_multiplayer_peer():
+		return true
+	return hunter != null and is_instance_valid(hunter) and hunter.has_method("is_multiplayer_authority") and bool(hunter.call("is_multiplayer_authority"))
+
+
+func _get_budgeted_target(delta: float) -> Node3D:
+	if not _should_scan_targets():
+		_cached_target = null
+		return null
+	_target_scan_elapsed += delta
+	if _cached_target and not is_instance_valid(_cached_target):
+		_cached_target = null
+	if _target_scan_elapsed >= TARGET_SCAN_INTERVAL or _cached_target == null:
+		_target_scan_elapsed = 0.0
+		_cached_target = _find_best_visible_prop_target()
+	return _cached_target
+
+
 func _process(delta: float) -> void:
 	if not _is_valid_hunter():
 		visible = false
 		return
-	visible = true
+	var skip_visuals := _should_skip_dedicated_server_visuals()
+	visible = not skip_visuals
 	global_position = _get_hover_anchor_position()
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
 	if overheat_cooldown > 0.0:
 		overheat_cooldown = maxf(0.0, overheat_cooldown - delta)
 		if overheat_cooldown <= 0.0:
 			heat_shots = 0
-	_process_recoil(delta)
-	var target := _find_best_visible_prop_target()
-	_update_tracking(delta, target)
+	if not skip_visuals:
+		_process_recoil(delta)
+	var target := _get_budgeted_target(delta)
+	if not skip_visuals:
+		_update_tracking(delta, target)
 	if multiplayer.is_server() and target and fire_cooldown <= 0.0 and not is_overheated():
 		fire_cooldown = FIRE_INTERVAL
 		_server_fire_at_target(target)
@@ -138,6 +169,10 @@ func force_mark_shot_for_test() -> void:
 
 func get_fire_interval() -> float:
 	return FIRE_INTERVAL
+
+
+func get_target_scan_interval_for_test() -> float:
+	return TARGET_SCAN_INTERVAL
 
 
 func get_damage_per_bullet() -> float:
@@ -305,6 +340,8 @@ func _is_valid_hunter() -> bool:
 func _ensure_visual() -> void:
 	if visual_root and is_instance_valid(visual_root):
 		return
+	if _should_skip_dedicated_server_visuals():
+		return
 	visual_root = Node3D.new()
 	visual_root.name = "AutoTurretVisual"
 	visual_root.scale = Vector3.ONE * MODEL_SCALE
@@ -456,6 +493,8 @@ func _material_has_albedo_texture(material: Material) -> bool:
 
 
 func _ensure_audio() -> void:
+	if _should_skip_dedicated_server_visuals():
+		return
 	if not _shot_audio or not is_instance_valid(_shot_audio):
 		_shot_audio = AudioStreamPlayer3D.new()
 		_shot_audio.name = "AutoTurretShotAudio"
@@ -567,6 +606,8 @@ func _is_valid_prop_target(candidate: Node3D) -> bool:
 
 
 func _is_revealed_stalker_target(candidate: Node3D) -> bool:
+	if candidate.has_method("get_stalker_visibility_alpha"):
+		return float(candidate.call("get_stalker_visibility_alpha")) >= 0.99
 	var shadow_system := candidate.get_node_or_null("ShadowVisibilitySystem")
 	if not shadow_system or not shadow_system.has_method("get_visibility_alpha"):
 		return false
@@ -632,11 +673,11 @@ func _get_scan_forward() -> Vector3:
 func _get_hover_anchor_position() -> Vector3:
 	if not hunter or not is_instance_valid(hunter):
 		return global_position
-	var basis := hunter.global_transform.basis
+	var anchor_basis := hunter.global_transform.basis
 	var spring_offset := hunter.get_node_or_null("SpringArmOffset")
 	if spring_offset is Node3D:
-		basis = (spring_offset as Node3D).global_transform.basis
-	var right := basis.x
+		anchor_basis = (spring_offset as Node3D).global_transform.basis
+	var right := anchor_basis.x
 	right.y = 0.0
 	if right.length_squared() <= 0.0001:
 		right = Vector3.RIGHT
@@ -725,6 +766,8 @@ func _server_fire_at_target(target: Node3D) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _broadcast_turret_overheat() -> void:
+	if _should_skip_dedicated_server_visuals():
+		return
 	_spawn_overheat_pulse()
 	_play_overheat_audio(_get_muzzle_position())
 
@@ -795,6 +838,8 @@ func _collider_belongs_to_target(collider, target: Node3D) -> bool:
 
 @rpc("any_peer", "call_local", "unreliable")
 func _broadcast_turret_shot(start: Vector3, end: Vector3, normal: Vector3, hit_prop: bool) -> void:
+	if _should_skip_dedicated_server_visuals():
+		return
 	var shot_direction := (end - start).normalized()
 	_apply_fire_recoil()
 	_spawn_muzzle_flash(start, shot_direction)
@@ -867,14 +912,14 @@ func _add_flash_cone(parent: Node3D, height: float, radius: float, albedo: Color
 	parent.add_child(cone)
 
 
-func _add_flash_blob(parent: Node3D, position: Vector3, radius: float, color: Color) -> void:
+func _add_flash_blob(parent: Node3D, local_position: Vector3, radius: float, color: Color) -> void:
 	var blob := MeshInstance3D.new()
 	blob.name = "AutoTurretMuzzleFlashBlob"
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
 	blob.mesh = mesh
-	blob.position = position
+	blob.position = local_position
 	blob.scale = Vector3(1.0, 1.35, 0.72)
 	blob.material_override = _make_muzzle_flash_material(color, Color(1.0, 0.46, 0.08, 1.0), 2.8)
 	parent.add_child(blob)
@@ -928,12 +973,12 @@ func _spawn_tracer(start: Vector3, end: Vector3, hit_prop: bool) -> void:
 	tween.tween_callback(tracer.queue_free)
 
 
-func _spawn_impact(position: Vector3, normal: Vector3, hit_prop: bool) -> void:
+func _spawn_impact(impact_position: Vector3, normal: Vector3, hit_prop: bool) -> void:
 	var root := Node3D.new()
 	root.name = "AutoTurretImpact"
 	root.top_level = true
 	add_child(root)
-	root.global_position = position + normal.normalized() * 0.018
+	root.global_position = impact_position + normal.normalized() * 0.018
 
 	var mark := MeshInstance3D.new()
 	mark.name = "AutoTurretBulletMark"
@@ -968,27 +1013,27 @@ func _spawn_impact(position: Vector3, normal: Vector3, hit_prop: bool) -> void:
 	cleanup.tween_callback(root.queue_free)
 
 
-func _play_shot_audio(position: Vector3) -> void:
+func _play_shot_audio(audio_position: Vector3) -> void:
 	if Time.get_ticks_msec() < _suppress_shot_audio_until_msec:
 		return
 	_ensure_audio()
 	if not _shot_audio:
 		return
-	_shot_audio.global_position = position
+	_shot_audio.global_position = audio_position
 	_shot_audio.pitch_scale = _rng.randf_range(0.93, 1.08)
 	if _shot_audio.playing:
 		_shot_audio.stop()
 	_shot_audio.play()
 
 
-func _play_overheat_audio(position: Vector3) -> void:
+func _play_overheat_audio(audio_position: Vector3) -> void:
 	_ensure_audio()
 	if not _overheat_audio:
 		return
 	if _shot_audio and _shot_audio.playing:
 		_shot_audio.stop()
 	_suppress_shot_audio_until_msec = Time.get_ticks_msec() + 800
-	_overheat_audio.global_position = position
+	_overheat_audio.global_position = audio_position
 	_overheat_audio.pitch_scale = _rng.randf_range(0.96, 1.03)
 	if _overheat_audio.playing:
 		_overheat_audio.stop()

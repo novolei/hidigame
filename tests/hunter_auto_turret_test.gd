@@ -38,6 +38,7 @@ func _run() -> void:
 
 	if turret:
 		_expect(is_equal_approx(turret.get_fire_interval(), 0.5), "Auto turret should fire at 120 rounds per minute")
+		_expect(turret.get_target_scan_interval_for_test() >= 0.10 and turret.get_target_scan_interval_for_test() <= 0.13, "Auto turret target scans should stay budgeted near 8Hz instead of running every frame")
 		_expect(is_equal_approx(turret.get_damage_per_bullet(), 10.0), "Auto turret should deal 10 damage so 10 hits kill a prop")
 		_expect(is_equal_approx(turret.get_vision_half_angle_degrees(), 50.0), "Auto turret should scan 50 degrees left and right")
 		_expect(turret.get_spread_degrees() > 1.0 and turret.get_spread_degrees() <= 2.5, "Auto turret should use a tighter spread so sustained fire can reliably threaten visible props")

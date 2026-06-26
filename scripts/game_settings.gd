@@ -6,6 +6,7 @@ const CONFIG_PATH := "user://settings.cfg"
 const DEFAULT_FOV := 68.0
 const MIN_FOV := 55.0
 const MAX_FOV := 90.0
+const DEBUG_LOG_ENV := "MAOMAO_DEBUG_LOG"
 
 var camera_fov := DEFAULT_FOV
 
@@ -33,6 +34,19 @@ func set_camera_fov(value: float) -> void:
 
 func reset_camera_fov() -> void:
 	set_camera_fov(DEFAULT_FOV)
+
+
+func should_log_runtime_debug() -> bool:
+	return _environment_bool(DEBUG_LOG_ENV, OS.is_debug_build() and DisplayServer.get_name() != "headless")
+
+
+func _environment_bool(env_name: String, default_value: bool) -> bool:
+	var raw_value := OS.get_environment(env_name).strip_edges().to_lower()
+	if raw_value in ["1", "true", "yes", "on"]:
+		return true
+	if raw_value in ["0", "false", "no", "off"]:
+		return false
+	return default_value
 
 
 func _save_settings() -> void:

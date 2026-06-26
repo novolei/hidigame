@@ -258,15 +258,14 @@ func _get_icon_texture(icon: String) -> Texture2D:
 	var icon_key := icon if ICON_TEXTURE_PATHS.has(icon) else "locked"
 	if _icon_textures.has(icon_key):
 		return _icon_textures[icon_key] as Texture2D
-	var image := Image.new()
-	var error := image.load(str(ICON_TEXTURE_PATHS[icon_key]))
-	if error != OK:
-		if icon_key != "locked":
-			return _get_icon_texture("locked")
-		return null
-	var texture := ImageTexture.create_from_image(image)
-	_icon_textures[icon_key] = texture
-	return texture
+	var resource := load(str(ICON_TEXTURE_PATHS[icon_key]))
+	if resource is Texture2D:
+		var texture := resource as Texture2D
+		_icon_textures[icon_key] = texture
+		return texture
+	if icon_key != "locked":
+		return _get_icon_texture("locked")
+	return null
 
 
 func _get_title_font() -> Font:

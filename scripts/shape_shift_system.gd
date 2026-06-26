@@ -1,4 +1,4 @@
-﻿extends Node
+extends Node
 class_name ShapeShiftSystem
 # =============================================================================
 # ShapeShiftSystem — 身体变形系统(v0.3.3, REFACTORED v0.3.1)
@@ -94,6 +94,21 @@ signal wheel_closed()
 signal cooldown_updated(remaining: float)
 
 
+func _runtime_debug_log(
+	value0: Variant = null,
+	value1: Variant = null,
+	value2: Variant = null,
+	value3: Variant = null
+) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1, value2, value3]:
+		if value != null:
+			output += str(value)
+	print(output)
+
+
 # =============================================================================
 # 生命周期
 # =============================================================================
@@ -145,7 +160,7 @@ func try_shift(preset_index: int) -> bool:
 	current_preset_index = preset_index
 	is_shifting = true
 	shift_started.emit(preset_index, preset)
-	print("[ShapeShift] Shifting to prop ", preset["name"])
+	_runtime_debug_log("[ShapeShift] Shifting to prop ", preset["name"])
 
 	_animate_to_preset(preset)
 	return true
@@ -176,7 +191,7 @@ func try_replicate_nearby_prop() -> bool:
 	current_preset_index = -1
 	is_shifting = true
 	shift_started.emit(current_preset_index, preset)
-	print("[ShapeShift] Replicating nearby prop ", preset.get("name", "prop"))
+	_runtime_debug_log("[ShapeShift] Replicating nearby prop ", preset.get("name", "prop"))
 	_animate_to_preset(preset)
 	return true
 
@@ -201,7 +216,7 @@ func _animate_to_preset(preset: Dictionary) -> void:
 	is_shifting = false
 	cooldown_remaining = SHIFT_COOLDOWN
 	shift_completed.emit(current_preset_index, preset)
-	print("[ShapeShift] Shift completed, CD=", SHIFT_COOLDOWN, "s")
+	_runtime_debug_log("[ShapeShift] Shift completed, CD=", SHIFT_COOLDOWN, "s")
 
 
 func _apply_preset_immediate(preset_index: int) -> void:

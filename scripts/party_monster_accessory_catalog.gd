@@ -213,11 +213,7 @@ static func accessory_slot(accessory_id: String) -> String:
 
 static func random_accessory_ids(seed_value: int, count: int, unique_slots: bool = false) -> Array:
 	var pool := all_accessories()
-	var rng := RandomNumberGenerator.new()
-	if seed_value == 0:
-		rng.randomize()
-	else:
-		rng.seed = seed_value
+	var rng: RandomNumberGenerator = _rng_from_seed(seed_value)
 	var result: Array = []
 	var used_slots := {}
 	while not pool.is_empty() and result.size() < count:
@@ -230,6 +226,61 @@ static func random_accessory_ids(seed_value: int, count: int, unique_slots: bool
 		used_slots[slot] = true
 		result.append(str(accessory.get("id", "")))
 	return result
+
+
+static func random_balanced_accessory_ids(seed_value: int, count: int, min_per_slot: int = 3) -> Array:
+	var rng: RandomNumberGenerator = _rng_from_seed(seed_value)
+	var result: Array = []
+	var used_ids := {}
+	var shuffled_slots: Array = SLOT_ORDER.duplicate()
+	_shuffle_array(shuffled_slots, rng)
+	for raw_slot in shuffled_slots:
+		if result.size() >= count:
+			break
+		var slot := str(raw_slot)
+		var options: Array = options_for_slot(slot)
+		_shuffle_array(options, rng)
+		var slot_quota: int = mini(min_per_slot, options.size())
+		var added_for_slot := 0
+		for raw_option in options:
+			if result.size() >= count or added_for_slot >= slot_quota:
+				break
+			var option: Dictionary = raw_option as Dictionary
+			var accessory_id := str(option.get("id", ""))
+			if accessory_id.is_empty() or used_ids.has(accessory_id):
+				continue
+			used_ids[accessory_id] = true
+			result.append(accessory_id)
+			added_for_slot += 1
+	var remaining_pool := all_accessories()
+	_shuffle_array(remaining_pool, rng)
+	for raw_accessory in remaining_pool:
+		if result.size() >= count:
+			break
+		var accessory: Dictionary = raw_accessory as Dictionary
+		var accessory_id := str(accessory.get("id", ""))
+		if accessory_id.is_empty() or used_ids.has(accessory_id):
+			continue
+		used_ids[accessory_id] = true
+		result.append(accessory_id)
+	return result
+
+
+static func _rng_from_seed(seed_value: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	if seed_value == 0:
+		rng.randomize()
+	else:
+		rng.seed = seed_value
+	return rng
+
+
+static func _shuffle_array(values: Array, rng: RandomNumberGenerator) -> void:
+	for index in range(values.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var temp: Variant = values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = temp
 
 
 static func loadout_summary(loadout: Dictionary, max_items: int = 4) -> String:

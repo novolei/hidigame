@@ -12,15 +12,22 @@ func _run() -> void:
 	_reset_network_state()
 	_test_lobby_id_password()
 	_test_host_room_metadata()
+	_test_public_room_server_uses_empty_lobby_id()
+	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
 	_test_join_address_port_parsing()
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
+	await _test_public_lobby_room_list_ui()
+	await _test_public_room_wrong_password_hud_alert()
+	await _test_client_join_waits_for_full_sync_before_lobby()
+	await _test_player_replication_budget()
 	await _test_level_start_match_path()
 	await _test_hunter_preparation_slots_are_separated()
 	await _test_preparation_room_legacy_colliders_stay_disabled()
 	await _test_preparation_room_hides_after_prep_phase()
 	await _test_client_full_sync_waits_until_prep_to_spawn_player_nodes()
+	await _test_room_events_enter_chat_history()
 	await _test_single_player_character_test_start()
 	_test_auto_balance_preserves_selected_stalker_in_two_player_lobby()
 	_test_auto_assign_by_hunter_count()
@@ -36,14 +43,17 @@ func _run() -> void:
 
 func _reset_network_state() -> void:
 	if Network.multiplayer.multiplayer_peer:
-		Network.multiplayer.multiplayer_peer.close()
-		Network.multiplayer.multiplayer_peer = null
+		Network._close_current_peer()
 	Network.server_port = Network.SERVER_PORT
 	Network.players.clear()
+	Network.public_rooms.clear()
+	Network.peer_rooms.clear()
+	Network.active_public_room_id = ""
 	Network.card_drafts.clear()
 	Network.card_loadouts.clear()
 	Network.set("_card_draft_active", false)
 	Network.set("_card_timer_sync_remaining", 0.0)
+	Network.set("_redirecting_to_public_room", false)
 	Network.lobby_config = {
 		"max_players": 24,
 		"lobby_id": "",
@@ -63,6 +73,12 @@ func _reset_network_state() -> void:
 		"stalker_glass_alpha_max": 0.125,
 		"stalker_glass_material": "classic",
 		"auto_balance": true,
+		"public_server": false,
+		"public_lobby": false,
+		"public_room_id": "",
+		"public_address": "",
+		"host_peer_id": 1,
+		"host_peer_name": "",
 		"role_locked": false,
 	}
 
@@ -91,6 +107,50 @@ func _test_host_room_metadata() -> void:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
+
+
+func _test_public_room_server_uses_empty_lobby_id() -> void:
+	_reset_network_state()
+	var host_error = Network.start_public_room_server("Public Room", "", 19109, "public-room")
+	_expect(host_error == OK, "Public room server should start without a lobby password")
+	_expect(str(Network.lobby_config.get("lobby_id", "")) == "", "Public room server should keep an empty lobby id for optional-password rooms")
+	_expect(bool(Network.lobby_config.get("public_server", false)), "Public room server should mark the room as public-server backed")
+	_expect(not bool(Network.lobby_config.get("public_lobby", true)), "Public room server should not mark itself as the public lobby")
+	_expect(str(Network.lobby_config.get("public_room_id", "")) == "public-room", "Public room server should store the room id")
+	_expect(int(Network.lobby_config.get("host_port", -1)) == 19109, "Public room server should publish its assigned port")
+	_expect(int(Network.lobby_config.get("host_peer_id", -1)) == 0, "Public room server should wait for the first joining player to become room host")
+	var status_path := Network._public_room_status_path("public-room")
+	var starting_status = JSON.parse_string(FileAccess.get_file_as_string(status_path))
+	_expect(starting_status is Dictionary and not bool((starting_status as Dictionary).get("ready", true)), "Public room should not advertise ready until the level runtime finishes setup")
+	Network.mark_public_room_runtime_ready()
+	var ready_status = JSON.parse_string(FileAccess.get_file_as_string(status_path))
+	_expect(ready_status is Dictionary and bool((ready_status as Dictionary).get("ready", false)), "Public room should advertise ready after the level runtime marks it joinable")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+
+
+func _test_public_room_redirect_waits_for_room_sync() -> void:
+	_reset_network_state()
+	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	Network.set("_redirecting_to_public_room", true)
+	Network._on_server_disconnected()
+	_expect(Network.is_redirecting_to_public_room(), "A stale public-lobby disconnect should not cancel an in-flight public room redirect")
+
+	var room_config := Network.lobby_config.duplicate(true)
+	room_config.merge({
+		"public_server": true,
+		"public_lobby": false,
+		"public_room_id": "alpha-room",
+		"room_name": "Alpha Room",
+		"lobby_id": "",
+	}, true)
+	Network._broadcast_full_sync({
+		2: _player("Client", Network.Role.HUNTER),
+	}, room_config)
+	_expect(not Network.is_redirecting_to_public_room(), "A public room full sync should mark the redirect as complete")
+	Network.multiplayer.multiplayer_peer = null
 
 
 func _test_host_port_fallback_when_default_is_busy() -> void:
@@ -216,6 +276,10 @@ func _test_landing_join_form() -> void:
 		"room_name": "",
 		"character_model": "",
 	}
+	var public_result := {
+		"count": 0,
+		"character_model": "",
+	}
 	if ui.character_option:
 		for index in range(ui.character_option.item_count):
 			if str(ui.character_option.get_item_metadata(index)) == "sophia":
@@ -228,25 +292,221 @@ func _test_landing_join_form() -> void:
 		join_result["room_name"] = room_name
 		join_result["character_model"] = character_model
 	)
+	ui.public_server_pressed.connect(func(_nickname, _skin, _role, character_model):
+		public_result["count"] = int(public_result["count"]) + 1
+		public_result["character_model"] = character_model
+	)
 
 	ui.address_input.text = "Bili Room"
 	ui.join_lobby_input.text = ""
 	ui._on_join_pressed()
-	_expect(int(join_result["count"]) == 0, "Join should require Lobby ID/password")
+	_expect(int(join_result["count"]) == 1, "Join should allow an empty optional Lobby ID/password")
+	_expect(str(join_result["lobby_id"]) == "", "Join should pass an empty optional Lobby ID/password")
 	ui.join_lobby_input.text = "abcd"
 	ui._on_lobby_password_text_changed(ui.join_lobby_input.text)
 	_expect(ui.get_join_target() == "Bili Room", "Join target field should keep room name")
 	_expect(ui.get_lobby_password() == "ABCD", "Join password getter should normalize text")
-	_expect(ui._validate_join_request(), "Join validation should pass with room name and password")
+	_expect(ui._validate_join_request(), "Join validation should pass with room name and optional password")
 	ui._on_join_pressed()
-	_expect(int(join_result["count"]) == 1, "Join should emit when target and password are present")
+	_expect(int(join_result["count"]) == 2, "Join should emit when target and password are present")
 	_expect(str(join_result["address"]) == Network.SERVER_ADDRESS, "Room-name joins should fall back to localhost before Steam lookup")
 	_expect(str(join_result["lobby_id"]) == "ABCD", "Join should normalize Lobby ID/password")
 	_expect(str(join_result["room_name"]) == "Bili Room", "Join should pass room name separately")
 	_expect(str(join_result["character_model"]) == "sophia", "Join should pass selected character model")
 
+	ui.room_name_input.text = "Public Room"
+	ui.join_lobby_input.text = "lock"
+	ui._on_lobby_password_text_changed(ui.join_lobby_input.text)
+	ui._on_public_server_pressed()
+	_expect(int(join_result["count"]) == 2, "Public server button should not emit a direct join request")
+	_expect(int(public_result["count"]) == 1, "Public server button should emit a public lobby request")
+	_expect(str(public_result["character_model"]) == "sophia", "Public lobby request should keep selected character model")
+	_expect(ui.address_input.text == MainMenuUI.PUBLIC_SERVER_TARGET, "Public server should display the configured public address")
+
 	ui.queue_free()
 	await get_tree().process_frame
+
+
+func _test_public_lobby_room_list_ui() -> void:
+	_reset_network_state()
+	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
+	var ui: MainMenuUI = ui_scene.instantiate()
+	get_tree().root.add_child(ui)
+	await get_tree().process_frame
+
+	var create_result := {"count": 0, "room_name": "", "password": ""}
+	var join_result := {"count": 0, "room_id": "", "password": ""}
+	ui.public_room_create_pressed.connect(func(room_name, password):
+		create_result["count"] = int(create_result["count"]) + 1
+		create_result["room_name"] = room_name
+		create_result["password"] = password
+	)
+	ui.public_room_join_pressed.connect(func(room_id, password):
+		join_result["count"] = int(join_result["count"]) + 1
+		join_result["room_id"] = room_id
+		join_result["password"] = password
+	)
+
+	var rooms := [{
+		"room_id": "alpha-room",
+		"room_name": "Alpha Room",
+		"locked": true,
+		"player_count": 1,
+		"max_players": 24,
+		"host_peer_name": "HostA",
+		"ready": true,
+	}]
+	ui.show_public_lobby(rooms, I18n.t("public_lobby.connected"))
+	await get_tree().process_frame
+	_expect(ui.is_public_lobby_visible(), "Public lobby UI should be visible after entering the public server")
+	_expect(ui.public_lobby_rooms.size() == 1, "Public lobby UI should store the server room list")
+	_expect(ui.public_room_join_button.disabled, "Join selected button should be disabled before selecting a room")
+	var locked_row := ui.public_room_list_box.get_child(0) as Button
+	_expect(locked_row != null and locked_row.icon != null, "Private public rooms should show a lock icon")
+
+	ui._select_public_room("alpha-room")
+	await get_tree().process_frame
+	_expect(ui.selected_public_room_id == "alpha-room", "Public lobby should store the selected room id")
+	_expect(not ui.public_room_join_button.disabled, "Join selected button should enable after selecting a room")
+	var selected_row := ui.public_room_list_box.get_child(0) as Button
+	var selected_style := selected_row.get_theme_stylebox("normal") as StyleBoxFlat
+	_expect(selected_style != null and selected_style.bg_color.v < 0.4, "Selected public room row should keep readable dark styling")
+	ui._on_public_room_join_pressed()
+	_expect(int(join_result["count"]) == 0, "Private public rooms should require a password before emitting join")
+	_expect(ui.public_lobby_alert_text == I18n.t("public_lobby.password_needed"), "Empty private room password should show a public lobby HUD alert")
+	ui.public_room_join_password_input.text = "lock"
+	ui._on_public_room_join_pressed()
+	_expect(int(join_result["count"]) == 1, "Joining a selected public room should emit a room join request")
+	_expect(ui.public_lobby_loading_text == I18n.t("join_status.connecting_room"), "Joining a public room should show the centered loading panel")
+	_expect(str(join_result["room_id"]) == "alpha-room", "Public room join should pass the selected room id")
+	_expect(str(join_result["password"]) == "LOCK", "Public room join password should normalize to uppercase")
+	var double_click := InputEventMouseButton.new()
+	double_click.button_index = MOUSE_BUTTON_LEFT
+	double_click.pressed = true
+	double_click.double_click = true
+	ui._on_public_room_row_gui_input(double_click, "alpha-room")
+	await get_tree().process_frame
+	_expect(int(join_result["count"]) == 1, "Double-clicking while join is pending should not emit another join request")
+	ui.hide_public_lobby_loading()
+	ui._on_public_room_row_gui_input(double_click, "alpha-room")
+	await get_tree().process_frame
+	_expect(int(join_result["count"]) == 2, "Double-clicking a public room row should join it when the lobby is idle")
+	ui.hide_public_lobby_loading()
+
+	ui.public_room_create_name_input.text = "Beta Room"
+	ui.public_room_create_password_input.text = "key"
+	ui._on_public_room_create_pressed()
+	_expect(int(create_result["count"]) == 1, "Creating a public room should emit a create request")
+	_expect(ui.public_lobby_loading_text == I18n.t("public_lobby.creating"), "Creating a public room should show the centered loading panel")
+	ui._on_public_room_create_pressed()
+	_expect(int(create_result["count"]) == 1, "Creating while a public room request is pending should not emit another create request")
+	_expect(str(create_result["room_name"]) == "Beta Room", "Public room create should pass the requested room name")
+	_expect(str(create_result["password"]) == "KEY", "Public room create password should normalize to uppercase")
+
+	ui.queue_free()
+	await get_tree().process_frame
+
+
+func _test_public_room_wrong_password_hud_alert() -> void:
+	_reset_network_state()
+	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	level.main_menu.show_public_lobby([{
+		"room_id": "locked-room",
+		"room_name": "Locked Room",
+		"locked": true,
+		"player_count": 1,
+		"max_players": 24,
+		"host_peer_name": "HostA",
+		"ready": true,
+	}], I18n.t("public_lobby.connected"))
+	level.main_menu.show_public_lobby_loading(I18n.t("join_status.connecting_room"))
+	level._on_public_room_join_failed("join_status.wrong_password")
+	await get_tree().process_frame
+	_expect(level.main_menu.public_lobby_loading_text.is_empty(), "Wrong password should clear the public lobby loading panel")
+	_expect(level.main_menu.public_lobby_alert_text == I18n.t("public_lobby.password_problem"), "Wrong password should show a public lobby HUD alert")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	Network.multiplayer.multiplayer_peer = null
+
+
+func _test_client_join_waits_for_full_sync_before_lobby() -> void:
+	_reset_network_state()
+	Network.server_port = 19108
+	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	level.main_menu.show_landing()
+	level._join_lobby_direct("Client", "yellow", "127.0.0.1", "SYNC", Network.Role.HUNTER, "", CharacterSkinCatalog.DEFAULT_ID)
+	await get_tree().process_frame
+	_expect(not level.main_menu.lobby_visible, "Client join should wait for authoritative full sync before showing the lobby")
+	_expect(bool(level.pending_direct_join_waiting_for_sync), "Client join should mark lobby sync as pending")
+
+	var synced_config := Network.lobby_config.duplicate(true)
+	synced_config["lobby_id"] = "SYNC"
+	var synced_players := {
+		1: _player("Host", Network.Role.CHAMELEON),
+		2: _player("Client", Network.Role.HUNTER),
+	}
+	Network._broadcast_full_sync(synced_players, synced_config)
+	await get_tree().process_frame
+	_expect(level.main_menu.lobby_visible, "Client should enter lobby after receiving authoritative full sync")
+	_expect(level.main_menu.current_lobby_id == "SYNC", "Client lobby should use the synced lobby id")
+	_expect(not bool(level.pending_direct_join_waiting_for_sync), "Client join should clear the pending sync flag after lobby opens")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	await get_tree().process_frame
+
+
+func _test_player_replication_budget() -> void:
+	_reset_network_state()
+	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var player_scene: PackedScene = load("res://scenes/level/player.tscn")
+	var player: Node = player_scene.instantiate()
+	add_child(player)
+	await get_tree().process_frame
+
+	var synchronizer: MultiplayerSynchronizer = player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
+	_expect(synchronizer != null, "Player scene should keep a MultiplayerSynchronizer")
+	if synchronizer:
+		_expect(absf(synchronizer.replication_interval - 0.05) <= 0.001, "Player replication should be capped at 20Hz")
+		var config: SceneReplicationConfig = synchronizer.replication_config as SceneReplicationConfig
+		_expect(config != null, "Player synchronizer should keep a replication config")
+		if config:
+			var position_path := NodePath(".:position")
+			var nickname_path := NodePath("PlayerNick/Nickname:text")
+			var animation_path := NodePath("3DGodotRobot/AnimationPlayer:current_animation")
+			var rotation_path := NodePath("3DGodotRobot:rotation")
+			_expect(config.has_property(position_path), "Player position should remain network synchronized")
+			_expect(config.property_get_sync(position_path), "Player position should sync after spawn")
+			_expect(config.has_property(nickname_path), "Player nickname should remain in spawn state")
+			_expect(config.property_get_spawn(nickname_path), "Player nickname should be sent on spawn")
+			_expect(not config.property_get_sync(nickname_path), "Player nickname should not sync every network frame")
+			_expect(not config.has_property(animation_path), "Remote player animation should be inferred locally, not synchronized every frame")
+			_expect(not config.has_property(rotation_path), "Remote player facing should be inferred locally, not synchronized every frame")
+
+	player.queue_free()
+	await get_tree().process_frame
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
 
 
 func _test_level_start_match_path() -> void:
@@ -349,6 +609,34 @@ func _test_client_full_sync_waits_until_prep_to_spawn_player_nodes() -> void:
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
 	await get_tree().process_frame
+
+
+func _test_room_events_enter_chat_history() -> void:
+	_reset_network_state()
+	Network.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var level_scene: PackedScene = load("res://scenes/level/level.tscn")
+	var level = level_scene.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var system_nick := I18n.t("room_event.system")
+	var joined_text := I18n.tf("room_event.joined", ["Guest"])
+	var left_text := I18n.tf("room_event.left", ["Guest"])
+	level._handle_room_player_joined(2, _player("Guest", Network.Role.HUNTER))
+	await get_tree().process_frame
+	_expect(_lobby_chat_contains(level.main_menu, system_nick, joined_text), "Room join event should be recorded in the lobby chat history")
+	_expect(_game_chat_contains(level.multiplayer_chat, system_nick, joined_text), "Room join event should be recorded in the in-game chat history")
+
+	level._on_network_player_disconnected(2)
+	await get_tree().process_frame
+	_expect(_lobby_chat_contains(level.main_menu, system_nick, left_text), "Room leave event should be recorded in the lobby chat history")
+	_expect(_game_chat_contains(level.multiplayer_chat, system_nick, left_text), "Room leave event should be recorded in the in-game chat history")
+
+	level.set_process(false)
+	level.queue_free()
+	await get_tree().process_frame
+	Network.multiplayer.multiplayer_peer = null
 
 
 func _test_hunter_preparation_slots_are_separated() -> void:
@@ -597,6 +885,25 @@ func _tree_has_button_text(root_node: Node, needle: String) -> bool:
 		return true
 	for child in root_node.get_children():
 		if _tree_has_button_text(child, needle):
+			return true
+	return false
+
+
+func _lobby_chat_contains(ui: MainMenuUI, nick: String, text: String) -> bool:
+	if ui == null:
+		return false
+	for item in ui.lobby_chat_messages:
+		if str(item.get("nick", "")) == nick and str(item.get("text", "")) == text:
+			return true
+	return false
+
+
+func _game_chat_contains(chat: MultiplayerChatUI, nick: String, text: String) -> bool:
+	if chat == null:
+		return false
+	var messages: Array = chat.get("_messages")
+	for item in messages:
+		if str(item.get("nick", "")) == nick and str(item.get("text", "")) == text:
 			return true
 	return false
 

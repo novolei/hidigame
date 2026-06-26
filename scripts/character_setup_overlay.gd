@@ -6,6 +6,7 @@ signal skin_selected(model_id: String)
 const TITLE_FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const BODY_FONT_PATH := "res://assets/fonts/SairaCondensed-Medium.woff2"
 const VALUE_FONT_PATH := "res://assets/fonts/Saira-9.woff2"
+const UI_CONFIRM_SOUND_PATH := "res://assets/audio/ui/ui_confirm_click.mp3"
 const PREVIEW_PLATFORM_SURFACE_Y := 0.064
 const PREVIEW_MODEL_STAGE_Z := 0.0
 const PREVIEW_MODEL_VISUAL_GROUND_OFFSET := 0.0
@@ -40,10 +41,12 @@ var _preview_yaw := 0.0
 var _preview_angular_velocity := 0.0
 var _preview_base_scale := 1.0
 var _last_layout_size := Vector2.ZERO
+var _confirm_click_player: AudioStreamPlayer = null
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_ensure_confirm_click_player()
 	_load_fonts()
 	_build_ui()
 	visible = false
@@ -560,9 +563,38 @@ func _make_skin_button(model: Dictionary) -> Button:
 	label.add_theme_constant_override("outline_size", 1)
 	content.add_child(label)
 
-	button.pressed.connect(func(): _select_skin(model_id, true))
+	button.pressed.connect(func(): _select_skin_from_ui(model_id))
 	_skin_card_buttons.append(button)
 	return button
+
+
+func _ensure_confirm_click_player() -> void:
+	if _confirm_click_player and is_instance_valid(_confirm_click_player):
+		return
+	_confirm_click_player = AudioStreamPlayer.new()
+	_confirm_click_player.name = "ConfirmClickAudio"
+	_confirm_click_player.bus = &"Master"
+	_confirm_click_player.volume_db = -7.0
+	_confirm_click_player.max_polyphony = 4
+	var stream := load(UI_CONFIRM_SOUND_PATH)
+	if stream is AudioStream:
+		_confirm_click_player.stream = stream
+	add_child(_confirm_click_player)
+
+
+func _play_confirm_click_sound() -> void:
+	if not _confirm_click_player or not is_instance_valid(_confirm_click_player):
+		return
+	if not _confirm_click_player.stream:
+		return
+	_confirm_click_player.pitch_scale = randf_range(0.985, 1.015)
+	_confirm_click_player.stop()
+	_confirm_click_player.play()
+
+
+func _select_skin_from_ui(model_id: String) -> void:
+	_play_confirm_click_sound()
+	_select_skin(model_id, true)
 
 
 func _thumbnail_texture_for(model_id: String) -> Texture2D:

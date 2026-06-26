@@ -35,17 +35,20 @@ func _run() -> void:
 	player._on_role_changed(1, Network.Role.CHAMELEON)
 	await get_tree().process_frame
 	var system = player.get_node_or_null("ChameleonSculptSystem")
-	_expect(system != null, "Chameleon role should attach a sculpt system")
+	_expect(system == null, "Chameleon sculpt system should stay lazy until the first sculpt batch")
+	player.submit_sculpt_stroke_batch(
+		PackedStringArray(["add", "stretch"]),
+		PackedVector3Array([
+			player.global_position + Vector3(0.36, 1.0, 0.0),
+			player.global_position + Vector3(0.36, 1.05, 0.04),
+		]),
+		PackedFloat32Array([0.30, 0.24]),
+		PackedFloat32Array([1.0, 0.8])
+	)
+	await get_tree().process_frame
+	system = player.get_node_or_null("ChameleonSculptSystem")
+	_expect(system != null, "First Chameleon sculpt batch should attach a sculpt system")
 	if system:
-		player.submit_sculpt_stroke_batch(
-			PackedStringArray(["add", "stretch"]),
-			PackedVector3Array([
-				player.global_position + Vector3(0.36, 1.0, 0.0),
-				player.global_position + Vector3(0.36, 1.05, 0.04),
-			]),
-			PackedFloat32Array([0.30, 0.24]),
-			PackedFloat32Array([1.0, 0.8])
-		)
 		var summary: Dictionary = system.call("get_debug_summary")
 		_expect(int(summary.get("stroke_count", 0)) == 2, "Chameleon local sculpt batch should apply Add and Stretch when no server peer is active")
 		var shell := system.get("shell") as Node

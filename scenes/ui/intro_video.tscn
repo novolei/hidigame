@@ -1,0 +1,99 @@
+[gd_scene format=3 uid="uid://bfh0jbf4fx4d5"]
+
+[ext_resource type="Script" uid="uid://dlfktptvr7n4g" path="res://scripts/intro_video.gd" id="1_ml5hm"]
+[ext_resource type="VideoStream" uid="uid://dsoq34mg6qqw0" path="res://assets/videos/maomao_intro.ogv" id="2_ufcew"]
+[ext_resource type="Texture2D" uid="uid://do0xtyutxwdqr" path="res://assets/ui/esrb_everyone_10_plus.svg" id="3_7xa3l"]
+
+[sub_resource type="Gradient" id="Gradient_ml5hm"]
+offsets = PackedFloat32Array(0, 0.54, 0.82, 1)
+colors = PackedColorArray(0.06, 0.4, 0.89, 0.96, 0.08, 0.44, 0.91, 0.92, 0.11, 0.485, 0.925, 0.55, 0.15, 0.53, 0.94, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ufcew"]
+gradient = SubResource("Gradient_ml5hm")
+width = 512
+height = 160
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mmokm"]
+bg_color = Color(1, 1, 1, 0.96)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.24)
+shadow_size = 8
+shadow_offset = Vector2(0, 2)
+
+[node name="IntroVideo" type="Control" unique_id=1104212480]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_ml5hm")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1775444328]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="." unique_id=62291039]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+stream = ExtResource("2_ufcew")
+expand = true
+
+[node name="WatermarkCover" type="TextureRect" parent="." unique_id=535025234]
+z_index = 8
+layout_mode = 0
+offset_top = 12.0
+offset_right = 600.0
+offset_bottom = 184.0
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_ufcew")
+expand_mode = 1
+
+[node name="RatingBadgeBackground" type="Panel" parent="." unique_id=497571172]
+z_index = 9
+layout_mode = 0
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 106.5
+offset_bottom = 148.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_mmokm")
+
+[node name="RatingBadge" type="TextureRect" parent="." unique_id=299192471]
+z_index = 10
+layout_mode = 0
+offset_left = 23.0
+offset_top = 23.0
+offset_right = 101.5
+offset_bottom = 143.0
+mouse_filter = 2
+texture = ExtResource("3_7xa3l")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TransitionFade" type="ColorRect" parent="." unique_id=1607322221]
+modulate = Color(1, 1, 1, 0)
+z_index = 20
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.2, 0.549, 0.965, 0.72)
+
+[node name="TransitionSnapshot" type="TextureRect" parent="." unique_id=1844556865]
+modulate = Color(1, 1, 1, 0)
+z_index = 21
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+expand_mode = 1
+stretch_mode = 6

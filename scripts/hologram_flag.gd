@@ -4,14 +4,26 @@ class_name HologramFlag
 const CharacterSkinCatalogScript := preload("res://scripts/character_skin_catalog.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const HOLOGRAM_SHADER := preload("res://shaders/hologram_avatar.gdshader")
+const HOLOGRAM_OUTLINE_SHADER := preload("res://shaders/hologram_avatar_outline.gdshader")
 
 const DEFAULT_PLAYER_HEIGHT := 2.0
 const FLAG_HEIGHT_RATIO := 0.3
+const AVATAR_VISUAL_HEIGHT_MULTIPLIER := 2.55
+const AVATAR_BASE_CLEARANCE_RATIO := 0.018
+const MIN_AVATAR_BASE_CLEARANCE := 0.012
 const MIN_AVATAR_HEIGHT := 0.35
 const MAX_AVATAR_HEIGHT := 1.2
 const BASE_RADIUS_MIN := 0.22
 const PERFORMANCE_ACTIONS := ["dance", "victory"]
 const DEFAULT_ACTION_SECONDS := 3.2
+const DEFAULT_HOLOGRAM_BODY_COLOR := Color(1.0, 0.28, 0.88, 1.0)
+const DEFAULT_HOLOGRAM_ACCENT_COLOR := Color(0.66, 0.18, 1.0, 1.0)
+const DEFAULT_HOLOGRAM_GLOW_COLOR := Color(0.22, 0.06, 1.0, 1.0)
+const DEFAULT_HOLOGRAM_SOLID_FILL_COLOR := Color(0.16, 0.05, 0.82, 1.0)
+const SWEEP_HIGHLIGHT_COLOR_A := Color(0.78, 0.96, 1.0, 1.0)
+const SWEEP_HIGHLIGHT_COLOR_B := Color(0.22, 0.82, 1.0, 1.0)
+const SWEEP_OUTLINE_HIGHLIGHT_COLOR := Color(0.72, 0.94, 1.0, 1.0)
+const GENERIC_SURFACE_TINT := Color(1.0, 0.98, 0.94, 1.0)
 
 @export var auto_build := true
 @export var owner_peer_id := 0
@@ -25,6 +37,8 @@ var _projection_root: Node3D = null
 var _animated_rings: Array[MeshInstance3D] = []
 var _beam_materials: Array[StandardMaterial3D] = []
 var _hologram_materials: Array[ShaderMaterial] = []
+var _hologram_outline_materials: Array[ShaderMaterial] = []
+var _last_hologram_palette: Dictionary = {}
 var _action_timer := 0.0
 var _next_action_index := 0
 var _current_action := ""
@@ -59,7 +73,7 @@ func rebuild() -> void:
 
 func _process(delta: float) -> void:
 	_pulse_time += delta
-	_process_projection_pulse(delta)
+	_process_projector_pulse(delta)
 	_action_timer -= delta
 	if _action_timer <= 0.0:
 		_play_next_performance_action()
@@ -74,6 +88,8 @@ func _clear_generated_children() -> void:
 	_animated_rings.clear()
 	_beam_materials.clear()
 	_hologram_materials.clear()
+	_hologram_outline_materials.clear()
+	_last_hologram_palette.clear()
 	_action_timer = 0.0
 	_current_action = ""
 
@@ -85,12 +101,16 @@ func _create_base_and_projection() -> void:
 
 	var base_radius: float = maxf(BASE_RADIUS_MIN, _target_avatar_height * 0.42)
 	var base_height: float = maxf(0.055, _target_avatar_height * 0.09)
-	var base_material: StandardMaterial3D = _make_standard_material(Color(0.018, 0.040, 0.055, 1.0), Color(0.0, 0.32, 0.42, 1.0), 0.16, 1.0, false)
-	var base: MeshInstance3D = _make_cylinder_mesh("ProjectorBase", base_radius, base_radius, base_height, 72, true, true, base_material)
+	var base_material: StandardMaterial3D = _make_marble_base_material()
+	var base: MeshInstance3D = _make_cylinder_mesh("ProjectorBase", base_radius, base_radius, base_height, 96, true, true, base_material)
 	base.position.y = base_height * 0.5
 	_projection_root.add_child(base)
 
-	var glow_material: StandardMaterial3D = _make_standard_material(Color(0.08, 0.93, 1.0, 0.48), Color(0.08, 0.93, 1.0, 1.0), 4.6, 0.48, true)
+	var marble_rim: MeshInstance3D = _make_torus_mesh("ProjectorMarbleRim", base_radius * 0.88, base_radius * 1.02, 96, 12, base_material)
+	marble_rim.position.y = base_height + 0.006
+	_projection_root.add_child(marble_rim)
+
+	var glow_material: StandardMaterial3D = _make_standard_material(Color(1.0, 0.22, 0.86, 0.5), Color(1.0, 0.28, 0.9, 1.0), 4.9, 0.5, true)
 	var glow_disc: MeshInstance3D = _make_cylinder_mesh("ProjectorGlowDisc", base_radius * 0.76, base_radius * 0.54, 0.018, 72, true, true, glow_material)
 	glow_disc.position.y = base_height + 0.012
 	_projection_root.add_child(glow_disc)
@@ -101,16 +121,12 @@ func _create_base_and_projection() -> void:
 	inner_shadow.position.y = base_height + 0.024
 	_projection_root.add_child(inner_shadow)
 
-	var beam_height: float = _target_avatar_height * 1.36
-	var beam_material: StandardMaterial3D = _make_standard_material(Color(0.04, 0.82, 1.0, 0.14), Color(0.04, 0.92, 1.0, 1.0), 2.7, 0.14, true)
-	var beam: MeshInstance3D = _make_cylinder_mesh("UpwardLightCone", base_radius * 0.58, base_radius * 0.18, beam_height, 72, false, false, beam_material)
-	beam.position.y = base_height + beam_height * 0.5
-	_projection_root.add_child(beam)
-	_beam_materials.append(beam_material)
-
 	for index in range(3):
-		var ring_material: StandardMaterial3D = _make_standard_material(Color(0.13, 0.92, 1.0, 0.18), Color(0.13, 0.92, 1.0, 1.0), 2.2, 0.18, true)
-		var ring: MeshInstance3D = _make_cylinder_mesh("ScanRing%02d" % index, base_radius * (0.64 + float(index) * 0.17), base_radius * (0.64 + float(index) * 0.17), 0.006, 72, true, true, ring_material)
+		var ring_color: Color = [Color(1.0, 0.42, 0.92, 0.24), Color(0.72, 0.18, 1.0, 0.25), Color(1.0, 0.82, 0.98, 0.22)][index]
+		var ring_material: StandardMaterial3D = _make_standard_material(ring_color, Color(ring_color.r, ring_color.g, ring_color.b, 1.0), 3.05, ring_color.a, true)
+		var ring_radius: float = base_radius * (0.68 + float(index) * 0.18)
+		var ring_thickness: float = maxf(0.006, base_radius * 0.018)
+		var ring: MeshInstance3D = _make_torus_mesh("ScanRing%02d" % index, ring_radius - ring_thickness, ring_radius + ring_thickness, 96, 8, ring_material)
 		ring.position.y = base_height + 0.03 + float(index) * _target_avatar_height * 0.28
 		_projection_root.add_child(ring)
 		_animated_rings.append(ring)
@@ -134,6 +150,28 @@ func _make_cylinder_mesh(node_name: String, bottom_radius: float, top_radius: fl
 	return mesh_instance
 
 
+func _make_torus_mesh(node_name: String, inner_radius: float, outer_radius: float, rings: int, ring_segments: int, material: Material) -> MeshInstance3D:
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = node_name
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = maxf(inner_radius, 0.001)
+	mesh.outer_radius = maxf(outer_radius, mesh.inner_radius + 0.001)
+	mesh.rings = rings
+	mesh.ring_segments = ring_segments
+	mesh.material = material
+	mesh_instance.mesh = mesh
+	return mesh_instance
+
+
+func _make_marble_base_material() -> StandardMaterial3D:
+	var material: StandardMaterial3D = _make_standard_material(Color(0.82, 0.86, 0.86, 1.0), Color(0.015, 0.085, 0.095, 1.0), 0.12, 1.0, false)
+	material.metallic = 0.0
+	material.metallic_specular = 0.42
+	material.roughness = 0.32
+	return material
+
+
 func _make_standard_material(albedo: Color, emission: Color, emission_energy: float, alpha: float, transparent: bool) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.resource_local_to_scene = true
@@ -149,6 +187,29 @@ func _make_standard_material(albedo: Color, emission: Color, emission_energy: fl
 		material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+
+
+func _make_hologram_outline_material(scan_color: Color, scan_edge_color: Color, scan_glow_color: Color) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.resource_local_to_scene = true
+	material.shader = HOLOGRAM_OUTLINE_SHADER
+	material.render_priority = 9
+	material.set_shader_parameter("scan_color", scan_color)
+	material.set_shader_parameter("scan_edge_color", scan_edge_color)
+	material.set_shader_parameter("scan_glow_color", scan_glow_color)
+	material.set_shader_parameter("sweep_highlight_color", SWEEP_OUTLINE_HIGHLIGHT_COLOR)
+	material.set_shader_parameter("outline_width", 0.006)
+	material.set_shader_parameter("emission_power", 4.75)
+	material.set_shader_parameter("line_alpha", 0.42)
+	material.set_shader_parameter("scan_line_repetitions", 27.0)
+	material.set_shader_parameter("scan_line_width", 0.03)
+	material.set_shader_parameter("scan_glow_width", 0.068)
+	material.set_shader_parameter("sweep_glitch_rate", 0.62)
+	material.set_shader_parameter("sweep_line_count", 3.0)
+	material.set_shader_parameter("glitch_line_cycle", 24.0)
+	material.set_shader_parameter("fresnel_power", 1.4)
 	return material
 
 
@@ -207,13 +268,15 @@ func _build_fallback_avatar() -> Node3D:
 
 
 func _fit_avatar_to_target_height(avatar: Node3D) -> void:
-	var base_top: float = maxf(0.055, _target_avatar_height * 0.09) + 0.04
+	var base_height: float = maxf(0.055, _target_avatar_height * 0.09)
+	var base_top: float = base_height + maxf(MIN_AVATAR_BASE_CLEARANCE, _target_avatar_height * AVATAR_BASE_CLEARANCE_RATIO)
+	var visual_target_height: float = _target_avatar_height * AVATAR_VISUAL_HEIGHT_MULTIPLIER
 	var bounds: AABB = _calculate_bounds_relative_to(_avatar_root, avatar)
 	if bounds.size.y <= 0.001:
-		avatar.scale = Vector3.ONE * _target_avatar_height
+		avatar.scale = Vector3.ONE * visual_target_height
 		avatar.position.y = base_top
 		return
-	var scale_factor: float = _target_avatar_height / bounds.size.y
+	var scale_factor: float = visual_target_height / bounds.size.y
 	avatar.scale *= scale_factor
 	bounds = _calculate_bounds_relative_to(_avatar_root, avatar)
 	if bounds.size.y > 0.001:
@@ -223,6 +286,12 @@ func _fit_avatar_to_target_height(avatar: Node3D) -> void:
 func _apply_hologram_materials(root: Node) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	_find_meshes(root, meshes)
+	var palette: Dictionary = _make_hologram_palette(meshes, root)
+	_last_hologram_palette = palette.duplicate(true)
+	var scan_color: Color = palette.get("body_color", DEFAULT_HOLOGRAM_BODY_COLOR) as Color
+	var scan_edge_color: Color = palette.get("accent_color", DEFAULT_HOLOGRAM_ACCENT_COLOR) as Color
+	var scan_glow_color: Color = palette.get("glow_color", DEFAULT_HOLOGRAM_GLOW_COLOR) as Color
+	var solid_fill_color: Color = palette.get("solid_fill_color", DEFAULT_HOLOGRAM_SOLID_FILL_COLOR) as Color
 	for mesh_instance in meshes:
 		if not mesh_instance.mesh:
 			continue
@@ -235,18 +304,91 @@ func _apply_hologram_materials(root: Node) -> void:
 			material.shader = HOLOGRAM_SHADER
 			material.render_priority = 8
 			var source_texture: Texture2D = _texture_from_material(source_material)
+			var source_color: Color = _color_from_material(source_material)
 			material.set_shader_parameter("use_source_texture", source_texture != null)
 			if source_texture:
 				material.set_shader_parameter("source_texture", source_texture)
-			material.set_shader_parameter("source_tint", _color_from_material(source_material))
-			material.set_shader_parameter("hologram_color", Color(0.03, 0.82, 1.0, 0.78))
-			material.set_shader_parameter("fresnel_color", Color(0.68, 1.0, 1.0, 1.0))
-			material.set_shader_parameter("scan_color", Color(0.12, 0.92, 1.0, 1.0))
-			material.set_shader_parameter("inherited_skin_strength", 0.48)
-			material.set_shader_parameter("scan_line_repetitions", 64.0)
-			material.set_shader_parameter("vertex_shift_strength", 0.0055)
+			material.set_shader_parameter("source_tint", Color(scan_color.r, scan_color.g, scan_color.b, source_color.a))
+			material.set_shader_parameter("scan_color", scan_color)
+			material.set_shader_parameter("scan_edge_color", scan_edge_color)
+			material.set_shader_parameter("scan_glow_color", scan_glow_color)
+			material.set_shader_parameter("solid_fill_color", solid_fill_color)
+			material.set_shader_parameter("sweep_highlight_color_a", SWEEP_HIGHLIGHT_COLOR_A)
+			material.set_shader_parameter("sweep_highlight_color_b", SWEEP_HIGHLIGHT_COLOR_B)
+			material.set_shader_parameter("emission_power", 5.65)
+			material.set_shader_parameter("solid_fill_alpha", 0.22)
+			material.set_shader_parameter("solid_fill_emission", 0.72)
+			material.set_shader_parameter("line_alpha", 0.9)
+			material.set_shader_parameter("fresnel_power", 1.55)
+			material.set_shader_parameter("scan_line_repetitions", 27.0)
+			material.set_shader_parameter("scan_line_width", 0.03)
+			material.set_shader_parameter("scan_glow_width", 0.068)
+			material.set_shader_parameter("scan_line_intensity", 2.75)
+			material.set_shader_parameter("scan_glow_intensity", 1.8)
+			material.set_shader_parameter("sweep_highlight_intensity", 3.4)
+			material.set_shader_parameter("sweep_glitch_rate_a", 0.72)
+			material.set_shader_parameter("sweep_glitch_rate_b", 0.48)
+			material.set_shader_parameter("sweep_line_count_a", 4.0)
+			material.set_shader_parameter("sweep_line_count_b", 3.0)
+			material.set_shader_parameter("glitch_line_cycle", 24.0)
+			material.set_shader_parameter("vertex_shift_strength", 0.0045)
+			var outline_material: ShaderMaterial = _make_hologram_outline_material(scan_color, scan_edge_color, scan_glow_color)
+			material.next_pass = outline_material
 			mesh_instance.set_surface_override_material(surface, material)
 			_hologram_materials.append(material)
+			_hologram_outline_materials.append(outline_material)
+
+
+func _make_hologram_palette(_meshes: Array[MeshInstance3D], _root: Node) -> Dictionary:
+	var body_color: Color = _hologramize_color(_skin_color_tint(), _skin_color_tint(), 0.0)
+	return {
+		"body_color": body_color,
+		"accent_color": body_color,
+		"glow_color": body_color,
+		"solid_fill_color": body_color,
+		"body_sample_count": 0,
+		"accent_sample_count": 0,
+	}
+
+
+func _palette_colors_from_material(material: Material) -> Array[Color]:
+	var colors: Array[Color] = []
+	if material is StandardMaterial3D:
+		colors.append((material as StandardMaterial3D).albedo_color)
+		return colors
+	if material is ShaderMaterial:
+		var shader_material := material as ShaderMaterial
+		for parameter_name in ["color_01", "color_02", "color_03", "color_04", "color_05", "color_06", "color_07", "color_08", "mask_tint", "source_tint", "albedo", "albedo_color", "base_color", "tint_color", "surface_tint"]:
+			var value: Variant = shader_material.get_shader_parameter(parameter_name)
+			if value is Color:
+				var color := value as Color
+				if parameter_name == "surface_tint" and _color_distance_rgb(color, GENERIC_SURFACE_TINT) < 0.05:
+					continue
+				colors.append(color)
+	return colors
+
+
+
+func _is_palette_color_usable(color: Color) -> bool:
+	if color.a <= 0.01:
+		return false
+	return maxf(color.r, maxf(color.g, color.b)) > 0.03
+
+
+func _hologramize_color(source_color: Color, fallback: Color, fallback_mix: float) -> Color:
+	var source: Color = source_color if _is_palette_color_usable(source_color) else fallback
+	var max_channel: float = maxf(source.r, maxf(source.g, source.b))
+	if max_channel > 0.001 and max_channel < 0.88:
+		var lift: float = 0.88 / max_channel
+		source = Color(clampf(source.r * lift, 0.0, 1.0), clampf(source.g * lift, 0.0, 1.0), clampf(source.b * lift, 0.0, 1.0), 1.0)
+	source = source.lerp(fallback, clampf(fallback_mix, 0.0, 1.0))
+	return Color(clampf(source.r, 0.04, 1.0), clampf(source.g, 0.04, 1.0), clampf(source.b, 0.04, 1.0), 1.0)
+
+
+
+func _color_distance_rgb(a: Color, b: Color) -> float:
+	return absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b)
+
 
 
 func _texture_from_material(material: Material) -> Texture2D:
@@ -262,14 +404,9 @@ func _texture_from_material(material: Material) -> Texture2D:
 
 
 func _color_from_material(material: Material) -> Color:
-	if material is StandardMaterial3D:
-		return (material as StandardMaterial3D).albedo_color
-	if material is ShaderMaterial:
-		var shader_material := material as ShaderMaterial
-		for parameter_name in ["source_tint", "albedo", "albedo_color", "base_color", "tint_color", "mask_tint"]:
-			var value: Variant = shader_material.get_shader_parameter(parameter_name)
-			if value is Color:
-				return value as Color
+	var palette_colors: Array[Color] = _palette_colors_from_material(material)
+	if not palette_colors.is_empty():
+		return palette_colors[0]
 	return _skin_color_tint()
 
 
@@ -285,7 +422,7 @@ func _skin_color_tint() -> Color:
 			return Color(0.28, 0.78, 1.0, 1.0)
 
 
-func _process_projection_pulse(delta: float) -> void:
+func _process_projector_pulse(delta: float) -> void:
 	for index in range(_animated_rings.size()):
 		var ring: MeshInstance3D = _animated_rings[index]
 		if not ring or not is_instance_valid(ring):
@@ -301,7 +438,6 @@ func _process_projection_pulse(delta: float) -> void:
 		var alpha: float = 0.13 + 0.09 * (0.5 + 0.5 * sin(_pulse_time * 2.4 + float(index) * 0.9))
 		var color: Color = material.albedo_color
 		material.albedo_color = Color(color.r, color.g, color.b, clampf(alpha, 0.06, 0.34))
-
 
 func _play_next_performance_action() -> void:
 	if not _avatar_root:
@@ -393,8 +529,51 @@ func get_avatar_visual_height_for_test() -> float:
 	return _calculate_bounds_relative_to(self, avatar).size.y
 
 
+func get_avatar_base_gap_for_test() -> float:
+	if not _avatar_root:
+		return 0.0
+	var avatar := _avatar_root.get_node_or_null("HologramAvatar") as Node3D
+	if not avatar:
+		return 0.0
+	var bounds: AABB = _calculate_bounds_relative_to(self, avatar)
+	var base_top: float = maxf(0.055, _target_avatar_height * 0.09)
+	return bounds.position.y - base_top
+
+
 func get_hologram_material_count_for_test() -> int:
 	return _hologram_materials.size()
+
+
+func get_hologram_palette_for_test() -> Dictionary:
+	return _last_hologram_palette.duplicate(true)
+
+
+func get_first_hologram_shader_color_for_test(parameter_name: String) -> Color:
+	if _hologram_materials.is_empty():
+		return Color(0.0, 0.0, 0.0, 0.0)
+	var value: Variant = _hologram_materials[0].get_shader_parameter(parameter_name)
+	if value is Color:
+		return value as Color
+	return Color(0.0, 0.0, 0.0, 0.0)
+
+
+func get_first_hologram_shader_float_for_test(parameter_name: String) -> float:
+	if _hologram_materials.is_empty():
+		return 0.0
+	var value: Variant = _hologram_materials[0].get_shader_parameter(parameter_name)
+	if value is float:
+		return value as float
+	if value is int:
+		return float(value)
+	return 0.0
+
+
+func get_hologram_outline_material_count_for_test() -> int:
+	return _hologram_outline_materials.size()
+
+
+func get_projection_beam_material_count_for_test() -> int:
+	return 0
 
 
 func get_current_performance_action_for_test() -> String:

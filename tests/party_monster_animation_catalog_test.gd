@@ -116,15 +116,27 @@ func _append_performance_camera_source_failures(failures: Array[String]) -> void
 	for token in ["match_intro_locked or prep_phase_locked", "_push_skin_performance_wheel_bar", "SKIN_PERFORMANCE_WHEEL_CHARGE_STEP", "SkinPerformanceWheelBar", "_reset_skin_performance_wheel_bar", "_start_skin_performance_effects", "SKIN_PERFORMANCE_CONFETTI_COUNT"]:
 		if not player_source.contains(token):
 			failures.append("Player should keep gated wheel performance token: %s" % token)
+	for token in ["_submit_skin_performance_action", "_request_skin_performance_action_rpc", "_apply_skin_performance_action_rpc.rpc", "_skin_performance_previous_current_camera", "_get_skin_performance_camera", "performance_camera.current = true", "_restore_skin_performance_view_camera"]:
+		if not player_source.contains(token):
+			failures.append("Player should broadcast Party Monster performance staging token: %s" % token)
 	for token in ["SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET := 0.0", "_get_skin_performance_front_camera_yaw", "var performance_yaw := _get_skin_performance_front_camera_yaw()", "SKIN_PERFORMANCE_CAMERA_SPRING_LENGTH := 5.2", "SKIN_PERFORMANCE_CAMERA_FOV := 58.0", "SKIN_PERFORMANCE_DISCO_LIGHT_COUNT := 3", "SKIN_PERFORMANCE_DISCO_LIGHT_ENERGY", "DiscoLightMarker%02d", "light.shadow_enabled = false"]:
 		if not player_source.contains(token):
 			failures.append("Player should keep front full-body performance staging token: %s" % token)
+	for token in ["SKIN_PERFORMANCE_MUSIC_PATHS", "performance_victory_folk.mp3", "performance_victory_strings.mp3", "performance_victory_8bit.mp3", "SkinPerformanceMusicAudio", "_play_skin_performance_music", "_stop_skin_performance_music", "if not _should_render_local_feedback():\n\t\t_reset_skin_performance_wheel_bar()"]:
+		if not player_source.contains(token):
+			failures.append("Player should keep local-only random performance music token: %s" % token)
 	if player_source.contains("SKIN_PERFORMANCE_CAMERA_YAW := 0.0") or player_source.contains("set_camera_rig_pose\", SKIN_PERFORMANCE_CAMERA_YAW"):
 		failures.append("Performance camera should derive its front yaw from the visual body instead of using a fixed world orbit yaw")
 	if player_source.contains("SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET := PI"):
 		failures.append("Performance camera front yaw offset should not flip to the character back side")
 	if player_source.contains("tween.finished.connect(_clear_skin_performance_effects)"):
 		failures.append("Performance disco lights should last until the performance camera restores, not only until the confetti tween ends")
+	if player_source.contains("_reset_skin_performance_wheel_bar()\n\t\t_play_skin_action(selected_action)"):
+		failures.append("Performance wheel completion should broadcast the selected action instead of playing only on the local client")
+	if player_source.contains("if not is_multiplayer_authority() or not _spring_arm_offset:\n\t\treturn"):
+		failures.append("Performance camera should not be restricted to the performing player's local authority")
+	if not player_source.contains("func _animate_remote_skin_from_network_motion(delta: float) -> void") or not player_source.contains("if _skin_performance_camera_active:\n\t\treturn"):
+		failures.append("Remote network motion should not immediately override an active performance broadcast")
 	if player_source.contains("outline.name = \"PartyMonsterBountyOutline\"") or player_source.contains("_get_party_monster_bounty_outline_material") or player_source.contains("func _refresh_party_monster_bounty_outlines"):
 		failures.append("Party Monster bounty marker should not create copied full-body transparent outline meshes")
 	var spring_source := FileAccess.get_file_as_string("res://scripts/spring_arm_offset.gd")

@@ -13,6 +13,24 @@ var slot_uis: Array[InventorySlotUI] = []
 
 signal inventory_closed
 
+
+func _runtime_debug_log(
+	value0: Variant = null,
+	value1: Variant = null,
+	value2: Variant = null,
+	value3: Variant = null,
+	value4: Variant = null,
+	value5: Variant = null
+) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1, value2, value3, value4, value5]:
+		if value != null:
+			output += str(value)
+	print(output)
+
+
 func _ready():
 	slot_ui_scene = preload("res://scenes/ui/inventory_slot_ui.tscn")
 	grid_container.columns = 4
@@ -44,13 +62,13 @@ func update_inventory_display():
 		return
 
 	var player_inventory = current_player.get_inventory()
-	print("Debug: Updating inventory display with ", player_inventory.slots.size(), " slots")
+	_runtime_debug_log("Debug: Updating inventory display with ", player_inventory.slots.size(), " slots")
 	for i in range(slot_uis.size()):
 		if i < PlayerInventory.INVENTORY_SIZE:
 			slot_uis[i].set_slot_data(player_inventory.get_slot(i), i)
 
 func _on_slot_clicked(slot_index: int, button: int):
-	print("Slot ", slot_index, " clicked with button ", button)
+	_runtime_debug_log("Slot ", slot_index, " clicked with button ", button)
 
 	match button:
 		MOUSE_BUTTON_LEFT:
@@ -67,7 +85,7 @@ func _handle_right_click(slot_index: int):
 	if slot and not slot.is_empty():
 		var item = ItemDatabase.get_item(slot.item_id)
 		if item:
-			print("Right clicked on: ", item.name)
+			_runtime_debug_log("Right clicked on: ", item.name)
 			# TODO: Show context menu or perform quick action
 
 func _on_item_hovered(_slot_index: int, item: Item):
@@ -137,7 +155,7 @@ func _get_rarity_string(rarity: Item.ItemRarity) -> String:
 		_: return "Unknown"
 
 func handle_item_drop(from_slot: int, to_slot: int, inventory_type: String):
-	print("Moving item from slot ", from_slot, " to slot ", to_slot)
+	_runtime_debug_log("Moving item from slot ", from_slot, " to slot ", to_slot)
 
 	if inventory_type == "player" and current_player:
 		current_player.request_move_item.rpc_id(1, from_slot, to_slot)
@@ -156,7 +174,7 @@ func close_inventory():
 	visible = false
 
 func refresh_display():
-	print("Debug: InventoryUI refresh_display called")
+	_runtime_debug_log("Debug: InventoryUI refresh_display called")
 	update_inventory_display()
 
 func _input(event):

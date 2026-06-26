@@ -257,6 +257,7 @@ func _run() -> void:
 		battery_flashlight.request_toggle()
 		await get_tree().process_frame
 		_expect(battery_flashlight.is_flashlight_active(), "Hunter flashlight should turn on with F/toggle input")
+		_expect(battery_flashlight.get_pose_sync_interval_for_test() >= 0.10 and battery_flashlight.get_pose_sync_interval_for_test() <= 0.13, "Hunter flashlight pose sync should stay budgeted near 8Hz instead of sending every frame")
 		battery_flashlight._process(4.0)
 		var battery_after_first_burst: float = battery_flashlight.get_battery_remaining()
 		_expect(battery_after_first_burst <= 11.1 and battery_after_first_burst >= 10.9, "Hunter flashlight battery should drain while active")

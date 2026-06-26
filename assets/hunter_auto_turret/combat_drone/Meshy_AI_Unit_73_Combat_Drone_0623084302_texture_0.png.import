@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7pcp8citqdvw"
-path="res://.godot/imported/Meshy_AI_Unit_73_Combat_Drone_0623084302_texture_0.png-11e941c47cc2e827441dca835d92ecf9.ctex"
+path.s3tc="res://.godot/imported/Meshy_AI_Unit_73_Combat_Drone_0623084302_texture_0.png-11e941c47cc2e827441dca835d92ecf9.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8de897ef357392cd71c5e2a5ae05db20"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/hunter_auto_turret/combat_drone/Meshy_AI_Unit_73_Combat_Drone_0623084302_texture_0.png"
-dest_files=["res://.godot/imported/Meshy_AI_Unit_73_Combat_Drone_0623084302_texture_0.png-11e941c47cc2e827441dca835d92ecf9.ctex"]
+dest_files=["res://.godot/imported/Meshy_AI_Unit_73_Combat_Drone_0623084302_texture_0.png-11e941c47cc2e827441dca835d92ecf9.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

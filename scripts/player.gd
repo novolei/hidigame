@@ -69,7 +69,19 @@ const HUNTER_PROP_SENSE_PING_MAX_RINGS := 9
 const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
 const PARTY_MONSTER_BOUNTY_GLOW_RANGE := 5.8
 const PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT := 2.7
+const LOCAL_FEEDBACK_TRANSFORM_INTERVAL := 0.08
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
+const DEATH_DISSOLVE_SECONDS := 2.4
+const DEATH_DISSOLVE_NOISE_SCALE := 1.65
+const DEATH_DISSOLVE_EDGE_WIDTH := 0.055
+const DEAD_FREE_CAM_NORMAL_SPEED := 8.0
+const DEAD_FREE_CAM_SPRINT_SPEED := 18.0
+const DEAD_FREE_CAM_ACCELERATION := 32.0
+const DEAD_FREE_CAM_DECELERATION := 42.0
+const DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR := 0.78
+const DEAD_FREE_CAM_SPRING_LENGTH := 0.25
+const DEAD_FREE_CAM_FOV := 72.0
+const DEATH_DISSOLVE_SHADER := preload("res://shaders/death_dissolve.gdshader")
 const CardDatabase := preload("res://scripts/card_database.gd")
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
@@ -81,6 +93,7 @@ const CAMOUFLAGE_GPU_ATLAS_SIZE := 2048
 const CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT := Vector2i(512, 512)
 const CAMOUFLAGE_GPU_BRUSH_TIME := 0.035
 const CAMOUFLAGE_GPU_MAX_QUEUED_STROKES := 96
+const STALKER_VISIBILITY_SYNC_MIN_DELTA := 0.015
 const ENVIRONMENT_PROP_PAINT_SYNC_SIZE := 512
 const ENVIRONMENT_PROP_PAINT_MAX_SURFACES := 16
 const ENVIRONMENT_PROP_PAINT_MAX_BYTES_PER_SURFACE := 524288
@@ -96,6 +109,12 @@ const SCULPT_MAX_WORLD_RADIUS := 0.46
 const SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS := SCULPT_MAX_WORLD_RADIUS * 1.6
 const SCULPT_DEFAULT_WORLD_RADIUS := 0.22
 const SKIN_PERFORMANCE_ACTIONS := ["dance", "victory"]
+const SKIN_PERFORMANCE_MUSIC_PATHS: PackedStringArray = [
+	"res://assets/audio/performance/performance_victory_folk.mp3",
+	"res://assets/audio/performance/performance_victory_strings.mp3",
+	"res://assets/audio/performance/performance_victory_8bit.mp3",
+]
+const SKIN_PERFORMANCE_MUSIC_VOLUME_DB := -7.0
 const SKIN_PERFORMANCE_CAMERA_RETURN_DELAY := 1.0
 const SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET := 0.0
 const SKIN_PERFORMANCE_CAMERA_PITCH := deg_to_rad(-3.0)
@@ -163,6 +182,11 @@ var _prop_disguise_height_offset := 0.0
 var _prop_death_visual_hidden := false
 var _is_dead := false
 var _death_effect_played := false
+var _dead_free_camera_active := false
+var _death_dissolve_tween: Tween = null
+var _death_dissolve_root: Node3D = null
+var _death_dissolve_material: ShaderMaterial = null
+var _dead_weapon_visual_hidden := false
 var _jump_audio: AudioStreamPlayer3D = null
 var _land_audio: AudioStreamPlayer3D = null
 var _step_audio: AudioStreamPlayer3D = null
@@ -222,6 +246,7 @@ var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
 var _skin_performance_camera_active := false
 var _skin_performance_camera_state: Dictionary = {}
+var _skin_performance_previous_current_camera: Camera3D = null
 var _skin_performance_camera_token := 0
 var _skin_performance_camera_action := ""
 var _skin_performance_input_block_remaining := 0.0
@@ -233,6 +258,7 @@ var _skin_performance_wheel_dance_fill: MeshInstance3D = null
 var _skin_performance_wheel_victory_fill: MeshInstance3D = null
 var _skin_performance_effect_root: Node3D = null
 var _skin_performance_effect_tween: Tween = null
+var _skin_performance_music_player: AudioStreamPlayer = null
 
 signal health_changed(value: float)
 
@@ -260,9 +286,10 @@ func _ready():
 	if Network.player_party_monster_accessories_changed.connect(_on_party_monster_accessories_changed) != OK:
 		pass
 
-	print("Debug: Player ", name, " ready - authority: ", get_multiplayer_authority(),
-		", local client: ", local_client_id, ", is_local: ", is_local_player,
-		", role: ", Network.role_to_string(role))
+	if _should_log_runtime_debug():
+		print("Debug: Player ", name, " ready - authority: ", get_multiplayer_authority(),
+			", local client: ", local_client_id, ", is_local: ", is_local_player,
+			", role: ", Network.role_to_string(role))
 
 	# Hunter 鐜╁:鏈湴绔礋璐ｈ緭鍏?瑙嗚,鏈嶅姟鍣ㄧ璐熻矗鏉冨▉寮硅嵂/鍛戒腑鐘舵€併€?
 	if is_hunter():
@@ -316,11 +343,15 @@ var _stalker_glass_material: ShaderMaterial = null
 var _stalker_glass_material_key := ""
 var _stalker_visual_mode := "normal"
 var _stalker_visual_alpha := -1.0
+var _stalker_synced_visibility_alpha := 1.0
+var _stalker_synced_shadow_level := 0
+var _stalker_synced_blocked_rays := 0
 var _hunter_prop_sense_revealed := false
 var _hunter_prop_sense_visual_active := false
 var _hunter_prop_sense_intensity := 0.0
 var _hunter_prop_sense_beep_interval := 1.0
 var _hunter_prop_sense_beep_timer := 0.0
+var _hunter_prop_sense_feedback_elapsed := LOCAL_FEEDBACK_TRANSFORM_INTERVAL
 var _hunter_prop_sense_outline_material: ShaderMaterial = null
 var _hunter_prop_sense_outline_nodes := {}
 var _hunter_prop_sense_glow_light: OmniLight3D = null
@@ -336,6 +367,7 @@ var _party_monster_bounty_label := ""
 var _party_monster_bounty_outline_nodes := {}
 var _party_monster_bounty_glow_light: OmniLight3D = null
 var _party_monster_bounty_marker_label: Label3D = null
+var _party_monster_bounty_feedback_elapsed := LOCAL_FEEDBACK_TRANSFORM_INTERVAL
 
 func _setup_chameleon_systems() -> void:
 	if not is_chameleon() or not is_multiplayer_authority():
@@ -373,13 +405,15 @@ func _setup_chameleon_systems() -> void:
 		ss.initialize(self)
 		shape_system = ss
 
-	print("[Player] Chameleon systems initialized")
+	if _should_log_runtime_debug():
+		print("[Player] Chameleon systems initialized")
 
 
 func _setup_stalker_systems() -> void:
 	if not is_stalker():
 		return
 
+	var should_compute_visibility := _should_compute_stalker_visibility()
 	if not has_node("ShadowVisibilitySystem"):
 		var system := preload("res://scripts/shadow_visibility_system.gd").new()
 		system.name = "ShadowVisibilitySystem"
@@ -387,9 +421,13 @@ func _setup_stalker_systems() -> void:
 
 	shadow_visibility = get_node_or_null("ShadowVisibilitySystem")
 	if shadow_visibility:
-		shadow_visibility.initialize(self)
-		if not shadow_visibility.visibility_changed.is_connected(_on_stalker_visibility_changed):
-			shadow_visibility.visibility_changed.connect(_on_stalker_visibility_changed)
+		shadow_visibility.set_process(should_compute_visibility)
+		if should_compute_visibility:
+			if not shadow_visibility.visibility_changed.is_connected(_on_stalker_visibility_changed):
+				shadow_visibility.visibility_changed.connect(_on_stalker_visibility_changed)
+			shadow_visibility.initialize(self)
+		elif shadow_visibility.visibility_changed.is_connected(_on_stalker_visibility_changed):
+			shadow_visibility.visibility_changed.disconnect(_on_stalker_visibility_changed)
 	var camera := $SpringArmOffset/SpringArm3D/Camera3D if has_node("SpringArmOffset/SpringArm3D/Camera3D") else null
 	if not has_node("StalkerGrappleSystem"):
 		var grapple := preload("res://scripts/stalker_grapple_system.gd").new()
@@ -413,7 +451,75 @@ func _teardown_stalker_systems() -> void:
 	_stalker_visual_alpha = -1.0
 
 
-func _on_stalker_visibility_changed(_level: int, _alpha: float, _blocked_rays: int) -> void:
+func _should_compute_stalker_visibility() -> bool:
+	if not is_stalker():
+		return false
+	if not _has_active_camouflage_multiplayer_peer():
+		return true
+	if is_multiplayer_authority():
+		return true
+	if multiplayer.is_server():
+		var owner_id := get_multiplayer_authority()
+		# Local scene tests can simulate a remote owner without connecting that peer.
+		if owner_id != 1 and not multiplayer.get_peers().has(owner_id):
+			return true
+	return false
+
+
+func _get_effective_stalker_visibility_alpha() -> float:
+	if _should_compute_stalker_visibility() and shadow_visibility and shadow_visibility.has_method("get_visibility_alpha"):
+		return clampf(float(shadow_visibility.get_visibility_alpha()), 0.0, 1.0)
+	return clampf(_stalker_synced_visibility_alpha, 0.0, 1.0)
+
+
+func _on_stalker_visibility_changed(level: int, alpha: float, blocked_rays: int) -> void:
+	var clean_alpha := clampf(alpha, 0.0, 1.0)
+	var clean_level := clampi(level, 0, 3)
+	var clean_blocked_rays := clampi(blocked_rays, 0, 16)
+	if absf(clean_alpha - _stalker_synced_visibility_alpha) > STALKER_VISIBILITY_SYNC_MIN_DELTA or clean_level != _stalker_synced_shadow_level or clean_blocked_rays != _stalker_synced_blocked_rays:
+		_stalker_synced_visibility_alpha = clean_alpha
+		_stalker_synced_shadow_level = clean_level
+		_stalker_synced_blocked_rays = clean_blocked_rays
+		_publish_stalker_visibility_state(clean_level, clean_alpha, clean_blocked_rays)
+	_refresh_stalker_visibility_view(true)
+
+
+func _publish_stalker_visibility_state(level: int, alpha: float, blocked_rays: int) -> void:
+	if not _should_compute_stalker_visibility():
+		return
+	if not _has_active_camouflage_multiplayer_peer():
+		return
+	if multiplayer.is_server():
+		_apply_stalker_visibility_state.rpc(get_multiplayer_authority(), level, alpha, blocked_rays)
+	else:
+		_request_stalker_visibility_state.rpc_id(1, level, alpha, blocked_rays)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _request_stalker_visibility_state(level: int, alpha: float, blocked_rays: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if not is_stalker():
+		return
+	_apply_stalker_visibility_state.rpc(get_multiplayer_authority(), clampi(level, 0, 3), clampf(alpha, 0.0, 1.0), clampi(blocked_rays, 0, 16))
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _apply_stalker_visibility_state(peer_id: int, level: int, alpha: float, blocked_rays: int) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if multiplayer.is_server():
+		if sender != 0:
+			return
+	elif sender != 0 and sender != 1:
+		return
+	if peer_id != get_multiplayer_authority() or not is_stalker():
+		return
+	_stalker_synced_visibility_alpha = clampf(alpha, 0.0, 1.0)
+	_stalker_synced_shadow_level = clampi(level, 0, 3)
+	_stalker_synced_blocked_rays = clampi(blocked_rays, 0, 16)
 	_refresh_stalker_visibility_view(true)
 
 
@@ -421,15 +527,17 @@ func get_stalker_visual_mode() -> String:
 	return _stalker_visual_mode
 
 
+func get_stalker_visibility_alpha() -> float:
+	return _get_effective_stalker_visibility_alpha()
+
+
 func _refresh_stalker_visibility_view(force: bool = false) -> void:
 	if not is_stalker():
 		return
 	if not shadow_visibility:
 		shadow_visibility = get_node_or_null("ShadowVisibilitySystem")
-		if not shadow_visibility:
-			return
 
-	var shadow_alpha: float = float(shadow_visibility.get_visibility_alpha())
+	var shadow_alpha: float = _get_effective_stalker_visibility_alpha()
 	var next_mode := _get_stalker_visual_mode_for_viewer(shadow_alpha)
 	var next_material: Material = null
 	match next_mode:
@@ -671,8 +779,8 @@ func _should_show_nickname_for_local_viewer(stalker_shadow_alpha: float = -1.0) 
 		return false
 	if role == Network.Role.STALKER and viewer_role == Network.Role.HUNTER:
 		var effective_shadow_alpha := stalker_shadow_alpha
-		if effective_shadow_alpha < 0.0 and shadow_visibility and shadow_visibility.has_method("get_visibility_alpha"):
-			effective_shadow_alpha = float(shadow_visibility.get_visibility_alpha())
+		if effective_shadow_alpha < 0.0:
+			effective_shadow_alpha = _get_effective_stalker_visibility_alpha()
 		return effective_shadow_alpha >= 0.99
 	return true
 
@@ -1051,6 +1159,9 @@ func _on_ammo_changed(current_magazine: int, total_ammo: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
+	if _is_dead:
+		_handle_dead_spectator_input(event)
+		return
 	if event.is_action_pressed(UNSTUCK_ACTION):
 		_request_unstuck()
 		get_viewport().set_input_as_handled()
@@ -1073,6 +1184,26 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if is_stalker():
 		_handle_stalker_input(event)
+
+
+func _handle_dead_spectator_input(event: InputEvent) -> void:
+	var blocked_actions := [
+		UNSTUCK_ACTION,
+		HOLOGRAM_FLAG_ACTION,
+		"shoot",
+		"reload",
+		"paint_trigger",
+		"flashlight",
+		"camouflage_absorb",
+		"shape_shift",
+		"stalker_grapple"
+	]
+	for action in blocked_actions:
+		if not InputMap.has_action(action):
+			continue
+		if event.is_action_pressed(action) or event.is_action_released(action):
+			get_viewport().set_input_as_handled()
+			return
 
 
 func _handle_hunter_input(event: InputEvent) -> void:
@@ -1232,6 +1363,8 @@ func _process_input_held():
 	# 鍦?_process 涓寔缁娴?shoot / paint 鎸変綇鐘舵€?
 	if not is_multiplayer_authority():
 		return
+	if _is_dead:
+		return
 	if match_intro_locked:
 		return
 
@@ -1294,7 +1427,8 @@ func _on_role_changed(peer_id: int, new_role: int) -> void:
 		role = new_role
 		_sync_character_model_from_network()
 		_sync_party_monster_accessories_from_network()
-		print("[Player ", name, "] Role updated to ", Network.role_to_string(new_role))
+		if _should_log_runtime_debug():
+			print("[Player ", name, "] Role updated to ", Network.role_to_string(new_role))
 		if new_role != Network.Role.STALKER and shadow_visibility:
 			_teardown_stalker_systems()
 		if new_role != Network.Role.HUNTER and hunter_flashlight_system:
@@ -1435,6 +1569,11 @@ func _force_skeleton_update_recursive(node: Node) -> void:
 func _physics_process(delta):
 	if not is_multiplayer_authority(): return
 
+	if _is_dead:
+		_process_dead_free_camera(delta)
+		move_and_slide()
+		return
+
 	if match_intro_locked:
 		velocity = Vector3.ZERO
 		_current_speed = 0.0
@@ -1504,11 +1643,17 @@ func _physics_process(delta):
 
 func _process(delta):
 	_process_card_effects(delta)
-	_process_camouflage_gpu_painter(delta)
+	if _should_run_camouflage_gpu_painter():
+		_process_camouflage_gpu_painter(delta)
+	else:
+		_clear_camouflage_gpu_runtime_work()
 	if _skin_performance_input_block_remaining > 0.0:
 		_skin_performance_input_block_remaining = maxf(0.0, _skin_performance_input_block_remaining - delta)
 	if is_stalker():
-		_refresh_stalker_visibility_view(false)
+		if is_multiplayer_authority():
+			_refresh_stalker_visibility_view(false)
+		else:
+			_refresh_nickname_visibility(_stalker_synced_visibility_alpha)
 	else:
 		_refresh_nickname_visibility()
 	_process_party_monster_bounty_feedback(delta)
@@ -1586,6 +1731,94 @@ func _process_sculpt_free_fly(delta: float) -> void:
 	var acceleration := SCULPT_FREE_FLY_ACCELERATION if direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE else SCULPT_FREE_FLY_DECELERATION
 	velocity = velocity.move_toward(target_velocity, acceleration * delta)
 	_current_speed = velocity.length()
+
+
+func _process_dead_free_camera(delta: float) -> void:
+	_ensure_dead_free_spectator()
+	var input_direction: Vector2 = Input.get_vector(
+		"move_left", "move_right",
+		"move_forward", "move_backward"
+	)
+	var camera_basis: Basis = _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
+	var forward: Vector3 = -camera_basis.z.normalized()
+	var right: Vector3 = camera_basis.x.normalized()
+	var direction: Vector3 = right * input_direction.x + forward * -input_direction.y
+	if Input.is_action_pressed("jump"):
+		direction += Vector3.UP * DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR
+	if Input.is_physical_key_pressed(KEY_CTRL):
+		direction -= Vector3.UP * DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR
+	if direction.length_squared() > 1.0:
+		direction = direction.normalized()
+	var speed: float = DEAD_FREE_CAM_SPRINT_SPEED if Input.is_action_pressed("shift") else DEAD_FREE_CAM_NORMAL_SPEED
+	var target_velocity: Vector3 = direction * speed
+	var has_input: bool = direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE
+	var acceleration: float = DEAD_FREE_CAM_ACCELERATION if has_input else DEAD_FREE_CAM_DECELERATION
+	velocity = velocity.move_toward(target_velocity, acceleration * delta)
+	_current_speed = velocity.length()
+
+
+func _ensure_dead_free_spectator() -> void:
+	if _dead_free_camera_active:
+		return
+	_dead_free_camera_active = true
+	_set_dead_collision_enabled(false)
+	_hide_dead_tool_visuals()
+	_reset_skin_performance_wheel_bar()
+	_restore_skin_performance_camera_now()
+	can_double_jump = false
+	has_double_jumped = true
+	velocity = Vector3.ZERO
+	_current_speed = 0.0
+	if _spring_arm_offset and _spring_arm_offset.has_method("set_camera_rig_pose"):
+		var current_yaw: float = _spring_arm_offset.rotation.y
+		var spring_arm := _spring_arm_offset.get_node_or_null("SpringArm3D") as SpringArm3D
+		var current_pitch: float = spring_arm.rotation.x if spring_arm else deg_to_rad(-6.0)
+		_spring_arm_offset.call("set_camera_rig_pose", current_yaw, current_pitch, DEAD_FREE_CAM_SPRING_LENGTH, DEAD_FREE_CAM_FOV, true)
+	var camera := get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+	if camera:
+		camera.current = true
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _exit_dead_free_spectator() -> void:
+	_dead_free_camera_active = false
+	_set_dead_collision_enabled(true)
+	_restore_dead_tool_visuals()
+	can_double_jump = true
+	has_double_jumped = false
+	velocity = Vector3.ZERO
+	_current_speed = 0.0
+
+
+func _set_dead_collision_enabled(enabled: bool) -> void:
+	if _collision_shape and is_instance_valid(_collision_shape):
+		_collision_shape.set_deferred("disabled", not enabled)
+		_collision_shape.disabled = not enabled
+
+
+func _hide_dead_tool_visuals() -> void:
+	var weapon_visual := get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D/WeaponVisual") as Node3D
+	if weapon_visual and weapon_visual.visible:
+		weapon_visual.visible = false
+		_dead_weapon_visual_hidden = true
+	if hunter_flashlight_system and is_instance_valid(hunter_flashlight_system):
+		if hunter_flashlight_system.has_method("_apply_flashlight_state"):
+			hunter_flashlight_system.call("_apply_flashlight_state", false, 0.0, 0.0)
+	var wheel := _get_shape_wheel()
+	if wheel and wheel.visible:
+		wheel.hide_wheel()
+	if camouflage_system and camouflage_system.has_method("is_brush_mode") and camouflage_system.call("is_brush_mode"):
+		if camouflage_system.has_method("toggle_skill"):
+			camouflage_system.call("toggle_skill")
+	_camouflage_brush_locked = false
+
+
+func _restore_dead_tool_visuals() -> void:
+	var weapon_visual := get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D/WeaponVisual") as Node3D
+	if weapon_visual and _dead_weapon_visual_hidden and is_hunter():
+		weapon_visual.visible = true
+	_dead_weapon_visual_hidden = false
 
 
 func _apply_prop_collision_impacts(impact_velocity: Vector3) -> bool:
@@ -1759,6 +1992,9 @@ func _safe_position_has_overhead_clearance(candidate: Vector3) -> bool:
 
 
 func apply_card_effect(card_id: String) -> void:
+	if _is_dead:
+		_card_feedback_to_owner("SPECTATING", Color(0.72, 0.86, 1.0, 1.0), 0.55)
+		return
 	var card := CardDatabase.get_card(card_id)
 	var duration := float(card.get("duration", 0.0))
 	match card_id:
@@ -2830,6 +3066,8 @@ func _has_active_camouflage_multiplayer_peer() -> bool:
 	var peer := multiplayer.multiplayer_peer
 	if peer == null:
 		return false
+	if peer is OfflineMultiplayerPeer:
+		return false
 	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
 
@@ -3251,7 +3489,25 @@ func _apply_camouflage_material_scalars(roughness: float, metallic: float, specu
 	_configure_camouflage_gpu_overlay_materials()
 
 
+func _should_run_camouflage_gpu_painter() -> bool:
+	if not is_multiplayer_authority():
+		return false
+	if DisplayServer.get_name() == "headless":
+		return false
+	return true
+
+
+func _clear_camouflage_gpu_runtime_work() -> void:
+	if not _camouflage_gpu_stroke_queue.is_empty():
+		_camouflage_gpu_stroke_queue.clear()
+	_camouflage_gpu_draw_timer = 0.0
+	if _camouflage_gpu_camera_brush and is_instance_valid(_camouflage_gpu_camera_brush):
+		_camouflage_gpu_camera_brush.set("drawing", false)
+
+
 func _ensure_camouflage_gpu_painter() -> bool:
+	if not _should_run_camouflage_gpu_painter():
+		return false
 	if _camouflage_gpu_unavailable:
 		return false
 	if _camouflage_gpu_atlas_manager and is_instance_valid(_camouflage_gpu_atlas_manager) and _camouflage_gpu_camera_brush and is_instance_valid(_camouflage_gpu_camera_brush):
@@ -3373,6 +3629,8 @@ func _mesh_has_uv2(mesh: Mesh) -> bool:
 
 
 func _configure_camouflage_gpu_overlay_materials() -> void:
+	if not _should_run_camouflage_gpu_painter():
+		return
 	var meshes: Array[MeshInstance3D] = []
 	_collect_camouflage_meshes(meshes)
 	for mesh_instance in meshes:
@@ -3408,6 +3666,8 @@ func _queue_camouflage_gpu_brush_strokes(
 
 
 func _queue_camouflage_gpu_brush_stroke(world_position: Vector3, world_normal: Vector3, color: Color, brush_radius: float) -> void:
+	if not _should_run_camouflage_gpu_painter():
+		return
 	if _camouflage_gpu_unavailable:
 		return
 	var normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
@@ -3427,6 +3687,9 @@ func _queue_camouflage_gpu_brush_stroke(world_position: Vector3, world_normal: V
 
 
 func _process_camouflage_gpu_painter(delta: float) -> void:
+	if not _should_run_camouflage_gpu_painter():
+		_clear_camouflage_gpu_runtime_work()
+		return
 	if _camouflage_gpu_draw_timer > 0.0:
 		_camouflage_gpu_draw_timer = maxf(0.0, _camouflage_gpu_draw_timer - delta)
 		if _camouflage_gpu_draw_timer <= 0.0 and _camouflage_gpu_camera_brush and is_instance_valid(_camouflage_gpu_camera_brush):
@@ -3696,10 +3959,23 @@ func set_party_monster_bounty_marked(marked: bool, accessory_ids: Array = [], la
 	_refresh_nickname_visibility()
 	if is_stalker():
 		_refresh_stalker_visibility_view(true)
+	_refresh_party_monster_accessory_pickup_beacons()
 
 
 func is_party_monster_bounty_marked() -> bool:
 	return _party_monster_bounty_marked
+
+
+func _refresh_party_monster_accessory_pickup_beacons() -> void:
+	if not is_inside_tree():
+		return
+	var tree := get_tree()
+	if tree:
+		tree.call_group("party_monster_accessory_pickups", "refresh_bounty_beacon_visibility")
+
+
+func get_party_monster_bounty_accessory_ids() -> Array:
+	return _party_monster_bounty_accessory_ids.duplicate()
 
 
 func get_party_monster_bounty_outline_count() -> int:
@@ -3744,7 +4020,8 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 	_snap_prop_disguise_to_floor()
 	_play_prop_disguise_land_animation(effective_preset)
 	_play_audio(_disguise_audio)
-	print("[ShapeShift] ", name, " disguised as ", _current_disguise_name)
+	if _should_log_runtime_debug():
+		print("[ShapeShift] ", name, " disguised as ", _current_disguise_name)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -3759,7 +4036,8 @@ func clear_prop_disguise() -> void:
 	_prop_disguise_base_position = Vector3.ZERO
 	_prop_disguise_height_offset = 0.0
 	_restore_default_collision_shape()
-	print("[ShapeShift] ", name, " cleared disguise")
+	if _should_log_runtime_debug():
+		print("[ShapeShift] ", name, " cleared disguise")
 
 
 func is_disguised() -> bool:
@@ -3784,12 +4062,18 @@ func set_hunter_prop_sense_revealed(revealed: bool, intensity: float = 1.0, beep
 		_clear_hunter_prop_sense_feedback()
 		return
 	var was_revealed := _hunter_prop_sense_revealed
+	var was_visual_active := _hunter_prop_sense_visual_active
 	_hunter_prop_sense_revealed = true
 	_hunter_prop_sense_visual_active = visual_active
 	_hunter_prop_sense_intensity = clampf(intensity, 0.0, 1.0)
 	_hunter_prop_sense_beep_interval = clampf(beep_interval, 0.24, 2.1)
-	_ensure_hunter_prop_sense_feedback()
-	_update_hunter_prop_sense_feedback_transform()
+	if not _should_render_local_feedback():
+		_clear_hunter_prop_sense_visual_feedback()
+		return
+	if not was_revealed or was_visual_active != visual_active or not _has_hunter_prop_sense_feedback():
+		_ensure_hunter_prop_sense_feedback()
+		_update_hunter_prop_sense_feedback_transform()
+		_hunter_prop_sense_feedback_elapsed = 0.0
 	if not was_revealed and not _hunter_prop_sense_ping_spawned:
 		_spawn_hunter_prop_sense_ping_marker()
 
@@ -4054,19 +4338,38 @@ func _clear_prop_disguise_node() -> void:
 	_prop_disguise_node = null
 
 
-func _process_party_monster_bounty_feedback(_delta: float) -> void:
+func _process_party_monster_bounty_feedback(delta: float) -> void:
 	if not _party_monster_bounty_marked:
 		return
 	if not _is_prop_role() or not _is_network_marked_alive():
 		_party_monster_bounty_marked = false
 		_clear_party_monster_bounty_visuals()
 		return
-	_ensure_party_monster_bounty_visuals()
+	if not _should_render_local_feedback():
+		_clear_party_monster_bounty_visuals()
+		return
+	if not _has_party_monster_bounty_visuals():
+		_ensure_party_monster_bounty_visuals()
+		_update_party_monster_bounty_feedback_transform()
+		_party_monster_bounty_feedback_elapsed = 0.0
+		return
+	_party_monster_bounty_feedback_elapsed += delta
+	if _party_monster_bounty_feedback_elapsed < LOCAL_FEEDBACK_TRANSFORM_INTERVAL:
+		return
+	_party_monster_bounty_feedback_elapsed = 0.0
 	_update_party_monster_bounty_feedback_transform()
 
 
+func _has_party_monster_bounty_visuals() -> bool:
+	return _party_monster_bounty_glow_light != null and is_instance_valid(_party_monster_bounty_glow_light) and _party_monster_bounty_marker_label != null and is_instance_valid(_party_monster_bounty_marker_label)
+
+
 func _ensure_party_monster_bounty_visuals() -> void:
-	_clear_party_monster_bounty_outlines()
+	if not _should_render_local_feedback():
+		_clear_party_monster_bounty_visuals()
+		return
+	if not _party_monster_bounty_outline_nodes.is_empty():
+		_clear_party_monster_bounty_outlines()
 	if not _party_monster_bounty_glow_light or not is_instance_valid(_party_monster_bounty_glow_light):
 		_party_monster_bounty_glow_light = OmniLight3D.new()
 		_party_monster_bounty_glow_light.name = "PartyMonsterBountyGlow"
@@ -4092,6 +4395,9 @@ func _ensure_party_monster_bounty_visuals() -> void:
 
 func _refresh_party_monster_bounty_visuals() -> void:
 	if not _party_monster_bounty_marked:
+		_clear_party_monster_bounty_visuals()
+		return
+	if not _should_render_local_feedback():
 		_clear_party_monster_bounty_visuals()
 		return
 	_ensure_party_monster_bounty_visuals()
@@ -4174,7 +4480,17 @@ func _clear_party_monster_bounty_visuals() -> void:
 	_party_monster_bounty_marker_label = null
 
 
+func _has_hunter_prop_sense_feedback() -> bool:
+	var has_audio := _hunter_prop_sense_audio != null and is_instance_valid(_hunter_prop_sense_audio)
+	if not _hunter_prop_sense_visual_active:
+		return has_audio
+	return has_audio and _hunter_prop_sense_glow_light != null and is_instance_valid(_hunter_prop_sense_glow_light)
+
+
 func _ensure_hunter_prop_sense_feedback() -> void:
+	if not _should_render_local_feedback():
+		_clear_hunter_prop_sense_runtime_feedback_nodes()
+		return
 	if not _hunter_prop_sense_audio or not is_instance_valid(_hunter_prop_sense_audio):
 		_hunter_prop_sense_audio = AudioStreamPlayer3D.new()
 		_hunter_prop_sense_audio.name = "HunterPropSenseBeepAudio"
@@ -4244,7 +4560,18 @@ func _process_hunter_prop_sense_feedback(delta: float) -> void:
 	if not _is_prop_disguised or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
 		_clear_hunter_prop_sense_feedback()
 		return
-	_update_hunter_prop_sense_feedback_transform()
+	if not _should_render_local_feedback():
+		_clear_hunter_prop_sense_visual_feedback()
+		return
+	if not _has_hunter_prop_sense_feedback():
+		_ensure_hunter_prop_sense_feedback()
+		_update_hunter_prop_sense_feedback_transform()
+		_hunter_prop_sense_feedback_elapsed = 0.0
+	else:
+		_hunter_prop_sense_feedback_elapsed += delta
+		if _hunter_prop_sense_feedback_elapsed >= LOCAL_FEEDBACK_TRANSFORM_INTERVAL:
+			_hunter_prop_sense_feedback_elapsed = 0.0
+			_update_hunter_prop_sense_feedback_transform()
 	_hunter_prop_sense_beep_timer -= delta
 	if _hunter_prop_sense_beep_timer <= 0.0:
 		_play_hunter_prop_sense_beep()
@@ -4270,23 +4597,27 @@ func _play_hunter_prop_sense_beep() -> void:
 	_hunter_prop_sense_audio.play()
 
 
-func _clear_hunter_prop_sense_feedback() -> void:
-	_hunter_prop_sense_revealed = false
-	_hunter_prop_sense_visual_active = false
-	_hunter_prop_sense_intensity = 0.0
-	_hunter_prop_sense_beep_timer = 0.0
-	_hunter_prop_sense_ping_spawned = false
+func _clear_hunter_prop_sense_runtime_feedback_nodes() -> void:
 	if _hunter_prop_sense_ping_tween and _hunter_prop_sense_ping_tween.is_valid():
 		_hunter_prop_sense_ping_tween.kill()
 	_hunter_prop_sense_ping_tween = null
 	if _hunter_prop_sense_ping_marker and is_instance_valid(_hunter_prop_sense_ping_marker):
 		_hunter_prop_sense_ping_marker.queue_free()
 	_hunter_prop_sense_ping_marker = null
+	_hunter_prop_sense_ping_spawned = false
 	_clear_hunter_prop_sense_visual_feedback()
 	if _hunter_prop_sense_audio and is_instance_valid(_hunter_prop_sense_audio):
 		_hunter_prop_sense_audio.stop()
 		_hunter_prop_sense_audio.queue_free()
 	_hunter_prop_sense_audio = null
+
+
+func _clear_hunter_prop_sense_feedback() -> void:
+	_hunter_prop_sense_revealed = false
+	_hunter_prop_sense_visual_active = false
+	_hunter_prop_sense_intensity = 0.0
+	_hunter_prop_sense_beep_timer = 0.0
+	_clear_hunter_prop_sense_runtime_feedback_nodes()
 
 
 func _spawn_hunter_prop_sense_ping_marker() -> void:
@@ -4824,7 +5155,24 @@ func _play_body_jump(jump_type: String = "Jump") -> void:
 		_body.play_jump_animation(jump_type)
 
 
+func _is_dedicated_public_server_runtime() -> bool:
+	var multiplayer_api: MultiplayerAPI = multiplayer
+	if multiplayer_api == null:
+		return false
+	return DisplayServer.get_name() == "headless" and multiplayer_api.multiplayer_peer != null and multiplayer_api.is_server() and bool(Network.lobby_config.get("public_server", false))
+
+
+func _should_render_local_feedback() -> bool:
+	return not _is_dedicated_public_server_runtime()
+
+
+func _should_log_runtime_debug() -> bool:
+	return GameSettings.should_log_runtime_debug()
+
+
 func _setup_player_audio() -> void:
+	if _is_dedicated_public_server_runtime():
+		return
 	_jump_audio = _make_audio_player("JumpAudio", "res://assets/audio/player/robot_jump.wav", -7.0)
 	_land_audio = _make_audio_player("LandAudio", "res://assets/audio/player/robot_land.wav", -5.0)
 	_step_audio = _make_audio_player("StepAudio", "", -12.0)
@@ -4914,6 +5262,43 @@ func _play_audio(player: AudioStreamPlayer3D, pitch_min: float = 0.94, pitch_max
 	player.play()
 
 
+func _ensure_skin_performance_music_player() -> void:
+	if _is_dedicated_public_server_runtime():
+		return
+	if _skin_performance_music_player and is_instance_valid(_skin_performance_music_player):
+		return
+	var player := AudioStreamPlayer.new()
+	player.name = "SkinPerformanceMusicAudio"
+	player.volume_db = SKIN_PERFORMANCE_MUSIC_VOLUME_DB
+	player.bus = &"Master"
+	player.max_polyphony = 1
+	add_child(player)
+	_skin_performance_music_player = player
+
+
+func _play_skin_performance_music() -> void:
+	if _is_dedicated_public_server_runtime():
+		return
+	if SKIN_PERFORMANCE_MUSIC_PATHS.is_empty():
+		return
+	_ensure_skin_performance_music_player()
+	if not _skin_performance_music_player or not is_instance_valid(_skin_performance_music_player):
+		return
+	var stream_path := String(SKIN_PERFORMANCE_MUSIC_PATHS[randi() % SKIN_PERFORMANCE_MUSIC_PATHS.size()])
+	var stream := load(stream_path)
+	if not (stream is AudioStream):
+		return
+	_skin_performance_music_player.stop()
+	_skin_performance_music_player.stream = stream
+	_skin_performance_music_player.pitch_scale = randf_range(0.99, 1.01)
+	_skin_performance_music_player.play()
+
+
+func _stop_skin_performance_music() -> void:
+	if _skin_performance_music_player and is_instance_valid(_skin_performance_music_player):
+		_skin_performance_music_player.stop()
+
+
 func play_skin_action(action: String) -> void:
 	_play_skin_action(action)
 
@@ -4948,7 +5333,67 @@ func _push_skin_performance_wheel_bar(action: String) -> void:
 	if _skin_performance_wheel_dance_charge >= 1.0 or _skin_performance_wheel_victory_charge >= 1.0:
 		var selected_action := "dance" if _skin_performance_wheel_dance_charge >= _skin_performance_wheel_victory_charge else "victory"
 		_reset_skin_performance_wheel_bar()
-		_play_skin_action(selected_action)
+		_submit_skin_performance_action(selected_action)
+
+
+func _normalize_skin_performance_action(action: String) -> String:
+	var normalized := action.strip_edges().to_lower()
+	return normalized if SKIN_PERFORMANCE_ACTIONS.has(normalized) else ""
+
+
+func _has_active_skin_performance_peer() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null:
+		return false
+	if peer is OfflineMultiplayerPeer:
+		return false
+	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
+
+
+func _submit_skin_performance_action(action: String) -> void:
+	var normalized := _normalize_skin_performance_action(action)
+	if normalized.is_empty():
+		return
+	if not _has_active_skin_performance_peer():
+		_apply_skin_performance_action_rpc(normalized)
+	elif multiplayer.is_server():
+		_apply_skin_performance_action_rpc.rpc(normalized)
+	else:
+		_request_skin_performance_action_rpc.rpc_id(1, normalized)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_skin_performance_action_rpc(action: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		push_warning("Client " + str(sender) + " tried to perform for player " + str(get_multiplayer_authority()))
+		return
+	var normalized := _normalize_skin_performance_action(action)
+	if normalized.is_empty():
+		return
+	if _is_dead or _is_prop_disguised:
+		return
+	_apply_skin_performance_action_rpc.rpc(normalized)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _apply_skin_performance_action_rpc(action: String) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	var normalized := _normalize_skin_performance_action(action)
+	if normalized.is_empty():
+		return
+	if _is_dead or _is_prop_disguised:
+		return
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	if _active_skin_node.has_method("has_action") and not bool(_active_skin_node.call("has_action", normalized)):
+		return
+	_reset_skin_performance_wheel_bar()
+	_play_skin_action(normalized)
 
 
 func _process_skin_performance_wheel_bar(delta: float) -> void:
@@ -5110,22 +5555,37 @@ func _get_skin_performance_front_camera_yaw() -> float:
 	return wrapf(visual_yaw + SKIN_PERFORMANCE_CAMERA_FRONT_YAW_OFFSET, -PI, PI)
 
 
+func _get_skin_performance_camera() -> Camera3D:
+	if _spring_arm_offset and is_instance_valid(_spring_arm_offset):
+		return _spring_arm_offset.get_node_or_null("SpringArm3D/Camera3D") as Camera3D
+	return get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+
+
 func _begin_skin_performance_camera(action: String) -> void:
-	if not is_multiplayer_authority() or not _spring_arm_offset:
+	if not _should_render_local_feedback():
+		_reset_skin_performance_wheel_bar()
+		_stop_skin_performance_music()
+		return
+	if not _spring_arm_offset:
 		return
 	if not _spring_arm_offset.has_method("capture_camera_rig_state") or not _spring_arm_offset.has_method("set_camera_rig_pose"):
 		return
+	var performance_camera := _get_skin_performance_camera()
 	_skin_performance_camera_token += 1
 	_reset_skin_performance_wheel_bar()
 	_skin_performance_camera_action = action
 	if not _skin_performance_camera_active:
 		_skin_performance_camera_state = _spring_arm_offset.call("capture_camera_rig_state") as Dictionary
+		_skin_performance_previous_current_camera = get_viewport().get_camera_3d()
 	_skin_performance_camera_active = true
 	if _spring_arm_offset.has_method("set_camera_input_locked"):
 		_spring_arm_offset.call("set_camera_input_locked", true)
 	var performance_yaw := _get_skin_performance_front_camera_yaw()
 	_spring_arm_offset.call("set_camera_rig_pose", performance_yaw, SKIN_PERFORMANCE_CAMERA_PITCH, SKIN_PERFORMANCE_CAMERA_SPRING_LENGTH, SKIN_PERFORMANCE_CAMERA_FOV, true)
+	if performance_camera and is_instance_valid(performance_camera):
+		performance_camera.current = true
 	_start_skin_performance_effects()
+	_play_skin_performance_music()
 	var animation_length := _get_active_skin_current_animation_length()
 	var fallback_delay := maxf(animation_length, 1.0) + SKIN_PERFORMANCE_CAMERA_RETURN_DELAY
 	_restore_skin_performance_camera_after_delay(_skin_performance_camera_token, fallback_delay)
@@ -5148,6 +5608,7 @@ func _on_active_skin_action_finished(action_name: String, _clip_name: String) ->
 func _restore_skin_performance_camera_now() -> void:
 	if not _skin_performance_camera_active:
 		_clear_skin_performance_effects()
+		_skin_performance_previous_current_camera = null
 		return
 	_skin_performance_camera_token += 1
 	_clear_skin_performance_effects()
@@ -5155,6 +5616,7 @@ func _restore_skin_performance_camera_now() -> void:
 		_spring_arm_offset.call("apply_camera_rig_state", _skin_performance_camera_state, true)
 		if _spring_arm_offset.has_method("set_camera_input_locked"):
 			_spring_arm_offset.call("set_camera_input_locked", false)
+	_restore_skin_performance_view_camera()
 	_skin_performance_camera_state = {}
 	_skin_performance_camera_action = ""
 	_skin_performance_camera_active = false
@@ -5168,10 +5630,22 @@ func _restore_skin_performance_camera_after_delay(token: int, delay: float) -> v
 		_spring_arm_offset.call("apply_camera_rig_state", _skin_performance_camera_state, false)
 		if _spring_arm_offset.has_method("set_camera_input_locked"):
 			_spring_arm_offset.call("set_camera_input_locked", false)
+	_restore_skin_performance_view_camera()
 	_skin_performance_camera_state = {}
 	_skin_performance_camera_action = ""
 	_skin_performance_camera_active = false
 	_clear_skin_performance_effects()
+
+
+func _restore_skin_performance_view_camera() -> void:
+	var performance_camera := _get_skin_performance_camera()
+	var current_camera := get_viewport().get_camera_3d()
+	if performance_camera and is_instance_valid(performance_camera) and current_camera == performance_camera:
+		if _skin_performance_previous_current_camera and is_instance_valid(_skin_performance_previous_current_camera) and _skin_performance_previous_current_camera != performance_camera:
+			_skin_performance_previous_current_camera.current = true
+		elif not is_multiplayer_authority():
+			performance_camera.current = false
+	_skin_performance_previous_current_camera = null
 
 
 func _start_skin_performance_effects() -> void:
@@ -5248,6 +5722,7 @@ func _start_skin_performance_effects() -> void:
 
 
 func _clear_skin_performance_effects() -> void:
+	_stop_skin_performance_music()
 	if _skin_performance_effect_tween and _skin_performance_effect_tween.is_valid():
 		_skin_performance_effect_tween.kill()
 	_skin_performance_effect_tween = null
@@ -5260,6 +5735,8 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	if not _active_skin_node or not is_instance_valid(_active_skin_node):
 		return
 	if delta <= 0.0:
+		return
+	if _skin_performance_camera_active:
 		return
 	if not _remote_visual_position_initialized:
 		_remote_visual_position = global_position
@@ -5276,6 +5753,7 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 		_play_skin_action("fall")
 	elif horizontal_speed_sq > 0.04:
 		_remote_visual_move_hold = 0.18
+		_apply_body_rotation(Vector3(visual_velocity.x, 0.0, visual_velocity.z))
 		if _active_skin_node.has_method("set_walk_run_blending"):
 			_active_skin_node.call("set_walk_run_blending", 1.0 if horizontal_speed_sq > 36.0 else 0.25)
 		_play_skin_action("move")
@@ -5295,7 +5773,8 @@ func set_mesh_texture(mesh_instance: MeshInstance3D, texture: Texture2D) -> void
 # Inventory Network Functions - Server authoritative, client-specific
 @rpc("any_peer", "call_local", "reliable")
 func request_inventory_sync():
-	print("Debug: request_inventory_sync called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
+	if _should_log_runtime_debug():
+		print("Debug: request_inventory_sync called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
 	if not multiplayer.is_server():
 		return
@@ -5310,7 +5789,8 @@ func request_inventory_sync():
 
 @rpc("any_peer", "call_local", "reliable")
 func sync_inventory_to_owner(inventory_data: Dictionary):
-	print("Debug: sync_inventory_to_owner called on player ", name, " (authority: ", get_multiplayer_authority(), ") - local unique id: ", multiplayer.get_unique_id(), " from: ", multiplayer.get_remote_sender_id())
+	if _should_log_runtime_debug():
+		print("Debug: sync_inventory_to_owner called on player ", name, " (authority: ", get_multiplayer_authority(), ") - local unique id: ", multiplayer.get_unique_id(), " from: ", multiplayer.get_remote_sender_id())
 
 	if multiplayer.get_remote_sender_id() != 1:
 		return
@@ -5325,20 +5805,24 @@ func sync_inventory_to_owner(inventory_data: Dictionary):
 	var level_scene = get_tree().get_current_scene()
 	if level_scene:
 		if is_multiplayer_authority() or get_multiplayer_authority() == multiplayer.get_unique_id():
-			print("Debug: This is the local player, updating UI")
+			if _should_log_runtime_debug():
+				print("Debug: This is the local player, updating UI")
 			if level_scene.has_method("update_local_inventory_display"):
 				level_scene.update_local_inventory_display()
 			if level_scene.has_node("InventoryUI"):
 				var inventory_ui = level_scene.get_node("InventoryUI")
 				if inventory_ui.visible and inventory_ui.has_method("refresh_display"):
-					print("Debug: Calling refresh_display directly on InventoryUI")
+					if _should_log_runtime_debug():
+						print("Debug: Calling refresh_display directly on InventoryUI")
 					inventory_ui.refresh_display()
 		else:
-			print("Debug: Not the local player, skipping UI update")
+			if _should_log_runtime_debug():
+				print("Debug: Not the local player, skipping UI update")
 
 @rpc("any_peer", "call_local", "reliable")
 func request_move_item(from_slot: int, to_slot: int, quantity: int = -1):
-	print("Debug: request_move_item called - from:", from_slot, " to:", to_slot, " on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
+	if _should_log_runtime_debug():
+		print("Debug: request_move_item called - from:", from_slot, " to:", to_slot, " on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
 	if not multiplayer.is_server():
 		return
@@ -5360,15 +5844,18 @@ func request_move_item(from_slot: int, to_slot: int, quantity: int = -1):
 		success = player_inventory.move_item(from_slot, to_slot)
 		if not success:
 			success = player_inventory.swap_items(from_slot, to_slot)
-			print("Debug: Swapped items between slots ", from_slot, " and ", to_slot)
-		else:
+			if _should_log_runtime_debug():
+				print("Debug: Swapped items between slots ", from_slot, " and ", to_slot)
+		elif _should_log_runtime_debug():
 			print("Debug: Moved item from slot ", from_slot, " to ", to_slot)
 	else:
 		success = player_inventory.move_item(from_slot, to_slot, quantity)
-		print("Debug: Moved ", quantity, " items from slot ", from_slot, " to ", to_slot)
+		if _should_log_runtime_debug():
+			print("Debug: Moved ", quantity, " items from slot ", from_slot, " to ", to_slot)
 
 	if success:
-		print("Debug: Move successful, syncing inventory to owner ", get_multiplayer_authority())
+		if _should_log_runtime_debug():
+			print("Debug: Move successful, syncing inventory to owner ", get_multiplayer_authority())
 		var owner_id = get_multiplayer_authority()
 		if owner_id != 1:
 			sync_inventory_to_owner.rpc_id(owner_id, player_inventory.to_dict())
@@ -5376,12 +5863,13 @@ func request_move_item(from_slot: int, to_slot: int, quantity: int = -1):
 			var level_scene = get_tree().get_current_scene()
 			if level_scene and level_scene.has_method("update_local_inventory_display"):
 				level_scene.update_local_inventory_display()
-	else:
+	elif _should_log_runtime_debug():
 		print("Debug: Move/swap failed")
 
 @rpc("any_peer", "call_local", "reliable")
 func request_add_item(item_id: String, quantity: int = 1):
-	print("Debug: request_add_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
+	if _should_log_runtime_debug():
+		print("Debug: request_add_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
 	if not multiplayer.is_server():
 		return
@@ -5405,11 +5893,13 @@ func request_add_item(item_id: String, quantity: int = 1):
 
 	var remaining = player_inventory.add_item(item, quantity)
 	var added = quantity - remaining
-	print("Debug: Added ", added, " ", item_id, " to inventory (", remaining, " remaining)")
+	if _should_log_runtime_debug():
+		print("Debug: Added ", added, " ", item_id, " to inventory (", remaining, " remaining)")
 
 	if added > 0:
 		var owner_id = get_multiplayer_authority()
-		print("Debug: Syncing inventory to owner ", owner_id)
+		if _should_log_runtime_debug():
+			print("Debug: Syncing inventory to owner ", owner_id)
 		if owner_id != 1:
 			sync_inventory_to_owner.rpc_id(owner_id, player_inventory.to_dict())
 		else:
@@ -5419,7 +5909,8 @@ func request_add_item(item_id: String, quantity: int = 1):
 
 @rpc("any_peer", "call_local", "reliable")
 func request_remove_item(item_id: String, quantity: int = 1):
-	print("Debug: request_remove_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
+	if _should_log_runtime_debug():
+		print("Debug: request_remove_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
 	if not multiplayer.is_server():
 		return
@@ -5488,8 +5979,9 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 		_sync_health.rpc(health)
 		return
 
-	print("[Combat] Player ", name, " took ", amount, "% damage from ",
-		attacker_id, " (headshot=", is_headshot, ")")
+	if _should_log_runtime_debug():
+		print("[Combat] Player ", name, " took ", amount, "% damage from ",
+			attacker_id, " (headshot=", is_headshot, ")")
 
 	health = max(0.0, health - amount)
 
@@ -5506,7 +5998,8 @@ func _server_die(killer_id: int) -> void:
 	if _is_dead:
 		return
 	if _is_prop_role() and Network.server_try_consume_reactive_card(int(name), "prop_revival"):
-		print("[Combat] Player ", name, " consumed Revival Card after lethal hit by ", killer_id)
+		if _should_log_runtime_debug():
+			print("[Combat] Player ", name, " consumed Revival Card after lethal hit by ", killer_id)
 		_is_dead = true
 		health = 0.0
 		_sync_health.rpc(health)
@@ -5515,7 +6008,8 @@ func _server_die(killer_id: int) -> void:
 			Network.server_set_player_alive(int(name), false)
 		_server_revive_from_card_after_delay()
 		return
-	print("[Combat] Player ", name, " killed by ", killer_id)
+	if _should_log_runtime_debug():
+		print("[Combat] Player ", name, " killed by ", killer_id)
 
 	_is_dead = true
 	health = 0.0
@@ -5532,6 +6026,8 @@ func _server_revive_from_card_after_delay() -> void:
 	_is_dead = false
 	_death_effect_played = false
 	_prop_death_visual_hidden = false
+	_clear_death_dissolve_visual()
+	_exit_dead_free_spectator()
 	health = 65.0
 	global_position = _card_find_respawn_outside_hunter_view()
 	velocity = Vector3.ZERO
@@ -5570,15 +6066,17 @@ func _broadcast_death(killer_id: int):
 	_death_effect_played = true
 	_is_dead = true
 	health = 0.0
-	print("[Combat] ", name, " was killed by ", killer_id)
+	if _should_log_runtime_debug():
+		print("[Combat] ", name, " was killed by ", killer_id)
 	_play_skin_reaction("die")
+	_begin_dead_observer_state()
 	var death_position := global_position
 	if _is_prop_role():
 		_spawn_prop_death_smoke(_get_prop_death_effect_position())
 		_spawn_prop_tombstone(death_position)
 		_play_prop_death_vanish()
 	else:
-		clear_prop_disguise()
+		_play_character_death_vanish()
 	# TODO: 瑙﹀彂姝讳骸 UI
 
 
@@ -5596,6 +6094,7 @@ func _sync_health(new_health: float):
 		_play_skin_reaction("get_hit")
 	if health <= 0.0:
 		_is_dead = true
+		_begin_dead_observer_state()
 	if health > 0.0 and _prop_death_visual_hidden:
 		_prop_death_visual_hidden = false
 		_set_character_visual_visible(true)
@@ -5623,6 +6122,8 @@ func apply_network_alive_state(alive: bool) -> void:
 		_is_dead = false
 		_death_effect_played = false
 		_prop_death_visual_hidden = false
+		_clear_death_dissolve_visual()
+		_exit_dead_free_spectator()
 		if health <= 0.0:
 			health = 100.0
 			health_changed.emit(health)
@@ -5632,46 +6133,168 @@ func apply_network_alive_state(alive: bool) -> void:
 	_is_dead = true
 	health = 0.0
 	health_changed.emit(health)
-	if _is_prop_role() and not _prop_death_visual_hidden:
-		_play_prop_death_vanish()
+	_begin_dead_observer_state()
+	if not _prop_death_visual_hidden:
+		if _is_prop_role():
+			_play_prop_death_vanish()
+		else:
+			_play_character_death_vanish()
+
+
+func _begin_dead_observer_state() -> void:
+	_set_dead_collision_enabled(false)
+	_hide_dead_tool_visuals()
+	velocity = Vector3.ZERO
+	_current_speed = 0.0
+	if is_multiplayer_authority():
+		_ensure_dead_free_spectator()
+
+
+func _play_character_death_vanish() -> void:
+	_clear_hunter_prop_sense_feedback()
+	_clear_party_monster_bounty_visuals()
+	_spawn_death_dissolve_visual()
+	_set_character_visual_visible(false)
+	_prop_death_visual_hidden = true
+	_set_dead_collision_enabled(false)
 
 
 func _play_prop_death_vanish() -> void:
 	_clear_hunter_prop_sense_feedback()
 	_clear_party_monster_bounty_visuals()
-	if not _is_prop_disguised or not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
-		_set_character_visual_visible(false)
-		_prop_death_visual_hidden = true
-		_is_prop_disguised = false
-		_current_disguise_name = ""
-		_prop_disguise_is_q_scene_replica = false
-		_prop_disguise_base_position = Vector3.ZERO
-		_prop_disguise_height_offset = 0.0
-		_restore_default_collision_shape()
-		return
 	if _prop_disguise_tween and _prop_disguise_tween.is_valid():
 		_prop_disguise_tween.kill()
-	var vanish_node := _prop_disguise_node
-	_prop_death_visual_hidden = true
-	_prop_disguise_tween = create_tween()
-	_prop_disguise_tween.set_parallel(true)
-	_prop_disguise_tween.tween_property(vanish_node, "scale", Vector3(1.14, 0.08, 1.14), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	_prop_disguise_tween.tween_property(vanish_node, "position", vanish_node.position + Vector3(0.0, -0.12, 0.0), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	_prop_disguise_tween.set_parallel(false)
-	_prop_disguise_tween.tween_callback(_clear_dead_prop_disguise_after_vanish)
-
-
-func _clear_dead_prop_disguise_after_vanish() -> void:
-	_clear_hunter_prop_sense_feedback()
-	_clear_party_monster_bounty_visuals()
+	_spawn_death_dissolve_visual()
 	_clear_prop_disguise_node()
 	_set_character_visual_visible(false)
+	_prop_death_visual_hidden = true
 	_is_prop_disguised = false
 	_current_disguise_name = ""
 	_prop_disguise_is_q_scene_replica = false
 	_prop_disguise_base_position = Vector3.ZERO
 	_prop_disguise_height_offset = 0.0
 	_restore_default_collision_shape()
+	_set_dead_collision_enabled(false)
+
+
+func _clear_dead_prop_disguise_after_vanish() -> void:
+	_play_prop_death_vanish()
+
+
+func _spawn_death_dissolve_visual() -> void:
+	var source: Node3D = _get_death_dissolve_source()
+	if source == null:
+		return
+	_clear_death_dissolve_visual()
+	var parent: Node = get_tree().get_current_scene() if get_tree() else null
+	if parent == null:
+		parent = get_parent()
+	if parent == null:
+		return
+	var clone := source.duplicate(Node.DUPLICATE_USE_INSTANTIATION) as Node3D
+	if clone == null:
+		return
+	clone.name = "DeathDissolveVisual"
+	clone.top_level = true
+	parent.add_child(clone)
+	clone.global_transform = source.global_transform
+	_set_dissolve_visual_runtime_disabled(clone)
+	_set_dissolve_visual_visible(clone)
+	_disable_prop_collisions(clone)
+	var dissolve_material: ShaderMaterial = _make_death_dissolve_material()
+	var mesh_count: int = _apply_death_dissolve_material(clone, dissolve_material)
+	if mesh_count <= 0:
+		clone.queue_free()
+		return
+	_death_dissolve_root = clone
+	_death_dissolve_material = dissolve_material
+	_death_dissolve_tween = create_tween()
+	_death_dissolve_tween.tween_method(_set_death_dissolve_threshold, 0.0, 1.0, DEATH_DISSOLVE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_death_dissolve_tween.tween_callback(_finish_death_dissolve_visual)
+
+
+func _get_death_dissolve_source() -> Node3D:
+	if _is_prop_disguised and _prop_disguise_node and is_instance_valid(_prop_disguise_node):
+		return _prop_disguise_node
+	if _active_skin_node and is_instance_valid(_active_skin_node):
+		return _active_skin_node
+	if _robot_visual_root and is_instance_valid(_robot_visual_root):
+		return _robot_visual_root
+	if _body and is_instance_valid(_body):
+		return _body
+	return null
+
+
+func _make_death_dissolve_material() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.resource_local_to_scene = true
+	material.shader = DEATH_DISSOLVE_SHADER
+	material.set_shader_parameter("t", 0.0)
+	material.set_shader_parameter("albedo_and_emissive_color", Color(1.0, 1.0, 1.0, 1.0))
+	material.set_shader_parameter("edge_color", Color(0.62, 1.0, 0.25, 1.0))
+	material.set_shader_parameter("noise_scale", DEATH_DISSOLVE_NOISE_SCALE)
+	material.set_shader_parameter("edge_width", DEATH_DISSOLVE_EDGE_WIDTH)
+	var noise := NoiseTexture2D.new()
+	noise.width = 256
+	noise.height = 256
+	noise.seamless = true
+	var fast_noise := FastNoiseLite.new()
+	fast_noise.seed = int(Time.get_ticks_usec() % 2147483647)
+	fast_noise.frequency = 0.038
+	fast_noise.fractal_octaves = 4
+	noise.noise = fast_noise
+	material.set_shader_parameter("noise_tex", noise)
+	return material
+
+
+func _apply_death_dissolve_material(root: Node3D, material: ShaderMaterial) -> int:
+	var meshes: Array[MeshInstance3D] = []
+	_find_prop_disguise_mesh_instances(root, meshes)
+	for mesh_instance in meshes:
+		if not mesh_instance or not is_instance_valid(mesh_instance):
+			continue
+		mesh_instance.material_override = material
+		mesh_instance.visible = true
+	return meshes.size()
+
+
+func _set_dissolve_visual_runtime_disabled(node: Node) -> void:
+	node.set_process(false)
+	node.set_physics_process(false)
+	node.set_process_input(false)
+	node.set_process_unhandled_input(false)
+	for child in node.get_children():
+		_set_dissolve_visual_runtime_disabled(child)
+
+
+func _set_dissolve_visual_visible(node: Node) -> void:
+	if node is Node3D:
+		(node as Node3D).visible = true
+	for child in node.get_children():
+		_set_dissolve_visual_visible(child)
+
+
+func _set_death_dissolve_threshold(value: float) -> void:
+	if _death_dissolve_material and is_instance_valid(_death_dissolve_material):
+		_death_dissolve_material.set_shader_parameter("t", value)
+
+
+func _finish_death_dissolve_visual() -> void:
+	if _death_dissolve_root and is_instance_valid(_death_dissolve_root):
+		_death_dissolve_root.queue_free()
+	_death_dissolve_root = null
+	_death_dissolve_tween = null
+	_death_dissolve_material = null
+
+
+func _clear_death_dissolve_visual() -> void:
+	if _death_dissolve_tween and _death_dissolve_tween.is_valid():
+		_death_dissolve_tween.kill()
+	_death_dissolve_tween = null
+	if _death_dissolve_root and is_instance_valid(_death_dissolve_root):
+		_death_dissolve_root.queue_free()
+	_death_dissolve_root = null
+	_death_dissolve_material = null
 
 
 func _get_prop_death_effect_position() -> Vector3:

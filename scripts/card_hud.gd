@@ -15,6 +15,7 @@ const DRAFT_GAP := 34.0
 const SLOT_GAP := 5.0
 const SLOT_STEP_Y := 14.0
 const MARGIN := Vector2(28.0, 28.0)
+const UI_CONFIRM_SOUND_PATH := "res://assets/audio/ui/ui_confirm_click.mp3"
 
 var _draft_state: Dictionary = {}
 var _loadout: Array = []
@@ -33,6 +34,7 @@ var _last_loadout_key := ""
 var _local_pick_remaining := 0.0
 var _local_total_remaining := 0.0
 var _details_visible := false
+var _confirm_click_player: AudioStreamPlayer = null
 
 
 func _ready() -> void:
@@ -43,6 +45,7 @@ func _ready() -> void:
 	offset_top = 0.0
 	offset_right = 0.0
 	offset_bottom = 0.0
+	_ensure_confirm_click_player()
 	_build_layers()
 	var viewport := get_viewport()
 	if viewport and not viewport.size_changed.is_connected(_on_viewport_size_changed):
@@ -110,6 +113,7 @@ func choose_by_index(index: int) -> bool:
 	var target_slot := int((_draft_state.get("kept", []) as Array).size())
 	if index < _draft_cards.size():
 		_spawn_pick_fly_clone(_draft_cards[index], target_slot)
+	_play_confirm_click_sound()
 	draft_choice_selected.emit(card_id)
 	return true
 
@@ -126,6 +130,30 @@ func use_slot(index: int) -> bool:
 		_pulse_slot(_slot_cards[index])
 	card_slot_used.emit(index)
 	return true
+
+
+func _ensure_confirm_click_player() -> void:
+	if _confirm_click_player and is_instance_valid(_confirm_click_player):
+		return
+	_confirm_click_player = AudioStreamPlayer.new()
+	_confirm_click_player.name = "ConfirmClickAudio"
+	_confirm_click_player.bus = &"Master"
+	_confirm_click_player.volume_db = -7.0
+	_confirm_click_player.max_polyphony = 4
+	var stream := load(UI_CONFIRM_SOUND_PATH)
+	if stream is AudioStream:
+		_confirm_click_player.stream = stream
+	add_child(_confirm_click_player)
+
+
+func _play_confirm_click_sound() -> void:
+	if not _confirm_click_player or not is_instance_valid(_confirm_click_player):
+		return
+	if not _confirm_click_player.stream:
+		return
+	_confirm_click_player.pitch_scale = randf_range(0.985, 1.015)
+	_confirm_click_player.stop()
+	_confirm_click_player.play()
 
 
 func _build_layers() -> void:

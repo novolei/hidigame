@@ -1,4 +1,4 @@
-﻿extends Node
+extends Node
 class_name PaintSystem
 # =============================================================================
 # PaintSystem — 喷涂系统(v0.3.3)
@@ -47,6 +47,16 @@ signal paint_progress(percent: float)  # 0.0 ~ 100.0
 signal paint_target_color_changed(color: Color)
 
 
+func _runtime_debug_log(value0: Variant = null, value1: Variant = null) -> void:
+	if not GameSettings.should_log_runtime_debug():
+		return
+	var output := ""
+	for value in [value0, value1]:
+		if value != null:
+			output += str(value)
+	print(output)
+
+
 # =============================================================================
 # 生命周期
 # =============================================================================
@@ -93,7 +103,7 @@ func start_paint() -> void:
 
 	is_painting = true
 	paint_started.emit()
-	print("[Paint] Started painting with color: ", target_color)
+	_runtime_debug_log("[Paint] Started painting with color: ", target_color)
 
 
 func stop_paint() -> void:

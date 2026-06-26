@@ -28,6 +28,7 @@ const SCAN_RANGE: float = 14.0
 const SCAN_COOLDOWN: float = 4.0
 const SCAN_SCULPT_RESET_RADIUS: float = 0.56
 const SCAN_SCULPT_RESET_AMOUNT: float = 0.45
+const GreenBloodImpactScript := preload("res://scripts/green_blood_impact.gd")
 
 const MELEE_DAMAGE: float = 10.0  # 弹药耗尽时切近战
 
@@ -64,6 +65,10 @@ signal weapon_out_of_ammo()
 
 func _ready() -> void:
 	pass
+
+
+func _should_log_runtime_debug() -> bool:
+	return GameSettings.should_log_runtime_debug()
 
 
 func _process(delta: float) -> void:
@@ -151,7 +156,8 @@ func server_add_ammo(amount: int) -> bool:
 		current_magazine = min(MAGAZINE_SIZE, current_magazine + to_mag)
 	ammo_changed.emit(current_magazine, total_ammo)
 	_sync_ammo_to_owner()
-	print("[Weapon] +", total_ammo - old_total, " ammo, total=", total_ammo)
+	if _should_log_runtime_debug():
+		print("[Weapon] +", total_ammo - old_total, " ammo, total=", total_ammo)
 	return true
 
 
@@ -224,6 +230,9 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 
 		# 击中 Props 玩家
 		if hit_target and _is_damageable_weapon_target(hit_target):
+			if hit_target is Node and (hit_target as Node).is_in_group("players"):
+				var hit_normal: Vector3 = result.get("normal", -aim_dir)
+				_broadcast_green_blood_impact.rpc(hit_position, hit_normal, aim_dir)
 			hit_target.take_damage(damage_dealt, sender_id, is_headshot)
 			if hit_target.has_method("is_card_decoy_target") and hit_target.is_card_decoy_target():
 				feedback_text = "DECOY HIT -%d" % int(round(damage_dealt))
@@ -242,6 +251,20 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 	_sync_ammo_to_owner()
 	_show_feedback_on_owner(feedback_text, feedback_color, 0.72)
 	weapon_fired.emit(hit_position, hit_target, is_headshot)
+
+
+func _should_skip_dedicated_server_visuals() -> bool:
+	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+
+
+@rpc("authority", "call_local", "reliable")
+func _broadcast_green_blood_impact(impact_position: Vector3, impact_normal: Vector3, shooter_direction: Vector3) -> void:
+	if _should_skip_dedicated_server_visuals():
+		return
+	var parent: Node = get_tree().get_current_scene() if get_tree() else null
+	if parent == null:
+		parent = self
+	GreenBloodImpactScript.spawn(parent, impact_position, impact_normal, shooter_direction)
 
 
 func _is_damageable_weapon_target(target) -> bool:
@@ -304,7 +327,8 @@ func _server_start_reload() -> void:
 
 	is_reloading = true
 	reload_started.emit(RELOAD_TIME)
-	print("[Weapon] Reload started")
+	if _should_log_runtime_debug():
+		print("[Weapon] Reload started")
 	_broadcast_reload.rpc(true)
 	_sync_reload_to_owner(true)
 
@@ -323,7 +347,8 @@ func _server_start_reload() -> void:
 	_sync_ammo_to_owner()
 	_broadcast_reload.rpc(false)
 	_sync_reload_to_owner(false)
-	print("[Weapon] Reload completed, mag=", current_magazine, " total=", total_ammo)
+	if _should_log_runtime_debug():
+		print("[Weapon] Reload completed, mag=", current_magazine, " total=", total_ammo)
 
 
 func _auto_reload() -> void:
@@ -338,6 +363,8 @@ func _auto_reload() -> void:
 @rpc("authority", "call_local", "reliable")
 func _broadcast_tracer(start: Vector3, end: Vector3):
 	# 客户端显示弹道(0.15s 后消失)
+	if _should_skip_dedicated_server_visuals():
+		return
 	_show_tracer(start, end)
 
 
@@ -381,7 +408,7 @@ func _client_weapon_feedback(text: String, color: Color, duration: float = 0.85)
 	var level = get_tree().get_current_scene()
 	if level and level.has_method("show_combat_feedback"):
 		level.show_combat_feedback(text, color, duration)
-	else:
+	elif _should_log_runtime_debug():
 		print("[WeaponFeedback] ", text)
 
 
@@ -446,7 +473,8 @@ func _show_tracer(start: Vector3, end: Vector3) -> void:
 func _on_weapon_out_of_ammo():
 	weapon_out_of_ammo.emit()
 	weapon_dry.emit()
-	print("[Weapon] Out of ammo, switching to melee")
+	if _should_log_runtime_debug():
+		print("[Weapon] Out of ammo, switching to melee")
 
 
 # =============================================================================
