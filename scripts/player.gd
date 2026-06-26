@@ -70,7 +70,6 @@ const HUNTER_PROP_SENSE_PING_EXPANSION_MULTIPLIER := 2.5
 const PARTY_MONSTER_BOUNTY_GLOW_RANGE := 5.8
 const PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT := 2.7
 const LOCAL_FEEDBACK_TRANSFORM_INTERVAL := 0.08
-const REMOTE_VISUAL_LOD_BIAS := 0.65
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
 const DEATH_DISSOLVE_SECONDS := 2.4
 const DEATH_DISSOLVE_NOISE_SCALE := 1.65
@@ -4833,20 +4832,7 @@ func _set_character_visual_visible(visible_value: bool) -> void:
 
 
 func _apply_remote_visual_performance_policy(root: Node) -> void:
-	if root == null or is_multiplayer_authority():
-		return
-	_apply_remote_visual_performance_policy_recursive(root)
-
-
-func _apply_remote_visual_performance_policy_recursive(node: Node) -> void:
-	if node is GeometryInstance3D:
-		var geometry := node as GeometryInstance3D
-		geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		geometry.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-		geometry.lod_bias = minf(geometry.lod_bias, REMOTE_VISUAL_LOD_BIAS)
-	for child in node.get_children():
-		if child is Node:
-			_apply_remote_visual_performance_policy_recursive(child as Node)
+	RemoteVisualPolicy.apply_to_remote(root, is_multiplayer_authority())
 
 
 func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
