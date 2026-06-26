@@ -32,6 +32,7 @@ func _run() -> void:
 
 	if camouflage and blend:
 		_test_paint_rpc_batch_chunking(player as Character)
+		_test_dedicated_server_paint_render_skip_contract()
 		_expect(blend.get_random_hand().size() == 5, "Environment blend should assign five random prop options per Chameleon")
 		var options: Array = blend.get_wheel_options()
 		_expect(options.size() == 7, "Environment blend wheel should expose Spray Self, five presets, and Cloud 3D")
@@ -196,6 +197,16 @@ func _test_paint_rpc_batch_chunking(player: Character) -> void:
 			total_clip_counts += int(count_value)
 		_expect(chunk_bytes <= Character.CAMOUFLAGE_PAINT_RPC_MAX_BYTES, "Heavy paint RPC chunks should stay under the byte budget")
 	_expect(total_clip_counts == clip_stamp_count * clip_triangles_per_stamp, "Paint RPC chunking should preserve UV clip triangle counts")
+
+
+func _test_dedicated_server_paint_render_skip_contract() -> void:
+	var player_source: String = FileAccess.get_file_as_string("res://scripts/player.gd")
+	_expect(player_source.contains("func _should_skip_camouflage_paint_rendering"), "Player should declare a dedicated-server paint rendering guard")
+	_expect(player_source.contains("return _is_dedicated_public_server_runtime()"), "Dedicated public room servers should skip local paint rendering")
+	_expect(player_source.contains("func _clear_camouflage_paint_render_cache"), "Player should clear paint render caches when local paint rendering is disabled")
+	_expect(player_source.contains("_camouflage_paint_texture = null"), "Paint render cache cleanup should release the global paint texture reference")
+	_expect(player_source.contains("if _should_skip_camouflage_paint_rendering():"), "Paint start/stroke handlers should guard dedicated public server rendering")
+	_expect(player_source.contains("@rpc(\"any_peer\", \"call_local\", \"unreliable_ordered\")\nfunc _apply_camouflage_brush_stroke_batch"), "Paint batch transport should remain unreliable ordered visual sync")
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -21,6 +21,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Chameleon self-paint no longer eagerly creates the GPU painter when the brush opens; the optional GPU overlay now initializes only when an actual paint stroke is queued.
 - `OverlayAtlasManager` now releases the previous RenderingDevice texture RID before replacing the overlay atlas texture, preventing repeated Chameleon self-paint sessions from leaking GPU textures.
 - Chameleon paint sessions are capped at 45 seconds. Ordinary self-paint auto-stops on expiry, while prop white-model paint expiry routes through the environment blend system so the prop can commit/clean up instead of leaving the player locked.
+- Dedicated public room servers now skip local Chameleon paint rendering entirely. They still validate/forward compact paint batches, but no longer create local paint canvases, paint textures, shader materials, or GPU paint queues for visual-only self/prop paint.
 - Stalker shadow visibility is now owner-computed. The owner publishes compact visibility state, the server forwards it, and remote clients render from the synced state.
 - Remote Stalker visual refresh uses synced visibility instead of re-running local shadow checks.
 - Hunter auto turret and HUD visibility reads now go through the effective Stalker visibility getter, so they work with synced remote state.
@@ -125,6 +126,7 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/world_object_sync_test.tscn`: CLI PASS after adding capped map prop motion batching and non-sleeping no-delta suppression coverage.
 - `res://tests/world_object_sync_test.tscn`: CLI PASS after adding reliable map prop rest-state batching and overflow coverage.
 - `res://tests/chameleon_sculpt_paint_integration_test.tscn`: CLI PASS after adding the 45-second Chameleon paint-session expiry regression and aligning paint RPC chunk expectations to 16/1 stamps.
+- `res://tests/chameleon_sculpt_paint_integration_test.tscn`: CLI PASS after adding dedicated public server paint-render skip coverage so headless room servers forward compact batches without allocating local paint render buffers.
 - `res://tests/shape_combat_poc_test.tscn`: CLI PASS after making paint-session timing compatible with legacy direct `skill_active` test probes.
 - Fennara windowed runtime for `res://tests/shape_combat_poc_test.tscn`: PASS, and the runtime log no longer reports leaked RenderingDevice texture RIDs after repeated `OverlayAtlasManager` texture creation/cleanup.
 - `res://tests/chameleon_sculpt_network_test.tscn`: CLI PASS after aligning the test with lazy sculpt initialization.

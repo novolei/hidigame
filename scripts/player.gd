@@ -3307,6 +3307,19 @@ func _has_active_camouflage_multiplayer_peer() -> bool:
 	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
 
+func _should_skip_camouflage_paint_rendering() -> bool:
+	return _is_dedicated_public_server_runtime()
+
+
+func _clear_camouflage_paint_render_cache() -> void:
+	_camouflage_paint_texture = null
+	_camouflage_paint_textures.clear()
+	_camouflage_surface_materials.clear()
+	_camouflage_paint_layer_materials.clear()
+	_camouflage_source_material_infos.clear()
+	_clear_camouflage_gpu_runtime_work()
+
+
 @rpc("any_peer", "call_local", "reliable")
 func _request_camouflage_brush_start(base_color: Color) -> void:
 	if not _is_runtime_multiplayer_server():
@@ -3415,6 +3428,9 @@ func _start_camouflage_brush_visual(base_color: Color) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
+	if _should_skip_camouflage_paint_rendering():
+		_clear_camouflage_paint_render_cache()
+		return
 	base_color.a = 1.0
 	_camouflage_brush_base_color = base_color
 	_camouflage_paint_textures.clear()
@@ -3442,6 +3458,9 @@ func _apply_camouflage_brush_stroke(
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
+		return
+	if _should_skip_camouflage_paint_rendering():
+		_clear_camouflage_paint_render_cache()
 		return
 	color.a = 1.0
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
@@ -3486,6 +3505,9 @@ func _apply_camouflage_brush_stroke_batch(
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	if uvs.is_empty():
+		return
+	if _should_skip_camouflage_paint_rendering():
+		_clear_camouflage_paint_render_cache()
 		return
 	color.a = 1.0
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
