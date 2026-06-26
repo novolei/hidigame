@@ -635,7 +635,7 @@ func _should_log_performance_telemetry() -> bool:
 		return true
 	if env == "0" or env == "false" or env == "no" or env == "off":
 		return false
-	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false))
+	return RuntimeMode.is_dedicated_public_server(multiplayer, lobby_config)
 
 
 func _performance_telemetry_role() -> String:
@@ -837,11 +837,11 @@ func mark_public_room_runtime_ready() -> void:
 
 
 func is_public_lobby_server() -> bool:
-	return multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false)) and bool(lobby_config.get("public_lobby", false))
+	return RuntimeMode.is_public_lobby_server(multiplayer, lobby_config)
 
 
 func is_public_room_server() -> bool:
-	return multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(lobby_config.get("public_server", false)) and not bool(lobby_config.get("public_lobby", false))
+	return RuntimeMode.is_public_room_server(multiplayer, lobby_config)
 
 
 func is_public_lobby_server_command_line() -> bool:

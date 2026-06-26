@@ -221,7 +221,7 @@ func _apply_flashlight_pose(origin: Vector3, direction: Vector3) -> void:
 
 
 func _should_skip_visual_light() -> bool:
-	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
 func _ensure_light() -> void:

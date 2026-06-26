@@ -78,7 +78,7 @@ func initialize(owner_node: Node3D) -> void:
 
 
 func _should_skip_dedicated_server_visuals() -> bool:
-	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
 func _should_scan_targets() -> bool:

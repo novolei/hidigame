@@ -486,7 +486,8 @@ func _test_player_replication_budget() -> void:
 	var synchronizer: MultiplayerSynchronizer = player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
 	_expect(synchronizer != null, "Player scene should keep a MultiplayerSynchronizer")
 	if synchronizer:
-		_expect(absf(synchronizer.replication_interval - 0.05) <= 0.001, "Player replication should be capped at 20Hz")
+		_expect(absf(synchronizer.replication_interval - 0.08) <= 0.001, "Player replication should use the 12.5Hz public-server budget")
+		_expect(absf(synchronizer.delta_interval - 0.16) <= 0.001, "Player delta replication should use the 0.16s budget")
 		var config: SceneReplicationConfig = synchronizer.replication_config as SceneReplicationConfig
 		_expect(config != null, "Player synchronizer should keep a replication config")
 		if config:

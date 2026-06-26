@@ -254,7 +254,7 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> voi
 
 
 func _should_skip_dedicated_server_visuals() -> bool:
-	return DisplayServer.get_name() == "headless" and multiplayer.multiplayer_peer != null and multiplayer.is_server() and bool(Network.lobby_config.get("public_server", false))
+	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
 @rpc("authority", "call_local", "reliable")

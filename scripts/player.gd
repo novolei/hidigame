@@ -5168,10 +5168,7 @@ func _play_body_jump(jump_type: String = "Jump") -> void:
 
 
 func _is_dedicated_public_server_runtime() -> bool:
-	var multiplayer_api: MultiplayerAPI = multiplayer
-	if multiplayer_api == null:
-		return false
-	return DisplayServer.get_name() == "headless" and multiplayer_api.multiplayer_peer != null and multiplayer_api.is_server() and bool(Network.lobby_config.get("public_server", false))
+	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
 func _should_render_local_feedback() -> bool:
