@@ -12,7 +12,7 @@ func _run() -> void:
 	var player_source := FileAccess.get_file_as_string("res://scripts/player.gd")
 	_expect(player_source.contains("_has_hunter_prop_sense_feedback"), "Hunter prop sense feedback should reuse existing local nodes")
 	_expect(player_source.contains("_clear_hunter_prop_sense_runtime_feedback_nodes"), "Dedicated public servers should clear only local Hunter sense feedback nodes")
-	_expect(player_source.contains("if not _should_render_local_feedback():\n\t\t_clear_hunter_prop_sense_visual_feedback()\n\t\treturn"), "Dedicated public servers should keep Hunter sense state while skipping visual work")
+	_expect(player_source.contains("if not _should_render_local_feedback():\n\t\t_clear_hunter_prop_sense_runtime_feedback_nodes()\n\t\treturn"), "Dedicated public servers should keep Hunter sense state while clearing local feedback work")
 	_expect(player_source.contains("LOCAL_FEEDBACK_TRANSFORM_INTERVAL"), "Hunter prop sense feedback transforms should be budgeted instead of updating every frame")
 	var wall := _make_world_box("SenseOccluderWall", Vector3(0.35, 5.0, 8.0), Vector3(6.0, 2.5, 0.0))
 	add_child(wall)

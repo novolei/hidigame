@@ -4569,7 +4569,7 @@ func _process_hunter_prop_sense_feedback(delta: float) -> void:
 		_clear_hunter_prop_sense_feedback()
 		return
 	if not _should_render_local_feedback():
-		_clear_hunter_prop_sense_visual_feedback()
+		_clear_hunter_prop_sense_runtime_feedback_nodes()
 		return
 	if not _has_hunter_prop_sense_feedback():
 		_ensure_hunter_prop_sense_feedback()
