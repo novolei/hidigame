@@ -169,6 +169,8 @@ Focus areas:
 - Add a diagnostic overlay for test builds only.
 - Persist server-side room lifecycle logs for VPS diagnosis.
 
+Status: Runtime console foundation is implemented. Press the backquote / tilde key in the level to open a lightweight network console and run `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, or `net.simulator`. `Network.get_diagnostic_snapshot()` is the shared source for console output and automated tests, exposing ENet RTT / packet loss, Noray route state, NetFox tick and `NetworkPerformance` counters, sync-budget telemetry, room metadata, and simulator settings. Server-side lifecycle log persistence remains a separate production-ops task.
+
 ## Validation Checklist
 
 Before each packaged build:

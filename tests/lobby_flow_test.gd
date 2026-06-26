@@ -15,6 +15,7 @@ func _run() -> void:
 	_test_public_room_server_uses_empty_lobby_id()
 	_test_public_room_detached_launch_helpers()
 	_test_performance_telemetry_event_window()
+	_test_network_diagnostic_console_commands()
 	_test_public_server_fallback_endpoints()
 	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
@@ -188,6 +189,38 @@ func _test_performance_telemetry_event_window() -> void:
 		OS.unset_environment("MAOMAO_PERF_LOG")
 	else:
 		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
+
+
+func _test_network_diagnostic_console_commands() -> void:
+	_reset_network_state()
+	var snapshot: Dictionary = Network.get_diagnostic_snapshot()
+	_expect(str(snapshot.get("mode", "")) == "offline", "Diagnostic snapshot should report offline mode without an active peer")
+	_expect(snapshot.has("netfox"), "Diagnostic snapshot should include NetFox counters")
+	_expect(snapshot.has("noray"), "Diagnostic snapshot should include Noray state")
+	_expect(snapshot.has("sync_budget"), "Diagnostic snapshot should include sync budget state")
+	_expect(NetworkDiagnosticConsole.execute("help").contains("net.sync_budget"), "Diagnostic console help should list sync budget command")
+	_expect(NetworkDiagnosticConsole.execute("net.mode").contains("mode=offline"), "Diagnostic console should format connection mode")
+	_expect(NetworkDiagnosticConsole.execute("net.peers").contains("players=0"), "Diagnostic console should format peer and player counts")
+	_expect(NetworkDiagnosticConsole.execute("net.rtt").contains("no-enet-peer-stats"), "Diagnostic console should handle missing ENet peer stats")
+	_expect(NetworkDiagnosticConsole.execute("net.noray").contains("host=8.153.148.157:8890"), "Diagnostic console should expose the configured private Noray server")
+	_expect(NetworkDiagnosticConsole.execute("net.room").contains("private="), "Diagnostic console should expose room connection metadata")
+	var previous_perf_log := OS.get_environment("MAOMAO_PERF_LOG")
+	OS.set_environment("MAOMAO_PERF_LOG", "1")
+	Network._reset_performance_telemetry_window()
+	Network.record_perf_event("player_transform.remote_sample_extrapolate", 2, 0)
+	_expect(NetworkDiagnosticConsole.execute("net.sync_budget").contains("player_transform.remote_sample_extrapolate"), "Diagnostic console should expose performance event summaries")
+	if previous_perf_log.is_empty():
+		OS.unset_environment("MAOMAO_PERF_LOG")
+	else:
+		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
+	var previous_sim_enabled: bool = NetworkSimulator.enabled
+	var previous_sim_latency: int = NetworkSimulator.latency_ms
+	var previous_sim_loss: float = NetworkSimulator.packet_loss_percent
+	var sim_result: String = NetworkDiagnosticConsole.execute("net.simulator on 25 1.5")
+	_expect(sim_result.contains("NetworkSimulator on"), "Diagnostic console should toggle simulator diagnostics on")
+	_expect(NetworkSimulator.enabled and NetworkSimulator.latency_ms == 25 and is_equal_approx(NetworkSimulator.packet_loss_percent, 1.5), "Simulator command should update live diagnostic settings")
+	Network.set_network_simulator_diagnostics_enabled(previous_sim_enabled, previous_sim_latency, previous_sim_loss)
+	Network._reset_performance_telemetry_window()
 
 
 func _test_public_server_fallback_endpoints() -> void:

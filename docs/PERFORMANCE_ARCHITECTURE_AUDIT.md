@@ -31,6 +31,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Public room redirects now keep the "joining room" state until the room server sends authoritative full sync. Late disconnect events from the previous public lobby connection no longer cancel the new room connection.
 - Player replication now uses NetFox tick snapshots with a public-internet interpolation buffer, bounded extrapolation, and render smoothing. Nickname remains spawn-only state, and remote animation/facing is still inferred locally from motion instead of synchronizing cosmetic animation and model rotation every network frame.
 - NetFox player transform sync now suppresses unchanged idle owner snapshots, keeps a bounded forced refresh, and records remote interpolation/extrapolation sample modes so `MAOMAO_PERF_LOG` can reveal whether visible stutter comes from stale snapshots, queue overflow, or clamped extrapolation.
+- A runtime network console now exposes `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, and `net.simulator` from a shared diagnostic snapshot so field tests can capture ENet RTT / packet loss, Noray phase, NetFox counters, and sync-budget telemetry without adding ad hoc logs.
 - Chameleon sculpt remains lazy-initialized: non-Chameleon players cannot create it, and Chameleon players create/apply it only on the first valid sculpt batch.
 - Hunter flashlight pose updates now run on a budgeted roughly 8Hz path with movement/angle thresholds and a forced refresh window instead of pushing active pose state every frame-like tick.
 - Hunter flashlight pose updates now use `NetworkInterest` segment relevance for targeted fan-out. Toggle/cooldown state remains reliable room-wide sync, while continuous pose updates record actual recipients and skip peers far from the flashlight beam.
@@ -122,6 +123,7 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/lobby_flow_test.tscn`: CLI PASS after replacing direct `multiplayer.is_server()` checks in `level.gd` and `player.gd`; the previous no-peer error from `player.gd:342` is gone.
 - `res://tests/lobby_flow_test.tscn` and `res://tests/character_skin_runtime_test.tscn`: CLI PASS after adding NetFox transform snapshot budget assertions.
 - `res://tests/character_skin_runtime_test.tscn`: CLI PASS after adding NetFox idle transform budget and remote sample telemetry coverage.
+- `res://tests/lobby_flow_test.tscn`: CLI PASS after adding network diagnostic console command coverage.
 - `res://tests/escape_quit_confirm_test.gd`: CLI PASS.
 - `res://tests/lobby_flow_test.tscn`, `res://tests/escape_quit_confirm_test.gd`, `res://tests/party_monster_accessory_system_test.tscn`, `res://tests/hunter_prop_sense_test.tscn`, and `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after broad runtime log gating.
 - `res://tests/character_skin_runtime_test.tscn`: CLI PASS.

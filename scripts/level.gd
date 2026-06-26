@@ -20,6 +20,7 @@ const MapPropSyncBudgetScript := preload("res://scripts/map_prop_sync_budget.gd"
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PartyMonsterAccessoryPickupScript := preload("res://scripts/party_monster_accessory_pickup.gd")
 const PartyMonsterHuntHUDScript := preload("res://scripts/party_monster_hunt_hud.gd")
+const NetworkDiagnosticConsoleScript := preload("res://scripts/network_diagnostic_console.gd")
 const HologramFlagScene := preload("res://scenes/effects/hologram_flag.tscn")
 
 @onready var multiplayer_chat: MultiplayerChatUI = $MultiplayerChatUI
@@ -63,6 +64,11 @@ var _public_lobby_room_request_token := 0
 var _returning_to_public_lobby := false
 var room_toast_layer: CanvasLayer = null
 var room_toast_stack: VBoxContainer = null
+var network_console_layer: CanvasLayer = null
+var network_console_panel: PanelContainer = null
+var network_console_output: RichTextLabel = null
+var network_console_input: LineEdit = null
+var _network_console_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
 var _quit_confirm_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
@@ -3365,6 +3371,9 @@ func _input(event):
 		_capture_game_mouse()
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
+		if _handle_network_console_key(key_event):
+			get_viewport().set_input_as_handled()
+			return
 		if key_event.keycode == KEY_ESCAPE and _handle_escape_pressed():
 			get_viewport().set_input_as_handled()
 			return
@@ -3386,6 +3395,111 @@ func _input(event):
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_F5:
 		# Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase(鐢ㄤ簬 UI 娴嬭瘯)
 		_debug_force_prep_phase()
+
+
+func _handle_network_console_key(event: InputEventKey) -> bool:
+	if _is_network_console_toggle_key(event):
+		_set_network_console_visible(not _is_network_console_visible())
+		return true
+	if not _is_network_console_visible():
+		return false
+	if event.keycode == KEY_ESCAPE:
+		_set_network_console_visible(false)
+		return true
+	if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+		_submit_network_console_command()
+		return true
+	return false
+
+
+func _is_network_console_toggle_key(event: InputEventKey) -> bool:
+	return event.keycode == KEY_QUOTELEFT or event.keycode == KEY_ASCIITILDE or event.physical_keycode == KEY_QUOTELEFT or event.physical_keycode == KEY_ASCIITILDE
+
+
+func _is_network_console_visible() -> bool:
+	return network_console_layer != null and is_instance_valid(network_console_layer) and network_console_layer.visible
+
+
+func _set_network_console_visible(desired_visible: bool) -> void:
+	if desired_visible:
+		_ensure_network_console_ui()
+		_network_console_previous_mouse_mode = Input.mouse_mode
+		network_console_layer.visible = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		if network_console_input:
+			network_console_input.grab_focus()
+	else:
+		if network_console_layer and is_instance_valid(network_console_layer):
+			network_console_layer.visible = false
+		Input.mouse_mode = _network_console_previous_mouse_mode as Input.MouseMode
+		_update_mouse_capture()
+
+
+func _ensure_network_console_ui() -> void:
+	if network_console_layer and is_instance_valid(network_console_layer):
+		return
+	network_console_layer = CanvasLayer.new()
+	network_console_layer.name = "NetworkDiagnosticConsoleLayer"
+	network_console_layer.layer = 120
+	network_console_layer.visible = false
+	add_child(network_console_layer)
+
+	network_console_panel = PanelContainer.new()
+	network_console_panel.name = "NetworkDiagnosticConsolePanel"
+	network_console_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	network_console_panel.position = Vector2(28.0, 28.0)
+	network_console_panel.custom_minimum_size = Vector2(860.0, 320.0)
+	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.02, 0.025, 0.035, 0.86)
+	panel_style.border_color = Color(0.55, 0.76, 1.0, 0.95)
+	panel_style.border_width_left = 2
+	panel_style.border_width_top = 2
+	panel_style.border_width_right = 2
+	panel_style.border_width_bottom = 2
+	panel_style.corner_radius_top_left = 6
+	panel_style.corner_radius_top_right = 6
+	panel_style.corner_radius_bottom_left = 6
+	panel_style.corner_radius_bottom_right = 6
+	network_console_panel.add_theme_stylebox_override("panel", panel_style)
+	network_console_layer.add_child(network_console_panel)
+
+	var layout: VBoxContainer = VBoxContainer.new()
+	layout.name = "ConsoleLayout"
+	layout.add_theme_constant_override("separation", 8)
+	network_console_panel.add_child(layout)
+
+	network_console_output = RichTextLabel.new()
+	network_console_output.name = "ConsoleOutput"
+	network_console_output.custom_minimum_size = Vector2(820.0, 230.0)
+	network_console_output.bbcode_enabled = false
+	network_console_output.scroll_following = true
+	network_console_output.text = "Monster & Hunter Network Console\n> help"
+	layout.add_child(network_console_output)
+
+	network_console_input = LineEdit.new()
+	network_console_input.name = "ConsoleInput"
+	network_console_input.placeholder_text = "net.mode / net.peers / net.rtt / net.noray / net.room / net.sync_budget / net.simulator"
+	network_console_input.text_submitted.connect(_on_network_console_text_submitted)
+	layout.add_child(network_console_input)
+
+
+func _on_network_console_text_submitted(_text: String) -> void:
+	_submit_network_console_command()
+
+
+func _submit_network_console_command() -> void:
+	if not network_console_input or not is_instance_valid(network_console_input):
+		return
+	var command: String = network_console_input.text.strip_edges()
+	if command.is_empty():
+		return
+	var result: String = NetworkDiagnosticConsoleScript.execute(command)
+	if network_console_output and is_instance_valid(network_console_output):
+		network_console_output.text += "\n> " + command
+		if not result.is_empty():
+			network_console_output.text += "\n" + result
+	network_console_input.text = ""
+	network_console_input.grab_focus()
 
 
 func _handle_escape_pressed() -> bool:

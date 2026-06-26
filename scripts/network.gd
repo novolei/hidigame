@@ -799,6 +799,141 @@ func private_noray_server_label() -> String:
 	return "%s:%d" % [transport.noray_host, transport.noray_port]
 
 
+func get_diagnostic_snapshot() -> Dictionary:
+	var has_peer: bool = multiplayer.multiplayer_peer != null
+	var peer_ids: Array[int] = []
+	if has_peer:
+		for peer_id: int in multiplayer.get_peers():
+			peer_ids.append(peer_id)
+	return {
+		"mode": _diagnostic_connection_mode(),
+		"role": _performance_telemetry_role(),
+		"local_peer_id": local_peer_id(),
+		"peer_assigned": has_peer,
+		"is_server": multiplayer.is_server() if has_peer else false,
+		"connection_status": multiplayer.multiplayer_peer.get_connection_status() if has_peer else MultiplayerPeer.CONNECTION_DISCONNECTED,
+		"peers": peer_ids,
+		"peer_count": peer_ids.size(),
+		"players": players.size(),
+		"server_port": server_port,
+		"room": {
+			"name": str(lobby_config.get("room_name", "")),
+			"public_server": bool(lobby_config.get("public_server", false)),
+			"public_lobby": bool(lobby_config.get("public_lobby", false)),
+			"public_room_id": str(lobby_config.get("public_room_id", active_public_room_id)),
+			"public_address": str(lobby_config.get("public_address", "")),
+			"public_server_code": str(lobby_config.get("public_server_code", "")),
+			"private_connection_mode": str(lobby_config.get("private_connection_mode", "direct")),
+			"private_connection_code": str(lobby_config.get("private_connection_code", "")),
+			"private_connection_server": str(lobby_config.get("private_connection_server", "")),
+		},
+		"noray": _diagnostic_noray_snapshot(),
+		"rtt": _diagnostic_peer_stats(peer_ids),
+		"netfox": _diagnostic_netfox_snapshot(),
+		"simulator": _diagnostic_simulator_snapshot(),
+		"sync_budget": _diagnostic_sync_budget_snapshot(),
+	}
+
+
+func _diagnostic_connection_mode() -> String:
+	if is_public_lobby_server():
+		return "public_lobby_server"
+	if is_public_room_server():
+		return "public_room_server"
+	if bool(lobby_config.get("public_lobby", false)):
+		return "public_lobby_client"
+	if bool(lobby_config.get("public_server", false)):
+		return "public_room_client"
+	var private_mode: String = str(lobby_config.get("private_connection_mode", "direct"))
+	if private_mode == "noray":
+		return "private_noray"
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		return "private_direct_host"
+	if multiplayer.multiplayer_peer != null:
+		return "private_direct_client"
+	return "offline"
+
+
+func _diagnostic_noray_snapshot() -> Dictionary:
+	var transport: NorayPrivateTransport = _ensure_noray_private_transport()
+	return transport.get_diagnostic_snapshot()
+
+
+func _diagnostic_peer_stats(peer_ids: Array[int]) -> Dictionary:
+	var result: Dictionary = {}
+	var enet_peer: ENetMultiplayerPeer = multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet_peer == null:
+		return result
+	var ids_to_check: Array[int] = peer_ids.duplicate()
+	if ids_to_check.is_empty() and not multiplayer.is_server():
+		ids_to_check.append(1)
+	for peer_id: int in ids_to_check:
+		var packet_peer: ENetPacketPeer = enet_peer.get_peer(peer_id)
+		if packet_peer == null or not packet_peer.is_active():
+			continue
+		result[str(peer_id)] = {
+			"state": packet_peer.get_state(),
+			"remote": "%s:%d" % [packet_peer.get_remote_address(), packet_peer.get_remote_port()],
+			"rtt_ms": packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME),
+			"last_rtt_ms": packet_peer.get_statistic(ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME),
+			"packet_loss": packet_peer.get_statistic(ENetPacketPeer.PEER_PACKET_LOSS) / float(ENetPacketPeer.PACKET_LOSS_SCALE),
+			"throttle": packet_peer.get_statistic(ENetPacketPeer.PEER_PACKET_THROTTLE) / float(ENetPacketPeer.PACKET_THROTTLE_SCALE),
+		}
+	return result
+
+
+func _diagnostic_netfox_snapshot() -> Dictionary:
+	return {
+		"tick": NetworkTime.tick,
+		"tick_factor": NetworkTime.tick_factor,
+		"ticktime": NetworkTime.ticktime,
+		"tickrate_setting": int(ProjectSettings.get_setting(&"netfox/time/tickrate", 30)),
+		"network_loop_ms": NetworkPerformance.get_network_loop_duration_ms(),
+		"network_ticks": NetworkPerformance.get_network_ticks(),
+		"rollback_loop_ms": NetworkPerformance.get_rollback_loop_duration_ms(),
+		"rollback_ticks": NetworkPerformance.get_rollback_ticks(),
+		"rollback_nodes": NetworkPerformance.get_rollback_nodes_simulated(),
+		"full_state_props": NetworkPerformance.get_full_state_props_count(),
+		"sent_state_props": NetworkPerformance.get_sent_state_props_count(),
+		"sent_state_ratio": NetworkPerformance.get_sent_state_props_ratio(),
+	}
+
+
+func _diagnostic_simulator_snapshot() -> Dictionary:
+	return {
+		"enabled": NetworkSimulator.enabled,
+		"host": NetworkSimulator.hostname,
+		"port": NetworkSimulator.server_port,
+		"latency_ms": NetworkSimulator.latency_ms,
+		"packet_loss_percent": NetworkSimulator.packet_loss_percent,
+		"compression": NetworkSimulator.use_compression,
+	}
+
+
+func _diagnostic_sync_budget_snapshot() -> Dictionary:
+	return {
+		"perf_enabled": is_performance_telemetry_enabled(),
+		"event_summary": _format_performance_telemetry_events(),
+		"event_kb": float(_performance_telemetry_total_event_bytes()) / 1024.0,
+		"slow_frames": _perf_telemetry_slow_frames,
+		"frames": _perf_telemetry_frames,
+		"avg_ms": (_perf_telemetry_accumulated_delta / float(maxi(_perf_telemetry_frames, 1))) * 1000.0,
+		"worst_ms": _perf_telemetry_worst_delta * 1000.0,
+	}
+
+
+func set_network_simulator_diagnostics_enabled(enabled: bool, latency_ms: int = -1, packet_loss_percent: float = -1.0) -> String:
+	NetworkSimulator.enabled = enabled
+	ProjectSettings.set_setting(&"netfox/autoconnect/enabled", enabled)
+	if latency_ms >= 0:
+		NetworkSimulator.latency_ms = latency_ms
+		ProjectSettings.set_setting(&"netfox/autoconnect/simulated_latency_ms", latency_ms)
+	if packet_loss_percent >= 0.0:
+		NetworkSimulator.packet_loss_percent = packet_loss_percent
+		ProjectSettings.set_setting(&"netfox/autoconnect/simulated_packet_loss_chance", packet_loss_percent)
+	return "NetworkSimulator %s latency=%dms loss=%.2f%% (applies to new autoconnect sessions)" % ["on" if enabled else "off", NetworkSimulator.latency_ms, NetworkSimulator.packet_loss_percent]
+
+
 # =============================================================================
 # 连接管理
 # =============================================================================
