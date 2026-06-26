@@ -43,6 +43,8 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Public-room lobby UI now shows the connected public server identity after room entry. Primary server `1.13.175.170` is labeled `TX`; backup server `8.153.148.157` is labeled `AL`.
 - Public room process startup is now split into argument construction, launch-mode selection, shell quoting, detached PID parsing, and direct child fallback. This makes the room lifecycle path testable and reduces the risk of zombie room children after repeated create/quit cycles.
 - Map prop impact requests now have a server-side per-player/per-prop throttle. Normal client-cooldown impacts still pass, while duplicate bursts are dropped and counted as `map_prop.impact_throttled`.
+- `level.gd`, `player.gd`, and `network.gd` now route local peer-id reads and server checks through runtime-peer helpers. Headless/offline tests no longer spam Godot's `No multiplayer peer is assigned` error while preserving real multiplayer server semantics when an ENet peer is present.
+- NetFox player transform snapshots now record owner-submit and server-forward counts/approximate bytes through the existing `MAOMAO_PERF_LOG` telemetry window.
 
 ## High-Priority Architecture Issues
 
@@ -111,6 +113,8 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/stalker_shadow_visibility_test.tscn`: CLI PASS.
 - `res://tests/hunter_auto_turret_test.tscn`: CLI PASS.
 - `res://tests/lobby_flow_test.tscn`: CLI PASS, including public room redirect state regression coverage.
+- `res://tests/lobby_flow_test.tscn`: CLI PASS after replacing direct `multiplayer.is_server()` checks in `level.gd` and `player.gd`; the previous no-peer error from `player.gd:342` is gone.
+- `res://tests/lobby_flow_test.tscn` and `res://tests/character_skin_runtime_test.tscn`: CLI PASS after adding NetFox transform snapshot budget assertions.
 - `res://tests/escape_quit_confirm_test.gd`: CLI PASS.
 - `res://tests/lobby_flow_test.tscn`, `res://tests/escape_quit_confirm_test.gd`, `res://tests/party_monster_accessory_system_test.tscn`, `res://tests/hunter_prop_sense_test.tscn`, and `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after broad runtime log gating.
 - `res://tests/character_skin_runtime_test.tscn`: CLI PASS.

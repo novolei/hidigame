@@ -612,6 +612,9 @@ func _test_player_replication_budget() -> void:
 		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote players should use a short extrapolation cap for missed packets")
 		_expect(transform_sync.max_snapshots == 18, "Remote snapshot history should stay bounded but absorb jitter")
 		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote render should smooth sampled snapshots instead of hard-writing every frame")
+		_expect(transform_sync.max_velocity_mps <= 80.0, "Remote transform sync should clamp abusive velocity snapshots")
+		_expect(transform_sync.max_abs_position <= 5000.0, "Remote transform sync should reject out-of-world snapshots")
+		_expect(NetfoxPlayerTransformSync.TRANSFORM_SNAPSHOT_APPROX_BYTES > 0, "Transform snapshot telemetry should declare an approximate byte budget")
 
 	player.queue_free()
 	await get_tree().process_frame

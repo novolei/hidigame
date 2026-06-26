@@ -297,6 +297,10 @@ func _is_local_authority() -> bool:
 	return true
 
 
+func _is_runtime_multiplayer_server() -> bool:
+	return RuntimeMode.is_multiplayer_server(multiplayer)
+
+
 func _enter_tree():
 	set_multiplayer_authority(str(name).to_int())
 	$SpringArmOffset/SpringArm3D/Camera3D.current = _is_local_authority()
@@ -339,7 +343,7 @@ func _ready():
 	if is_local_player:
 		player_inventory = PlayerInventory.new()
 		_add_starting_items()
-	elif multiplayer.is_server():
+	elif _is_runtime_multiplayer_server():
 		player_inventory = PlayerInventory.new()
 		_add_starting_items()
 	else:
@@ -494,7 +498,7 @@ func _should_compute_stalker_visibility() -> bool:
 		return true
 	if _is_local_authority():
 		return true
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		var owner_id := get_multiplayer_authority()
 		# Local scene tests can simulate a remote owner without connecting that peer.
 		if owner_id != 1 and not multiplayer.get_peers().has(owner_id):
@@ -525,7 +529,7 @@ func _publish_stalker_visibility_state(level: int, alpha: float, blocked_rays: i
 		return
 	if not _has_active_camouflage_multiplayer_peer():
 		return
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		_apply_stalker_visibility_state.rpc(get_multiplayer_authority(), level, alpha, blocked_rays)
 	else:
 		_request_stalker_visibility_state.rpc_id(1, level, alpha, blocked_rays)
@@ -533,7 +537,7 @@ func _publish_stalker_visibility_state(level: int, alpha: float, blocked_rays: i
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _request_stalker_visibility_state(level: int, alpha: float, blocked_rays: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -546,7 +550,7 @@ func _request_stalker_visibility_state(level: int, alpha: float, blocked_rays: i
 @rpc("any_peer", "call_local", "unreliable_ordered")
 func _apply_stalker_visibility_state(peer_id: int, level: int, alpha: float, blocked_rays: int) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		if sender != 0:
 			return
 	elif sender != 0 and sender != 1:
@@ -1095,7 +1099,7 @@ func _configure_stalker_glass_material(material: ShaderMaterial, material_key: S
 func _setup_hunter_systems() -> void:
 	if not is_hunter():
 		return
-	if _is_local_authority() or multiplayer.is_server():
+	if _is_local_authority() or _is_runtime_multiplayer_server():
 		_setup_hunter_weapon()
 	_setup_hunter_flashlight()
 	_setup_hunter_prop_sense()
@@ -2246,7 +2250,7 @@ func _card_spawn_following_decoy(duration: float, local_offset: Vector3) -> void
 
 
 func _card_portal_step() -> void:
-	if not multiplayer.is_server() and multiplayer.multiplayer_peer:
+	if not _is_runtime_multiplayer_server() and multiplayer.multiplayer_peer:
 		return
 	var angle := randf() * TAU
 	var distance := randf_range(40.0, 50.0)
@@ -2313,7 +2317,7 @@ func _card_clear_hunter_ammo() -> void:
 func _card_refill_weapon(amount: int) -> void:
 	var weapon := get_node_or_null("WeaponSystem")
 	if weapon and weapon.has_method("server_add_ammo"):
-		if multiplayer.is_server() or not multiplayer.multiplayer_peer:
+		if _is_runtime_multiplayer_server() or not multiplayer.multiplayer_peer:
 			weapon.server_add_ammo(amount)
 	_card_feedback_to_owner("AMMO", Color(1.0, 0.86, 0.25, 1.0), 0.75)
 
@@ -2416,7 +2420,7 @@ func _card_apply_screen_impairment(label: String, duration: float) -> void:
 func _card_can_rpc_to_owner(owner_id: int) -> bool:
 	if owner_id == _local_peer_id():
 		return false
-	if not multiplayer.is_server() or not _has_runtime_multiplayer_peer():
+	if not _is_runtime_multiplayer_server() or not _has_runtime_multiplayer_peer():
 		return false
 	if multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
 		return false
@@ -2559,7 +2563,7 @@ func set_player_skin(skin_name: SkinColor) -> void:
 func submit_camouflage_palette(palette: Array, confidence: float) -> void:
 	var clean_palette := _sanitize_camouflage_palette(palette)
 	var clean_confidence := clampf(confidence, 0.0, 1.0)
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		_apply_camouflage_palette.rpc(clean_palette, clean_confidence)
 	else:
 		_request_camouflage_palette.rpc_id(1, clean_palette, clean_confidence)
@@ -2567,7 +2571,7 @@ func submit_camouflage_palette(palette: Array, confidence: float) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_camouflage_palette(palette: Array, confidence: float) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -2581,7 +2585,7 @@ func _request_camouflage_palette(palette: Array, confidence: float) -> void:
 @rpc("any_peer", "call_local", "reliable")
 func _apply_camouflage_palette(palette: Array, confidence: float) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	var clean_palette := _sanitize_camouflage_palette(palette)
 	var texture := CamouflageSystem.create_camouflage_texture(clean_palette, get_instance_id())
@@ -2710,7 +2714,7 @@ func submit_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: 
 	if not is_chameleon():
 		return
 	var clean_normal := normal.normalized() if normal.length_squared() > 0.001 else Vector3.UP
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
 		_apply_chameleon_sculpt_shell_state.rpc(active, anchor, clean_normal)
 	elif _should_apply_camouflage_brush_without_server_peer():
 		_apply_chameleon_sculpt_shell_state(active, anchor, clean_normal)
@@ -2733,7 +2737,7 @@ func submit_sculpt_stroke_batch(
 	var clean_positions: PackedVector3Array = clean.get("positions", PackedVector3Array())
 	var clean_radii: PackedFloat32Array = clean.get("radii", PackedFloat32Array())
 	var clean_strengths: PackedFloat32Array = clean.get("strengths", PackedFloat32Array())
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
 		_apply_sculpt_stroke_batch.rpc(clean_tools, clean_positions, clean_radii, clean_strengths)
 	elif _should_apply_camouflage_brush_without_server_peer():
 		_apply_sculpt_stroke_batch(clean_tools, clean_positions, clean_radii, clean_strengths)
@@ -2746,7 +2750,7 @@ func apply_chameleon_sculpt_counterplay_reset(world_position: Vector3, world_rad
 		return
 	var clean_radius := clampf(world_radius, SCULPT_MIN_WORLD_RADIUS, SCULPT_COUNTERPLAY_MAX_WORLD_RADIUS)
 	var clean_amount := clampf(amount, 0.0, 1.0)
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
 		_apply_chameleon_sculpt_counterplay_reset.rpc(world_position, clean_radius, clean_amount)
 	elif _should_apply_camouflage_brush_without_server_peer():
 		_apply_chameleon_sculpt_counterplay_reset(world_position, clean_radius, clean_amount)
@@ -2754,7 +2758,7 @@ func apply_chameleon_sculpt_counterplay_reset(world_position: Vector3, world_rad
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: Vector3) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -2767,7 +2771,7 @@ func _request_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal
 @rpc("any_peer", "call_local", "reliable")
 func _apply_chameleon_sculpt_shell_state(active: bool, anchor: Vector3, normal: Vector3) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	_ensure_chameleon_sculpt_system_for_replication()
 	if not chameleon_sculpt_system:
@@ -2790,7 +2794,7 @@ func _request_sculpt_stroke_batch(
 	radii: PackedFloat32Array,
 	strengths: PackedFloat32Array = PackedFloat32Array()
 ) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -2820,7 +2824,7 @@ func _apply_sculpt_stroke_batch(
 	strengths: PackedFloat32Array = PackedFloat32Array()
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	if not is_chameleon():
 		return
@@ -2835,7 +2839,7 @@ func _apply_sculpt_stroke_batch(
 @rpc("authority", "call_local", "reliable")
 func _apply_chameleon_sculpt_counterplay_reset(world_position: Vector3, world_radius: float, amount: float = 0.35) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	if not is_chameleon():
 		return
@@ -2973,7 +2977,7 @@ func set_camouflage_paint_material_profile(profile: Dictionary) -> void:
 
 func submit_camouflage_brush_start(base_color: Color) -> void:
 	base_color.a = 1.0
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
 		Network.record_rpc_event("chameleon.paint_start", maxi(multiplayer.get_peers().size(), 1), 16)
 		_start_camouflage_brush_visual.rpc(base_color)
 	elif _should_apply_camouflage_brush_without_server_peer():
@@ -3001,7 +3005,7 @@ func submit_camouflage_brush_stroke(
 	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
+	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
 		Network.record_rpc_event("chameleon.paint_stroke", maxi(multiplayer.get_peers().size(), 1), 96)
 		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
 	elif _should_apply_camouflage_brush_without_server_peer():
@@ -3107,7 +3111,7 @@ func _dispatch_camouflage_brush_stroke_batch(
 			chunk_clip_triangles.size(),
 			chunk_footprint_metrics.size()
 		)
-		if multiplayer.is_server():
+		if _is_runtime_multiplayer_server():
 			if _has_active_camouflage_multiplayer_peer():
 				Network.record_rpc_event("chameleon.paint_batch", maxi(multiplayer.get_peers().size(), 1), approx_batch_bytes)
 				_apply_camouflage_brush_stroke_batch.rpc(
@@ -3305,7 +3309,7 @@ func _has_active_camouflage_multiplayer_peer() -> bool:
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_camouflage_brush_start(base_color: Color) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -3330,7 +3334,7 @@ func _request_camouflage_brush_stroke(
 	material_metallic: float = -1.0,
 	material_specular: float = -1.0
 ) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -3371,7 +3375,7 @@ func _request_camouflage_brush_stroke_batch(
 	material_metallic: float = -1.0,
 	material_specular: float = -1.0
 ) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -3409,7 +3413,7 @@ func _request_camouflage_brush_stroke_batch(
 @rpc("any_peer", "call_local", "reliable")
 func _start_camouflage_brush_visual(base_color: Color) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	base_color.a = 1.0
 	_camouflage_brush_base_color = base_color
@@ -3437,7 +3441,7 @@ func _apply_camouflage_brush_stroke(
 	material_specular: float = -1.0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	color.a = 1.0
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
@@ -3479,7 +3483,7 @@ func _apply_camouflage_brush_stroke_batch(
 	material_specular: float = -1.0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
-	if sender != 0 and sender != 1 and not multiplayer.is_server():
+	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	if uvs.is_empty():
 		return
@@ -5592,7 +5596,7 @@ func _submit_skin_performance_action(action: String) -> void:
 		return
 	if not _has_active_skin_performance_peer():
 		_apply_skin_performance_action_rpc(normalized)
-	elif multiplayer.is_server():
+	elif _is_runtime_multiplayer_server():
 		_apply_skin_performance_action_rpc.rpc(normalized)
 	else:
 		_request_skin_performance_action_rpc.rpc_id(1, normalized)
@@ -5600,7 +5604,7 @@ func _submit_skin_performance_action(action: String) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_skin_performance_action_rpc(action: String) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
@@ -6016,7 +6020,7 @@ func request_inventory_sync():
 	if _should_log_runtime_debug():
 		print("Debug: request_inventory_sync called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 
 	var requesting_client = multiplayer.get_remote_sender_id()
@@ -6065,7 +6069,7 @@ func request_move_item(from_slot: int, to_slot: int, quantity: int = -1):
 	if _should_log_runtime_debug():
 		print("Debug: request_move_item called - from:", from_slot, " to:", to_slot, " on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 
 	var requesting_client = multiplayer.get_remote_sender_id()
@@ -6112,7 +6116,7 @@ func request_add_item(item_id: String, quantity: int = 1):
 	if _should_log_runtime_debug():
 		print("Debug: request_add_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 
 	var requesting_client = multiplayer.get_remote_sender_id()
@@ -6153,7 +6157,7 @@ func request_remove_item(item_id: String, quantity: int = 1):
 	if _should_log_runtime_debug():
 		print("Debug: request_remove_item called on player ", name, " (authority: ", get_multiplayer_authority(), ") by client ", multiplayer.get_remote_sender_id())
 
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 
 	var requesting_client = multiplayer.get_remote_sender_id()
@@ -6205,7 +6209,7 @@ func _add_starting_items():
 # 鏈嶅姟鍣ㄤ晶:鐜╁鍙楀埌浼ゅ
 @rpc("any_peer", "call_local", "reliable")
 func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	if _is_dead or health <= 0.0:
 		return
@@ -6234,7 +6238,7 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 
 
 func _server_die(killer_id: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	if _is_dead:
 		return

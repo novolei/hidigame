@@ -155,6 +155,8 @@ func _test_player_position_sync_budget() -> void:
 		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote transform sync should keep a public-internet interpolation buffer")
 		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote transform sync should cap short extrapolation")
 		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote transform sync should smooth render samples")
+		_expect(transform_sync.max_velocity_mps <= 80.0, "Remote transform sync should clamp extreme velocities")
+		_expect(NetfoxPlayerTransformSync.TRANSFORM_SNAPSHOT_APPROX_BYTES > 0, "Transform sync should expose a telemetry byte budget")
 	player.queue_free()
 	await get_tree().process_frame
 

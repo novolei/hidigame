@@ -1,6 +1,6 @@
 # NetFox and Noray Migration / Diagnostic Roadmap
 
-Updated: 2026-06-26
+Updated: 2026-06-27
 
 This document is the working contract for improving Monster & Hunter multiplayer. It combines the current public VPS room model, the private player-hosted model, the newly enabled NetFox stack, and direct Noray integration.
 
@@ -41,7 +41,7 @@ Primary private Noray relay target:
 - Noray TCP control port: `8890`
 - Noray metrics port: `8891`
 - UDP remote registrar: `8809`
-- UDP relay range: `49152-49215`
+- UDP relay range: `49152-51200`
 
 Deployed service:
 
@@ -56,17 +56,19 @@ Server-local verification on 2026-06-27:
 - `systemctl status noray.service`: active/running.
 - Container `noray-server`: up.
 - `curl http://127.0.0.1:8891/metrics`: OK.
-- Listening sockets include TCP `0.0.0.0:8890`, TCP `0.0.0.0:8891`, UDP `0.0.0.0:8809`, and UDP relay ports `49152-49215`.
-- Host firewall allows TCP `8890`, TCP `8891`, UDP `8809`, and UDP `49152-49215`.
+- Listening sockets include TCP `0.0.0.0:8890`, TCP `0.0.0.0:8891`, UDP `0.0.0.0:8809`, and UDP relay ports `49152-51200`.
+- Host firewall allows TCP `8890`, TCP `8891`, UDP `8809`, and UDP `49152-51200`.
+- Systemd owns the service via `noray.service`, and the Docker container runs with host networking.
+- Root disk was cleaned from roughly 93% used to roughly 19% used by removing stale `maomao_server.pck.bak-*`, previous PCK, and upload/release ZIP artifacts while keeping the active PCK plus the latest backup.
 
-Current external blocker:
+External verification on 2026-06-27:
 
-- External Windows-side probes to `8.153.148.157:8890` and `8.153.148.157:8891` timed out while local server probes succeeded. The same probe confirmed TCP `22` is reachable.
-- This points to the Alibaba Cloud security group, not the process itself.
-- Required inbound security-group rules:
+- Windows-side `curl http://8.153.148.157:8891/metrics`: OK.
+- Windows-side TCP connect probe to `8.153.148.157:8890`: connection established.
+- Keep these inbound security-group rules open:
   - TCP `8890` from `0.0.0.0/0`.
   - UDP `8809` from `0.0.0.0/0`.
-  - UDP `49152-49215` from `0.0.0.0/0`.
+  - UDP `49152-51200` from `0.0.0.0/0`.
   - TCP `8891` is optional for metrics; if enabled, restrict to the developer IP if possible.
 
 ## Runtime Authority Contract
@@ -119,7 +121,7 @@ Notes:
 - Remove player `MultiplayerSynchronizer` dependency from `player.tscn`.
 - Add diagnostic assertions in tests so regressions are caught.
 
-Status: In progress / partially implemented.
+Status: Implemented for player scene safety rails. The old player `MultiplayerSynchronizer` has been removed, `NetfoxTransformSync` is covered by scene tests, and transform snapshot bounds / telemetry byte estimates are asserted.
 
 ### Phase 1: Direct Noray Private Server
 
@@ -129,11 +131,12 @@ Status: In progress / partially implemented.
 - Preserve direct IP fallback.
 - Add join status messages for Noray phases and failures.
 
-Status: Implemented for first end-to-end game client path. External verification is blocked until the AL security group opens the Noray ports above.
+Status: Implemented for first end-to-end game client path. AL Noray server is deployed and externally reachable for metrics and TCP control. A two-client private-host smoke test is still required to prove NAT / relay behavior through the game client.
 
 ### Phase 2: NetFox Gameplay Sync Stabilization
 
 - Convert player movement to a true NetFox input/prediction path.
+- Keep the current owner-submit / server-forward / remote-render snapshot path observable through `MAOMAO_PERF_LOG` while the predictive path is designed.
 - Introduce rollback/predictive synchronizers only after the ownership contract is explicit.
 - Keep visual-only systems off headless server paths.
 - Add 2 / 4 / 8 / 16 bot smoke scripts for remote motion smoothness and CPU/network budget.

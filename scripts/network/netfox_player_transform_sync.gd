@@ -11,11 +11,28 @@ class_name NetfoxPlayerTransformSync
 @export_range(20.0, 160.0, 1.0, "or_greater") var max_velocity_mps: float = 80.0
 @export_range(100.0, 10000.0, 10.0, "or_greater") var max_abs_position: float = 5000.0
 
+const TRANSFORM_SNAPSHOT_APPROX_BYTES: int = 56
+
 var _root: CharacterBody3D = null
 var _last_sent_tick: int = -1000000
 var _last_received_tick: int = -1000000
 var _snapshots: Array[Dictionary] = []
 var _has_remote_state: bool = false
+
+
+func _has_runtime_multiplayer_peer() -> bool:
+	return RuntimeMode.has_multiplayer_peer(multiplayer)
+
+
+func _is_runtime_multiplayer_server() -> bool:
+	return RuntimeMode.is_multiplayer_server(multiplayer)
+
+
+func _local_peer_id() -> int:
+	if _has_runtime_multiplayer_peer():
+		return multiplayer.get_unique_id()
+	return 1
+
 
 func _enter_tree() -> void:
 	if Engine.is_editor_hint():
@@ -47,7 +64,7 @@ func _process(delta: float) -> void:
 		return
 	if _is_owner_authority():
 		return
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		return
 	_process_remote_render_interpolation(delta)
 
@@ -84,15 +101,16 @@ func _submit_current_transform(tick: int) -> void:
 	var velocity: Vector3 = _clamp_velocity(_root.velocity)
 	if not _is_valid_position(position):
 		return
-	if multiplayer.is_server():
+	if _is_runtime_multiplayer_server():
 		_server_broadcast_transform(int(_root.name), tick, position, velocity, 0)
 	else:
+		Network.record_rpc_event("player_transform.owner_submit", 1, TRANSFORM_SNAPSHOT_APPROX_BYTES)
 		_owner_submit_transform.rpc_id(1, tick, position, velocity)
 
 
 @rpc("any_peer", "unreliable_ordered", "call_remote")
 func _owner_submit_transform(tick: int, position: Vector3, velocity: Vector3) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	if _root == null or not is_instance_valid(_root):
 		_resolve_root()
@@ -115,13 +133,17 @@ func _owner_submit_transform(tick: int, position: Vector3, velocity: Vector3) ->
 
 
 func _server_broadcast_transform(source_peer_id: int, tick: int, position: Vector3, velocity: Vector3, excluded_peer_id: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_multiplayer_server():
 		return
 	var peers: PackedInt32Array = multiplayer.get_peers()
+	var recipient_count: int = 0
 	for peer_id: int in peers:
 		if peer_id == excluded_peer_id:
 			continue
+		recipient_count += 1
 		_remote_apply_transform.rpc_id(peer_id, source_peer_id, tick, position, velocity)
+	if recipient_count > 0:
+		Network.record_rpc_event("player_transform.forward", recipient_count, TRANSFORM_SNAPSHOT_APPROX_BYTES)
 
 
 @rpc("any_peer", "unreliable_ordered", "call_remote")
@@ -132,7 +154,7 @@ func _remote_apply_transform(source_peer_id: int, tick: int, position: Vector3, 
 		_resolve_root()
 	if _root == null:
 		return
-	if source_peer_id == multiplayer.get_unique_id():
+	if source_peer_id == _local_peer_id():
 		return
 	if _root.get_multiplayer_authority() != source_peer_id:
 		return
