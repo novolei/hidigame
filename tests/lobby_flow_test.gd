@@ -13,6 +13,7 @@ func _run() -> void:
 	_test_lobby_id_password()
 	_test_host_room_metadata()
 	_test_public_room_server_uses_empty_lobby_id()
+	_test_public_room_lifecycle_logging()
 	_test_public_room_detached_launch_helpers()
 	_test_performance_telemetry_event_window()
 	_test_network_diagnostic_console_commands()
@@ -59,6 +60,7 @@ func _reset_network_state() -> void:
 	Network.set("_card_draft_active", false)
 	Network.set("_card_timer_sync_remaining", 0.0)
 	Network.set("_redirecting_to_public_room", false)
+	Network.set("_public_room_status_dir", "")
 	Network.lobby_config = {
 		"max_players": 24,
 		"lobby_id": "",
@@ -140,6 +142,33 @@ func _test_public_room_server_uses_empty_lobby_id() -> void:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
+
+
+func _test_public_room_lifecycle_logging() -> void:
+	_reset_network_state()
+	var status_dir: String = OS.get_cache_dir().path_join("maomao_lifecycle_" + str(Time.get_ticks_usec()))
+	DirAccess.make_dir_recursive_absolute(status_dir)
+	Network.set("_public_room_status_dir", status_dir)
+	var host_error: int = Network.start_public_room_server("Lifecycle Room", "secret", 19110, "lifecycle-room")
+	_expect(host_error == OK, "Public room lifecycle test server should start")
+	if host_error == OK:
+		Network.mark_public_room_runtime_ready()
+		Network._server_prepare_public_room_host(2, _player("Owner", Network.Role.HUNTER))
+		Network._delete_public_room_status_file("test_cleanup")
+	var lifecycle_log_path: String = Network._public_room_lifecycle_log_path()
+	var events: Array[Dictionary] = _read_jsonl_events(lifecycle_log_path)
+	_expect(_jsonl_events_contain(events, "room_server_started"), "Lifecycle log should record room server startup")
+	_expect(_jsonl_events_contain(events, "room_runtime_ready"), "Lifecycle log should record runtime ready")
+	_expect(_jsonl_events_contain(events, "room_host_assigned"), "Lifecycle log should record host assignment")
+	_expect(_jsonl_events_contain(events, "room_status_deleted"), "Lifecycle log should record status deletion")
+	var raw_log: String = FileAccess.get_file_as_string(lifecycle_log_path)
+	_expect(not raw_log.contains("SECRET"), "Lifecycle log should not persist normalized room passwords")
+	_expect(not raw_log.contains("secret"), "Lifecycle log should not persist raw room passwords")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	Network.set("_public_room_status_dir", "")
 
 
 func _test_public_room_detached_launch_helpers() -> void:
@@ -1060,6 +1089,28 @@ func _game_chat_contains(chat: MultiplayerChatUI, nick: String, text: String) ->
 	var messages: Array = chat.get("_messages")
 	for item in messages:
 		if str(item.get("nick", "")) == nick and str(item.get("text", "")) == text:
+			return true
+	return false
+
+
+func _read_jsonl_events(path: String) -> Array[Dictionary]:
+	var events: Array[Dictionary] = []
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return events
+	while not file.eof_reached():
+		var line: String = file.get_line().strip_edges()
+		if line.is_empty():
+			continue
+		var parsed: Variant = JSON.parse_string(line)
+		if parsed is Dictionary:
+			events.append(parsed as Dictionary)
+	return events
+
+
+func _jsonl_events_contain(events: Array[Dictionary], event_name: String) -> bool:
+	for event: Dictionary in events:
+		if str(event.get("event", "")) == event_name:
 			return true
 	return false
 

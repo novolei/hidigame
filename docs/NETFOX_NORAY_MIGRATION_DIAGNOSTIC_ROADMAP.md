@@ -169,7 +169,9 @@ Focus areas:
 - Add a diagnostic overlay for test builds only.
 - Persist server-side room lifecycle logs for VPS diagnosis.
 
-Status: Runtime console foundation is implemented. Press the backquote / tilde key in the level to open a lightweight network console and run `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, or `net.simulator`. `Network.get_diagnostic_snapshot()` is the shared source for console output and automated tests, exposing ENet RTT / packet loss, Noray route state, NetFox tick and `NetworkPerformance` counters, sync-budget telemetry, room metadata, and simulator settings. Server-side lifecycle log persistence remains a separate production-ops task.
+Status: Runtime console foundation is implemented. Press the backquote / tilde key in the level to open a lightweight network console and run `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, or `net.simulator`. `Network.get_diagnostic_snapshot()` is the shared source for console output and automated tests, exposing ENet RTT / packet loss, Noray route state, NetFox tick and `NetworkPerformance` counters, sync-budget telemetry, room metadata, and simulator settings.
+
+Status: Public room lifecycle persistence is implemented. Public lobby and room servers append JSONL events to `logs/room_lifecycle.jsonl` under the room status directory, or to `MAOMAO_ROOM_LIFECYCLE_LOG` when set. Events cover lobby start failure/success, room create rejection, room subprocess spawn, ready timeout, creator/joiner redirect, status-file discovery, stale cleanup, room server startup, runtime-ready, host assignment/transfer/clear, peer join/leave/reject, and status deletion. Password values are filtered from lifecycle entries; only `locked` state and rejection reasons are persisted.
 
 ## Validation Checklist
 
