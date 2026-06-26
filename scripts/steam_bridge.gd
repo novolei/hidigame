@@ -19,6 +19,9 @@ var _steam: Object
 
 
 func _ready() -> void:
+	if _should_skip_for_dedicated_public_server():
+		_set_availability(false, "Steam disabled on dedicated public server.")
+		return
 	_initialize()
 
 
@@ -65,6 +68,13 @@ func find_lobby(room_name: String, lobby_password: String) -> bool:
 func join_lobby(steam_lobby_id: String) -> void:
 	if available and _steam and _steam.has_method("joinLobby") and not steam_lobby_id.is_empty():
 		_steam.call("joinLobby", int(steam_lobby_id))
+
+
+func _should_skip_for_dedicated_public_server() -> bool:
+	if OS.get_environment("MAOMAO_PUBLIC_SERVER") == "1" or OS.get_environment("MAOMAO_ROOM_SERVER") == "1":
+		return true
+	var args := OS.get_cmdline_args()
+	return args.has("--maomao-public-server") or args.has("--public-server") or args.has("--maomao-room-server")
 
 
 func _initialize() -> void:

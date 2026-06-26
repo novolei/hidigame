@@ -30,6 +30,8 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Dedicated public room servers now skip local-only player audio creation and skip local rendering of weapon tracers, green blood impact VFX, turret model/audio, turret muzzle/projectile VFX, and flashlight light nodes.
 - Hunter prop sense and Party Monster bounty feedback now reuse existing local feedback nodes, update transforms on a small local budget, and skip dedicated public server visual/audio feedback work without clearing authoritative gameplay state.
 - Runtime debug logs in `player.gd`, `weapon_system.gd`, `network.gd`, `level.gd`, `inventory_ui.gd`, `ammo_pickup.gd`, `paint_system.gd`, `shape_shift_system.gd`, and `chameleon_sculpt_system.gd` are now gated by `MAOMAO_DEBUG_LOG`; exported/headless public servers default this off so combat, weapon, room, role, phase, pickup, paint, shape, and inventory paths do not write verbose stdout during normal multiplayer sessions.
+- `SteamBridge` now self-disables when launched as a public lobby or room server, so headless VPS builds do not try to initialize Steam.
+- `tools/export_public_server_pack.ps1` exports server packs through a temporary sanitized `project.godot`: local development keeps Fennara/Godot AI/editor autoloads, while the exported public-server pack strips editor/visual autoloads and disables editor plugin startup hooks before packaging.
 
 ## High-Priority Architecture Issues
 
@@ -40,7 +42,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 5. Export presets need separation:
    - Client preset: only runtime gameplay resources and required client GDExtensions.
    - Dedicated server preset: no videos, intro art, editor addons, tests, client-only shaders, or client-only UI media unless required by headless loading.
-6. Public server startup still loads Steam and MCP/editor-adjacent autoloads. Dedicated server should start with a minimal runtime surface.
+6. Public server startup now avoids Steam and MCP/editor-adjacent autoloads when using `tools/export_public_server_pack.ps1`. This still needs to become a true dedicated server export preset instead of a temporary project-settings sanitization step.
 7. Network sync lacks measured budgets. RPC frequency, payload size, and replicated property update rates need per-system limits before targeting 24 players.
 8. The current public lobby uses JSON status files for room discovery. This is acceptable short term, but should become a managed room registry with process status, heartbeats, and cleanup guarantees.
 
@@ -103,13 +105,13 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - `res://tests/chameleon_sculpt_network_test.tscn`: CLI PASS after aligning the test with lazy sculpt initialization.
 - `res://tests/party_monster_accessory_system_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
 - `res://tests/hunter_prop_sense_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
+- `tools/export_public_server_pack.ps1 -SmokeOnly`: PASS against `newrelease/maomao_server.pck`; public lobby perf telemetry appears and startup logs no longer include Fennara, Godot AI, AmbientCG, or Steam initialization noise.
 - VPS public lobby service restarted successfully and is listening on UDP 8080.
 
 ## Known Remaining Cleanup
 
 - Fix or exclude malformed `res://scenes/food_scene*.tscn` files from export.
-- Remove or conditionally disable Fennara/Godot AI runtime autoloads in exported builds.
-- Decide whether the dedicated server should load Steam at all before Steamworks integration is active.
+- Promote the temporary sanitized server export flow into a dedicated server export preset.
 - Create server-only export settings to stop packaging tests/editor addons/client intro media into `maomao_server.pck`.
 - Add process supervision for public room servers to prevent zombie child processes after repeated create/quit cycles.
 - Keep `MAOMAO_PERF_LOG` enabled on staging/public-room smoke tests so performance telemetry remains visible while ordinary debug logs stay quiet.
