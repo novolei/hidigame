@@ -13,6 +13,7 @@ func _run() -> void:
 	_test_lobby_id_password()
 	_test_host_room_metadata()
 	_test_public_room_server_uses_empty_lobby_id()
+	_test_public_room_detached_launch_helpers()
 	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
 	_test_join_address_port_parsing()
@@ -129,6 +130,27 @@ func _test_public_room_server_uses_empty_lobby_id() -> void:
 		Network.multiplayer.multiplayer_peer.close()
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
+
+
+func _test_public_room_detached_launch_helpers() -> void:
+	_reset_network_state()
+	var previous_launch_mode := OS.get_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV)
+	OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD)
+	_expect(Network._public_lobby_room_launch_mode() == Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD, "Explicit child launch mode should use direct create_process spawning")
+	OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, Network.PUBLIC_ROOM_LAUNCH_MODE_DETACHED)
+	var expected_detached_mode := Network.PUBLIC_ROOM_LAUNCH_MODE_DETACHED if Network._public_lobby_can_use_unix_shell() else Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD
+	_expect(Network._public_lobby_room_launch_mode() == expected_detached_mode, "Detached launch mode should only activate when a Unix shell is available")
+	_expect(Network._shell_quote_argument("Alpha's Room") == "'Alpha'\"'\"'s Room'", "Shell quoting should preserve single quotes safely")
+	var args := Network._public_lobby_room_process_args("alpha-room", "Alpha Room", "LOCK", 18081)
+	_expect(args.has("--maomao-room-server"), "Room process args should launch a public room server")
+	_expect(args.has("--room-id") and args[args.find("--room-id") + 1] == "alpha-room", "Room process args should include the room id")
+	_expect(args.has("--room-name") and args[args.find("--room-name") + 1] == "Alpha Room", "Room process args should include the human room name")
+	_expect(args.has("--lobby-password") and args[args.find("--lobby-password") + 1] == "LOCK", "Room process args should include the optional room password")
+	_expect(args.has("--port") and args[args.find("--port") + 1] == "18081", "Room process args should include the allocated room port")
+	if previous_launch_mode.is_empty():
+		OS.unset_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV)
+	else:
+		OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, previous_launch_mode)
 
 
 func _test_public_room_redirect_waits_for_room_sync() -> void:

@@ -20,6 +20,9 @@ const PUBLIC_ROOM_STALE_SECONDS := 20.0
 const PUBLIC_ROOM_READY_TIMEOUT_SEC := 30.0
 const PUBLIC_ROOM_START_GRACE_SECONDS := 45.0
 const PUBLIC_ROOM_EMPTY_TTL_SECONDS := 30.0
+const PUBLIC_ROOM_LAUNCH_MODE_ENV := "MAOMAO_ROOM_LAUNCH_MODE"
+const PUBLIC_ROOM_LAUNCH_MODE_CHILD := "child"
+const PUBLIC_ROOM_LAUNCH_MODE_DETACHED := "detached"
 const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 const PERF_TELEMETRY_INTERVAL_SEC := 10.0
 const PERF_TELEMETRY_SLOW_FRAME_MS := 50.0
@@ -1061,6 +1064,16 @@ func _public_lobby_spawn_room_process(room_id: String, room_name: String, lobby_
 	var executable := OS.get_executable_path()
 	if executable.is_empty():
 		return -1
+	var args := _public_lobby_room_process_args(room_id, room_name, lobby_id, port)
+	if _public_lobby_should_spawn_room_detached():
+		var detached_pid := _public_lobby_spawn_room_detached(executable, args, room_id)
+		if detached_pid > 0:
+			return detached_pid
+		_runtime_debug_log("[Network] Detached room launcher failed; falling back to child process.")
+	return OS.create_process(executable, args, false)
+
+
+func _public_lobby_room_process_args(room_id: String, room_name: String, lobby_id: String, port: int) -> PackedStringArray:
 	var args := PackedStringArray()
 	args.append("--headless")
 	var pck_path := OS.get_environment("MAOMAO_PCK")
@@ -1083,7 +1096,68 @@ func _public_lobby_spawn_room_process(room_id: String, room_name: String, lobby_
 	args.append(_public_server_external_address())
 	args.append("--status-dir")
 	args.append(_public_room_status_directory())
-	return OS.create_process(executable, args, false)
+	return args
+
+
+func _public_lobby_room_launch_mode() -> String:
+	var mode := OS.get_environment(PUBLIC_ROOM_LAUNCH_MODE_ENV).strip_edges().to_lower()
+	if mode == PUBLIC_ROOM_LAUNCH_MODE_CHILD or mode == "create_process":
+		return PUBLIC_ROOM_LAUNCH_MODE_CHILD
+	if mode == PUBLIC_ROOM_LAUNCH_MODE_DETACHED or mode == "nohup":
+		return PUBLIC_ROOM_LAUNCH_MODE_DETACHED if _public_lobby_can_use_unix_shell() else PUBLIC_ROOM_LAUNCH_MODE_CHILD
+	return PUBLIC_ROOM_LAUNCH_MODE_DETACHED if _public_lobby_can_use_unix_shell() else PUBLIC_ROOM_LAUNCH_MODE_CHILD
+
+
+func _public_lobby_can_use_unix_shell() -> bool:
+	return OS.get_name() != "Windows" and FileAccess.file_exists("/bin/sh")
+
+
+func _public_lobby_should_spawn_room_detached() -> bool:
+	return _public_lobby_room_launch_mode() == PUBLIC_ROOM_LAUNCH_MODE_DETACHED
+
+
+func _public_lobby_spawn_room_detached(executable: String, args: PackedStringArray, room_id: String) -> int:
+	var log_dir := _public_room_status_directory().path_join("logs")
+	DirAccess.make_dir_recursive_absolute(log_dir)
+	var log_path := log_dir.path_join(_public_room_key(room_id) + ".log")
+	var command_parts := PackedStringArray([_shell_quote_argument(executable)])
+	for arg in args:
+		command_parts.append(_shell_quote_argument(arg))
+	var command := "nohup " + _join_shell_parts(command_parts) + " < /dev/null > " + _shell_quote_argument(log_path) + " 2>&1 & echo $!"
+	var output: Array = []
+	var exit_code := OS.execute("/bin/sh", PackedStringArray(["-c", command]), output, true, false)
+	if exit_code != OK:
+		push_warning("Public room detached launcher exited with code " + str(exit_code) + ": " + str(output))
+		return -1
+	var pid := _parse_detached_process_id(output)
+	if pid <= 0:
+		push_warning("Public room detached launcher did not return a valid pid: " + str(output))
+		return -1
+	_runtime_debug_log("[Network] Public room detached process started: room=", room_id, " pid=", pid, " log=", log_path)
+	return pid
+
+
+func _join_shell_parts(parts: PackedStringArray) -> String:
+	var joined := ""
+	for part in parts:
+		if not joined.is_empty():
+			joined += " "
+		joined += part
+	return joined
+
+
+func _shell_quote_argument(value: String) -> String:
+	return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+func _parse_detached_process_id(output: Array) -> int:
+	for entry in output:
+		var lines := str(entry).split("\n", false)
+		for raw_line in lines:
+			var line := raw_line.strip_edges()
+			if line.is_valid_int():
+				return int(line)
+	return -1
 
 
 func _public_lobby_process_rooms(delta: float) -> void:
