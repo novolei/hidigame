@@ -24,7 +24,8 @@ const VOLUME_FEEDBACK_DEADBAND_RATIO := 0.08
 const VOLUME_FEEDBACK_BASE_STRENGTH := 0.30
 const BEAUTIFY_FILL_SOLID_NEIGHBORS := 15
 const BEAUTIFY_SPIKE_SOLID_NEIGHBORS := 3
-const CHANNEL_SDF := VoxelBuffer.CHANNEL_SDF
+const CHANNEL_SDF := 1
+const VOXEL_DEPTH_32_BIT := 2
 const COMPACT_BODY_VERSION := 1
 const SNAPSHOT_SDF_SCALE := 1024.0
 
@@ -55,9 +56,9 @@ const FACE_CORNERS := [
 	[Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0), Vector3(1, 0, 0)],
 ]
 
-var voxel_buffer: VoxelBuffer = null
-var voxel_tool: VoxelTool = null
-var _voxel_mesher: VoxelMesherTransvoxel = null
+var voxel_buffer: Variant = null
+var voxel_tool: Variant = null
+var _voxel_mesher: Variant = null
 var _initial_sdf := PackedFloat32Array()
 var _voxel_colors := PackedColorArray()
 var _last_stroke := {}
@@ -79,8 +80,45 @@ signal rebuilt
 
 func _ready() -> void:
 	_ensure_mesh_node()
+	if not _voxel_runtime_available():
+		_disable_voxel_runtime("voxel_extension_unavailable")
+		return
 	if not voxel_buffer:
 		reset_to_default_shell()
+
+
+func _voxel_runtime_available() -> bool:
+	return ClassDB.class_exists("VoxelBuffer") and ClassDB.class_exists("VoxelMesherTransvoxel")
+
+
+func _has_voxel_data() -> bool:
+	return voxel_buffer != null and voxel_tool != null
+
+
+func _disable_voxel_runtime(reason: String) -> void:
+	voxel_buffer = null
+	voxel_tool = null
+	_voxel_mesher = null
+	_initial_sdf = PackedFloat32Array()
+	_voxel_colors = PackedColorArray()
+	_solid_count = 0
+	if body_mesh and is_instance_valid(body_mesh):
+		body_mesh.mesh = ArrayMesh.new()
+	_source_mesh_summary = {
+		"used": false,
+		"source": "voxel_runtime_unavailable",
+		"reason": reason,
+		"grid": [GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH],
+		"voxel_scale": VOXEL_SCALE,
+	}
+	_render_mesh_summary = {
+		"mode": "disabled",
+		"reason": reason,
+		"surface_count": 0,
+		"vertex_count": 0,
+		"triangle_count": 0,
+		"solid_count": 0,
+	}
 
 
 func reset_to_default_shell() -> void:
@@ -97,7 +135,8 @@ func reset_to_basic_human_shell() -> void:
 
 
 func _build_authored_basic_human_sdf() -> void:
-	_initialize_voxel_storage(BASIC_HUMAN_COLOR)
+	if not _initialize_voxel_storage(BASIC_HUMAN_COLOR):
+		return
 	_source_mesh_summary = {
 		"used": true,
 		"source": BASIC_HUMAN_FALLBACK_SOURCE,
@@ -138,7 +177,8 @@ func _try_load_prepared_basic_human_clone() -> bool:
 	var body: Dictionary = parsed.get("body", {})
 	if body.is_empty():
 		body = parsed
-	_initialize_voxel_storage(BASIC_HUMAN_COLOR)
+	if not _initialize_voxel_storage(BASIC_HUMAN_COLOR):
+		return false
 	if not apply_compact_body(body):
 		return false
 	_source_mesh_summary = {
@@ -167,7 +207,8 @@ func reset_to_character_mesh_shell(source_meshes: Array) -> bool:
 		reset_to_default_shell()
 		return false
 	_fit_source_triangles_to_edit_bounds(triangles)
-	_initialize_voxel_storage()
+	if not _initialize_voxel_storage():
+		return false
 	var surface_mask := PackedByteArray()
 	surface_mask.resize(_voxel_count())
 	for triangle in triangles:
@@ -220,8 +261,11 @@ func begin_sculpt_batch() -> void:
 func end_sculpt_batch() -> void:
 	_rebuild_defer_depth = maxi(0, _rebuild_defer_depth - 1)
 	if _rebuild_defer_depth == 0 and _rebuild_pending:
-		_rebuild_pending = false
-		rebuild_mesh()
+		_flush_pending_rebuild()
+
+
+func flush_pending_rebuild() -> void:
+	_flush_pending_rebuild()
 
 
 func get_performance_summary() -> Dictionary:
@@ -427,8 +471,8 @@ func soft_reset_sphere_local(local_position: Vector3, world_radius: float, amoun
 				if center.distance_squared_to(local_position) > radius_sq:
 					continue
 				var index := _voxel_index(x, y, z)
-				var current := voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF)
-				var target := _initial_sdf[index] if index < _initial_sdf.size() else current
+				var current: float = float(voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF))
+				var target: float = _initial_sdf[index] if index < _initial_sdf.size() else current
 				voxel_buffer.set_voxel_f(lerpf(current, target, blend), x, y, z, CHANNEL_SDF)
 				if index < _voxel_colors.size():
 					_voxel_colors[index] = _voxel_colors[index].lerp(DEFAULT_COLOR, blend)
@@ -468,10 +512,14 @@ func get_solid_voxel_count() -> int:
 
 
 func get_vertex_count() -> int:
+	if _rebuild_pending:
+		_flush_pending_rebuild()
 	return int(_render_mesh_summary.get("vertex_count", 0))
 
 
 func get_triangle_count() -> int:
+	if _rebuild_pending:
+		_flush_pending_rebuild()
 	return int(_render_mesh_summary.get("triangle_count", 0))
 
 
@@ -488,6 +536,8 @@ func get_source_mesh_summary() -> Dictionary:
 
 
 func get_render_mesh_summary() -> Dictionary:
+	if _rebuild_pending:
+		_flush_pending_rebuild()
 	return _render_mesh_summary.duplicate(true)
 
 
@@ -596,8 +646,9 @@ func make_sculpt_snapshot() -> Dictionary:
 
 
 func apply_sculpt_snapshot(snapshot: Dictionary) -> void:
-	_ensure_voxel_data()
 	_last_snapshot_apply_ok = false
+	if not _ensure_voxel_data():
+		return
 	var sdf := PackedFloat32Array()
 	var raw_sdf = snapshot.get("sdf", PackedFloat32Array())
 	if raw_sdf is PackedFloat32Array:
@@ -633,6 +684,8 @@ func was_last_snapshot_apply_ok() -> bool:
 
 
 func intersect_ray_world(world_origin: Vector3, world_direction: Vector3, max_distance: float = 64.0) -> Dictionary:
+	if _rebuild_pending:
+		_flush_pending_rebuild()
 	if not body_mesh or not body_mesh.mesh or world_direction.length_squared() <= 0.000001:
 		return {}
 	var local_origin := to_local(world_origin)
@@ -753,8 +806,9 @@ func get_compact_body_estimated_bytes(body: Dictionary) -> int:
 
 
 func get_sdf_values() -> PackedFloat32Array:
-	_ensure_voxel_data()
 	var sdf := PackedFloat32Array()
+	if not _ensure_voxel_data():
+		return sdf
 	sdf.resize(_voxel_count())
 	for z in range(GRID_DEPTH):
 		for y in range(GRID_HEIGHT):
@@ -774,13 +828,25 @@ func get_sdf_values_checksum(values: PackedFloat32Array) -> int:
 	return checksum
 
 
-func _initialize_voxel_storage(fill_color: Color = DEFAULT_COLOR) -> void:
-	voxel_buffer = VoxelBuffer.new()
+func _initialize_voxel_storage(fill_color: Color = DEFAULT_COLOR) -> bool:
+	if not _voxel_runtime_available():
+		_disable_voxel_runtime("voxel_extension_unavailable")
+		return false
+	voxel_buffer = ClassDB.instantiate("VoxelBuffer")
+	if voxel_buffer == null:
+		_disable_voxel_runtime("voxel_buffer_instantiate_failed")
+		return false
 	voxel_buffer.create(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)
-	voxel_buffer.set_channel_depth(CHANNEL_SDF, VoxelBuffer.DEPTH_32_BIT)
+	voxel_buffer.set_channel_depth(CHANNEL_SDF, VOXEL_DEPTH_32_BIT)
 	voxel_tool = voxel_buffer.get_voxel_tool()
-	voxel_tool.channel = CHANNEL_SDF
-	_voxel_mesher = VoxelMesherTransvoxel.new()
+	if voxel_tool == null:
+		_disable_voxel_runtime("voxel_tool_unavailable")
+		return false
+	voxel_tool.set("channel", CHANNEL_SDF)
+	_voxel_mesher = ClassDB.instantiate("VoxelMesherTransvoxel")
+	if _voxel_mesher == null:
+		_disable_voxel_runtime("voxel_mesher_instantiate_failed")
+		return false
 	_initial_sdf = PackedFloat32Array()
 	_voxel_colors = PackedColorArray()
 	_initial_sdf.resize(_voxel_count())
@@ -792,6 +858,7 @@ func _initialize_voxel_storage(fill_color: Color = DEFAULT_COLOR) -> void:
 				voxel_buffer.set_voxel_f(AIR_SDF, x, y, z, CHANNEL_SDF)
 				_initial_sdf[index] = AIR_SDF
 				_voxel_colors[index] = fill_color
+	return true
 
 
 func _capture_initial_sdf_from_buffer() -> void:
@@ -1220,6 +1287,10 @@ func _count_valid_source_meshes(source_meshes: Array) -> int:
 func rebuild_mesh() -> void:
 	var started := Time.get_ticks_msec()
 	_ensure_mesh_node()
+	if not _ensure_voxel_data():
+		_rebuild_count += 1
+		_last_rebuild_elapsed_msec = Time.get_ticks_msec() - started
+		return
 	_sanitize_sdf_buffer()
 	_solid_count = _count_solid_voxels()
 	var mesh := _build_smooth_sdf_mesh()
@@ -1233,16 +1304,45 @@ func _request_rebuild() -> void:
 	if _rebuild_defer_depth > 0:
 		_rebuild_pending = true
 		return
+	if _rebuild_pending:
+		return
+	_rebuild_pending = true
+	if is_inside_tree():
+		call_deferred("_flush_pending_rebuild")
+	else:
+		_flush_pending_rebuild()
+
+
+func _flush_pending_rebuild() -> void:
+	if _rebuild_defer_depth > 0 or not _rebuild_pending:
+		return
+	_rebuild_pending = false
 	rebuild_mesh()
 
 
 func _build_smooth_sdf_mesh() -> ArrayMesh:
-	if not _voxel_mesher:
-		_voxel_mesher = VoxelMesherTransvoxel.new()
-	var material := _make_shell_material()
-	var raw_mesh: Mesh = _voxel_mesher.build_mesh(voxel_buffer, [material], {})
 	var mesh := ArrayMesh.new()
 	mesh.lightmap_size_hint = Vector2i(256, 256)
+	if not _has_voxel_data():
+		_render_mesh_summary = {
+			"mode": "disabled",
+			"reason": "voxel_data_unavailable",
+			"surface_count": 0,
+			"vertex_count": 0,
+			"triangle_count": 0,
+			"solid_count": 0,
+		}
+		return mesh
+	if not _voxel_mesher:
+		if not _voxel_runtime_available():
+			_disable_voxel_runtime("voxel_extension_unavailable")
+			return mesh
+		_voxel_mesher = ClassDB.instantiate("VoxelMesherTransvoxel")
+	if _voxel_mesher == null:
+		_disable_voxel_runtime("voxel_mesher_instantiate_failed")
+		return mesh
+	var material := _make_shell_material()
+	var raw_mesh: Mesh = _voxel_mesher.build_mesh(voxel_buffer, [material], {})
 	if not raw_mesh:
 		_render_mesh_summary = {
 			"mode": "smooth_sdf",
@@ -1361,9 +1461,14 @@ func _ensure_mesh_node() -> void:
 	add_child(body_mesh)
 
 
-func _ensure_voxel_data() -> void:
-	if not voxel_buffer or not voxel_tool:
-		reset_to_default_shell()
+func _ensure_voxel_data() -> bool:
+	if _has_voxel_data():
+		return true
+	if not _voxel_runtime_available():
+		_disable_voxel_runtime("voxel_extension_unavailable")
+		return false
+	reset_to_default_shell()
+	return _has_voxel_data()
 
 
 func _count_solid_voxels() -> int:
@@ -1502,8 +1607,8 @@ func _sanitize_sdf_buffer() -> void:
 	for z in range(GRID_DEPTH):
 		for y in range(GRID_HEIGHT):
 			for x in range(GRID_WIDTH):
-				var value := voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF)
-				var clamped := _clamp_sdf_value(value)
+				var value: float = float(voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF))
+				var clamped: float = _clamp_sdf_value(value)
 				if value != clamped:
 					voxel_buffer.set_voxel_f(clamped, x, y, z, CHANNEL_SDF)
 
@@ -1523,11 +1628,11 @@ func _protect_anchor_voxels() -> void:
 				var local_position := _voxel_center_local(x, y, z)
 				var anchor_sdf := _clamp_sdf_value(_anchor_sdf(local_position) / VOXEL_SCALE)
 				if anchor_sdf < -0.05:
-					var current := voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF)
+					var current: float = float(voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF))
 					voxel_buffer.set_voxel_f(minf(current, anchor_sdf), x, y, z, CHANNEL_SDF)
 	for anchor in _anchor_samples():
 		var voxel := _local_to_voxel_index(anchor.get("position", Vector3.ZERO))
-		var current := voxel_buffer.get_voxel_f(voxel.x, voxel.y, voxel.z, CHANNEL_SDF)
+		var current: float = float(voxel_buffer.get_voxel_f(voxel.x, voxel.y, voxel.z, CHANNEL_SDF))
 		voxel_buffer.set_voxel_f(minf(current, -0.35), voxel.x, voxel.y, voxel.z, CHANNEL_SDF)
 
 
@@ -1562,11 +1667,11 @@ func _apply_sdf_capsule_brush(start: Vector3, end: Vector3, radius: float, stren
 				var distance := _point_segment_distance(center, start, end)
 				if distance > radius:
 					continue
-				var brush_sdf := (distance - radius) / VOXEL_SCALE
-				var current := voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF)
-				var target := minf(current, brush_sdf) if add_matter else maxf(current, -brush_sdf)
-				var falloff := _brush_falloff(distance, radius) * blend
-				var next := lerpf(current, target, falloff)
+				var brush_sdf: float = (distance - radius) / VOXEL_SCALE
+				var current: float = float(voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF))
+				var target: float = minf(current, brush_sdf) if add_matter else maxf(current, -brush_sdf)
+				var falloff: float = _brush_falloff(distance, radius) * blend
+				var next: float = lerpf(current, target, falloff)
 				if absf(next - current) > 0.0001:
 					voxel_buffer.set_voxel_f(_clamp_sdf_value(next), x, y, z, CHANNEL_SDF)
 					changed += 1
@@ -1596,11 +1701,11 @@ func _apply_sdf_flatten_capsule(start: Vector3, end: Vector3, plane_normal: Vect
 				var plane_distance := (center - closest).dot(normal)
 				if plane_distance <= -radius * 0.15:
 					continue
-				var current := voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF)
-				var plane_sdf := plane_distance / VOXEL_SCALE
-				var target := maxf(current, plane_sdf)
-				var falloff := _brush_falloff(distance, radius) * blend
-				var next := lerpf(current, target, falloff)
+				var current: float = float(voxel_buffer.get_voxel_f(x, y, z, CHANNEL_SDF))
+				var plane_sdf: float = plane_distance / VOXEL_SCALE
+				var target: float = maxf(current, plane_sdf)
+				var falloff: float = _brush_falloff(distance, radius) * blend
+				var next: float = lerpf(current, target, falloff)
 				if absf(next - current) > 0.0001:
 					voxel_buffer.set_voxel_f(_clamp_sdf_value(next), x, y, z, CHANNEL_SDF)
 					changed += 1

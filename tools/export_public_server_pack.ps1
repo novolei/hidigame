@@ -13,6 +13,8 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $projectFile = Join-Path $repo "project.godot"
 $backupFile = Join-Path $repo ("project.godot.server-export-backup-{0}" -f (Get-Date -Format "yyyyMMddHHmmssfff"))
+$exportPresetsFile = Join-Path $repo "export_presets.cfg"
+$exportPresetsBackup = Join-Path $repo ("export_presets.cfg.server-export-backup-{0}" -f (Get-Date -Format "yyyyMMddHHmmssfff"))
 $extensionListFile = Join-Path $repo ".godot\extension_list.cfg"
 $extensionListBackup = Join-Path $repo (".godot\extension_list.cfg.server-export-backup-{0}" -f (Get-Date -Format "yyyyMMddHHmmssfff"))
 $outputAbs = Join-Path $repo $OutputPath
@@ -29,7 +31,16 @@ $serverExcludedAutoloads = @(
 )
 
 $serverExcludedExtensions = @(
-    "res://addons/fennara/fennara.gdextension"
+    "res://addons/fennara/fennara.gdextension",
+    "res://addons/godotsteam/godotsteam.gdextension",
+    "res://addons/godotsteam_server/godotsteam_server.gdextension",
+    "res://addons/zylann.voxel/voxel.gdextension"
+)
+
+$serverExcludedExportFilters = @(
+    "addons/godotsteam/*",
+    "addons/godotsteam_server/*",
+    "addons/zylann.voxel/*"
 )
 
 function Invoke-External {
@@ -142,6 +153,45 @@ function Remove-ServerExcludedExtensions {
     return ($outLines -join "`r`n")
 }
 
+function Add-ServerExcludedExportFilters {
+    param([string]$Content)
+
+    $outLines = New-Object System.Collections.Generic.List[string]
+    $patched = $false
+    $lines = [System.Text.RegularExpressions.Regex]::Split($Content, "\r?\n")
+
+    foreach ($line in $lines) {
+        if (!$patched -and $line -match '^exclude_filter="(.*)"$') {
+            $filters = New-Object System.Collections.Generic.List[string]
+            if ($Matches[1].Trim().Length -gt 0) {
+                foreach ($filter in $Matches[1].Split(",")) {
+                    $clean = $filter.Trim()
+                    if ($clean.Length -gt 0 -and !$filters.Contains($clean)) {
+                        $filters.Add($clean)
+                    }
+                }
+            }
+            foreach ($filter in $serverExcludedExportFilters) {
+                if (!$filters.Contains($filter)) {
+                    $filters.Add($filter)
+                }
+            }
+            $outLines.Add(('exclude_filter="{0}"' -f ($filters -join ",")))
+            $patched = $true
+            continue
+        }
+        $outLines.Add($line)
+    }
+
+    if ($patched) {
+        Write-Host ("Added server export exclude filters: " + ($serverExcludedExportFilters -join ", ")) -ForegroundColor Cyan
+    } else {
+        Write-Warning "No exclude_filter line was found in export_presets.cfg. Server pack may include client-only extensions."
+    }
+
+    return ($outLines -join "`r`n")
+}
+
 function Stop-SmokeProcess {
     param([AllowNull()][System.Diagnostics.Process]$Process)
 
@@ -172,6 +222,9 @@ function Assert-SmokeLog {
     $forbidden = @(
         "addons/fennara/runtime/game_capture_helper.gd",
         "addons/fennara/fennara.gdextension",
+        "addons/godotsteam/godotsteam.gdextension",
+        "addons/godotsteam_server/godotsteam_server.gdextension",
+        "addons/zylann.voxel/voxel.gdextension",
         "addons/godot_ai/runtime/game_helper.gd",
         "uid://cnxneyd8ilml2",
         "SteamAPI_Init",
@@ -252,6 +305,15 @@ if (!$SmokeOnly) {
         $serverProject = Remove-ServerExcludedAutoloads -Content $originalProject
         Write-TextFile -Path $projectFile -Content $serverProject
 
+        if (Test-Path -LiteralPath $exportPresetsFile) {
+            Copy-Item -LiteralPath $exportPresetsFile -Destination $exportPresetsBackup -Force
+            $originalExportPresets = Read-TextFile $exportPresetsFile
+            $serverExportPresets = Add-ServerExcludedExportFilters -Content $originalExportPresets
+            Write-TextFile -Path $exportPresetsFile -Content $serverExportPresets
+        } else {
+            Write-Warning "export_presets.cfg not found: $exportPresetsFile"
+        }
+
         $hadExtensionList = Test-Path -LiteralPath $extensionListFile
         if ($hadExtensionList) {
             Copy-Item -LiteralPath $extensionListFile -Destination $extensionListBackup -Force
@@ -274,6 +336,10 @@ if (!$SmokeOnly) {
     } finally {
         Copy-Item -LiteralPath $backupFile -Destination $projectFile -Force
         Remove-Item -LiteralPath $backupFile -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $exportPresetsBackup) {
+            Copy-Item -LiteralPath $exportPresetsBackup -Destination $exportPresetsFile -Force
+            Remove-Item -LiteralPath $exportPresetsBackup -Force -ErrorAction SilentlyContinue
+        }
         if (Test-Path -LiteralPath $extensionListBackup) {
             Copy-Item -LiteralPath $extensionListBackup -Destination $extensionListFile -Force
             Remove-Item -LiteralPath $extensionListBackup -Force -ErrorAction SilentlyContinue
