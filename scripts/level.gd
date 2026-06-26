@@ -391,7 +391,15 @@ func _is_dedicated_public_server_runtime() -> bool:
 func _process_map_prop_motion_sync(delta: float) -> void:
 	if not RuntimeModeScript.is_multiplayer_server(multiplayer):
 		return
-	var states: Array[Dictionary] = _map_prop_sync_budget.tick(delta)
+	var rest_states: Array[Dictionary] = _map_prop_sync_budget.tick_rest(delta)
+	if not rest_states.is_empty():
+		_flush_map_prop_state_batch(rest_states, true)
+	var motion_states: Array[Dictionary] = _map_prop_sync_budget.tick(delta)
+	if not motion_states.is_empty():
+		_flush_map_prop_state_batch(motion_states, false)
+
+
+func _flush_map_prop_state_batch(states: Array[Dictionary], reliable: bool) -> void:
 	if states.is_empty():
 		return
 	var payload: Array = []
@@ -406,8 +414,12 @@ func _process_map_prop_motion_sync(delta: float) -> void:
 		payload.append([prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping])
 	if payload.is_empty():
 		return
-	Network.record_rpc_event("map_prop.motion", maxi(Network.multiplayer.get_peers().size(), 1), payload.size() * 104)
-	_rpc_sync_map_prop_motion_states.rpc(payload)
+	var event_key: String = "map_prop.rest_batch" if reliable else "map_prop.motion"
+	Network.record_rpc_event(event_key, maxi(Network.multiplayer.get_peers().size(), 1), payload.size() * 104)
+	if reliable:
+		_rpc_sync_map_prop_rest_states.rpc(payload)
+	else:
+		_rpc_sync_map_prop_motion_states.rpc(payload)
 
 
 # -----------------------------------------------------------------------------
@@ -1520,15 +1532,31 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 	if not _is_multiplayer_server() or not prop:
 		return
 	if reliable:
-		_map_prop_sync_budget.clear_motion(prop.name)
-		Network.record_rpc_event("map_prop.rest", maxi(Network.multiplayer.get_peers().size(), 1), 104)
-		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+		_map_prop_sync_budget.queue_rest(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
 		_map_prop_sync_budget.queue_motion(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _rpc_sync_map_prop_motion_states(states: Array) -> void:
+	for raw_state: Variant in states:
+		if not (raw_state is Array):
+			continue
+		var state: Array = raw_state as Array
+		if state.size() < 5:
+			continue
+		if not (state[1] is Transform3D) or not (state[2] is Vector3) or not (state[3] is Vector3):
+			continue
+		var prop_name: String = str(state[0])
+		var next_transform: Transform3D = state[1]
+		var next_linear_velocity: Vector3 = state[2]
+		var next_angular_velocity: Vector3 = state[3]
+		var next_sleeping: bool = bool(state[4])
+		_apply_map_prop_network_state(prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_sync_map_prop_rest_states(states: Array) -> void:
 	for raw_state: Variant in states:
 		if not (raw_state is Array):
 			continue

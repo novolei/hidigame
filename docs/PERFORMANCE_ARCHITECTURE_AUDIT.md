@@ -45,6 +45,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Map prop impact requests now have a server-side per-player/per-prop throttle. Normal client-cooldown impacts still pass, while duplicate bursts are dropped and counted as `map_prop.impact_throttled`.
 - `level.gd`, `player.gd`, and `network.gd` now route local peer-id reads and server checks through runtime-peer helpers. Headless/offline tests no longer spam Godot's `No multiplayer peer is assigned` error while preserving real multiplayer server semantics when an ENet peer is present.
 - NetFox player transform snapshots now record owner-submit and server-forward counts/approximate bytes through the existing `MAOMAO_PERF_LOG` telemetry window.
+- Map prop rest/settle states now use capped reliable batches instead of one reliable RPC per prop. Motion and rest queues clear each other per prop so final settle state wins without double-sending stale motion.
 
 ## High-Priority Architecture Issues
 
@@ -121,6 +122,7 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/player_spawn_gate_test.tscn`: CLI PASS.
 - `res://tests/world_object_sync_test.tscn`: CLI PASS.
 - `res://tests/world_object_sync_test.tscn`: CLI PASS after adding capped map prop motion batching and non-sleeping no-delta suppression coverage.
+- `res://tests/world_object_sync_test.tscn`: CLI PASS after adding reliable map prop rest-state batching and overflow coverage.
 - `res://tests/chameleon_sculpt_paint_integration_test.tscn`: CLI PASS after adding the 45-second Chameleon paint-session expiry regression and aligning paint RPC chunk expectations to 16/1 stamps.
 - `res://tests/shape_combat_poc_test.tscn`: CLI PASS after making paint-session timing compatible with legacy direct `skill_active` test probes.
 - Fennara windowed runtime for `res://tests/shape_combat_poc_test.tscn`: PASS, and the runtime log no longer reports leaked RenderingDevice texture RIDs after repeated `OverlayAtlasManager` texture creation/cleanup.

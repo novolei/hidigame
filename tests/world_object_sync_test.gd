@@ -13,6 +13,7 @@ func _run() -> void:
 	await _test_ammo_pickup_uses_meshy_visuals_and_sized_collision()
 	_test_map_prop_sync_budget_coalesces_motion()
 	_test_map_prop_sync_budget_caps_flush_size()
+	_test_map_prop_sync_budget_batches_rest_states()
 	await _test_map_prop_network_state_application()
 	await _test_map_prop_non_sleeping_state_requires_meaningful_delta()
 	_test_level_applies_map_prop_state_by_name()
@@ -172,6 +173,33 @@ func _test_map_prop_sync_budget_caps_flush_size() -> void:
 	var final_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
 	_expect(final_flush.size() == 1, "Map prop budget should eventually drain the final overflow state")
 	_expect(not budget.has_pending(), "Map prop budget should be empty after all capped flushes drain")
+
+
+func _test_map_prop_sync_budget_batches_rest_states() -> void:
+	var budget: MapPropSyncBudget = MapPropSyncBudget.new()
+	budget.max_rest_states_per_flush = 2
+	var motion_transform: Transform3D = Transform3D(Basis.IDENTITY, Vector3(9.0, 0.0, 0.0))
+	var rest_transform: Transform3D = Transform3D(Basis.IDENTITY, Vector3(10.0, 0.0, 0.0))
+	budget.queue_motion("MapProp_0", motion_transform, Vector3.RIGHT, Vector3.UP, false)
+	budget.queue_rest("MapProp_0", rest_transform, Vector3.ZERO, Vector3.ZERO, true)
+	_expect(budget.pending_count() == 0, "Queued rest state should clear stale pending motion for the same prop")
+	_expect(budget.pending_rest_count() == 1, "Queued rest state should be held for reliable batch flushing")
+
+	for index: int in range(1, 4):
+		var transform_value: Transform3D = Transform3D(Basis.IDENTITY, Vector3(float(index), 0.0, 0.0))
+		budget.queue_rest("MapProp_%d" % index, transform_value, Vector3.ZERO, Vector3.ZERO, true)
+
+	var early_flush: Array[Dictionary] = budget.tick_rest(0.01)
+	_expect(early_flush.is_empty(), "Map prop rest budget should wait for its flush interval")
+	_expect(budget.pending_rest_count() == 4, "Map prop rest budget should keep all pending rest states before flush")
+
+	var first_flush: Array[Dictionary] = budget.tick_rest(MapPropSyncBudget.DEFAULT_REST_FLUSH_INTERVAL)
+	_expect(first_flush.size() == 2, "Map prop rest budget should cap one reliable batch to the configured max state count")
+	_expect(budget.pending_rest_count() == 2, "Map prop rest budget should keep overflow rest states for the next reliable batch")
+
+	var second_flush: Array[Dictionary] = budget.tick_rest(MapPropSyncBudget.DEFAULT_REST_FLUSH_INTERVAL)
+	_expect(second_flush.size() == 2, "Map prop rest budget should drain overflow rest states on the next tick")
+	_expect(not budget.has_pending(), "Map prop budget should be empty after motion and rest queues drain")
 
 
 func _test_map_prop_network_state_application() -> void:
