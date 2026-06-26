@@ -1663,7 +1663,8 @@ func _process(delta):
 	_process_party_monster_bounty_feedback(delta)
 	_process_hunter_prop_sense_feedback(delta)
 	if not is_multiplayer_authority():
-		_animate_remote_skin_from_network_motion(delta)
+		if not _is_dedicated_public_server_runtime():
+			_animate_remote_skin_from_network_motion(delta)
 		return
 	_process_skin_performance_wheel_bar(delta)
 	_check_fall_and_respawn()

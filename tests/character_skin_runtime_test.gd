@@ -13,6 +13,7 @@ func _run() -> void:
 	await _test_default_hunter_uses_hunter_shooter_visual()
 	await _test_prep_tint_preserves_custom_skin_textures()
 	await _test_remote_custom_skin_animates_from_network_motion()
+	await _test_public_server_skips_remote_skin_animation()
 	await _test_player_position_sync_budget()
 
 	if failures.is_empty():
@@ -109,6 +110,36 @@ func _test_remote_custom_skin_animates_from_network_motion() -> void:
 	_expect(_remote_visual_policy_applied(player), "Remote custom skins should render without expensive shadow/GI contribution")
 
 	player.queue_free()
+	await get_tree().process_frame
+
+
+func _test_public_server_skips_remote_skin_animation() -> void:
+	var had_public_server_key := Network.lobby_config.has("public_server")
+	var previous_public_server: Variant = Network.lobby_config.get("public_server", false)
+	Network.lobby_config["public_server"] = true
+	Network.players = {
+		7: _player("RemotePublicServerSophia", Network.Role.CHAMELEON, "sophia"),
+	}
+	var player := _spawn_player("7")
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	player._play_skin_action("idle")
+	await get_tree().process_frame
+	var before_animation_node := _custom_skin_current_animation_node(player)
+	player._process(0.1)
+	player.global_position += Vector3(1.0, 0.0, 0.0)
+	player._process(0.1)
+	await get_tree().process_frame
+
+	var after_animation_node := _custom_skin_current_animation_node(player)
+	_expect(after_animation_node == before_animation_node, "Dedicated public server should skip remote skin motion animation; before=" + before_animation_node + " after=" + after_animation_node)
+
+	player.queue_free()
+	if had_public_server_key:
+		Network.lobby_config["public_server"] = previous_public_server
+	else:
+		Network.lobby_config.erase("public_server")
 	await get_tree().process_frame
 
 
