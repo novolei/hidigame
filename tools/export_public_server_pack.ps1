@@ -256,12 +256,14 @@ function Invoke-SmokeTest {
     $previousPublicServer = $env:MAOMAO_PUBLIC_SERVER
     $previousPublicPort = $env:MAOMAO_PUBLIC_PORT
     $previousPublicAddress = $env:MAOMAO_PUBLIC_ADDRESS
+    $previousPack = $env:MAOMAO_PCK
     $previousPerfLog = $env:MAOMAO_PERF_LOG
     $previousDebugLog = $env:MAOMAO_DEBUG_LOG
 
     $env:MAOMAO_PUBLIC_SERVER = "1"
     $env:MAOMAO_PUBLIC_PORT = [string]$SmokePort
     $env:MAOMAO_PUBLIC_ADDRESS = "127.0.0.1"
+    $env:MAOMAO_PCK = $outputAbs
     $env:MAOMAO_PERF_LOG = "1"
     $env:MAOMAO_DEBUG_LOG = "0"
 
@@ -294,6 +296,7 @@ function Invoke-SmokeTest {
         $env:MAOMAO_PUBLIC_SERVER = $previousPublicServer
         $env:MAOMAO_PUBLIC_PORT = $previousPublicPort
         $env:MAOMAO_PUBLIC_ADDRESS = $previousPublicAddress
+        $env:MAOMAO_PCK = $previousPack
         $env:MAOMAO_PERF_LOG = $previousPerfLog
         $env:MAOMAO_DEBUG_LOG = $previousDebugLog
     }

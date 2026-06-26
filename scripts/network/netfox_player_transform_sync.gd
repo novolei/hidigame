@@ -1,0 +1,239 @@
+extends Node
+class_name NetfoxPlayerTransformSync
+
+@export var root_path: NodePath = NodePath("..")
+@export_range(1, 8, 1) var send_every_ticks: int = 1
+@export_range(1, 8, 1) var interpolation_delay_ticks: int = 4
+@export_range(0, 6, 1) var max_extrapolation_ticks: int = 3
+@export_range(2.0, 40.0, 0.5, "or_greater") var snap_distance: float = 7.5
+@export_range(4, 32, 1, "or_greater") var max_snapshots: int = 18
+@export_range(6.0, 60.0, 0.5, "or_greater") var render_lerp_speed: float = 24.0
+@export_range(20.0, 160.0, 1.0, "or_greater") var max_velocity_mps: float = 80.0
+@export_range(100.0, 10000.0, 10.0, "or_greater") var max_abs_position: float = 5000.0
+
+var _root: CharacterBody3D = null
+var _last_sent_tick: int = -1000000
+var _last_received_tick: int = -1000000
+var _snapshots: Array[Dictionary] = []
+var _has_remote_state: bool = false
+
+func _enter_tree() -> void:
+	if Engine.is_editor_hint():
+		return
+	if not NetworkTime.after_tick.is_connected(_after_network_tick):
+		NetworkTime.after_tick.connect(_after_network_tick)
+
+
+func _ready() -> void:
+	_resolve_root()
+	set_process(true)
+
+
+func _exit_tree() -> void:
+	if Engine.is_editor_hint():
+		return
+	if NetworkTime.after_tick.is_connected(_after_network_tick):
+		NetworkTime.after_tick.disconnect(_after_network_tick)
+
+
+func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
+	if _root == null or not is_instance_valid(_root):
+		_resolve_root()
+	if _root == null:
+		return
+	if multiplayer.multiplayer_peer == null:
+		return
+	if _is_owner_authority():
+		return
+	if multiplayer.is_server():
+		return
+	_process_remote_render_interpolation(delta)
+
+
+func _after_network_tick(_delta: float, tick: int) -> void:
+	if _root == null or not is_instance_valid(_root):
+		_resolve_root()
+	if _root == null:
+		return
+	if multiplayer.multiplayer_peer == null:
+		return
+	if not _is_owner_authority():
+		return
+	if tick - _last_sent_tick < send_every_ticks:
+		return
+	_last_sent_tick = tick
+	_submit_current_transform(tick)
+
+
+func _resolve_root() -> void:
+	var node: Node = get_node_or_null(root_path)
+	if node is CharacterBody3D:
+		_root = node as CharacterBody3D
+	else:
+		_root = null
+
+
+func _is_owner_authority() -> bool:
+	return _root != null and is_instance_valid(_root) and _root.is_multiplayer_authority()
+
+
+func _submit_current_transform(tick: int) -> void:
+	var position: Vector3 = _root.global_position
+	var velocity: Vector3 = _clamp_velocity(_root.velocity)
+	if not _is_valid_position(position):
+		return
+	if multiplayer.is_server():
+		_server_broadcast_transform(int(_root.name), tick, position, velocity, 0)
+	else:
+		_owner_submit_transform.rpc_id(1, tick, position, velocity)
+
+
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func _owner_submit_transform(tick: int, position: Vector3, velocity: Vector3) -> void:
+	if not multiplayer.is_server():
+		return
+	if _root == null or not is_instance_valid(_root):
+		_resolve_root()
+	if _root == null:
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id <= 1:
+		return
+	if _root.get_multiplayer_authority() != sender_id:
+		return
+	if tick <= _last_received_tick:
+		return
+	if not _is_valid_position(position):
+		return
+	var clean_velocity: Vector3 = _clamp_velocity(velocity)
+	_last_received_tick = tick
+	_record_snapshot(tick, position, clean_velocity)
+	_apply_root_state(position, clean_velocity)
+	_server_broadcast_transform(sender_id, tick, position, clean_velocity, sender_id)
+
+
+func _server_broadcast_transform(source_peer_id: int, tick: int, position: Vector3, velocity: Vector3, excluded_peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var peers: PackedInt32Array = multiplayer.get_peers()
+	for peer_id: int in peers:
+		if peer_id == excluded_peer_id:
+			continue
+		_remote_apply_transform.rpc_id(peer_id, source_peer_id, tick, position, velocity)
+
+
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func _remote_apply_transform(source_peer_id: int, tick: int, position: Vector3, velocity: Vector3) -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	if _root == null or not is_instance_valid(_root):
+		_resolve_root()
+	if _root == null:
+		return
+	if source_peer_id == multiplayer.get_unique_id():
+		return
+	if _root.get_multiplayer_authority() != source_peer_id:
+		return
+	if tick <= _last_received_tick:
+		return
+	if not _is_valid_position(position):
+		return
+	var clean_velocity: Vector3 = _clamp_velocity(velocity)
+	_last_received_tick = tick
+	_record_snapshot(tick, position, clean_velocity)
+
+
+func _record_snapshot(tick: int, position: Vector3, velocity: Vector3) -> void:
+	_snapshots.append({
+		"tick": tick,
+		"position": position,
+		"velocity": velocity,
+	})
+	while _snapshots.size() > max_snapshots:
+		_snapshots.pop_front()
+
+
+func _process_remote_render_interpolation(delta: float) -> void:
+	if _snapshots.is_empty():
+		return
+	var target_tick: float = float(NetworkTime.tick - interpolation_delay_ticks) + NetworkTime.tick_factor
+	var sampled_state: Dictionary = _sample_state(target_tick)
+	if not bool(sampled_state.get("found", false)):
+		return
+	var target_position: Vector3 = sampled_state.get("position", _root.global_position)
+	var target_velocity: Vector3 = sampled_state.get("velocity", Vector3.ZERO)
+	_apply_root_state(target_position, target_velocity, true, delta)
+
+
+func _sample_state(target_tick: float) -> Dictionary:
+	var first_snapshot: Dictionary = _snapshots[0]
+	if target_tick <= float(first_snapshot.get("tick", 0)):
+		return {
+			"found": true,
+			"position": first_snapshot.get("position", _root.global_position),
+			"velocity": first_snapshot.get("velocity", Vector3.ZERO),
+		}
+
+	var last_snapshot: Dictionary = _snapshots[_snapshots.size() - 1]
+	var last_tick: float = float(last_snapshot.get("tick", 0))
+	if target_tick >= last_tick:
+		var last_position: Vector3 = last_snapshot.get("position", _root.global_position)
+		var last_velocity: Vector3 = last_snapshot.get("velocity", Vector3.ZERO)
+		var extrapolation_ticks: float = minf(maxf(target_tick - last_tick, 0.0), float(max_extrapolation_ticks))
+		return {
+			"found": true,
+			"position": last_position + last_velocity * NetworkTime.ticktime * extrapolation_ticks,
+			"velocity": last_velocity,
+		}
+
+	for index: int in range(_snapshots.size() - 1):
+		var from_snapshot: Dictionary = _snapshots[index]
+		var to_snapshot: Dictionary = _snapshots[index + 1]
+		var from_tick: float = float(from_snapshot.get("tick", 0))
+		var to_tick: float = float(to_snapshot.get("tick", 0))
+		if target_tick < from_tick or target_tick > to_tick:
+			continue
+		var span: float = maxf(1.0, to_tick - from_tick)
+		var amount: float = clampf((target_tick - from_tick) / span, 0.0, 1.0)
+		var from_position: Vector3 = from_snapshot.get("position", _root.global_position)
+		var to_position: Vector3 = to_snapshot.get("position", from_position)
+		var from_velocity: Vector3 = from_snapshot.get("velocity", Vector3.ZERO)
+		var to_velocity: Vector3 = to_snapshot.get("velocity", from_velocity)
+		return {
+			"found": true,
+			"position": from_position.lerp(to_position, amount),
+			"velocity": from_velocity.lerp(to_velocity, amount),
+		}
+	return {"found": false}
+
+
+func _apply_root_state(position: Vector3, velocity: Vector3, smooth_render: bool = false, delta: float = 0.0) -> void:
+	if not _has_remote_state or _root.global_position.distance_to(position) > snap_distance:
+		_root.global_position = position
+		_root.velocity = velocity
+		_root.reset_physics_interpolation()
+		_has_remote_state = true
+		return
+	if smooth_render:
+		var blend: float = clampf(1.0 - exp(-render_lerp_speed * maxf(delta, 0.0)), 0.0, 1.0)
+		_root.global_position = _root.global_position.lerp(position, blend)
+	else:
+		_root.global_position = position
+	_root.velocity = velocity
+
+
+func _is_valid_position(position: Vector3) -> bool:
+	if not is_finite(position.x) or not is_finite(position.y) or not is_finite(position.z):
+		return false
+	return absf(position.x) <= max_abs_position and absf(position.y) <= max_abs_position and absf(position.z) <= max_abs_position
+
+
+func _clamp_velocity(velocity: Vector3) -> Vector3:
+	if not is_finite(velocity.x) or not is_finite(velocity.y) or not is_finite(velocity.z):
+		return Vector3.ZERO
+	var length: float = velocity.length()
+	if length > max_velocity_mps:
+		return velocity.normalized() * max_velocity_mps
+	return velocity

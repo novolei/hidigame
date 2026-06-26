@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
 	_test_join_address_port_parsing()
+	_test_noray_private_connection_helpers()
 	await _test_lobby_ui_state()
 	await _test_landing_join_form()
 	await _test_public_lobby_room_list_ui()
@@ -82,6 +83,10 @@ func _reset_network_state() -> void:
 		"public_lobby": false,
 		"public_room_id": "",
 		"public_address": "",
+		"public_server_code": "",
+		"private_connection_mode": "direct",
+		"private_connection_code": "",
+		"private_connection_server": "",
 		"host_peer_id": 1,
 		"host_peer_name": "",
 		"role_locked": false,
@@ -139,7 +144,9 @@ func _test_public_room_server_uses_empty_lobby_id() -> void:
 func _test_public_room_detached_launch_helpers() -> void:
 	_reset_network_state()
 	var previous_launch_mode := OS.get_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV)
+	var previous_pck_path: String = OS.get_environment("MAOMAO_PCK")
 	OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD)
+	OS.set_environment("MAOMAO_PCK", "/opt/maomao/maomao_server.pck")
 	_expect(Network._public_lobby_room_launch_mode() == Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD, "Explicit child launch mode should use direct create_process spawning")
 	OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, Network.PUBLIC_ROOM_LAUNCH_MODE_DETACHED)
 	var expected_detached_mode := Network.PUBLIC_ROOM_LAUNCH_MODE_DETACHED if Network._public_lobby_can_use_unix_shell() else Network.PUBLIC_ROOM_LAUNCH_MODE_CHILD
@@ -151,10 +158,15 @@ func _test_public_room_detached_launch_helpers() -> void:
 	_expect(args.has("--room-name") and args[args.find("--room-name") + 1] == "Alpha Room", "Room process args should include the human room name")
 	_expect(args.has("--lobby-password") and args[args.find("--lobby-password") + 1] == "LOCK", "Room process args should include the optional room password")
 	_expect(args.has("--port") and args[args.find("--port") + 1] == "18081", "Room process args should include the allocated room port")
+	_expect(args.has("--main-pack") and args[args.find("--main-pack") + 1] == "/opt/maomao/maomao_server.pck", "Room process args should pass the configured exported server pack")
 	if previous_launch_mode.is_empty():
 		OS.unset_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV)
 	else:
 		OS.set_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV, previous_launch_mode)
+	if previous_pck_path.is_empty():
+		OS.unset_environment("MAOMAO_PCK")
+	else:
+		OS.set_environment("MAOMAO_PCK", previous_pck_path)
 
 
 func _test_performance_telemetry_event_window() -> void:
@@ -240,6 +252,15 @@ func _test_join_address_port_parsing() -> void:
 	Network.server_port = Network.SERVER_PORT
 
 
+func _test_noray_private_connection_helpers() -> void:
+	_reset_network_state()
+	_expect(Network.is_noray_join_target("noray:ABC123"), "Noray share codes should route through Noray")
+	_expect(Network.is_noray_join_target("noray://ABC123"), "Noray URL share codes should route through Noray")
+	_expect(not Network.is_noray_join_target("Bili Room"), "Plain room names should not be misdetected as Noray codes")
+	_expect(not Network.is_noray_join_target("127.0.0.1:8080"), "Direct IP joins should stay on the direct path")
+	_expect(NorayPrivateTransport.extract_oid("noray:ABC123") == "ABC123", "Noray share code parsing should strip the prefix")
+
+
 func _test_lobby_ui_state() -> void:
 	_reset_network_state()
 	var ui_peer := ENetMultiplayerPeer.new()
@@ -261,6 +282,9 @@ func _test_lobby_ui_state() -> void:
 		"stalker_glass_material": "liquid_glass",
 		"hunter_auto_turret_enabled": false,
 		"hunter_auto_turret_range": 26.0,
+		"private_connection_mode": "noray",
+		"private_connection_code": "noray:ABC123",
+		"private_connection_server": "8.153.148.157:8890",
 	}, true)
 
 	var ui_scene: PackedScene = load("res://scenes/ui/main_menu_ui.tscn")
@@ -276,6 +300,7 @@ func _test_lobby_ui_state() -> void:
 	ui.update_lobby(Network.players, Network.lobby_config)
 
 	_expect(ui.lobby_id_input.text == "ABCD", "Lobby screen should display host Lobby ID")
+	_expect(_tree_has_line_edit_text(ui, "noray:ABC123"), "Noray private share code should be visible in the lobby details")
 	_expect(_selected_value(ui.map_option) == "Street Block", "Level dropdown should follow lobby config")
 	_expect(_selected_value(ui.variant_option) == "Low Ammo", "Variant dropdown should follow lobby config")
 	_expect(_selected_value(ui.condition_option) == "Night", "Condition dropdown should follow lobby config")
@@ -456,6 +481,12 @@ func _test_public_lobby_room_list_ui() -> void:
 	_expect(int(join_result["count"]) == 2, "Double-clicking a public room row should join it when the lobby is idle")
 	ui.hide_public_lobby_loading()
 
+	ui.public_room_create_name_input.text = "   "
+	ui._on_public_room_create_pressed()
+	_expect(int(create_result["count"]) == 0, "Creating a public room should require an explicit room name")
+	_expect(ui.public_lobby_alert_text == I18n.t("public_lobby.room_name_required"), "Empty public room name should show a public lobby HUD alert")
+	_expect(ui.public_lobby_loading_text.is_empty(), "Empty public room name should not show the loading panel")
+
 	ui.public_room_create_name_input.text = "Beta Room"
 	ui.public_room_create_password_input.text = "key"
 	ui._on_public_room_create_pressed()
@@ -465,6 +496,30 @@ func _test_public_lobby_room_list_ui() -> void:
 	_expect(int(create_result["count"]) == 1, "Creating while a public room request is pending should not emit another create request")
 	_expect(str(create_result["room_name"]) == "Beta Room", "Public room create should pass the requested room name")
 	_expect(str(create_result["password"]) == "KEY", "Public room create password should normalize to uppercase")
+	var primary_server_text: String = ui._public_room_server_info_text({
+		"public_server": true,
+		"public_lobby": false,
+		"public_address": Network.PUBLIC_SERVER_ADDRESS,
+		"public_server_code": Network.PUBLIC_SERVER_PRIMARY_CODE,
+		"host_port": 8081,
+	})
+	_expect(primary_server_text.contains("TX") and primary_server_text.contains(Network.PUBLIC_SERVER_ADDRESS), "Public room lobby should display the primary TX server identity")
+	var secondary_server_text: String = ui._public_room_server_info_text({
+		"public_server": true,
+		"public_lobby": false,
+		"public_address": str(Network.PUBLIC_SERVER_BACKUP_ADDRESSES[0]),
+		"host_port": 8081,
+	})
+	_expect(secondary_server_text.contains("AL"), "Public room lobby should infer the secondary AL server identity")
+	Network.lobby_config["public_server"] = true
+	Network.lobby_config["public_lobby"] = false
+	Network.lobby_config["public_address"] = Network.PUBLIC_SERVER_ADDRESS
+	Network.lobby_config["public_server_code"] = Network.PUBLIC_SERVER_PRIMARY_CODE
+	Network.lobby_config["host_port"] = 8081
+	ui.show_lobby("", false)
+	await get_tree().process_frame
+	var lobby_server_label := ui.find_child("LobbyServerInfoLabel", true, false) as Label
+	_expect(lobby_server_label != null and lobby_server_label.text.contains("TX"), "Public room lobby header should show the active server code after room entry")
 
 	ui.queue_free()
 	await get_tree().process_frame
@@ -546,25 +601,17 @@ func _test_player_replication_budget() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	var synchronizer: MultiplayerSynchronizer = player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
-	_expect(synchronizer != null, "Player scene should keep a MultiplayerSynchronizer")
-	if synchronizer:
-		_expect(absf(synchronizer.replication_interval - 0.08) <= 0.001, "Player replication should use the 12.5Hz public-server budget")
-		_expect(absf(synchronizer.delta_interval - 0.16) <= 0.001, "Player delta replication should use the 0.16s budget")
-		var config: SceneReplicationConfig = synchronizer.replication_config as SceneReplicationConfig
-		_expect(config != null, "Player synchronizer should keep a replication config")
-		if config:
-			var position_path := NodePath(".:position")
-			var nickname_path := NodePath("PlayerNick/Nickname:text")
-			var animation_path := NodePath("3DGodotRobot/AnimationPlayer:current_animation")
-			var rotation_path := NodePath("3DGodotRobot:rotation")
-			_expect(config.has_property(position_path), "Player position should remain network synchronized")
-			_expect(config.property_get_sync(position_path), "Player position should sync after spawn")
-			_expect(config.has_property(nickname_path), "Player nickname should remain in spawn state")
-			_expect(config.property_get_spawn(nickname_path), "Player nickname should be sent on spawn")
-			_expect(not config.property_get_sync(nickname_path), "Player nickname should not sync every network frame")
-			_expect(not config.has_property(animation_path), "Remote player animation should be inferred locally, not synchronized every frame")
-			_expect(not config.has_property(rotation_path), "Remote player facing should be inferred locally, not synchronized every frame")
+	var old_synchronizer: MultiplayerSynchronizer = player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
+	_expect(old_synchronizer == null, "Player scene should not double-write position with MultiplayerSynchronizer after NetFox migration")
+	var transform_sync: NetfoxPlayerTransformSync = player.get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
+	_expect(transform_sync != null, "Player scene should include NetfoxTransformSync for owner/server/remote transform relay")
+	if transform_sync:
+		_expect(transform_sync.root_path == NodePath(".."), "NetFox transform sync should target the player root")
+		_expect(transform_sync.send_every_ticks == 1, "NetFox transform sync should send one snapshot per network tick")
+		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote players should keep a public-internet interpolation buffer")
+		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote players should use a short extrapolation cap for missed packets")
+		_expect(transform_sync.max_snapshots == 18, "Remote snapshot history should stay bounded but absorb jitter")
+		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote render should smooth sampled snapshots instead of hard-writing every frame")
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -949,6 +996,15 @@ func _tree_has_button_text(root_node: Node, needle: String) -> bool:
 		return true
 	for child in root_node.get_children():
 		if _tree_has_button_text(child, needle):
+			return true
+	return false
+
+
+func _tree_has_line_edit_text(root_node: Node, needle: String) -> bool:
+	if root_node is LineEdit and (root_node as LineEdit).text == needle:
+		return true
+	for child in root_node.get_children():
+		if _tree_has_line_edit_text(child, needle):
 			return true
 	return false
 

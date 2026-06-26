@@ -82,8 +82,8 @@ const DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR := 0.78
 const DEAD_FREE_CAM_SPRING_LENGTH := 0.25
 const DEAD_FREE_CAM_FOV := 72.0
 const DEATH_DISSOLVE_SHADER := preload("res://shaders/death_dissolve.gdshader")
-const CardDatabase := preload("res://scripts/card_database.gd")
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
+const PlayerCardEffectControllerScript := preload("res://scripts/player_card_effect_controller.gd")
 const RemoteMotionSamplerScript := preload("res://scripts/remote_motion_sampler.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
@@ -94,6 +94,13 @@ const CAMOUFLAGE_GPU_ATLAS_SIZE := 2048
 const CAMOUFLAGE_GPU_DEFAULT_LIGHTMAP_HINT := Vector2i(512, 512)
 const CAMOUFLAGE_GPU_BRUSH_TIME := 0.035
 const CAMOUFLAGE_GPU_MAX_QUEUED_STROKES := 96
+const CAMOUFLAGE_PAINT_RPC_MAX_STAMPS := 16
+const CAMOUFLAGE_PAINT_RPC_MAX_BYTES := 4096
+const CAMOUFLAGE_PAINT_RPC_BASE_BYTES := 120
+const CAMOUFLAGE_PAINT_RPC_BYTES_PER_STAMP := 28
+const CAMOUFLAGE_PAINT_RPC_BYTES_PER_WORLD_POSITION := 24
+const CAMOUFLAGE_PAINT_RPC_BYTES_PER_CLIP_UV := 8
+const CAMOUFLAGE_PAINT_RPC_BYTES_PER_FOOTPRINT_VALUE := 4
 const STALKER_VISIBILITY_SYNC_MIN_DELTA := 0.015
 const ENVIRONMENT_PROP_PAINT_SYNC_SIZE := 512
 const ENVIRONMENT_PROP_PAINT_MAX_SURFACES := 16
@@ -193,29 +200,30 @@ var _land_audio: AudioStreamPlayer3D = null
 var _step_audio: AudioStreamPlayer3D = null
 var _disguise_audio: AudioStreamPlayer3D = null
 var _step_sounds: Array[AudioStream] = []
-var _footstep_timer := 0.0
-var _last_footstep_sprinting := false
+var _footstep_timer: float = 0.0
+var _last_footstep_sprinting: bool = false
 var _default_collision_shape: Shape3D = null
-var _default_collision_transform := Transform3D.IDENTITY
+var _default_collision_transform: Transform3D = Transform3D.IDENTITY
 
 var _current_speed: float
-var _respawn_point = Vector3(0, 5, 0)
+var _respawn_point: Vector3 = Vector3(0, 5, 0)
 var _last_safe_ground_position: Vector3 = Vector3.ZERO
 var _last_safe_ground_valid: bool = false
-var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
+var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 
-var can_double_jump = true
-var has_double_jumped = false
+var can_double_jump: bool = true
+var has_double_jumped: bool = false
 var health: float = 100.0
+var _card_effect_controller: PlayerCardEffectController = null
 var _card_effect_timers: Dictionary = {}
-var _card_speed_multiplier := 1.0
-var _card_damage_immunity_remaining := 0.0
-var _card_hunter_skill_immunity_remaining := 0.0
-var _card_silent_steps_remaining := 0.0
-var _card_stasis_remaining := 0.0
-var _card_original_scale := Vector3.ONE
-var _card_scale_effect_active := false
-var _card_screen_impairment_remaining := 0.0
+var _card_speed_multiplier: float = 1.0
+var _card_damage_immunity_remaining: float = 0.0
+var _card_hunter_skill_immunity_remaining: float = 0.0
+var _card_silent_steps_remaining: float = 0.0
+var _card_stasis_remaining: float = 0.0
+var _card_original_scale: Vector3 = Vector3.ONE
+var _card_scale_effect_active: bool = false
+var _card_screen_impairment_remaining: float = 0.0
 var _card_screen_impairment_layer: CanvasLayer = null
 var _card_screen_impairment_rect: ColorRect = null
 var _card_screen_impairment_label: Label = null
@@ -264,14 +272,39 @@ var _skin_performance_music_player: AudioStreamPlayer = null
 
 signal health_changed(value: float)
 
+
+func _has_runtime_multiplayer_peer() -> bool:
+	return RuntimeMode.has_multiplayer_peer(multiplayer)
+
+
+func _local_peer_id() -> int:
+	if _has_runtime_multiplayer_peer():
+		return multiplayer.get_unique_id()
+	if Network.players.has(1):
+		return 1
+	var authority: int = get_multiplayer_authority()
+	return authority if authority > 0 else 1
+
+
+func _is_local_authority() -> bool:
+	if _has_runtime_multiplayer_peer():
+		return is_multiplayer_authority()
+	var authority: int = get_multiplayer_authority()
+	if authority <= 0:
+		return true
+	if Network.players.has(1):
+		return authority == 1
+	return true
+
+
 func _enter_tree():
 	set_multiplayer_authority(str(name).to_int())
-	$SpringArmOffset/SpringArm3D/Camera3D.current = is_multiplayer_authority()
+	$SpringArmOffset/SpringArm3D/Camera3D.current = _is_local_authority()
 	add_to_group("players")
 
 func _ready():
-	var is_local_player = is_multiplayer_authority()
-	var local_client_id = multiplayer.get_unique_id()
+	var is_local_player: bool = _is_local_authority()
+	var local_client_id: int = _local_peer_id()
 	_robot_visual_root = get_node_or_null("3DGodotRobot/RobotArmature")
 	_apply_remote_visual_performance_policy(_robot_visual_root)
 	_cache_default_collision_shape()
@@ -318,7 +351,7 @@ func _check_role_after_assignment() -> void:
 	_sync_role_from_network()
 	if is_hunter():
 		_setup_hunter_systems()
-	elif is_chameleon() and is_multiplayer_authority() and not has_node("CamouflageSystem"):
+	elif is_chameleon() and _is_local_authority() and not has_node("CamouflageSystem"):
 		_setup_chameleon_systems()
 	elif is_stalker() and not has_node("ShadowVisibilitySystem"):
 		_setup_stalker_systems()
@@ -373,7 +406,7 @@ var _party_monster_bounty_marker_label: Label3D = null
 var _party_monster_bounty_feedback_elapsed := LOCAL_FEEDBACK_TRANSFORM_INTERVAL
 
 func _setup_chameleon_systems() -> void:
-	if not is_chameleon() or not is_multiplayer_authority():
+	if not is_chameleon() or not _is_local_authority():
 		return
 
 	# 环境取色伪装系统(Godot 4.7 DrawableTexture2D)
@@ -438,7 +471,7 @@ func _setup_stalker_systems() -> void:
 		add_child(grapple)
 	stalker_grapple_system = get_node_or_null("StalkerGrappleSystem")
 	if stalker_grapple_system:
-		stalker_grapple_system.initialize(self, camera if is_multiplayer_authority() else null)
+		stalker_grapple_system.initialize(self, camera if _is_local_authority() else null)
 	_refresh_stalker_visibility_view(true)
 
 
@@ -459,7 +492,7 @@ func _should_compute_stalker_visibility() -> bool:
 		return false
 	if not _has_active_camouflage_multiplayer_peer():
 		return true
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		return true
 	if multiplayer.is_server():
 		var owner_id := get_multiplayer_authority()
@@ -573,7 +606,7 @@ func _get_stalker_visual_mode_for_viewer(shadow_alpha: float) -> String:
 		return "normal"
 	if shadow_alpha >= 0.99:
 		return "normal"
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		return "glass" if _stalker_glass_material_mode() == "liquid_glass" else "ghost"
 
 	var viewer_role := _get_local_viewer_role()
@@ -585,14 +618,14 @@ func _get_stalker_visual_mode_for_viewer(shadow_alpha: float) -> String:
 
 
 func _get_local_viewer_role() -> int:
-	var local_id := multiplayer.get_unique_id()
+	var local_id: int = _local_peer_id()
 	if Network.players.has(local_id):
 		return int(Network.players[local_id].get("role", Network.Role.NONE))
 	return Network.Role.NONE
 
 
 func _stalker_ghost_profile_for_viewer() -> String:
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		return "self"
 	var viewer_role: int = _get_local_viewer_role()
 	if viewer_role == Network.Role.CHAMELEON:
@@ -601,7 +634,7 @@ func _stalker_ghost_profile_for_viewer() -> String:
 
 
 func _stalker_glass_profile_for_viewer() -> String:
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		return "self"
 	var viewer_role: int = _get_local_viewer_role()
 	if viewer_role == Network.Role.CHAMELEON:
@@ -773,7 +806,7 @@ func _refresh_nickname_visibility(stalker_shadow_alpha: float = -1.0) -> void:
 
 
 func _should_show_nickname_for_local_viewer(stalker_shadow_alpha: float = -1.0) -> bool:
-	var local_id := multiplayer.get_unique_id()
+	var local_id: int = _local_peer_id()
 	if get_multiplayer_authority() == local_id:
 		return true
 	if _party_monster_bounty_marked:
@@ -1062,7 +1095,7 @@ func _configure_stalker_glass_material(material: ShaderMaterial, material_key: S
 func _setup_hunter_systems() -> void:
 	if not is_hunter():
 		return
-	if is_multiplayer_authority() or multiplayer.is_server():
+	if _is_local_authority() or multiplayer.is_server():
 		_setup_hunter_weapon()
 	_setup_hunter_flashlight()
 	_setup_hunter_prop_sense()
@@ -1070,7 +1103,7 @@ func _setup_hunter_systems() -> void:
 
 
 func _setup_hunter_weapon() -> void:
-	var is_local_player = is_multiplayer_authority()
+	var is_local_player = _is_local_authority()
 	var camera = $SpringArmOffset/SpringArm3D/Camera3D
 
 	# 鍔犺浇 AK47 妯″瀷(浠呮湰鍦拌瑙?
@@ -1106,7 +1139,7 @@ func _setup_hunter_flashlight() -> void:
 		add_child(flashlight)
 	hunter_flashlight_system = get_node_or_null("HunterFlashlightSystem")
 	if hunter_flashlight_system:
-		hunter_flashlight_system.initialize(self, camera if is_multiplayer_authority() else null)
+		hunter_flashlight_system.initialize(self, camera if _is_local_authority() else null)
 
 
 func _teardown_hunter_flashlight() -> void:
@@ -1116,7 +1149,7 @@ func _teardown_hunter_flashlight() -> void:
 
 
 func _setup_hunter_prop_sense() -> void:
-	if not is_hunter() or not is_multiplayer_authority():
+	if not is_hunter() or not _is_local_authority():
 		return
 	if not has_node("HunterPropSenseSystem"):
 		var sense := preload("res://scripts/hunter_prop_sense_system.gd").new()
@@ -1161,7 +1194,7 @@ func _on_ammo_changed(current_magazine: int, total_ammo: int) -> void:
 # =============================================================================
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_multiplayer_authority():
+	if not _is_local_authority():
 		return
 	if _is_dead:
 		_handle_dead_spectator_input(event)
@@ -1365,7 +1398,7 @@ func _get_hologram_player_height() -> float:
 
 func _process_input_held():
 	# 鍦?_process 涓寔缁娴?shoot / paint 鎸変綇鐘舵€?
-	if not is_multiplayer_authority():
+	if not _is_local_authority():
 		return
 	if _is_dead:
 		return
@@ -1444,7 +1477,7 @@ func _on_role_changed(peer_id: int, new_role: int) -> void:
 		# 濡傛灉鏄?Hunter 涓旇繕娌℃寕姝﹀櫒,琛ユ寕
 		if new_role == Network.Role.HUNTER:
 			_setup_hunter_systems()
-		elif new_role == Network.Role.CHAMELEON and is_multiplayer_authority() and not has_node("CamouflageSystem"):
+		elif new_role == Network.Role.CHAMELEON and _is_local_authority() and not has_node("CamouflageSystem"):
 			_setup_chameleon_systems()
 		elif new_role == Network.Role.STALKER:
 			_setup_stalker_systems()
@@ -1571,7 +1604,7 @@ func _force_skeleton_update_recursive(node: Node) -> void:
 		_force_skeleton_update_recursive(child)
 
 func _physics_process(delta):
-	if not is_multiplayer_authority(): return
+	if not _is_local_authority(): return
 
 	if _is_dead:
 		_process_dead_free_camera(delta)
@@ -1653,8 +1686,9 @@ func _process(delta):
 		_clear_camouflage_gpu_runtime_work()
 	if _skin_performance_input_block_remaining > 0.0:
 		_skin_performance_input_block_remaining = maxf(0.0, _skin_performance_input_block_remaining - delta)
+	var is_local_player: bool = _is_local_authority()
 	if is_stalker():
-		if is_multiplayer_authority():
+		if is_local_player:
 			_refresh_stalker_visibility_view(false)
 		else:
 			_refresh_nickname_visibility(_stalker_synced_visibility_alpha)
@@ -1662,7 +1696,7 @@ func _process(delta):
 		_refresh_nickname_visibility()
 	_process_party_monster_bounty_feedback(delta)
 	_process_hunter_prop_sense_feedback(delta)
-	if not is_multiplayer_authority():
+	if not is_local_player:
 		if not _is_dedicated_public_server_runtime():
 			_animate_remote_skin_from_network_motion(delta)
 		return
@@ -1680,7 +1714,7 @@ func freeze():
 
 func _move(delta: float) -> void:
 	var _input_direction: Vector2 = Vector2.ZERO
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		_input_direction = Input.get_vector(
 			"move_left", "move_right",
 			"move_forward", "move_backward"
@@ -1997,74 +2031,21 @@ func _safe_position_has_overhead_clearance(candidate: Vector3) -> bool:
 
 
 func apply_card_effect(card_id: String) -> void:
-	if _is_dead:
-		_card_feedback_to_owner("SPECTATING", Color(0.72, 0.86, 1.0, 1.0), 0.55)
-		return
-	var card := CardDatabase.get_card(card_id)
-	var duration := float(card.get("duration", 0.0))
-	match card_id:
-		"prop_chromatic_burst":
-			_card_apply_stealth(maxf(duration, 1.0))
-		"prop_micro_form":
-			_card_apply_scale(0.25, maxf(duration, 15.0))
-		"prop_flashbang":
-			_card_apply_vision_impairment_to_role(Network.Role.HUNTER, float(card.get("radius", 10.0)), duration, "FLASH")
-		"prop_decoy_echo":
-			_card_spawn_decoy(maxf(duration, 15.0), Vector3.ZERO)
-		"prop_portal_step":
-			_card_portal_step()
-		"prop_static_aura":
-			_card_apply_prop_aura_status("damage_immunity", float(card.get("radius", 8.0)), maxf(duration, 8.0))
-		"prop_emergency_conceal":
-			health = maxf(health, 65.0)
-			_sync_health.rpc(health)
-			_card_apply_status("damage_immunity", maxf(duration, 5.0))
-			_card_apply_stasis(maxf(duration, 5.0))
-		"prop_paint_bomb":
-			_card_apply_vision_impairment_to_role(Network.Role.HUNTER, float(card.get("radius", 20.0)), duration, "PAINT")
-		"prop_time_stop":
-			_card_apply_role_speed_multiplier(Network.Role.HUNTER, float(card.get("radius", 10.0)), 0.5, maxf(duration, 8.0))
-		"prop_mist_clones":
-			_card_spawn_mist_clones(maxf(duration, 8.0))
-		"prop_sense":
-			_card_apply_visible_hunter_scale(35.0, 0.5, maxf(duration, 8.0))
-		"prop_empty_bullet":
-			_card_clear_hunter_ammo()
-		"prop_silent_steps":
-			_card_apply_status("silent_steps", maxf(duration, 18.0))
-		"prop_extreme_immunity":
-			_card_apply_status("damage_immunity", maxf(duration, 25.0))
-			_card_apply_status("hunter_skill_immunity", maxf(duration, 25.0))
-			_card_tint_for_duration(Color(0.55, 0.98, 0.82, 1.0), maxf(duration, 25.0))
-		"prop_revival":
-			_card_feedback_to_owner("REVIVAL READY", Color(0.62, 1.0, 0.74, 1.0), 0.9)
-		"hunter_pulse_scan":
-			_card_reveal_props(float(card.get("radius", 24.0)), maxf(duration, 6.0))
-		"hunter_blacklight":
-			_card_reveal_props(float(card.get("radius", 18.0)), maxf(duration, 8.0))
-		"hunter_overclock_rounds":
-			_card_refill_weapon(60)
-			_card_apply_status("speed_multiplier_1_2", maxf(duration, 8.0))
-		"hunter_gravity_net":
-			_card_apply_role_speed_multiplier(Network.Role.CHAMELEON, float(card.get("radius", 10.0)), 0.55, maxf(duration, 8.0))
-			_card_apply_role_speed_multiplier(Network.Role.STALKER, float(card.get("radius", 10.0)), 0.55, maxf(duration, 8.0))
-		"hunter_echo_marker":
-			_card_mark_nearest_prop(float(card.get("radius", 35.0)), maxf(duration, 5.0))
-		"hunter_light_cage":
-			_card_reveal_props(float(card.get("radius", 12.0)), maxf(duration, 7.0))
-			_card_apply_role_speed_multiplier(Network.Role.CHAMELEON, float(card.get("radius", 12.0)), 0.72, maxf(duration, 7.0))
-			_card_apply_role_speed_multiplier(Network.Role.STALKER, float(card.get("radius", 12.0)), 0.72, maxf(duration, 7.0))
-		"hunter_turret_overdrive":
-			_card_overdrive_turret(maxf(duration, 10.0))
-		"hunter_ammo_cache":
-			_card_refill_weapon(WeaponSystem.MAX_TOTAL_AMMO)
-		"hunter_adrenaline":
-			_card_apply_status("speed_multiplier_1_45", maxf(duration, 6.0))
-		"hunter_signal_jammer":
-			_card_apply_vision_impairment_to_role(Network.Role.CHAMELEON, float(card.get("radius", 14.0)), maxf(duration, 6.0), "JAMMED")
-			_card_apply_vision_impairment_to_role(Network.Role.STALKER, float(card.get("radius", 14.0)), maxf(duration, 6.0), "JAMMED")
-		_:
-			_card_feedback_to_owner("CARD", Color(0.62, 0.92, 1.0, 1.0), 0.5)
+	_get_card_effect_controller().apply_card_effect(card_id)
+
+
+func _get_card_effect_controller() -> PlayerCardEffectController:
+	if _card_effect_controller == null:
+		_card_effect_controller = PlayerCardEffectControllerScript.new() as PlayerCardEffectController
+		_card_effect_controller.initialize(self)
+	return _card_effect_controller
+
+
+func _card_apply_emergency_conceal(duration: float) -> void:
+	health = maxf(health, 65.0)
+	_sync_health.rpc(health)
+	_card_apply_status("damage_immunity", maxf(duration, 5.0))
+	_card_apply_stasis(maxf(duration, 5.0))
 
 
 func apply_card_status(status_id: String, duration: float, multiplier: float = 1.0) -> void:
@@ -2420,7 +2401,7 @@ func _card_feedback_to_owner(text: String, color: Color, duration: float = 0.75)
 		return
 	if _card_can_rpc_to_owner(owner_id):
 		_client_card_feedback.rpc_id(owner_id, text, color, duration)
-	elif owner_id == multiplayer.get_unique_id() or not multiplayer.multiplayer_peer:
+	elif owner_id == _local_peer_id() or not _has_runtime_multiplayer_peer():
 		_client_card_feedback(text, color, duration)
 
 
@@ -2428,14 +2409,14 @@ func _card_apply_screen_impairment(label: String, duration: float) -> void:
 	var owner_id := get_multiplayer_authority()
 	if _card_can_rpc_to_owner(owner_id):
 		_client_card_screen_impairment.rpc_id(owner_id, label, duration)
-	elif owner_id == multiplayer.get_unique_id() or not multiplayer.multiplayer_peer:
+	elif owner_id == _local_peer_id() or not _has_runtime_multiplayer_peer():
 		_client_card_screen_impairment(label, duration)
 
 
 func _card_can_rpc_to_owner(owner_id: int) -> bool:
-	if owner_id == multiplayer.get_unique_id():
+	if owner_id == _local_peer_id():
 		return false
-	if not multiplayer.is_server() or not multiplayer.multiplayer_peer:
+	if not multiplayer.is_server() or not _has_runtime_multiplayer_peer():
 		return false
 	if multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
 		return false
@@ -2444,7 +2425,7 @@ func _card_can_rpc_to_owner(owner_id: int) -> bool:
 
 @rpc("authority", "call_local", "reliable")
 func _client_card_screen_impairment(label: String, duration: float) -> void:
-	if not is_multiplayer_authority() and multiplayer.multiplayer_peer:
+	if not _is_local_authority() and multiplayer.multiplayer_peer:
 		return
 	_card_screen_impairment_remaining = maxf(_card_screen_impairment_remaining, duration)
 	_ensure_card_screen_impairment_layer()
@@ -2606,7 +2587,7 @@ func _apply_camouflage_palette(palette: Array, confidence: float) -> void:
 	var texture := CamouflageSystem.create_camouflage_texture(clean_palette, get_instance_id())
 	_apply_camouflage_texture_to_character(texture, clean_palette[0], confidence)
 	var level = get_tree().get_current_scene() if get_tree() else null
-	if level and is_multiplayer_authority() and level.has_method("show_combat_feedback"):
+	if level and _is_local_authority() and level.has_method("show_combat_feedback"):
 		level.show_combat_feedback("环境融合 %d%%" % int(round(confidence * 100.0)), clean_palette[0], 0.9)
 
 
@@ -2927,7 +2908,7 @@ func _ensure_chameleon_sculpt_system_for_replication() -> Node:
 	sculpt.name = "ChameleonSculptSystem"
 	add_child(sculpt)
 	var camera_node := $SpringArmOffset/SpringArm3D/Camera3D if has_node("SpringArmOffset/SpringArm3D/Camera3D") else null
-	sculpt.initialize(self, camera_node if is_multiplayer_authority() else null)
+	sculpt.initialize(self, camera_node if _is_local_authority() else null)
 	chameleon_sculpt_system = sculpt
 	if camouflage_system and camouflage_system.has_method("set_sculpt_system"):
 		camouflage_system.call("set_sculpt_system", chameleon_sculpt_system)
@@ -3061,16 +3042,252 @@ func submit_camouflage_brush_stroke_batch(
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	var clip_triangles: PackedVector2Array = clean_uv_clip.get("triangles", PackedVector2Array())
 	var clip_counts: PackedInt32Array = clean_uv_clip.get("counts", PackedInt32Array())
-	var approx_batch_bytes: int = 120 + clean_uvs.size() * 28 + world_positions.size() * 24 + clip_triangles.size() * 8 + clean_uv_footprint_metrics.size() * 4
 	Network.record_perf_event("skill.chameleon.paint_points", clean_uvs.size())
-	if multiplayer.is_server() and _has_active_camouflage_multiplayer_peer():
-		Network.record_rpc_event("chameleon.paint_batch", maxi(multiplayer.get_peers().size(), 1), approx_batch_bytes)
-		_apply_camouflage_brush_stroke_batch.rpc(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
-	elif _should_apply_camouflage_brush_without_server_peer():
-		_apply_camouflage_brush_stroke_batch(clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
-	else:
-		Network.record_rpc_event("chameleon.paint_batch_request", 1, approx_batch_bytes)
-		_request_camouflage_brush_stroke_batch.rpc_id(1, clean_uvs, color, clean_radius, angle, world_positions, clean_normal, target_mesh_path, target_surface, clean_radii, clip_triangles, clip_counts, clean_uv_footprint_metrics, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+	_dispatch_camouflage_brush_stroke_batch(
+		clean_uvs,
+		color,
+		clean_radius,
+		angle,
+		world_positions,
+		clean_normal,
+		target_mesh_path,
+		target_surface,
+		clean_radii,
+		clip_triangles,
+		clip_counts,
+		clean_uv_footprint_metrics,
+		_camouflage_paint_roughness,
+		_camouflage_paint_metallic,
+		_camouflage_paint_specular,
+		false
+	)
+
+
+func _dispatch_camouflage_brush_stroke_batch(
+	uvs: PackedVector2Array,
+	color: Color,
+	brush_radius: float,
+	angle: float,
+	world_positions: PackedVector3Array,
+	world_normal: Vector3,
+	target_mesh_path: String,
+	target_surface: int,
+	brush_radii: PackedFloat32Array,
+	uv_clip_triangles: PackedVector2Array,
+	uv_clip_triangle_counts: PackedInt32Array,
+	uv_footprint_metrics: PackedFloat32Array,
+	material_roughness: float,
+	material_metallic: float,
+	material_specular: float,
+	server_forward_only: bool = false
+) -> void:
+	var chunks: Array[Dictionary] = _make_camouflage_paint_batch_chunks(
+		uvs,
+		world_positions,
+		brush_radii,
+		uv_clip_triangles,
+		uv_clip_triangle_counts,
+		uv_footprint_metrics
+	)
+	if chunks.is_empty():
+		return
+	if chunks.size() > 1:
+		Network.record_perf_event("skill.chameleon.paint_rpc_chunks", chunks.size())
+	for raw_chunk in chunks:
+		var chunk: Dictionary = raw_chunk
+		var chunk_uvs: PackedVector2Array = chunk.get("uvs", PackedVector2Array())
+		var chunk_world_positions: PackedVector3Array = chunk.get("world_positions", PackedVector3Array())
+		var chunk_brush_radii: PackedFloat32Array = chunk.get("brush_radii", PackedFloat32Array())
+		var chunk_clip_triangles: PackedVector2Array = chunk.get("uv_clip_triangles", PackedVector2Array())
+		var chunk_clip_counts: PackedInt32Array = chunk.get("uv_clip_triangle_counts", PackedInt32Array())
+		var chunk_footprint_metrics: PackedFloat32Array = chunk.get("uv_footprint_metrics", PackedFloat32Array())
+		var approx_batch_bytes: int = _camouflage_paint_batch_approx_bytes(
+			chunk_uvs.size(),
+			chunk_world_positions.size(),
+			chunk_clip_triangles.size(),
+			chunk_footprint_metrics.size()
+		)
+		if multiplayer.is_server():
+			if _has_active_camouflage_multiplayer_peer():
+				Network.record_rpc_event("chameleon.paint_batch", maxi(multiplayer.get_peers().size(), 1), approx_batch_bytes)
+				_apply_camouflage_brush_stroke_batch.rpc(
+					chunk_uvs,
+					color,
+					brush_radius,
+					angle,
+					chunk_world_positions,
+					world_normal,
+					target_mesh_path,
+					target_surface,
+					chunk_brush_radii,
+					chunk_clip_triangles,
+					chunk_clip_counts,
+					chunk_footprint_metrics,
+					material_roughness,
+					material_metallic,
+					material_specular
+				)
+			else:
+				_apply_camouflage_brush_stroke_batch(
+					chunk_uvs,
+					color,
+					brush_radius,
+					angle,
+					chunk_world_positions,
+					world_normal,
+					target_mesh_path,
+					target_surface,
+					chunk_brush_radii,
+					chunk_clip_triangles,
+					chunk_clip_counts,
+					chunk_footprint_metrics,
+					material_roughness,
+					material_metallic,
+					material_specular
+				)
+		elif _should_apply_camouflage_brush_without_server_peer():
+			_apply_camouflage_brush_stroke_batch(
+				chunk_uvs,
+				color,
+				brush_radius,
+				angle,
+				chunk_world_positions,
+				world_normal,
+				target_mesh_path,
+				target_surface,
+				chunk_brush_radii,
+				chunk_clip_triangles,
+				chunk_clip_counts,
+				chunk_footprint_metrics,
+				material_roughness,
+				material_metallic,
+				material_specular
+			)
+		elif not server_forward_only:
+			Network.record_rpc_event("chameleon.paint_batch_request", 1, approx_batch_bytes)
+			_request_camouflage_brush_stroke_batch.rpc_id(
+				1,
+				chunk_uvs,
+				color,
+				brush_radius,
+				angle,
+				chunk_world_positions,
+				world_normal,
+				target_mesh_path,
+				target_surface,
+				chunk_brush_radii,
+				chunk_clip_triangles,
+				chunk_clip_counts,
+				chunk_footprint_metrics,
+				material_roughness,
+				material_metallic,
+				material_specular
+			)
+
+
+func _make_camouflage_paint_batch_chunks(
+	uvs: PackedVector2Array,
+	world_positions: PackedVector3Array,
+	brush_radii: PackedFloat32Array,
+	uv_clip_triangles: PackedVector2Array,
+	uv_clip_triangle_counts: PackedInt32Array,
+	uv_footprint_metrics: PackedFloat32Array
+) -> Array[Dictionary]:
+	var chunks: Array[Dictionary] = []
+	if uvs.is_empty():
+		return chunks
+	var use_radii: bool = brush_radii.size() == uvs.size()
+	var use_clip_counts: bool = uv_clip_triangle_counts.size() == uvs.size()
+	var use_footprint_metrics: bool = uv_footprint_metrics.size() == uvs.size() * 3
+	var clip_read_index: int = 0
+	var current_uvs: PackedVector2Array = PackedVector2Array()
+	var current_world_positions: PackedVector3Array = PackedVector3Array()
+	var current_brush_radii: PackedFloat32Array = PackedFloat32Array()
+	var current_clip_triangles: PackedVector2Array = PackedVector2Array()
+	var current_clip_counts: PackedInt32Array = PackedInt32Array()
+	var current_footprint_metrics: PackedFloat32Array = PackedFloat32Array()
+
+	for index in range(uvs.size()):
+		var stamp_clip_triangles: PackedVector2Array = PackedVector2Array()
+		var stamp_clip_count: int = 0
+		if use_clip_counts:
+			stamp_clip_count = clampi(int(uv_clip_triangle_counts[index]), 0, CamouflageSystem.BRUSH_UV_CLIP_MAX_TRIANGLES)
+			var stamp_clip_uv_count: int = stamp_clip_count * 3
+			for clip_offset in range(stamp_clip_uv_count):
+				if clip_read_index + clip_offset < uv_clip_triangles.size():
+					stamp_clip_triangles.append(uv_clip_triangles[clip_read_index + clip_offset])
+			clip_read_index += stamp_clip_uv_count
+		var stamp_world_count: int = 1 if index < world_positions.size() else 0
+		var stamp_footprint_count: int = 3 if use_footprint_metrics else 0
+		var projected_bytes: int = _camouflage_paint_batch_approx_bytes(
+			current_uvs.size() + 1,
+			current_world_positions.size() + stamp_world_count,
+			current_clip_triangles.size() + stamp_clip_triangles.size(),
+			current_footprint_metrics.size() + stamp_footprint_count
+		)
+		var should_flush: bool = not current_uvs.is_empty() and (
+			current_uvs.size() >= CAMOUFLAGE_PAINT_RPC_MAX_STAMPS
+			or projected_bytes > CAMOUFLAGE_PAINT_RPC_MAX_BYTES
+		)
+		if should_flush:
+			_append_camouflage_paint_batch_chunk(chunks, current_uvs, current_world_positions, current_brush_radii, current_clip_triangles, current_clip_counts, current_footprint_metrics)
+			current_uvs = PackedVector2Array()
+			current_world_positions = PackedVector3Array()
+			current_brush_radii = PackedFloat32Array()
+			current_clip_triangles = PackedVector2Array()
+			current_clip_counts = PackedInt32Array()
+			current_footprint_metrics = PackedFloat32Array()
+		current_uvs.append(uvs[index])
+		if index < world_positions.size():
+			current_world_positions.append(world_positions[index])
+		if use_radii:
+			current_brush_radii.append(brush_radii[index])
+		if use_clip_counts:
+			current_clip_counts.append(stamp_clip_count)
+			current_clip_triangles.append_array(stamp_clip_triangles)
+		if use_footprint_metrics:
+			var metric_offset: int = index * 3
+			current_footprint_metrics.append(uv_footprint_metrics[metric_offset])
+			current_footprint_metrics.append(uv_footprint_metrics[metric_offset + 1])
+			current_footprint_metrics.append(uv_footprint_metrics[metric_offset + 2])
+	_append_camouflage_paint_batch_chunk(chunks, current_uvs, current_world_positions, current_brush_radii, current_clip_triangles, current_clip_counts, current_footprint_metrics)
+	return chunks
+
+
+func _append_camouflage_paint_batch_chunk(
+	chunks: Array[Dictionary],
+	uvs: PackedVector2Array,
+	world_positions: PackedVector3Array,
+	brush_radii: PackedFloat32Array,
+	uv_clip_triangles: PackedVector2Array,
+	uv_clip_triangle_counts: PackedInt32Array,
+	uv_footprint_metrics: PackedFloat32Array
+) -> void:
+	if uvs.is_empty():
+		return
+	chunks.append({
+		"uvs": uvs,
+		"world_positions": world_positions,
+		"brush_radii": brush_radii,
+		"uv_clip_triangles": uv_clip_triangles,
+		"uv_clip_triangle_counts": uv_clip_triangle_counts,
+		"uv_footprint_metrics": uv_footprint_metrics,
+	})
+
+
+func _camouflage_paint_batch_approx_bytes(
+	stamp_count: int,
+	world_position_count: int,
+	clip_uv_count: int,
+	footprint_value_count: int
+) -> int:
+	return (
+		CAMOUFLAGE_PAINT_RPC_BASE_BYTES
+		+ stamp_count * CAMOUFLAGE_PAINT_RPC_BYTES_PER_STAMP
+		+ world_position_count * CAMOUFLAGE_PAINT_RPC_BYTES_PER_WORLD_POSITION
+		+ clip_uv_count * CAMOUFLAGE_PAINT_RPC_BYTES_PER_CLIP_UV
+		+ footprint_value_count * CAMOUFLAGE_PAINT_RPC_BYTES_PER_FOOTPRINT_VALUE
+	)
 
 
 func _should_apply_camouflage_brush_without_server_peer() -> bool:
@@ -3169,7 +3386,7 @@ func _request_camouflage_brush_stroke_batch(
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, clean_uvs.size())
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
-	_apply_camouflage_brush_stroke_batch.rpc(
+	_dispatch_camouflage_brush_stroke_batch(
 		clean_uvs,
 		color,
 		clean_radius,
@@ -3184,7 +3401,8 @@ func _request_camouflage_brush_stroke_batch(
 		clean_uv_footprint_metrics,
 		_camouflage_paint_roughness,
 		_camouflage_paint_metallic,
-		_camouflage_paint_specular
+		_camouflage_paint_specular,
+		true
 	)
 
 
@@ -3202,7 +3420,6 @@ func _start_camouflage_brush_visual(base_color: Color) -> void:
 	_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(base_color)
 	_camouflage_gpu_stroke_queue.clear()
 	_camouflage_gpu_draw_timer = 0.0
-	_ensure_camouflage_gpu_painter()
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
@@ -3505,7 +3722,7 @@ func _apply_camouflage_material_scalars(roughness: float, metallic: float, specu
 
 
 func _should_run_camouflage_gpu_painter() -> bool:
-	if not is_multiplayer_authority():
+	if not _is_local_authority():
 		return false
 	if DisplayServer.get_name() == "headless":
 		return false
@@ -4843,7 +5060,7 @@ func _set_character_visual_visible(visible_value: bool) -> void:
 
 
 func _apply_remote_visual_performance_policy(root: Node) -> void:
-	RemoteVisualPolicy.apply_to_remote(root, is_multiplayer_authority())
+	RemoteVisualPolicy.apply_to_remote(root, _is_local_authority())
 
 
 func _build_prop_disguise_node(preset: Dictionary) -> Node3D:
@@ -5662,7 +5879,7 @@ func _restore_skin_performance_view_camera() -> void:
 	if performance_camera and is_instance_valid(performance_camera) and current_camera == performance_camera:
 		if _skin_performance_previous_current_camera and is_instance_valid(_skin_performance_previous_current_camera) and _skin_performance_previous_current_camera != performance_camera:
 			_skin_performance_previous_current_camera.current = true
-		elif not is_multiplayer_authority():
+		elif not _is_local_authority():
 			performance_camera.current = false
 	_skin_performance_previous_current_camera = null
 
@@ -5812,13 +6029,14 @@ func request_inventory_sync():
 
 @rpc("any_peer", "call_local", "reliable")
 func sync_inventory_to_owner(inventory_data: Dictionary):
+	var sender_id: int = multiplayer.get_remote_sender_id() if _has_runtime_multiplayer_peer() else 1
 	if _should_log_runtime_debug():
-		print("Debug: sync_inventory_to_owner called on player ", name, " (authority: ", get_multiplayer_authority(), ") - local unique id: ", multiplayer.get_unique_id(), " from: ", multiplayer.get_remote_sender_id())
+		print("Debug: sync_inventory_to_owner called on player ", name, " (authority: ", get_multiplayer_authority(), ") - local peer id: ", _local_peer_id(), " from: ", sender_id)
 
-	if multiplayer.get_remote_sender_id() != 1:
+	if sender_id != 1:
 		return
 
-	if not is_multiplayer_authority():
+	if not _is_local_authority():
 		return
 
 	if not player_inventory:
@@ -5827,7 +6045,7 @@ func sync_inventory_to_owner(inventory_data: Dictionary):
 
 	var level_scene = get_tree().get_current_scene()
 	if level_scene:
-		if is_multiplayer_authority() or get_multiplayer_authority() == multiplayer.get_unique_id():
+		if _is_local_authority() or get_multiplayer_authority() == _local_peer_id():
 			if _should_log_runtime_debug():
 				print("Debug: This is the local player, updating UI")
 			if level_scene.has_method("update_local_inventory_display"):
@@ -6169,7 +6387,7 @@ func _begin_dead_observer_state() -> void:
 	_hide_dead_tool_visuals()
 	velocity = Vector3.ZERO
 	_current_speed = 0.0
-	if is_multiplayer_authority():
+	if _is_local_authority():
 		_ensure_dead_free_spectator()
 
 

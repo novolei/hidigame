@@ -31,6 +31,7 @@ func _run() -> void:
 	_expect(sculpt == null, "Chameleon C-key setup should not eagerly create the old sculpt system")
 
 	if camouflage and blend:
+		_test_paint_rpc_batch_chunking(player as Character)
 		_expect(blend.get_random_hand().size() == 5, "Environment blend should assign five random prop options per Chameleon")
 		var options: Array = blend.get_wheel_options()
 		_expect(options.size() == 7, "Environment blend wheel should expose Spray Self, five presets, and Cloud 3D")
@@ -50,7 +51,12 @@ func _run() -> void:
 		await get_tree().process_frame
 		_expect(not bool(blend.call("is_active")), "Spray Self should close the wheel")
 		_expect(bool(camouflage.get("skill_active")), "Spray Self should enter the existing self-paint brush flow")
-		camouflage.deactivate_skill()
+		var max_paint_seconds: float = float(camouflage.call("get_paint_session_max_seconds"))
+		var start_remaining: float = float(camouflage.call("get_paint_session_remaining"))
+		_expect(start_remaining > max_paint_seconds - 0.5 and start_remaining <= max_paint_seconds, "Spray Self should start a bounded paint session")
+		camouflage.call("_process", max_paint_seconds + 0.1)
+		_expect(not bool(camouflage.get("skill_active")), "Spray Self paint session should auto-stop after the maximum duration")
+		_expect(float(camouflage.call("get_paint_session_remaining")) <= 0.0, "Expired paint session should clear its remaining time")
 		await get_tree().process_frame
 		player._handle_chameleon_input(absorb_event)
 		await get_tree().process_frame
@@ -129,6 +135,67 @@ func _run() -> void:
 		for failure in failures:
 			push_error("[ChameleonEnvironmentBlendIntegrationTest] " + failure)
 		get_tree().quit(1)
+
+
+func _test_paint_rpc_batch_chunking(player: Character) -> void:
+	if player == null:
+		failures.append("Paint RPC chunk test needs a live Character")
+		return
+	var uvs: PackedVector2Array = PackedVector2Array()
+	var world_positions: PackedVector3Array = PackedVector3Array()
+	var brush_radii: PackedFloat32Array = PackedFloat32Array()
+	for index in range(17):
+		uvs.append(Vector2(float(index) / 16.0, 0.5))
+		world_positions.append(Vector3(float(index) * 0.01, 1.0, 0.0))
+		brush_radii.append(24.0 + float(index % 3))
+	var chunks: Array[Dictionary] = player._make_camouflage_paint_batch_chunks(
+		uvs,
+		world_positions,
+		brush_radii,
+		PackedVector2Array(),
+		PackedInt32Array(),
+		PackedFloat32Array()
+	)
+	_expect(chunks.size() == 2, "Paint batch chunking should split 17 stamps into 16/1 RPC chunks")
+	var total_stamps: int = 0
+	for raw_chunk in chunks:
+		var chunk: Dictionary = raw_chunk
+		var chunk_uvs: PackedVector2Array = chunk.get("uvs", PackedVector2Array())
+		total_stamps += chunk_uvs.size()
+		_expect(chunk_uvs.size() <= Character.CAMOUFLAGE_PAINT_RPC_MAX_STAMPS, "Each paint RPC chunk should stay under the stamp budget")
+	_expect(total_stamps == uvs.size(), "Paint RPC chunking should preserve every UV stamp")
+
+	var clip_uvs: PackedVector2Array = PackedVector2Array()
+	var clip_counts: PackedInt32Array = PackedInt32Array()
+	var clip_stamp_count: int = 9
+	var clip_triangles_per_stamp: int = CamouflageSystem.BRUSH_UV_CLIP_MAX_TRIANGLES
+	for stamp_index in range(clip_stamp_count):
+		clip_counts.append(clip_triangles_per_stamp)
+		for corner_index in range(clip_triangles_per_stamp * 3):
+			var u: float = float((stamp_index + corner_index) % 7) / 7.0
+			clip_uvs.append(Vector2(u, 1.0 - u))
+	var clip_chunks: Array[Dictionary] = player._make_camouflage_paint_batch_chunks(
+		uvs.slice(0, clip_stamp_count),
+		world_positions.slice(0, clip_stamp_count),
+		brush_radii.slice(0, clip_stamp_count),
+		clip_uvs,
+		clip_counts,
+		PackedFloat32Array()
+	)
+	_expect(clip_chunks.size() > 1, "Paint RPC chunking should split heavy UV clip payloads by byte budget")
+	var total_clip_counts: int = 0
+	for raw_clip_chunk in clip_chunks:
+		var clip_chunk: Dictionary = raw_clip_chunk
+		var chunk_uvs: PackedVector2Array = clip_chunk.get("uvs", PackedVector2Array())
+		var chunk_world_positions: PackedVector3Array = clip_chunk.get("world_positions", PackedVector3Array())
+		var chunk_clip_triangles: PackedVector2Array = clip_chunk.get("uv_clip_triangles", PackedVector2Array())
+		var chunk_clip_counts: PackedInt32Array = clip_chunk.get("uv_clip_triangle_counts", PackedInt32Array())
+		var chunk_metrics: PackedFloat32Array = clip_chunk.get("uv_footprint_metrics", PackedFloat32Array())
+		var chunk_bytes: int = player._camouflage_paint_batch_approx_bytes(chunk_uvs.size(), chunk_world_positions.size(), chunk_clip_triangles.size(), chunk_metrics.size())
+		for count_value in chunk_clip_counts:
+			total_clip_counts += int(count_value)
+		_expect(chunk_bytes <= Character.CAMOUFLAGE_PAINT_RPC_MAX_BYTES, "Heavy paint RPC chunks should stay under the byte budget")
+	_expect(total_clip_counts == clip_stamp_count * clip_triangles_per_stamp, "Paint RPC chunking should preserve UV clip triangle counts")
 
 
 func _expect(condition: bool, message: String) -> void:

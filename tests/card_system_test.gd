@@ -1,8 +1,39 @@
 extends Node
 
-const CardDatabase := preload("res://scripts/card_database.gd")
+const CardDatabaseScript := preload("res://scripts/card_database.gd")
+const PlayerCardEffectControllerScript := preload("res://scripts/player_card_effect_controller.gd")
 
 var failures: Array[String] = []
+
+
+class CardEffectOwnerProbe:
+	extends Node
+
+	var _is_dead: bool = false
+	var calls: Array[String] = []
+	var args_by_method: Dictionary = {}
+
+	func _record(method_name: String, args: Array = []) -> void:
+		calls.append(method_name)
+		args_by_method[method_name] = args.duplicate()
+
+	func mark_dead_for_test() -> void:
+		_is_dead = true
+
+	func is_dead_for_test() -> bool:
+		return _is_dead
+
+	func _card_apply_stealth(duration: float) -> void:
+		_record("_card_apply_stealth", [duration])
+
+	func _card_apply_emergency_conceal(duration: float) -> void:
+		_record("_card_apply_emergency_conceal", [duration])
+
+	func _card_apply_vision_impairment_to_role(target_role: int, radius: float, duration: float, label: String) -> void:
+		_record("_card_apply_vision_impairment_to_role", [target_role, radius, duration, label])
+
+	func _card_feedback_to_owner(text: String, color: Color, duration: float) -> void:
+		_record("_card_feedback_to_owner", [text, color, duration])
 
 
 func _init() -> void:
@@ -17,6 +48,7 @@ func _run() -> void:
 	_test_pick_timeout_auto_selects_card()
 	_test_manual_card_use_consumes_slot()
 	_test_reactive_card_consumes_once()
+	_test_card_effect_controller_routes_player_calls()
 	await _test_card_hud_layout()
 
 	if failures.is_empty():
@@ -40,23 +72,23 @@ func _reset_network_state() -> void:
 
 
 func _test_role_pools() -> void:
-	var prop_pool := CardDatabase.get_pool_for_role(Network.Role.CHAMELEON)
-	var stalker_pool := CardDatabase.get_pool_for_role(Network.Role.STALKER)
-	var hunter_pool := CardDatabase.get_pool_for_role(Network.Role.HUNTER)
+	var prop_pool := CardDatabaseScript.get_pool_for_role(Network.Role.CHAMELEON)
+	var stalker_pool := CardDatabaseScript.get_pool_for_role(Network.Role.STALKER)
+	var hunter_pool := CardDatabaseScript.get_pool_for_role(Network.Role.HUNTER)
 	_expect(prop_pool.size() >= 15, "Prop pool should include the complete first design set")
 	_expect(stalker_pool == prop_pool, "Stalker should draw from the shared Prop pool")
 	_expect(hunter_pool.size() >= 10, "Hunter pool should include brainstormed counterplay cards")
 	for card_id in prop_pool:
-		_expect(str(CardDatabase.get_card(card_id).get("team", "")) == CardDatabase.TEAM_PROP, "Prop pool should contain only Prop cards")
+		_expect(str(CardDatabaseScript.get_card(card_id).get("team", "")) == CardDatabaseScript.TEAM_PROP, "Prop pool should contain only Prop cards")
 	for card_id in hunter_pool:
-		_expect(str(CardDatabase.get_card(card_id).get("team", "")) == CardDatabase.TEAM_HUNTER, "Hunter pool should contain only Hunter cards")
+		_expect(str(CardDatabaseScript.get_card(card_id).get("team", "")) == CardDatabaseScript.TEAM_HUNTER, "Hunter pool should contain only Hunter cards")
 
 
 func _test_card_i18n_text() -> void:
-	_expect(CardDatabase.display_name_for_locale("prop_flashbang", "en") == "Flashbang", "Card English name should resolve from localization table")
-	_expect(CardDatabase.display_name_for_locale("prop_flashbang", "zh") == "闪光弹", "Card Chinese name should resolve from localization table")
-	_expect(CardDatabase.description_for_locale("hunter_pulse_scan", "en").contains("Reveals"), "Card English description should resolve from localization table")
-	_expect(CardDatabase.description_for_locale("hunter_pulse_scan", "zh").contains("侦测"), "Card Chinese description should resolve from localization table")
+	_expect(CardDatabaseScript.display_name_for_locale("prop_flashbang", "en") == "Flashbang", "Card English name should resolve from localization table")
+	_expect(CardDatabaseScript.display_name_for_locale("prop_flashbang", "zh") == "闪光弹", "Card Chinese name should resolve from localization table")
+	_expect(CardDatabaseScript.description_for_locale("hunter_pulse_scan", "en").contains("Reveals"), "Card English description should resolve from localization table")
+	_expect(CardDatabaseScript.description_for_locale("hunter_pulse_scan", "zh").contains("侦测"), "Card Chinese description should resolve from localization table")
 
 
 func _test_two_pick_draft_is_unique() -> void:
@@ -166,6 +198,40 @@ func _test_reactive_card_consumes_once() -> void:
 	_expect(not bool((loadout[1] as Dictionary).get("used", false)), "Manual use path should reject reactive cards")
 	peer.close()
 	Network.multiplayer.multiplayer_peer = null
+
+
+func _test_card_effect_controller_routes_player_calls() -> void:
+	var probe: CardEffectOwnerProbe = CardEffectOwnerProbe.new()
+	var controller: PlayerCardEffectController = PlayerCardEffectControllerScript.new() as PlayerCardEffectController
+	controller.initialize(probe)
+
+	controller.apply_card_effect("prop_chromatic_burst")
+	_expect(probe.calls == ["_card_apply_stealth"], "Card effect controller should route Chromatic Burst through the player stealth hook")
+	var stealth_args: Array = probe.args_by_method.get("_card_apply_stealth", []) as Array
+	_expect(stealth_args.size() == 1 and float(stealth_args[0]) >= 1.0, "Card effect controller should pass a clamped stealth duration")
+
+	probe.calls.clear()
+	probe.args_by_method.clear()
+	controller.apply_card_effect("prop_emergency_conceal")
+	_expect(probe.calls == ["_card_apply_emergency_conceal"], "Card effect controller should keep emergency health/state logic behind the player facade")
+
+	probe.calls.clear()
+	probe.args_by_method.clear()
+	controller.apply_card_effect("prop_flashbang")
+	_expect(probe.calls == ["_card_apply_vision_impairment_to_role"], "Card effect controller should route role-targeted vision effects through one player hook")
+	var flash_args: Array = probe.args_by_method.get("_card_apply_vision_impairment_to_role", []) as Array
+	_expect(flash_args.size() == 4 and int(flash_args[0]) == Network.Role.HUNTER and str(flash_args[3]) == "FLASH", "Flashbang should target Hunters with the FLASH label")
+
+	probe.calls.clear()
+	probe.args_by_method.clear()
+	probe.mark_dead_for_test()
+	_expect(probe.is_dead_for_test(), "Card effect owner probe should expose the dead state used by the controller")
+	controller.apply_card_effect("hunter_pulse_scan")
+	_expect(probe.calls == ["_card_feedback_to_owner"], "Dead players should receive spectator feedback instead of executing card effects")
+	var dead_feedback_args: Array = probe.args_by_method.get("_card_feedback_to_owner", []) as Array
+	_expect(dead_feedback_args.size() >= 1 and str(dead_feedback_args[0]) == "SPECTATING", "Dead card feedback should use the spectator message")
+
+	probe.queue_free()
 
 
 func _test_card_hud_layout() -> void:

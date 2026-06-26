@@ -9,6 +9,7 @@ const BRUSH_MAX_RADIUS := 160.0
 const BRUSH_DEFAULT_RADIUS := 46.0
 const BRUSH_RESIZE_PIXELS_TO_RADIUS := 0.20
 const BRUSH_STROKE_INTERVAL := 0.025
+const PAINT_SESSION_MAX_SECONDS: float = 45.0
 const BRUSH_MIN_WORLD_SPACING := 0.015
 const BRUSH_MAX_INTERPOLATED_STAMPS := 16
 const SURFACE_LOCK_MOUSE_EPSILON := 0.35
@@ -70,6 +71,8 @@ var paint_metallic := PAINT_METALLIC_DEFAULT
 var paint_specular := PAINT_SPECULAR_DEFAULT
 var paint_normal_texture: Texture2D = null
 var paint_normal_scale := 1.0
+var _paint_session_remaining: float = 0.0
+var _paint_session_initialized: bool = false
 
 var _stroke_wait := 0.0
 var _resizing_brush := false
@@ -101,6 +104,7 @@ static var _shared_brush_patch_image_cache: Dictionary = {}
 
 signal skill_activated
 signal skill_deactivated
+signal paint_session_expired
 signal color_picked(color: Color, confidence: float)
 signal pick_failed(reason: String)
 
@@ -160,6 +164,8 @@ func _process(delta: float) -> void:
 	_finalize_mesh_hit_cache_jobs()
 	if not skill_active:
 		return
+	if _update_paint_session_timer(delta):
+		return
 
 	_sync_sculpt_hud_status()
 	var sculpt_blocks_paint := _sculpt_system and _sculpt_system.has_method("blocks_camouflage_paint_tick") and bool(_sculpt_system.call("blocks_camouflage_paint_tick"))
@@ -195,6 +201,14 @@ func set_environment_blend_system(system: Node) -> void:
 	_environment_blend_system = system
 
 
+func get_paint_session_remaining() -> float:
+	return _paint_session_remaining if skill_active else 0.0
+
+
+func get_paint_session_max_seconds() -> float:
+	return PAINT_SESSION_MAX_SECONDS
+
+
 func toggle_skill() -> bool:
 	if _environment_blend_system and _environment_blend_system.has_method("toggle_wheel") and not skill_active:
 		_environment_blend_system.call("toggle_wheel")
@@ -209,6 +223,9 @@ func activate_skill() -> void:
 	if skill_active:
 		return
 	skill_active = true
+	_paint_session_initialized = true
+	_paint_session_remaining = PAINT_SESSION_MAX_SECONDS
+	_sync_paint_session_hud()
 	if camouflage_owner and camouflage_owner.has_method("set_camouflage_brush_locked"):
 		camouflage_owner.call("set_camouflage_brush_locked", true)
 	reset_performance_metrics()
@@ -254,6 +271,9 @@ func deactivate_skill() -> void:
 	_last_stroke_mesh_path = ""
 	_pending_forced_paint = false
 	_pending_drag_paint = false
+	_paint_session_initialized = false
+	_paint_session_remaining = 0.0
+	_sync_paint_session_hud()
 	if camouflage_owner and camouflage_owner.has_method("set_camouflage_brush_locked"):
 		camouflage_owner.call("set_camouflage_brush_locked", false)
 	if _hud:
@@ -261,6 +281,37 @@ func deactivate_skill() -> void:
 	_hide_surface_preview()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	skill_deactivated.emit()
+
+
+func _update_paint_session_timer(delta: float) -> bool:
+	if PAINT_SESSION_MAX_SECONDS <= 0.0:
+		return false
+	if not _paint_session_initialized:
+		_paint_session_initialized = true
+		_paint_session_remaining = PAINT_SESSION_MAX_SECONDS
+		_sync_paint_session_hud()
+		return false
+	_paint_session_remaining = maxf(0.0, _paint_session_remaining - maxf(delta, 0.0))
+	_sync_paint_session_hud()
+	if _paint_session_remaining > 0.0:
+		return false
+	_expire_paint_session()
+	return true
+
+
+func _sync_paint_session_hud() -> void:
+	if _hud and _hud.has_method("set_session_time"):
+		_hud.call("set_session_time", _paint_session_remaining, PAINT_SESSION_MAX_SECONDS)
+
+
+func _expire_paint_session() -> void:
+	paint_session_expired.emit()
+	if _environment_blend_system and _environment_blend_system.has_method("notify_paint_session_expired") and _is_environment_blend_active():
+		_environment_blend_system.call("notify_paint_session_expired")
+		if skill_active:
+			deactivate_skill()
+		return
+	deactivate_skill()
 
 
 func reset_performance_metrics() -> void:
@@ -3594,5 +3645,6 @@ func _ensure_hud() -> void:
 	_hud = preload("res://scripts/camouflage_hud.gd").new()
 	_hud.name = "CamouflageHUD"
 	parent.add_child(_hud)
+	_sync_paint_session_hud()
 	_update_hud_material_controls()
 	_sync_sculpt_hud_status()

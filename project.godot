@@ -81,6 +81,15 @@ BootSplashPlus="*uid://bfmnwl86vfxe1"
 _fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
 AmbientCG="*uid://cnxneyd8ilml2"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+NetworkTime="*uid://cnqdxyjptkfvp"
+NetworkTimeSynchronizer="*uid://5rmn2ik3kjo8"
+NetworkRollback="*uid://gas743comroj"
+NetworkEvents="*uid://bdmobxxptryj0"
+NetworkPerformance="*uid://cqgf7aqmjfoa3"
+WindowTiler="*uid://cmqjajhjgffm1"
+NetworkSimulator="*uid://1y2ey1e6qjwr"
+Noray="*uid://gu4bv4tgms3x"
+PacketHandshake="*uid://tt3j25a05n7c"
 
 [display]
 
@@ -92,7 +101,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GMPShared/menu/plugin.cfg", "res://addons/ambientcg/plugin.cfg", "res://addons/asset_placer/plugin.cfg", "res://addons/boot_splash_plus/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/godotsteam/plugin.cfg", "res://addons/godotsteam_server/plugin.cfg", "res://addons/gpu_texture_painter/plugin.cfg", "res://addons/meshy-godot-plugin/plugin.cfg", "res://addons/proton_scatter/plugin.cfg", "res://addons/simplegrasstextured/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/vfx_animaiton_player/plugin.cfg")
+enabled=PackedStringArray("res://addons/GMPShared/menu/plugin.cfg", "res://addons/ambientcg/plugin.cfg", "res://addons/asset_placer/plugin.cfg", "res://addons/boot_splash_plus/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/godotsteam/plugin.cfg", "res://addons/godotsteam_server/plugin.cfg", "res://addons/gpu_texture_painter/plugin.cfg", "res://addons/meshy-godot-plugin/plugin.cfg", "res://addons/netfox.extras/plugin.cfg", "res://addons/netfox.internals/plugin.cfg", "res://addons/netfox.noray/plugin.cfg", "res://addons/netfox/plugin.cfg", "res://addons/proton_scatter/plugin.cfg", "res://addons/simplegrasstextured/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/vfx_animaiton_player/plugin.cfg")
 
 [input]
 
@@ -194,6 +203,13 @@ place_hologram_flag={
 3d_physics/layer_2="world"
 3d_physics/layer_3="props"
 3d_render/layer_21="Chameleon GPU paint overlay"
+
+[netfox]
+
+time/tickrate=30.0
+time/max_ticks_per_frame=8.0
+time/sync_samples=8.0
+time/tickrate_mismatch_action=1.0
 
 [run]
 

@@ -155,6 +155,13 @@ func force_cancel_for_death() -> void:
 	deactivate()
 
 
+func notify_paint_session_expired() -> void:
+	if _state == STATE_PROP_PAINT:
+		_commit_selected_prop()
+	elif is_active():
+		deactivate()
+
+
 func _handle_wheel_input(event: InputEvent) -> bool:
 	if event.is_action_pressed("camouflage_absorb") or _is_escape(event):
 		deactivate()

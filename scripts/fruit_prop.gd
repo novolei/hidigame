@@ -273,8 +273,6 @@ func _configure_multiplayer_body_authority() -> void:
 func _should_broadcast_network_state() -> bool:
 	if not _network_sync_initialized:
 		return true
-	if not sleeping:
-		return true
 	if _last_synced_sleeping != sleeping:
 		return true
 	if global_position.distance_squared_to(_last_synced_transform.origin) > NETWORK_POSITION_EPSILON * NETWORK_POSITION_EPSILON:

@@ -262,7 +262,7 @@ func _should_skip_dedicated_server_visuals() -> bool:
 	return RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config)
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("authority", "call_local", "unreliable_ordered")
 func _broadcast_green_blood_impact(impact_position: Vector3, impact_normal: Vector3, shooter_direction: Vector3) -> void:
 	if _should_skip_dedicated_server_visuals():
 		return
@@ -367,7 +367,7 @@ func _auto_reload() -> void:
 		request_reload()
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("authority", "call_local", "unreliable_ordered")
 func _broadcast_tracer(start: Vector3, end: Vector3):
 	# 客户端显示弹道(0.15s 后消失)
 	if _should_skip_dedicated_server_visuals():

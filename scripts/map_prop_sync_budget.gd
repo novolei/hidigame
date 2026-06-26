@@ -1,15 +1,18 @@
 class_name MapPropSyncBudget
 extends RefCounted
 
-const DEFAULT_MOTION_FLUSH_INTERVAL: float = 0.125
+const DEFAULT_MOTION_FLUSH_INTERVAL: float = 0.2
+const DEFAULT_MAX_MOTION_STATES_PER_FLUSH: int = 12
 
 var motion_flush_interval: float = DEFAULT_MOTION_FLUSH_INTERVAL
+var max_motion_states_per_flush: int = DEFAULT_MAX_MOTION_STATES_PER_FLUSH
 var _pending_motion: Dictionary = {}
 var _elapsed: float = 0.0
 
 
-func _init(flush_interval: float = DEFAULT_MOTION_FLUSH_INTERVAL) -> void:
+func _init(flush_interval: float = DEFAULT_MOTION_FLUSH_INTERVAL, max_states_per_flush: int = DEFAULT_MAX_MOTION_STATES_PER_FLUSH) -> void:
 	motion_flush_interval = maxf(flush_interval, 0.001)
+	max_motion_states_per_flush = maxi(max_states_per_flush, 1)
 
 
 func reset() -> void:
@@ -48,12 +51,17 @@ func tick(delta: float) -> Array[Dictionary]:
 	if _elapsed < motion_flush_interval:
 		return []
 	_elapsed = 0.0
-	return drain()
+	return drain(max_motion_states_per_flush)
 
 
-func drain() -> Array[Dictionary]:
+func drain(max_states: int = -1) -> Array[Dictionary]:
 	var states: Array[Dictionary] = []
-	for raw_prop_name in _pending_motion.keys():
+	var pending_keys: Array = _pending_motion.keys()
+	var limit: int = pending_keys.size() if max_states <= 0 else mini(max_states, pending_keys.size())
+	var drained_keys: Array = []
+	for raw_prop_name in pending_keys:
+		if states.size() >= limit:
+			break
 		var prop_name: String = str(raw_prop_name)
 		var state: Dictionary = _pending_motion.get(raw_prop_name, {})
 		var next_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
@@ -67,5 +75,7 @@ func drain() -> Array[Dictionary]:
 			"angular_velocity": next_angular_velocity,
 			"sleeping": next_sleeping,
 		})
-	_pending_motion.clear()
+		drained_keys.append(raw_prop_name)
+	for raw_prop_name in drained_keys:
+		_pending_motion.erase(raw_prop_name)
 	return states

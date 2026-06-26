@@ -83,10 +83,19 @@ func _get_atlas_index() -> void:
 		print("OverlayAtlasManager: Assigned atlas index {0}".format([atlas_index]))
 
 
+func _release_texture_rid() -> void:
+	if rd and atlas_texture_rid.is_valid():
+		rd.free_rid(atlas_texture_rid)
+	atlas_texture_rid = RID()
+	if atlas_texture_resource:
+		atlas_texture_resource.texture_rd_rid = RID()
+
+
 func _create_texture() -> void:
 	if not rd:
 		return
 
+	_release_texture_rid()
 	print("OverlayAtlasManager: Creating overlay texture of size {0}x{0}".format([atlas_size]))
 
 	# create texure format
@@ -196,10 +205,7 @@ func _get_child_mesh_instances(node: Node, children_acc: Array[MeshInstance3D] =
 
 func _cleanup_texture() -> void:
 	print("OverlayAtlasManager: Cleaning up overlay texture")
-	if atlas_texture_resource:
-			atlas_texture_resource.texture_rd_rid = RID()
-	if atlas_texture_rid.is_valid():
-		rd.free_rid(atlas_texture_rid)
+	_release_texture_rid()
 
 
 func save_atlas_texture_to_file() -> void:

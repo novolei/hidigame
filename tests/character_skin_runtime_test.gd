@@ -146,11 +146,15 @@ func _test_public_server_skips_remote_skin_animation() -> void:
 func _test_player_position_sync_budget() -> void:
 	var player := _spawn_player("6")
 	await get_tree().process_frame
-	var synchronizer := player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
-	_expect(synchronizer != null, "Player scene should keep an explicit MultiplayerSynchronizer")
-	if synchronizer:
-		_expect(is_equal_approx(synchronizer.replication_interval, 0.08), "Player position sync should run at the 12.5Hz budget")
-		_expect(is_equal_approx(synchronizer.delta_interval, 0.16), "Player delta sync should stay at the 0.16s budget")
+	var old_synchronizer := player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
+	_expect(old_synchronizer == null, "Player scene should no longer use MultiplayerSynchronizer for high-frequency position sync")
+	var transform_sync := player.get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
+	_expect(transform_sync != null, "Player scene should use NetfoxTransformSync for network tick snapshots")
+	if transform_sync:
+		_expect(transform_sync.send_every_ticks == 1, "Player transform snapshots should run every network tick")
+		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote transform sync should keep a public-internet interpolation buffer")
+		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote transform sync should cap short extrapolation")
+		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote transform sync should smooth render samples")
 	player.queue_free()
 	await get_tree().process_frame
 

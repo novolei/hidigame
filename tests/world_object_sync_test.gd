@@ -12,8 +12,11 @@ func _run() -> void:
 	await _test_ammo_availability_state_controls_visibility_and_collision()
 	await _test_ammo_pickup_uses_meshy_visuals_and_sized_collision()
 	_test_map_prop_sync_budget_coalesces_motion()
+	_test_map_prop_sync_budget_caps_flush_size()
 	await _test_map_prop_network_state_application()
+	await _test_map_prop_non_sleeping_state_requires_meaningful_delta()
 	_test_level_applies_map_prop_state_by_name()
+	await _test_map_prop_impact_server_throttle()
 	await _test_map_prop_authoritative_impact_wakes_body()
 	_shutdown_network_state()
 
@@ -152,6 +155,25 @@ func _test_map_prop_sync_budget_coalesces_motion() -> void:
 	_expect(budget.drain().is_empty(), "Reliable rest sync should be able to clear pending motion updates")
 
 
+func _test_map_prop_sync_budget_caps_flush_size() -> void:
+	var budget: MapPropSyncBudget = MapPropSyncBudget.new(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL, 2)
+	for index: int in range(5):
+		var transform_value: Transform3D = Transform3D(Basis.IDENTITY, Vector3(float(index), 0.0, 0.0))
+		budget.queue_motion("MapProp_%d" % index, transform_value, Vector3.RIGHT, Vector3.UP, false)
+
+	var first_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
+	_expect(first_flush.size() == 2, "Map prop budget should cap one flush to the configured max state count")
+	_expect(budget.pending_count() == 3, "Map prop budget should keep overflow motion states for later ticks")
+
+	var second_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
+	_expect(second_flush.size() == 2, "Map prop budget should continue draining overflow states on the next tick")
+	_expect(budget.pending_count() == 1, "Map prop budget should keep only undrained overflow states")
+
+	var final_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
+	_expect(final_flush.size() == 1, "Map prop budget should eventually drain the final overflow state")
+	_expect(not budget.has_pending(), "Map prop budget should be empty after all capped flushes drain")
+
+
 func _test_map_prop_network_state_application() -> void:
 	var prop := FruitProp.new()
 	prop.name = "NetworkedPropProbe"
@@ -168,6 +190,25 @@ func _test_map_prop_network_state_application() -> void:
 	_expect(prop.linear_velocity.distance_to(next_linear) < 0.001, "Map prop should apply replicated linear velocity")
 	_expect(prop.angular_velocity.distance_to(next_angular) < 0.001, "Map prop should apply replicated angular velocity")
 	_expect(not prop.sleeping, "Map prop should apply replicated sleeping state")
+
+	prop.queue_free()
+	await get_tree().process_frame
+
+
+func _test_map_prop_non_sleeping_state_requires_meaningful_delta() -> void:
+	var prop: FruitProp = FruitProp.new()
+	prop.name = "NonSleepingBroadcastProbe"
+	add_child(prop)
+	await get_tree().process_frame
+
+	prop.sleeping = false
+	prop.linear_velocity = Vector3.ZERO
+	prop.angular_velocity = Vector3.ZERO
+	prop._store_synced_network_state()
+	_expect(not prop._should_broadcast_network_state(), "Non-sleeping map props should not broadcast without meaningful motion deltas")
+
+	prop.global_position += Vector3(FruitProp.NETWORK_POSITION_EPSILON * 1.5, 0.0, 0.0)
+	_expect(prop._should_broadcast_network_state(), "Map props should still broadcast meaningful position deltas")
 
 	prop.queue_free()
 	await get_tree().process_frame
@@ -191,6 +232,17 @@ func _test_level_applies_map_prop_state_by_name() -> void:
 	_expect(prop.linear_velocity.distance_to(next_linear) < 0.001, "Level map prop sync should apply linear velocity by stable prop name")
 	_expect(prop.angular_velocity.distance_to(next_angular) < 0.001, "Level map prop sync should apply angular velocity by stable prop name")
 
+	level.free()
+
+
+func _test_map_prop_impact_server_throttle() -> void:
+	var level = preload("res://scripts/level.gd").new()
+	_expect(level._should_accept_map_prop_impact("ThrottleProp", 7), "First map prop impact should pass the server throttle")
+	_expect(not level._should_accept_map_prop_impact("ThrottleProp", 7), "Repeated same-player same-prop impact should be throttled on the server")
+	_expect(level._should_accept_map_prop_impact("ThrottleProp", 8), "Different players should not block each other's prop impacts")
+	_expect(level._should_accept_map_prop_impact("OtherThrottleProp", 7), "One prop's impact throttle should not block another prop")
+	await get_tree().create_timer((float(level.MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC) + 12.0) / 1000.0).timeout
+	_expect(level._should_accept_map_prop_impact("ThrottleProp", 7), "Same-player same-prop impact should pass after the server throttle window")
 	level.free()
 
 

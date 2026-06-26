@@ -32,6 +32,7 @@ func _run() -> void:
 
 	var turret = hunter.get_node_or_null("HunterAutoTurretSystem")
 	_expect(turret != null, "Hunter should attach HunterAutoTurretSystem")
+	_test_weapon_visual_rpc_budget()
 	_expect(hunter.is_hunter(), "Test player 1 should be Hunter")
 	_expect(chameleon.is_chameleon(), "Test player 2 should be Chameleon")
 	_expect(stalker.is_stalker(), "Test player 3 should be Stalker")
@@ -194,6 +195,15 @@ func _run() -> void:
 		for failure in failures:
 			push_error("[HunterAutoTurretTest] " + failure)
 		get_tree().quit(1)
+
+
+func _test_weapon_visual_rpc_budget() -> void:
+	var weapon_source: String = FileAccess.get_file_as_string("res://scripts/weapon_system.gd")
+	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_tracer"), "Weapon tracer is visual-only and should stay off the reliable RPC channel")
+	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_green_blood_impact"), "Green blood impact is visual-only and should stay off the reliable RPC channel")
+	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _sync_ammo"), "Weapon ammo state should remain reliable gameplay sync")
+	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _broadcast_reload"), "Weapon reload state should remain reliable gameplay sync")
+	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _client_weapon_feedback"), "Owner combat feedback should remain reliable and targeted")
 
 
 func _reset_network_state() -> void:

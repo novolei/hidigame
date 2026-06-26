@@ -13,10 +13,14 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Export currently uses `all_resources`, which packages tests, editor addons, and unused resources into a 1.3GB+ server pack. This increases deploy time and exported runtime noise.
 - Runtime autoloads previously referenced editor/MCP helpers. The sanitized public-server export flow now removes those exported autoload references, including the Fennara capture helper.
 - Public room launches now support a Unix detached launcher controlled by `MAOMAO_ROOM_LAUNCH_MODE`. On Linux/BSD/macOS with `/bin/sh`, the public lobby starts rooms through a short-lived `nohup` shell wrapper, waits for that wrapper to return, and lets the OS own the room process instead of leaving it as a long-lived child of the lobby.
+- TX public-room create failures on 2026-06-26 were caused by room child processes being launched without the exported server PCK. The public lobby had `--main-pack /opt/maomao/maomao_server.pck`, but spawned room processes only received `--maomao-room-server`, so they never ran game code or wrote `ready=true` status files.
 
 ## Changes Applied In This Pass
 
 - Chameleon GPU painter runtime is now owner/client-only and disabled in headless dedicated server mode.
+- Chameleon self-paint no longer eagerly creates the GPU painter when the brush opens; the optional GPU overlay now initializes only when an actual paint stroke is queued.
+- `OverlayAtlasManager` now releases the previous RenderingDevice texture RID before replacing the overlay atlas texture, preventing repeated Chameleon self-paint sessions from leaking GPU textures.
+- Chameleon paint sessions are capped at 45 seconds. Ordinary self-paint auto-stops on expiry, while prop white-model paint expiry routes through the environment blend system so the prop can commit/clean up instead of leaving the player locked.
 - Stalker shadow visibility is now owner-computed. The owner publishes compact visibility state, the server forwards it, and remote clients render from the synced state.
 - Remote Stalker visual refresh uses synced visibility instead of re-running local shadow checks.
 - Hunter auto turret and HUD visibility reads now go through the effective Stalker visibility getter, so they work with synced remote state.
@@ -24,16 +28,21 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Public room create/join now uses a guarded loading state, longer room-start readiness window, and client-side join timeout recovery back to the public lobby instead of leaving the UI stuck in "joining".
 - Public-room clients can leave an active match through the ESC panel and return to the public server lobby without exiting the app.
 - Public room redirects now keep the "joining room" state until the room server sends authoritative full sync. Late disconnect events from the previous public lobby connection no longer cancel the new room connection.
-- Player replication now syncs position at a capped 20Hz budget, keeps nickname as spawn-only state, and infers remote animation/facing locally from movement instead of synchronizing cosmetic animation and model rotation every network frame.
+- Player replication now uses NetFox tick snapshots with a public-internet interpolation buffer, bounded extrapolation, and render smoothing. Nickname remains spawn-only state, and remote animation/facing is still inferred locally from motion instead of synchronizing cosmetic animation and model rotation every network frame.
 - Chameleon sculpt remains lazy-initialized: non-Chameleon players cannot create it, and Chameleon players create/apply it only on the first valid sculpt batch.
 - Hunter flashlight pose updates now run on a budgeted roughly 8Hz path with movement/angle thresholds and a forced refresh window instead of pushing active pose state every frame-like tick.
 - Hunter auto turret target scans are budgeted and restricted to server/owner/offline test contexts. Remote client copies render from synced events instead of scanning every player and decoy every frame.
 - Dedicated public room servers now skip local-only player audio creation and skip local rendering of weapon tracers, green blood impact VFX, turret model/audio, turret muzzle/projectile VFX, and flashlight light nodes.
 - Hunter prop sense and Party Monster bounty feedback now reuse existing local feedback nodes, update transforms on a small local budget, and skip dedicated public server visual/audio feedback work without clearing authoritative gameplay state.
+- Weapon tracer and green-blood impact broadcasts are now unreliable ordered visual RPCs. Fire requests, ammo state, reload state, health, death, and owner combat feedback remain reliable so visual bursts cannot block critical gameplay state under sustained Hunter fire.
 - Runtime debug logs in `player.gd`, `weapon_system.gd`, `network.gd`, `level.gd`, `inventory_ui.gd`, `ammo_pickup.gd`, `paint_system.gd`, `shape_shift_system.gd`, and `chameleon_sculpt_system.gd` are now gated by `MAOMAO_DEBUG_LOG`; exported/headless public servers default this off so combat, weapon, room, role, phase, pickup, paint, shape, and inventory paths do not write verbose stdout during normal multiplayer sessions.
 - `SteamBridge` now self-disables when launched as a public lobby or room server, so headless VPS builds do not try to initialize Steam.
 - `tools/export_public_server_pack.ps1` exports server packs through temporary sanitized project settings: local development keeps Fennara/Godot AI/editor autoloads, while the exported public-server pack strips editor/visual autoloads, filters client/editor GDExtensions, excludes Terrain3D from the server package, and uses Godot recovery mode before packaging.
+- Public room creation now requires an explicit room name on both the client UI and public-lobby RPC boundary. Empty names no longer fall back to a generated nickname room, which makes room creation state and duplicate checks easier to reason about.
+- Public room subprocess args now pass `--main-pack` from `MAOMAO_PCK`, from a command-line pack hint, or from the Linux production fallback `/opt/maomao/maomao_server.pck`; the export smoke test also sets `MAOMAO_PCK`.
+- Public-room lobby UI now shows the connected public server identity after room entry. Primary server `1.13.175.170` is labeled `TX`; backup server `8.153.148.157` is labeled `AL`.
 - Public room process startup is now split into argument construction, launch-mode selection, shell quoting, detached PID parsing, and direct child fallback. This makes the room lifecycle path testable and reduces the risk of zombie room children after repeated create/quit cycles.
+- Map prop impact requests now have a server-side per-player/per-prop throttle. Normal client-cooldown impacts still pass, while duplicate bursts are dropped and counted as `map_prop.impact_throttled`.
 
 ## High-Priority Architecture Issues
 
@@ -47,8 +56,11 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 6. Public server startup now avoids Steam, Terrain3D, Voxel, and MCP/editor-adjacent autoloads when using `tools/export_public_server_pack.ps1`. This still needs to become a true dedicated server export preset instead of a temporary project-settings sanitization step, because the all-resources pack remains much larger than a dedicated server should be.
 7. Network sync lacks measured budgets. RPC frequency, payload size, and replicated property update rates need per-system limits before targeting 24 players.
 8. The current public lobby uses JSON status files for room discovery. This is acceptable short term, but should become a managed room registry with process status, heartbeats, and cleanup guarantees.
+9. Live TX room telemetry showed `rpc.map_prop.motion` dominating traffic with thousands of per-prop updates per 10-second window even with one peer. Map prop motion now uses capped batch RPCs, keeps overflow states for later flushes, and no longer broadcasts solely because a body is non-sleeping without meaningful transform or velocity deltas.
 
 ## Skill Runtime Policy Target
+
+The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRACT.md`. New multiplayer work should treat that file as the source of truth for owner/server/remote/headless execution boundaries, static typing expectations, and memory cleanup rules.
 
 | System | Owner client | Server | Remote clients |
 | --- | --- | --- | --- |
@@ -104,9 +116,14 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - `res://tests/character_skin_runtime_test.tscn`: CLI PASS.
 - `res://tests/player_spawn_gate_test.tscn`: CLI PASS.
 - `res://tests/world_object_sync_test.tscn`: CLI PASS.
+- `res://tests/world_object_sync_test.tscn`: CLI PASS after adding capped map prop motion batching and non-sleeping no-delta suppression coverage.
+- `res://tests/chameleon_sculpt_paint_integration_test.tscn`: CLI PASS after adding the 45-second Chameleon paint-session expiry regression and aligning paint RPC chunk expectations to 16/1 stamps.
+- `res://tests/shape_combat_poc_test.tscn`: CLI PASS after making paint-session timing compatible with legacy direct `skill_active` test probes.
+- Fennara windowed runtime for `res://tests/shape_combat_poc_test.tscn`: PASS, and the runtime log no longer reports leaked RenderingDevice texture RIDs after repeated `OverlayAtlasManager` texture creation/cleanup.
 - `res://tests/chameleon_sculpt_network_test.tscn`: CLI PASS after aligning the test with lazy sculpt initialization.
 - `res://tests/party_monster_accessory_system_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
 - `res://tests/hunter_prop_sense_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
+- `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after adding a weapon visual RPC budget regression that keeps tracer/green-blood effects off reliable transport while preserving reliable ammo/reload/feedback sync.
 - `tools/export_public_server_pack.ps1`: PASS against `newrelease/maomao_server.pck` from an isolated temporary working directory; public lobby perf telemetry appears and startup logs no longer include Fennara, Godot AI, AmbientCG, Steam, Terrain3D, or Voxel startup noise.
 - VPS public lobby service restarted successfully and is listening on UDP 8080.
 

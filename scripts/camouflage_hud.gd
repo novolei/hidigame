@@ -65,6 +65,8 @@ var _sculpt_mode := ""
 var _sculpt_tool := ""
 var _sculpt_brush_radius := 0.0
 var _shape_commit_cooldown := 0.0
+var _session_remaining: float = 0.0
+var _session_max_seconds: float = 0.0
 
 
 func _ready() -> void:
@@ -97,8 +99,19 @@ func set_skill_active(active: bool, has_color: bool, color: Color, radius: float
 	_brush_angle = angle
 	_status = STATUS_PAINT if has_color else STATUS_ACTIVE
 	if not active:
+		_session_remaining = 0.0
+		_session_max_seconds = 0.0
 		_clear_sculpt_status()
 	visible = active
+	queue_redraw()
+
+
+func set_session_time(remaining: float, max_seconds: float) -> void:
+	_session_max_seconds = maxf(0.0, max_seconds)
+	if _session_max_seconds > 0.0:
+		_session_remaining = clampf(remaining, 0.0, _session_max_seconds)
+	else:
+		_session_remaining = 0.0
 	queue_redraw()
 
 
@@ -196,6 +209,10 @@ func _draw_status(center: Vector2) -> void:
 		if _sculpt_mode == "sculpt" and _sculpt_brush_radius > 0.0:
 			value_text = "%.2f" % _sculpt_brush_radius
 			unit_text = "M"
+	if _skill_active and _session_max_seconds > 0.0:
+		var seconds_left: int = ceili(_session_remaining)
+		var seconds_text: String = str(seconds_left).pad_zeros(2)
+		control_text = "TIME %ss  %s" % [seconds_text, control_text]
 	var status_font := _get_status_font()
 	var value_font := _get_value_font()
 	var status_size := status_font.get_string_size(status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, STATUS_FONT_SIZE)

@@ -353,7 +353,8 @@ func show_lobby(lobby_id: String, host_mode: bool) -> void:
 	public_lobby_alert_text = ""
 	current_lobby_id = lobby_id
 	is_host_lobby = host_mode
-	if is_host_lobby:
+	var private_connection_mode: String = str(Network.lobby_config.get("private_connection_mode", "direct"))
+	if is_host_lobby and not private_connection_mode.begins_with("noray"):
 		_start_public_ip_lookup()
 	else:
 		_cancel_public_ip_lookup()
@@ -447,6 +448,19 @@ func _selected_public_room() -> Dictionary:
 		if str(room.get("room_id", "")) == selected_public_room_id:
 			return room
 	return {}
+
+
+func _public_room_server_info_text(config: Dictionary) -> String:
+	if not bool(config.get("public_server", false)) or bool(config.get("public_lobby", false)):
+		return ""
+	var address: String = str(config.get("public_address", "")).strip_edges()
+	if address.is_empty():
+		address = Network.PUBLIC_SERVER_ADDRESS
+	var port: int = int(config.get("host_port", Network.server_port))
+	var server_code: String = str(config.get("public_server_code", "")).strip_edges()
+	if server_code.is_empty():
+		server_code = Network.public_server_code_for_address(address)
+	return I18n.tf("public_lobby.connected_server", [server_code, address, port])
 
 
 func update_lobby(players: Dictionary, config: Dictionary) -> void:
@@ -1470,7 +1484,15 @@ func _select_public_room(room_id: String) -> void:
 func _on_public_room_create_pressed() -> void:
 	if _public_lobby_is_busy():
 		return
-	public_room_create_name_text = public_room_create_name_input.text.strip_edges() if public_room_create_name_input else public_room_create_name_text.strip_edges()
+	var requested_room_name: String = public_room_create_name_input.text.strip_edges() if public_room_create_name_input else public_room_create_name_text.strip_edges()
+	if requested_room_name.is_empty():
+		public_room_create_name_text = ""
+		show_public_lobby_status(I18n.t("public_lobby.room_name_required"), true)
+		show_public_lobby_alert(I18n.t("public_lobby.room_name_required"), true)
+		if public_room_create_name_input:
+			public_room_create_name_input.grab_focus()
+		return
+	public_room_create_name_text = requested_room_name
 	public_room_create_password_text = public_room_create_password_input.text.strip_edges().to_upper() if public_room_create_password_input else public_room_create_password_text.strip_edges().to_upper()
 	public_lobby_status_text = I18n.t("public_lobby.creating")
 	public_lobby_status_error = false
@@ -1532,6 +1554,10 @@ func _build_lobby_ui() -> void:
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_row.add_child(title)
 
+	var lobby_server_info: String = _public_room_server_info_text(Network.lobby_config)
+	if not lobby_server_info.is_empty():
+		header.add_child(_server_info_badge(lobby_server_info))
+
 	var columns = HBoxContainer.new()
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	columns.add_theme_constant_override("separation", _s(12))
@@ -1543,6 +1569,26 @@ func _build_lobby_ui() -> void:
 
 	main.add_child(_build_lobby_footer())
 	_build_lobby_chat_panel()
+
+
+func _server_info_badge(text: String) -> Control:
+	var badge := PanelContainer.new()
+	badge.name = "LobbyServerInfoBadge"
+	badge.custom_minimum_size = _sv(280, 42)
+	badge.add_theme_stylebox_override("panel", _style(Color(0.060, 0.075, 0.120, 0.82), Color(0.560, 0.760, 1.0, 0.82), 1, 10))
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", _s(8))
+	badge.add_child(row)
+
+	row.add_child(_icon("res://addons/at-icons/control/cloud.svg", 20, "#93f7b1"))
+	var label := _muted_label(text, 15)
+	label.name = "LobbyServerInfoLabel"
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color(0.880, 0.940, 1.0, 1.0))
+	row.add_child(label)
+	return badge
 
 
 func _build_match_details_panel() -> Control:
@@ -1579,7 +1625,36 @@ func _build_match_details_panel() -> Control:
 	id_row.add_child(copy)
 	box.add_child(id_row)
 
-	if is_host_lobby:
+	var private_connection_mode: String = str(Network.lobby_config.get("private_connection_mode", "direct"))
+	var private_connection_code: String = str(Network.lobby_config.get("private_connection_code", "")).strip_edges()
+	var private_connection_server: String = str(Network.lobby_config.get("private_connection_server", "")).strip_edges()
+	if private_connection_mode.begins_with("noray"):
+		box.add_child(_section_label(I18n.t("noray_connection_code")))
+		var noray_code_row: HBoxContainer = HBoxContainer.new()
+		noray_code_row.add_theme_constant_override("separation", _s(8))
+		var noray_code_input: LineEdit = _line_edit(I18n.t("noray_code_pending"))
+		noray_code_input.editable = false
+		noray_code_input.text = private_connection_code
+		noray_code_row.add_child(noray_code_input)
+		var copy_noray_code: Button = _icon_button("res://addons/at-icons/control/clipboard.svg")
+		copy_noray_code.tooltip_text = I18n.t("copy")
+		copy_noray_code.disabled = private_connection_code.is_empty()
+		copy_noray_code.pressed.connect(func():
+			if not private_connection_code.is_empty():
+				DisplayServer.clipboard_set(private_connection_code)
+		)
+		noray_code_row.add_child(copy_noray_code)
+		box.add_child(noray_code_row)
+		if not private_connection_server.is_empty():
+			box.add_child(_section_label(I18n.t("noray_server")))
+			box.add_child(_muted_label("%s | %s" % [private_connection_server, private_connection_mode.to_upper()], 16))
+
+	var public_server_info: String = _public_room_server_info_text(Network.lobby_config)
+	if not public_server_info.is_empty():
+		box.add_child(_section_label(I18n.t("public_lobby.title")))
+		box.add_child(_muted_label(public_server_info, 16))
+
+	if is_host_lobby and not private_connection_mode.begins_with("noray"):
 		box.add_child(_section_label(I18n.t("host_address")))
 		var address_row = HBoxContainer.new()
 		address_row.add_theme_constant_override("separation", _s(8))
@@ -2063,7 +2138,8 @@ func _refresh_landing_join_state() -> void:
 	elif get_join_target().is_empty():
 		_set_join_status(I18n.t("join_status.need_target"), true)
 	else:
-		var key := "join_status.ready_address" if _looks_like_network_address(get_join_target()) else "join_status.ready_room"
+		var target: String = get_join_target()
+		var key: String = "join_status.ready_noray" if Network.is_noray_join_target(target) else ("join_status.ready_address" if _looks_like_network_address(target) else "join_status.ready_room")
 		_set_join_status(I18n.t(key), false)
 
 

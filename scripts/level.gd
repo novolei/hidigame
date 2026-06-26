@@ -67,6 +67,7 @@ var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
 var _quit_confirm_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 var _map_prop_sync_budget: MapPropSyncBudget = MapPropSyncBudgetScript.new()
+var _map_prop_impact_last_msec: Dictionary = {}
 
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
@@ -102,6 +103,9 @@ const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
 const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
+const MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC: int = 90
+const MAP_PROP_IMPACT_THROTTLE_MAX_ENTRIES: int = 256
+const MAP_PROP_IMPACT_THROTTLE_PRUNE_MSEC: int = 2000
 const WORLD_COLLISION_MASK: int = 2
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
@@ -173,6 +177,22 @@ func _runtime_debug_log(
 	print(output)
 
 
+func _has_runtime_multiplayer_peer() -> bool:
+	return RuntimeModeScript.has_multiplayer_peer(multiplayer)
+
+
+func _is_multiplayer_server() -> bool:
+	return RuntimeModeScript.is_multiplayer_server(multiplayer)
+
+
+func _local_peer_id() -> int:
+	if _has_runtime_multiplayer_peer():
+		return multiplayer.get_unique_id()
+	if Network.players.has(1):
+		return 1
+	return 1
+
+
 # -----------------------------------------------------------------------------
 # 鐢熷懡鍛ㄦ湡
 # -----------------------------------------------------------------------------
@@ -224,7 +244,7 @@ func _ready():
 	Network.card_loadout_updated.connect(_on_card_loadout_updated)
 	Network.card_activated.connect(_on_card_activated)
 	Network.card_drafts_completed.connect(_on_card_drafts_completed)
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		multiplayer.peer_disconnected.connect(_remove_player)
 		Network.roles_assigned.connect(_on_roles_assigned)
 
@@ -234,6 +254,7 @@ func _ready():
 	Network.public_lobby_snapshot_received.connect(_on_public_lobby_snapshot_received)
 	Network.public_room_redirect_requested.connect(_on_public_room_redirect_requested)
 	Network.public_room_join_failed.connect(_on_public_room_join_failed)
+	Network.private_connection_status_changed.connect(_on_private_connection_status_changed)
 	Network.lobby_config_updated.connect(func(_config):
 		_refresh_lobby_ui()
 		if game_state == GameState.LOBBY:
@@ -333,26 +354,26 @@ func _process(delta):
 	if game_state == GameState.SKIN_CONFIG:
 		skin_config_remaining = max(0.0, skin_config_remaining - delta)
 		_update_character_setup_ui()
-		if multiplayer.is_server() and skin_config_remaining <= 0.0:
+		if _is_multiplayer_server() and skin_config_remaining <= 0.0:
 			_server_start_match_intro_phase()
 	elif game_state == GameState.MATCH_INTRO:
 		match_intro_remaining = max(0.0, match_intro_remaining - delta)
 		_update_match_intro_ui()
-		if multiplayer.is_server() and match_intro_remaining <= 0.0:
+		if _is_multiplayer_server() and match_intro_remaining <= 0.0:
 			_server_start_prep_phase()
 	elif game_state == GameState.PREP:
 		prep_remaining = max(0.0, prep_remaining - delta)
 		_update_prep_ui()
-		if multiplayer.is_server() and prep_remaining <= 0.0:
+		if _is_multiplayer_server() and prep_remaining <= 0.0:
 			_server_end_prep_phase()
 	elif game_state == GameState.PLAY:
 		match_remaining = max(0.0, match_remaining - delta)
 		if not party_monster_bounty_accessories.is_empty():
 			party_monster_bounty_remaining = maxf(0.0, party_monster_bounty_remaining - delta)
 		_process_gravity_events(delta)
-		if multiplayer.is_server():
+		if _is_multiplayer_server():
 			_server_process_party_monster_bounties(delta)
-		if multiplayer.is_server() and match_remaining <= 0.0:
+		if _is_multiplayer_server() and match_remaining <= 0.0:
 			_server_end_match()
 	_process_map_prop_motion_sync(delta)
 	if _is_dedicated_public_server_runtime():
@@ -370,40 +391,48 @@ func _is_dedicated_public_server_runtime() -> bool:
 func _process_map_prop_motion_sync(delta: float) -> void:
 	if not RuntimeModeScript.is_multiplayer_server(multiplayer):
 		return
-	for state: Dictionary in _map_prop_sync_budget.tick(delta):
+	var states: Array[Dictionary] = _map_prop_sync_budget.tick(delta)
+	if states.is_empty():
+		return
+	var payload: Array = []
+	for state: Dictionary in states:
 		var prop_name: String = str(state.get("prop_name", ""))
+		if prop_name.is_empty():
+			continue
 		var next_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
 		var next_linear_velocity: Vector3 = state.get("linear_velocity", Vector3.ZERO)
 		var next_angular_velocity: Vector3 = state.get("angular_velocity", Vector3.ZERO)
 		var next_sleeping: bool = bool(state.get("sleeping", false))
-		Network.record_rpc_event("map_prop.motion", maxi(Network.multiplayer.get_peers().size(), 1), 104)
-		_rpc_sync_map_prop_motion_state.rpc(
-			prop_name,
-			next_transform,
-			next_linear_velocity,
-			next_angular_velocity,
-			next_sleeping
-		)
+		payload.append([prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping])
+	if payload.is_empty():
+		return
+	Network.record_rpc_event("map_prop.motion", maxi(Network.multiplayer.get_peers().size(), 1), payload.size() * 104)
+	_rpc_sync_map_prop_motion_states.rpc(payload)
 
 
 # -----------------------------------------------------------------------------
 # 涓昏彍鍗曞洖璋?# -----------------------------------------------------------------------------
-func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
+func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
 	pending_direct_join_waiting_for_sync = false
 	pending_direct_join_lobby_id = ""
-	var error = Network.start_host(nickname, skin, role, room_name, lobby_password, character_model)
-	if error:
-		push_warning("Could not host lobby. ENet error: " + str(error))
+	if main_menu:
+		main_menu.show_join_status(I18n.t("join_status.creating_private"), false)
+	var error: int = await Network.start_private_host(nickname, skin, role, room_name, lobby_password, character_model)
+	if error != OK:
+		push_warning("Could not host lobby through Noray. ENet error: " + str(error))
+		if main_menu:
+			main_menu.show_join_status(I18n.t("join_status.failed"), true)
 		return
 	if SteamBridge.is_available():
 		SteamBridge.create_lobby(
 			str(Network.lobby_config.get("room_name", room_name)),
 			str(Network.lobby_config.get("lobby_id", lobby_password)),
-			Network.SERVER_ADDRESS,
+			str(Network.lobby_config.get("private_connection_code", Network.SERVER_ADDRESS)),
 			int(Network.lobby_config.get("max_players", Network.MAX_PLAYERS)),
 			int(Network.lobby_config.get("host_port", Network.server_port))
 		)
 	main_menu.show_lobby(str(Network.lobby_config.get("lobby_id", "")), true)
+	main_menu.show_join_status("")
 	_set_hud_visible(false)
 	_refresh_lobby_ui()
 
@@ -425,9 +454,13 @@ func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id:
 
 
 func _join_lobby_direct(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
-	var normalized_lobby_id := lobby_id.strip_edges().to_upper()
-	var error = Network.join_game(nickname, skin, address, normalized_lobby_id, role, room_name, character_model)
-	if error:
+	var normalized_lobby_id: String = lobby_id.strip_edges().to_upper()
+	var error: int = OK
+	if Network.is_noray_join_target(address):
+		error = await Network.join_private_game(nickname, skin, address, normalized_lobby_id, role, room_name, character_model)
+	else:
+		error = Network.join_game(nickname, skin, address, normalized_lobby_id, role, room_name, character_model)
+	if error != OK:
 		pending_direct_join_waiting_for_sync = false
 		pending_direct_join_lobby_id = ""
 		push_warning("Could not join lobby. ENet error: " + str(error))
@@ -460,6 +493,12 @@ func _on_public_lobby_snapshot_received(rooms: Array) -> void:
 	main_menu.update_public_lobby(rooms)
 	main_menu.show_public_lobby_status(I18n.t("public_lobby.connected"), false)
 	_set_hud_visible(false)
+
+
+func _on_private_connection_status_changed(status_key: String, is_error: bool) -> void:
+	if not main_menu:
+		return
+	main_menu.show_join_status(I18n.t(status_key), is_error)
 
 
 func _on_public_room_create_pressed(room_name: String, lobby_password: String) -> void:
@@ -551,7 +590,7 @@ func _start_public_room_join_timeout() -> void:
 
 
 func _is_public_room_client_context() -> bool:
-	return multiplayer.multiplayer_peer != null and bool(Network.lobby_config.get("public_server", false)) and not bool(Network.lobby_config.get("public_lobby", false)) and not multiplayer.is_server()
+	return multiplayer.multiplayer_peer != null and bool(Network.lobby_config.get("public_server", false)) and not bool(Network.lobby_config.get("public_lobby", false)) and not _is_multiplayer_server()
 
 
 func _return_to_public_server_lobby(status_key: String = "", is_error: bool = false) -> void:
@@ -718,14 +757,14 @@ func _on_player_connected(peer_id, player_info):
 	if _should_spawn_player_nodes():
 		_add_player(peer_id, player_info)
 	_refresh_lobby_ui()
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		_server_sync_hologram_flags_to_peer(int(peer_id))
 
 
 func _on_network_player_disconnected(peer_id: int) -> void:
 	var nick := str(_known_player_names.get(peer_id, "Player"))
 	_known_player_names.erase(peer_id)
-	if peer_id != multiplayer.get_unique_id():
+	if peer_id != _local_peer_id():
 		_push_room_event(I18n.tf("room_event.left", [nick]))
 	_refresh_lobby_ui()
 
@@ -733,7 +772,7 @@ func _on_network_player_disconnected(peer_id: int) -> void:
 func _handle_room_player_joined(peer_id: int, info: Dictionary) -> void:
 	var nick := _player_name_for_event(peer_id, info)
 	_known_player_names[peer_id] = nick
-	if peer_id == multiplayer.get_unique_id():
+	if peer_id == _local_peer_id():
 		return
 	_push_room_event(I18n.tf("room_event.joined", [nick]))
 
@@ -870,7 +909,7 @@ func _on_public_room_join_failed(reason_key: String) -> void:
 
 
 func _on_players_synced(_all_players: Dictionary) -> void:
-	if pending_direct_join_waiting_for_sync and game_state == GameState.LOBBY and not multiplayer.is_server():
+	if pending_direct_join_waiting_for_sync and game_state == GameState.LOBBY and not _is_multiplayer_server():
 		_show_synced_client_lobby()
 	_remember_synced_player_names()
 	if _should_spawn_player_nodes():
@@ -1134,9 +1173,9 @@ func _get_selected_map_support_ground_y(base_position: Vector3) -> float:
 
 
 func _remove_player(id):
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		_server_remove_hologram_flag(int(id))
-	if not multiplayer.is_server() or not players_container.has_node(str(id)):
+	if not _is_multiplayer_server() or not players_container.has_node(str(id)):
 		return
 	var player_node = players_container.get_node(str(id))
 	if player_node:
@@ -1152,7 +1191,7 @@ func _on_quit_pressed() -> void:
 # =============================================================================
 
 func _server_schedule_prep_phase() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if game_state != GameState.LOBBY:
 		return
@@ -1187,7 +1226,7 @@ func _on_auto_assign_pressed(config: Dictionary) -> void:
 
 func _on_start_match_pressed(config: Dictionary) -> void:
 	Network.request_update_lobby_config(config)
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		await get_tree().process_frame
 		_server_start_from_lobby()
 	else:
@@ -1195,7 +1234,7 @@ func _on_start_match_pressed(config: Dictionary) -> void:
 
 
 func _server_start_from_lobby() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if game_state != GameState.LOBBY:
 		return
@@ -1208,7 +1247,7 @@ func _server_start_from_lobby() -> void:
 
 
 func _server_start_card_draft_phase() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	main_menu.hide_menu()
 	game_state = GameState.CARD_DRAFT
@@ -1219,7 +1258,7 @@ func _server_start_card_draft_phase() -> void:
 
 
 func _server_start_skin_config_phase() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	game_state = GameState.SKIN_CONFIG
 	skin_config_remaining = Network.SKIN_CONFIG_TOTAL_SECONDS
@@ -1236,7 +1275,7 @@ func _server_start_skin_config_phase() -> void:
 
 
 func _server_start_match_intro_phase() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	game_state = GameState.MATCH_INTRO
 	skin_config_remaining = 0.0
@@ -1335,7 +1374,7 @@ func _server_end_match() -> void:
 # =============================================================================
 
 func _server_spawn_map_props() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 
 	var total: int = max(Network.players.size(), 1)
@@ -1418,7 +1457,7 @@ func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
 func request_map_prop_impact(prop: FruitProp, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
 	if not prop:
 		return
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		_server_apply_map_prop_impact(prop.name, player_velocity, contact_point, contact_normal, disguised_player, 0)
 	else:
 		_request_map_prop_impact_rpc.rpc_id(1, prop.name, player_velocity, contact_point, contact_normal, disguised_player)
@@ -1426,14 +1465,14 @@ func request_map_prop_impact(prop: FruitProp, player_velocity: Vector3, contact_
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_map_prop_impact_rpc(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	_server_apply_map_prop_impact(prop_name, player_velocity, contact_point, contact_normal, disguised_player, sender_id)
 
 
 func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, sender_id: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	var prop := _get_map_prop_by_name(prop_name)
 	if not prop:
@@ -1444,14 +1483,41 @@ func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, 
 		var player_node := players_container.get_node_or_null(str(sender_id)) if players_container else null
 		if player_node is Node3D and (player_node as Node3D).global_position.distance_to(prop.global_position) > MAP_PROP_IMPACT_MAX_DISTANCE:
 			return
+	if not _should_accept_map_prop_impact(prop.name, sender_id):
+		return
 	var reported_velocity := player_velocity
 	if reported_velocity.length() > FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED:
 		reported_velocity = reported_velocity.normalized() * FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED
 	prop._apply_player_impact_authoritative(reported_velocity, contact_point, contact_normal, disguised_player)
 
 
+func _should_accept_map_prop_impact(prop_name: String, sender_id: int) -> bool:
+	var now_msec: int = Time.get_ticks_msec()
+	if _map_prop_impact_last_msec.size() > MAP_PROP_IMPACT_THROTTLE_MAX_ENTRIES:
+		_prune_map_prop_impact_throttle(now_msec)
+	var key: String = "%d:%s" % [sender_id, prop_name]
+	var previous_msec: int = int(_map_prop_impact_last_msec.get(key, -MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC))
+	if now_msec - previous_msec < MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC:
+		Network.record_perf_event("map_prop.impact_throttled", 1)
+		return false
+	_map_prop_impact_last_msec[key] = now_msec
+	return true
+
+
+func _prune_map_prop_impact_throttle(now_msec: int) -> void:
+	var stale_keys: Array = []
+	for raw_key: Variant in _map_prop_impact_last_msec.keys():
+		var last_msec: int = int(_map_prop_impact_last_msec.get(raw_key, 0))
+		if now_msec - last_msec > MAP_PROP_IMPACT_THROTTLE_PRUNE_MSEC:
+			stale_keys.append(raw_key)
+	for raw_key: Variant in stale_keys:
+		_map_prop_impact_last_msec.erase(raw_key)
+	if _map_prop_impact_last_msec.size() > MAP_PROP_IMPACT_THROTTLE_MAX_ENTRIES * 2:
+		_map_prop_impact_last_msec.clear()
+
+
 func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> void:
-	if not multiplayer.is_server() or not prop:
+	if not _is_multiplayer_server() or not prop:
 		return
 	if reliable:
 		_map_prop_sync_budget.clear_motion(prop.name)
@@ -1459,6 +1525,24 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 		_rpc_sync_map_prop_rest_state.rpc(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
 		_map_prop_sync_budget.queue_motion(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _rpc_sync_map_prop_motion_states(states: Array) -> void:
+	for raw_state: Variant in states:
+		if not (raw_state is Array):
+			continue
+		var state: Array = raw_state as Array
+		if state.size() < 5:
+			continue
+		if not (state[1] is Transform3D) or not (state[2] is Vector3) or not (state[3] is Vector3):
+			continue
+		var prop_name: String = str(state[0])
+		var next_transform: Transform3D = state[1]
+		var next_linear_velocity: Vector3 = state[2]
+		var next_angular_velocity: Vector3 = state[3]
+		var next_sleeping: bool = bool(state[4])
+		_apply_map_prop_network_state(prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping)
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
@@ -1490,7 +1574,7 @@ func _get_map_prop_by_name(prop_name: String) -> FruitProp:
 
 func request_place_hologram_flag(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
 	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
-	if multiplayer.is_server():
+	if _is_multiplayer_server():
 		_server_place_hologram_flag(owner_id, state, 0)
 	else:
 		_request_place_hologram_flag_rpc.rpc_id(1, owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
@@ -1498,7 +1582,7 @@ func request_place_hologram_flag(owner_id: int, flag_transform: Transform3D, mod
 
 @rpc("any_peer", "call_local", "reliable")
 func _request_place_hologram_flag_rpc(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	if sender_id != owner_id:
@@ -1509,7 +1593,7 @@ func _request_place_hologram_flag_rpc(owner_id: int, flag_transform: Transform3D
 
 
 func _server_place_hologram_flag(owner_id: int, state: Dictionary, sender_id: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if not _is_valid_hologram_flag_state(owner_id, state):
 		return
@@ -1526,7 +1610,7 @@ func _rpc_place_hologram_flag(owner_id: int, state: Dictionary) -> void:
 
 
 func _server_remove_hologram_flag(owner_id: int) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if not _hologram_flag_states.has(owner_id):
 		return
@@ -1541,12 +1625,12 @@ func _rpc_remove_hologram_flag(owner_id: int) -> void:
 
 
 func _server_sync_hologram_flags_to_peer(peer_id: int) -> void:
-	if not multiplayer.is_server() or _hologram_flag_states.is_empty():
+	if not _is_multiplayer_server() or _hologram_flag_states.is_empty():
 		return
 	var states: Array = []
 	for state in _hologram_flag_states.values():
 		states.append((state as Dictionary).duplicate(true))
-	if peer_id == multiplayer.get_unique_id():
+	if peer_id == _local_peer_id():
 		_rpc_sync_hologram_flags(states)
 	elif multiplayer.multiplayer_peer != null and multiplayer.get_peers().has(peer_id):
 		_rpc_sync_hologram_flags.rpc_id(peer_id, states)
@@ -1656,7 +1740,7 @@ func get_hologram_flag_state_for_test(owner_id: int) -> Dictionary:
 
 
 func _server_spawn_unity_decorations() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 
 	var total: int = max(Network.players.size(), 1)
@@ -1980,7 +2064,7 @@ func _transform_aabb(transform: Transform3D, box: AABB) -> AABB:
 
 
 func _server_spawn_ammo_packs() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 
 	var total = Network.players.size()
@@ -2110,7 +2194,7 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 
 
 func _server_spawn_party_monster_accessory_pickups() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	_party_monster_accessory_spawn_round += 1
 	var total_players: int = max(Network.players.size(), 1)
@@ -2180,7 +2264,7 @@ func _server_reset_party_monster_bounty_cycle() -> void:
 
 
 func _server_process_party_monster_bounties(delta: float) -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if not party_monster_bounty_accessories.is_empty():
 		party_monster_bounty_marked_count = _count_party_monster_bounty_marked_players()
@@ -2430,7 +2514,7 @@ func _process_gravity_events(delta: float) -> void:
 		if gravity_event_remaining <= 0.0:
 			gravity_event_label = ""
 			_apply_configured_gravity()
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if not bool(Network.lobby_config.get("low_gravity_events", false)):
 		return
@@ -2447,7 +2531,7 @@ func _process_gravity_events(delta: float) -> void:
 
 
 func _server_start_low_gravity_event() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	var event_gravity := clampf(base_gravity_mps2 * LOW_GRAVITY_MULTIPLIER, 2.0, base_gravity_mps2)
 	_apply_gravity_event.rpc(event_gravity, LOW_GRAVITY_EVENT_DURATION, I18n.t("gravity_event.low"))
@@ -2653,7 +2737,7 @@ func _update_party_monster_hunt_hud() -> void:
 	if main_menu and main_menu.is_menu_visible():
 		party_monster_hunt_hud.clear()
 		return
-	var local_id: int = multiplayer.get_unique_id()
+	var local_id: int = _local_peer_id()
 	var local_info: Dictionary = Network.players.get(local_id, {})
 	var local_model: String = CharacterSkinCatalog.normalize(str(local_info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
 	var local_is_party_monster := CharacterSkinCatalog.is_party_monster(local_model)
@@ -2739,7 +2823,7 @@ func _on_player_party_monster_accessories_changed(peer_id: int, loadout: Diction
 
 
 func _ensure_hider_party_monster_defaults() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	for pid in Network.players.keys():
 		var info: Dictionary = Network.players.get(pid, {})
@@ -2983,7 +3067,7 @@ func _update_card_hud() -> void:
 
 
 func _on_card_draft_updated(peer_id: int, _draft_state: Dictionary) -> void:
-	if peer_id == multiplayer.get_unique_id():
+	if peer_id == _local_peer_id():
 		if not _draft_state.is_empty() and not bool(_draft_state.get("complete", false)) and game_state == GameState.LOBBY:
 			game_state = GameState.CARD_DRAFT
 			if main_menu:
@@ -2994,12 +3078,12 @@ func _on_card_draft_updated(peer_id: int, _draft_state: Dictionary) -> void:
 
 
 func _on_card_loadout_updated(peer_id: int, _loadout: Array) -> void:
-	if peer_id == multiplayer.get_unique_id():
+	if peer_id == _local_peer_id():
 		_update_card_hud()
 
 
 func _on_card_drafts_completed() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		return
 	if game_state != GameState.CARD_DRAFT:
 		return
@@ -3010,7 +3094,7 @@ func _on_card_activated(peer_id: int, card_id: String, slot_index: int) -> void:
 	var player_node = players_container.get_node_or_null(str(peer_id)) if players_container else null
 	if player_node and player_node.has_method("apply_card_effect"):
 		player_node.apply_card_effect(card_id)
-	if peer_id == multiplayer.get_unique_id():
+	if peer_id == _local_peer_id():
 		show_combat_feedback("CARD %d" % (slot_index + 1), Color(0.62, 0.92, 1.0, 1.0), 0.75)
 	_update_card_hud()
 
@@ -3335,7 +3419,7 @@ func _send_chat_message(message_text: String) -> void:
 	var trimmed_message = message_text.strip_edges()
 	if trimmed_message == "":
 		return
-	var local_id := multiplayer.get_unique_id()
+	var local_id := _local_peer_id()
 	var nick = Network.players.get(local_id, {}).get("nick", "Player")
 	rpc("msg_rpc", nick, trimmed_message)
 
@@ -3393,7 +3477,7 @@ func update_local_inventory_display():
 
 
 func _get_local_player() -> Character:
-	var local_player_id = multiplayer.get_unique_id()
+	var local_player_id = _local_peer_id()
 	if players_container.has_node(str(local_player_id)):
 		return players_container.get_node(str(local_player_id)) as Character
 	return null
@@ -3426,7 +3510,7 @@ func _debug_print_inventory():
 
 # Dev cheat:host 鍗曚汉鏃跺己鍒惰Е鍙?prep phase
 func _debug_force_prep_phase() -> void:
-	if not multiplayer.is_server():
+	if not _is_multiplayer_server():
 		_runtime_debug_log("[Debug] Only server can force prep phase")
 		return
 	if game_state != GameState.LOBBY:
