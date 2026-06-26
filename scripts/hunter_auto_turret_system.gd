@@ -35,11 +35,13 @@ const RECOIL_ROTATION_KICK := 0.055
 const MUZZLE_FLASH_SECONDS := 0.105
 const MODEL_FORWARD_YAW_OFFSET := PI
 const HOVL_PROJECTILE_EFFECT_SCRIPT := preload("res://scripts/hovl_projectile_effect.gd")
+const NetworkInterestScript := preload("res://scripts/network_interest.gd")
 const HOVL_AUTO_TURRET_EFFECT_ID := "projectile_08_energy"
 const HOVL_AUTO_TURRET_HIT_EFFECT_ID := "projectile_16_star"
 const HOVL_AUTO_TURRET_EFFECT_SECONDS := 0.16
 const HOVL_AUTO_TURRET_EFFECT_SCALE := 0.48
 const HOVL_AUTO_TURRET_MIN_DISTANCE := 1.1
+const TURRET_VISUAL_RPC_RELEVANCE_RADIUS := 48.0
 
 var hunter: Node3D = null
 var owner_peer_id := 1
@@ -770,13 +772,48 @@ func _server_fire_at_target(target: Node3D) -> void:
 			if target.has_method("take_damage"):
 				target.take_damage(DAMAGE_PER_BULLET, owner_peer_id, false)
 
-	Network.record_rpc_event("turret.shot", maxi(multiplayer.get_peers().size(), 1), 72)
-	_broadcast_turret_shot.rpc(start, end, normal, hit_prop)
+	_send_turret_shot_visual(start, end, normal, hit_prop)
 	heat_shots += 1
 	if heat_shots >= SHOTS_BEFORE_OVERHEAT:
 		overheat_cooldown = OVERHEAT_COOLDOWN_SECONDS
 		Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1), 12)
 		_broadcast_turret_overheat.rpc()
+
+
+func _send_turret_shot_visual(start: Vector3, end: Vector3, normal: Vector3, hit_prop: bool) -> void:
+	var recipients: PackedInt32Array = _turret_visual_recipient_ids(start, end, owner_peer_id)
+	if recipients.is_empty():
+		return
+	Network.record_rpc_event("turret.shot", recipients.size(), 72)
+	for peer_id: int in recipients:
+		if peer_id == 1:
+			_broadcast_turret_shot(start, end, normal, hit_prop)
+		else:
+			_broadcast_turret_shot.rpc_id(peer_id, start, end, normal, hit_prop)
+
+
+func _turret_visual_recipient_ids(segment_start: Vector3, segment_end: Vector3, always_peer_id: int) -> PackedInt32Array:
+	var recipients: PackedInt32Array = PackedInt32Array()
+	if multiplayer.multiplayer_peer == null:
+		NetworkInterestScript.append_unique_peer_id(recipients, 1)
+		return recipients
+
+	if not _should_skip_dedicated_server_visuals() and (always_peer_id == 1 or NetworkInterestScript.is_peer_relevant_to_segment(_interest_tree(), _interest_scene(), 1, segment_start, segment_end, TURRET_VISUAL_RPC_RELEVANCE_RADIUS)):
+		NetworkInterestScript.append_unique_peer_id(recipients, 1)
+
+	for peer_id: int in multiplayer.get_peers():
+		if peer_id == always_peer_id or NetworkInterestScript.is_peer_relevant_to_segment(_interest_tree(), _interest_scene(), peer_id, segment_start, segment_end, TURRET_VISUAL_RPC_RELEVANCE_RADIUS):
+			NetworkInterestScript.append_unique_peer_id(recipients, peer_id)
+	return recipients
+
+
+func _interest_tree() -> SceneTree:
+	return get_tree() if is_inside_tree() else null
+
+
+func _interest_scene() -> Node:
+	var tree: SceneTree = _interest_tree()
+	return tree.get_current_scene() if tree else null
 
 
 @rpc("authority", "call_local", "reliable")

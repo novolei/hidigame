@@ -30,6 +30,7 @@ const SCAN_SCULPT_RESET_RADIUS: float = 0.56
 const SCAN_SCULPT_RESET_AMOUNT: float = 0.45
 const VISUAL_RPC_RELEVANCE_RADIUS: float = 48.0
 const GreenBloodImpactScript := preload("res://scripts/green_blood_impact.gd")
+const NetworkInterestScript := preload("res://scripts/network_interest.gd")
 
 const MELEE_DAMAGE: float = 10.0  # 弹药耗尽时切近战
 
@@ -470,51 +471,28 @@ func _weapon_visual_recipient_ids(segment_start: Vector3, segment_end: Vector3, 
 
 
 func _append_visual_recipient_id(recipients: PackedInt32Array, peer_id: int) -> void:
-	if peer_id <= 0:
-		return
-	if recipients.has(peer_id):
-		return
-	recipients.append(peer_id)
+	NetworkInterestScript.append_unique_peer_id(recipients, peer_id)
 
 
 func _is_peer_relevant_to_weapon_visual(peer_id: int, segment_start: Vector3, segment_end: Vector3) -> bool:
-	var player_node: Node3D = _find_player_node_for_peer(peer_id)
-	if player_node == null:
-		return true
-	var observer_position: Vector3 = player_node.global_position + Vector3.UP
-	var distance_sq: float = _point_segment_distance_squared(observer_position, segment_start, segment_end)
-	return distance_sq <= VISUAL_RPC_RELEVANCE_RADIUS * VISUAL_RPC_RELEVANCE_RADIUS
+	return NetworkInterestScript.is_peer_relevant_to_segment(_interest_tree(), _interest_scene(), peer_id, segment_start, segment_end, VISUAL_RPC_RELEVANCE_RADIUS)
 
 
 func _find_player_node_for_peer(peer_id: int) -> Node3D:
-	var scene: Node = get_tree().get_current_scene() if get_tree() else null
-	if scene:
-		var players_container: Node = scene.get_node_or_null("PlayersContainer")
-		if players_container:
-			var player_by_name: Node = players_container.get_node_or_null(str(peer_id))
-			if player_by_name is Node3D:
-				return player_by_name as Node3D
-	var tree: SceneTree = get_tree() if is_inside_tree() else null
-	if tree == null:
-		return null
-	for node: Node in tree.get_nodes_in_group("players"):
-		if not node is Node3D:
-			continue
-		if node.has_method("get_multiplayer_authority") and int(node.get_multiplayer_authority()) == peer_id:
-			return node as Node3D
-		if str(node.name) == str(peer_id):
-			return node as Node3D
-	return null
+	return NetworkInterestScript.find_player_node_for_peer(_interest_tree(), _interest_scene(), peer_id)
 
 
 func _point_segment_distance_squared(point: Vector3, segment_start: Vector3, segment_end: Vector3) -> float:
-	var segment: Vector3 = segment_end - segment_start
-	var length_sq: float = segment.length_squared()
-	if length_sq <= 0.0001:
-		return point.distance_squared_to(segment_start)
-	var amount: float = clampf((point - segment_start).dot(segment) / length_sq, 0.0, 1.0)
-	var closest: Vector3 = segment_start + segment * amount
-	return point.distance_squared_to(closest)
+	return NetworkInterestScript.point_segment_distance_squared(point, segment_start, segment_end)
+
+
+func _interest_tree() -> SceneTree:
+	return get_tree() if is_inside_tree() else null
+
+
+func _interest_scene() -> Node:
+	var tree: SceneTree = _interest_tree()
+	return tree.get_current_scene() if tree else null
 
 
 func _apply_scan_counterplay_to_target(target: Node3D) -> bool:

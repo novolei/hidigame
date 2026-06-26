@@ -33,6 +33,7 @@ func _run() -> void:
 	var turret = hunter.get_node_or_null("HunterAutoTurretSystem")
 	_expect(turret != null, "Hunter should attach HunterAutoTurretSystem")
 	_test_weapon_visual_rpc_budget()
+	_test_turret_visual_rpc_budget()
 	_test_weapon_visual_rpc_relevance(hunter, chameleon, stalker)
 	_expect(hunter.is_hunter(), "Test player 1 should be Hunter")
 	_expect(chameleon.is_chameleon(), "Test player 2 should be Chameleon")
@@ -200,6 +201,9 @@ func _run() -> void:
 
 func _test_weapon_visual_rpc_budget() -> void:
 	var weapon_source: String = FileAccess.get_file_as_string("res://scripts/weapon_system.gd")
+	var interest_source: String = FileAccess.get_file_as_string("res://scripts/network_interest.gd")
+	_expect(interest_source.contains("class_name NetworkInterest"), "Shared network interest helper should be available for visual RPC relevance checks")
+	_expect(weapon_source.contains("NetworkInterestScript.is_peer_relevant_to_segment"), "Weapon visual relevance should reuse the shared network interest helper")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_tracer"), "Weapon tracer is visual-only and should stay off the reliable RPC channel")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_green_blood_impact"), "Green blood impact is visual-only and should stay off the reliable RPC channel")
 	_expect(weapon_source.contains("func _weapon_visual_recipient_ids"), "Weapon visual RPC should compute relevant recipients instead of broadcasting to every peer")
@@ -210,6 +214,15 @@ func _test_weapon_visual_rpc_budget() -> void:
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _sync_ammo"), "Weapon ammo state should remain reliable gameplay sync")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _broadcast_reload"), "Weapon reload state should remain reliable gameplay sync")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _client_weapon_feedback"), "Owner combat feedback should remain reliable and targeted")
+
+
+func _test_turret_visual_rpc_budget() -> void:
+	var turret_source: String = FileAccess.get_file_as_string("res://scripts/hunter_auto_turret_system.gd")
+	_expect(turret_source.contains("func _send_turret_shot_visual"), "Auto turret shot visuals should flow through a targeted fan-out helper")
+	_expect(turret_source.contains("NetworkInterestScript.is_peer_relevant_to_segment"), "Auto turret shot visuals should use shared segment relevance")
+	_expect(turret_source.contains("_broadcast_turret_shot.rpc_id"), "Auto turret shot visual should be fan-out targeted with rpc_id")
+	_expect(not turret_source.contains("_broadcast_turret_shot.rpc("), "Auto turret shot visual should not broadcast to every peer")
+	_expect(turret_source.contains("Network.record_rpc_event(\"turret.shot\", recipients.size(), 72)"), "Auto turret shot telemetry should record actual recipient counts")
 
 
 func _test_weapon_visual_rpc_relevance(hunter: Node3D, chameleon: Node3D, stalker: Node3D) -> void:
