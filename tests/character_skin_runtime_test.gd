@@ -13,6 +13,7 @@ func _run() -> void:
 	await _test_default_hunter_uses_hunter_shooter_visual()
 	await _test_prep_tint_preserves_custom_skin_textures()
 	await _test_remote_custom_skin_animates_from_network_motion()
+	await _test_player_position_sync_budget()
 
 	if failures.is_empty():
 		print("[CharacterSkinRuntimeTest] PASS")
@@ -107,6 +108,18 @@ func _test_remote_custom_skin_animates_from_network_motion() -> void:
 	_expect(current_animation_node == "Run", "Remote Sophia skin should play Run when network position changes; current=" + current_animation_node)
 	_expect(_remote_visual_policy_applied(player), "Remote custom skins should render without expensive shadow/GI contribution")
 
+	player.queue_free()
+	await get_tree().process_frame
+
+
+func _test_player_position_sync_budget() -> void:
+	var player := _spawn_player("6")
+	await get_tree().process_frame
+	var synchronizer := player.get_node_or_null("MultiplayerSynchronizer") as MultiplayerSynchronizer
+	_expect(synchronizer != null, "Player scene should keep an explicit MultiplayerSynchronizer")
+	if synchronizer:
+		_expect(is_equal_approx(synchronizer.replication_interval, 0.08), "Player position sync should run at the 12.5Hz budget")
+		_expect(is_equal_approx(synchronizer.delta_interval, 0.16), "Player delta sync should stay at the 0.16s budget")
 	player.queue_free()
 	await get_tree().process_frame
 

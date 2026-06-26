@@ -5021,6 +5021,6 @@ outline_modulate = Color(0, 0, 0, 0.301961)
 text = "player name test"
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1908289416]
-replication_interval = 0.05
-delta_interval = 0.12
+replication_interval = 0.08
+delta_interval = 0.16
 replication_config = SubResource("SceneReplicationConfig_wb3a5")
