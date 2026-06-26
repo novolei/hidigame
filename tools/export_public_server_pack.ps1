@@ -34,12 +34,14 @@ $serverExcludedExtensions = @(
     "res://addons/fennara/fennara.gdextension",
     "res://addons/godotsteam/godotsteam.gdextension",
     "res://addons/godotsteam_server/godotsteam_server.gdextension",
+    "res://addons/terrain_3d/terrain.gdextension",
     "res://addons/zylann.voxel/voxel.gdextension"
 )
 
 $serverExcludedExportFilters = @(
     "addons/godotsteam/*",
     "addons/godotsteam_server/*",
+    "addons/terrain_3d/*",
     "addons/zylann.voxel/*"
 )
 
@@ -224,6 +226,7 @@ function Assert-SmokeLog {
         "addons/fennara/fennara.gdextension",
         "addons/godotsteam/godotsteam.gdextension",
         "addons/godotsteam_server/godotsteam_server.gdextension",
+        "addons/terrain_3d/terrain.gdextension",
         "addons/zylann.voxel/voxel.gdextension",
         "addons/godot_ai/runtime/game_helper.gd",
         "uid://cnxneyd8ilml2",
