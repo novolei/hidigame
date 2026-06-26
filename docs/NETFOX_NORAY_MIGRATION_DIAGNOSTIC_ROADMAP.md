@@ -29,6 +29,8 @@ This document is the working contract for improving Monster & Hunter multiplayer
 - `project.godot` has NetFox autoloads enabled: `NetworkTime`, `NetworkTimeSynchronizer`, `NetworkRollback`, `NetworkEvents`, `NetworkPerformance`, `NetworkSimulator`, plus Noray's `Noray` and `PacketHandshake`.
 - `res://scenes/level/player.tscn` uses `NetfoxTransformSync` instead of the old `MultiplayerSynchronizer` node for player transform sync.
 - `res://scripts/network/netfox_player_transform_sync.gd` sends owner transform snapshots on NetFox ticks. The server validates and forwards them, while remote clients interpolate and briefly extrapolate.
+- NetFox transform sync has an idle-send budget and a forced-refresh window, so unchanged owner snapshots no longer consume a full 30Hz path while moving players can still submit every NetFox tick.
+- `MAOMAO_PERF_LOG` now includes transform sync diagnostics for owner idle skips, stale/rejected snapshots, queue overflow, and remote interpolation / extrapolation / clamped extrapolation samples.
 - Public server room flow is still based on VPS-hosted ENet rooms and must remain direct IP based.
 - Private server flow now routes the main "Create Private Server" and `noray:<OpenID>` join path through Noray. Direct IP remains available for LAN / forwarded-port / Tailscale fallback.
 
@@ -122,6 +124,7 @@ Notes:
 - Add diagnostic assertions in tests so regressions are caught.
 
 Status: Implemented for player scene safety rails. The old player `MultiplayerSynchronizer` has been removed, `NetfoxTransformSync` is covered by scene tests, and transform snapshot bounds / telemetry byte estimates are asserted.
+The safety rail now also asserts idle transform throttling and remote sample telemetry, which keeps the current owner-submit / server-forward / remote-render bridge observable while Phase 2 prediction work is staged.
 
 ### Phase 1: Direct Noray Private Server
 

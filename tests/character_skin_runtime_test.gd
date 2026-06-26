@@ -151,12 +151,28 @@ func _test_player_position_sync_budget() -> void:
 	var transform_sync := player.get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
 	_expect(transform_sync != null, "Player scene should use NetfoxTransformSync for network tick snapshots")
 	if transform_sync:
-		_expect(transform_sync.send_every_ticks == 1, "Player transform snapshots should run every network tick")
+		_expect(transform_sync.send_every_ticks == 1, "Moving player transform snapshots should still be allowed every network tick")
+		_expect(transform_sync.idle_send_every_ticks > transform_sync.send_every_ticks, "Idle player transform snapshots should use a lower-rate budget")
+		_expect(transform_sync.force_send_every_ticks >= transform_sync.idle_send_every_ticks, "Idle player transform snapshots should keep a bounded forced refresh")
+		_expect(transform_sync.min_position_delta > 0.0, "Transform sync should suppress tiny idle position jitter")
+		_expect(transform_sync.min_velocity_delta > 0.0, "Transform sync should suppress tiny idle velocity jitter")
 		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote transform sync should keep a public-internet interpolation buffer")
 		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote transform sync should cap short extrapolation")
 		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote transform sync should smooth render samples")
 		_expect(transform_sync.max_velocity_mps <= 80.0, "Remote transform sync should clamp extreme velocities")
 		_expect(NetfoxPlayerTransformSync.TRANSFORM_SNAPSHOT_APPROX_BYTES > 0, "Transform sync should expose a telemetry byte budget")
+		_expect(bool(transform_sync.call("_should_submit_current_transform", 0)), "Transform sync should always submit its first owner snapshot")
+		transform_sync.set("_last_sent_tick", 0)
+		transform_sync.set("_has_last_submitted_transform", true)
+		transform_sync.set("_last_submitted_position", player.global_position)
+		transform_sync.set("_last_submitted_velocity", Vector3.ZERO)
+		player.velocity = Vector3.ZERO
+		_expect(not bool(transform_sync.call("_should_submit_current_transform", 1)), "Idle transform sync should skip the next unchanged tick")
+		_expect(bool(transform_sync.call("_should_submit_current_transform", transform_sync.force_send_every_ticks)), "Idle transform sync should force a bounded refresh")
+		var transform_sync_source := FileAccess.get_file_as_string("res://scripts/network/netfox_player_transform_sync.gd")
+		_expect(transform_sync_source.contains("player_transform.owner_idle_skip"), "Transform sync telemetry should record idle-owner skipped snapshots")
+		_expect(transform_sync_source.contains("player_transform.remote_sample_"), "Transform sync telemetry should record remote interpolation sample modes")
+		_expect(transform_sync_source.contains("extrapolate_clamped"), "Transform sync telemetry should expose clamped extrapolation as a stutter signal")
 	player.queue_free()
 	await get_tree().process_frame
 
