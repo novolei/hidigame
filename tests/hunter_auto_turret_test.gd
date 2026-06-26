@@ -33,6 +33,7 @@ func _run() -> void:
 	var turret = hunter.get_node_or_null("HunterAutoTurretSystem")
 	_expect(turret != null, "Hunter should attach HunterAutoTurretSystem")
 	_test_weapon_visual_rpc_budget()
+	_test_weapon_visual_rpc_relevance(hunter, chameleon, stalker)
 	_expect(hunter.is_hunter(), "Test player 1 should be Hunter")
 	_expect(chameleon.is_chameleon(), "Test player 2 should be Chameleon")
 	_expect(stalker.is_stalker(), "Test player 3 should be Stalker")
@@ -201,9 +202,48 @@ func _test_weapon_visual_rpc_budget() -> void:
 	var weapon_source: String = FileAccess.get_file_as_string("res://scripts/weapon_system.gd")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_tracer"), "Weapon tracer is visual-only and should stay off the reliable RPC channel")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"unreliable_ordered\")\nfunc _broadcast_green_blood_impact"), "Green blood impact is visual-only and should stay off the reliable RPC channel")
+	_expect(weapon_source.contains("func _weapon_visual_recipient_ids"), "Weapon visual RPC should compute relevant recipients instead of broadcasting to every peer")
+	_expect(weapon_source.contains("_broadcast_tracer.rpc_id"), "Weapon tracer visual should be fan-out targeted with rpc_id")
+	_expect(weapon_source.contains("_broadcast_green_blood_impact.rpc_id"), "Green blood visual should be fan-out targeted with rpc_id")
+	_expect(not weapon_source.contains("_broadcast_tracer.rpc("), "Weapon tracer visual should not broadcast to every peer")
+	_expect(not weapon_source.contains("_broadcast_green_blood_impact.rpc("), "Green blood visual should not broadcast to every peer")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _sync_ammo"), "Weapon ammo state should remain reliable gameplay sync")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _broadcast_reload"), "Weapon reload state should remain reliable gameplay sync")
 	_expect(weapon_source.contains("@rpc(\"authority\", \"call_local\", \"reliable\")\nfunc _client_weapon_feedback"), "Owner combat feedback should remain reliable and targeted")
+
+
+func _test_weapon_visual_rpc_relevance(hunter: Node3D, chameleon: Node3D, stalker: Node3D) -> void:
+	hunter.add_to_group("players")
+	chameleon.add_to_group("players")
+	stalker.add_to_group("players")
+	hunter.global_position = Vector3.ZERO
+	chameleon.global_position = Vector3(0.0, 0.0, -8.0)
+	stalker.global_position = Vector3(80.0, 0.0, -80.0)
+
+	var weapon: WeaponSystem = WeaponSystem.new()
+	weapon.name = "WeaponVisualRelevanceProbe"
+	weapon.owner_peer_id = 1
+	add_child(weapon)
+
+	var segment_start: Vector3 = hunter.global_position + Vector3.UP
+	var segment_end: Vector3 = segment_start + Vector3(0.0, 0.0, -16.0)
+	var near_relevant: bool = weapon._is_peer_relevant_to_weapon_visual(2, segment_start, segment_end)
+	var far_relevant: bool = weapon._is_peer_relevant_to_weapon_visual(3, segment_start, segment_end)
+	var unknown_relevant: bool = weapon._is_peer_relevant_to_weapon_visual(99, segment_start, segment_end)
+	var far_distance_sq: float = weapon._point_segment_distance_squared(stalker.global_position + Vector3.UP, segment_start, segment_end)
+	var recipients: PackedInt32Array = PackedInt32Array()
+	weapon._append_visual_recipient_id(recipients, 2)
+	weapon._append_visual_recipient_id(recipients, 2)
+	weapon._append_visual_recipient_id(recipients, 0)
+	weapon._append_visual_recipient_id(recipients, 3)
+
+	_expect(near_relevant, "Weapon visual relevance should include observers near the bullet segment")
+	_expect(not far_relevant, "Weapon visual relevance should exclude distant observers from cosmetic fan-out")
+	_expect(unknown_relevant, "Weapon visual relevance should include unknown peers conservatively")
+	_expect(far_distance_sq > WeaponSystem.VISUAL_RPC_RELEVANCE_RADIUS * WeaponSystem.VISUAL_RPC_RELEVANCE_RADIUS, "Weapon visual relevance should measure distance to the shot segment")
+	_expect(recipients.size() == 2 and recipients[0] == 2 and recipients[1] == 3, "Weapon visual recipient helper should deduplicate peer ids")
+
+	weapon.queue_free()
 
 
 func _reset_network_state() -> void:

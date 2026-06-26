@@ -35,6 +35,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Dedicated public room servers now skip local-only player audio creation and skip local rendering of weapon tracers, green blood impact VFX, turret model/audio, turret muzzle/projectile VFX, and flashlight light nodes.
 - Hunter prop sense and Party Monster bounty feedback now reuse existing local feedback nodes, update transforms on a small local budget, and skip dedicated public server visual/audio feedback work without clearing authoritative gameplay state.
 - Weapon tracer and green-blood impact broadcasts are now unreliable ordered visual RPCs. Fire requests, ammo state, reload state, health, death, and owner combat feedback remain reliable so visual bursts cannot block critical gameplay state under sustained Hunter fire.
+- Weapon tracer and green-blood impact visual RPCs now use server-side targeted fan-out. The shooter and observers near the shot segment receive the cosmetic event, while distant peers are skipped conservatively only when their player node can be resolved.
 - Runtime debug logs in `player.gd`, `weapon_system.gd`, `network.gd`, `level.gd`, `inventory_ui.gd`, `ammo_pickup.gd`, `paint_system.gd`, `shape_shift_system.gd`, and `chameleon_sculpt_system.gd` are now gated by `MAOMAO_DEBUG_LOG`; exported/headless public servers default this off so combat, weapon, room, role, phase, pickup, paint, shape, and inventory paths do not write verbose stdout during normal multiplayer sessions.
 - `SteamBridge` now self-disables when launched as a public lobby or room server, so headless VPS builds do not try to initialize Steam.
 - `tools/export_public_server_pack.ps1` exports server packs through temporary sanitized project settings: local development keeps Fennara/Godot AI/editor autoloads, while the exported public-server pack strips editor/visual autoloads, filters client/editor GDExtensions, excludes Terrain3D from the server package, and uses Godot recovery mode before packaging.
@@ -129,7 +130,7 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/chameleon_sculpt_network_test.tscn`: CLI PASS after aligning the test with lazy sculpt initialization.
 - `res://tests/party_monster_accessory_system_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
 - `res://tests/hunter_prop_sense_test.tscn`: CLI PASS and Fennara validate_scene PASS after adding local feedback budget coverage.
-- `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after adding a weapon visual RPC budget regression that keeps tracer/green-blood effects off reliable transport while preserving reliable ammo/reload/feedback sync.
+- `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after adding weapon visual RPC budget and relevance regressions that keep tracer/green-blood effects off reliable transport, target cosmetic fan-out by shot proximity, and preserve reliable ammo/reload/feedback sync.
 - `tools/export_public_server_pack.ps1`: PASS against `newrelease/maomao_server.pck` from an isolated temporary working directory; public lobby perf telemetry appears and startup logs no longer include Fennara, Godot AI, AmbientCG, Steam, Terrain3D, or Voxel startup noise.
 - VPS public lobby service restarted successfully and is listening on UDP 8080.
 
