@@ -84,6 +84,7 @@ const DEAD_FREE_CAM_FOV := 72.0
 const DEATH_DISSOLVE_SHADER := preload("res://shaders/death_dissolve.gdshader")
 const CardDatabase := preload("res://scripts/card_database.gd")
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
+const RemoteMotionSamplerScript := preload("res://scripts/remote_motion_sampler.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
@@ -244,6 +245,7 @@ var _last_sculpt_batch_msec := 0
 var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
+var _remote_motion_sampler: RemoteMotionSampler = RemoteMotionSamplerScript.new()
 var _skin_performance_camera_active := false
 var _skin_performance_camera_state: Dictionary = {}
 var _skin_performance_previous_current_camera: Camera3D = null
@@ -3838,6 +3840,7 @@ func set_character_model(model_id: String) -> void:
 	else:
 		_party_monster_accessory_loadout.clear()
 	_remote_visual_position_initialized = false
+	_remote_motion_sampler.reset()
 	if not _body:
 		return
 
@@ -5741,11 +5744,15 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	if not _remote_visual_position_initialized:
 		_remote_visual_position = global_position
 		_remote_visual_position_initialized = true
+		_remote_motion_sampler.reset(global_position, true)
 		_play_skin_action("idle")
 		return
 
-	var visual_velocity := (global_position - _remote_visual_position) / maxf(delta, 0.001)
-	_remote_visual_position = global_position
+	var sample: Dictionary = _remote_motion_sampler.sample(global_position, delta, _remote_visual_move_hold)
+	if not bool(sample.get("ready", false)):
+		return
+	var visual_velocity: Vector3 = sample.get("velocity", Vector3.ZERO)
+	_remote_visual_position = sample.get("position", global_position)
 	var horizontal_speed_sq := Vector2(visual_velocity.x, visual_velocity.z).length_squared()
 	if visual_velocity.y > 0.75:
 		_play_skin_action("jump")
