@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "app_id": "monster_hunter",
+  "notes": [
+    "This file is the machine-readable starting point for package partitioning.",
+    "Generate temporary Godot export presets from these filters instead of hand-editing the main Windows Desktop preset.",
+    "Keep the bootstrap updater in the base export; do not depend on a downloaded pack to update the updater itself."
+  ],
+  "partitions": [
+    {
+      "id": "bootstrap",
+      "ship_as_manifest_package": false,
+      "strategy": "base_export",
+      "description": "Executable, minimal startup scenes, updater scripts, and enough UI to show update progress.",
+      "include_filters": [
+        "project.godot",
+        "icon.png",
+        "scripts/hot_update/**",
+        "scripts/runtime_mode.gd",
+        "scripts/main_menu_ui.gd",
+        "scripts/intro_video.gd",
+        "scenes/ui/**",
+        "assets/ui/**"
+      ],
+      "exclude_filters": [
+        ".fennara/**",
+        "addons/fennara/**",
+        "addons/godot_ai/**",
+        "addons/ambientcg/**",
+        "addons/asset_placer/**",
+        "addons/meshy-godot-plugin/**",
+        "addons/gpu_texture_painter/**",
+        "assets/unity_migrated/**",
+        "assets/characters/**",
+        "imported_models/**",
+        "Models/**"
+      ]
+    },
+    {
+      "id": "core_patch",
+      "ship_as_manifest_package": true,
+      "strategy": "godot_export_patch",
+      "description": "Small gameplay/config/UI changes that should not force players to download map or character assets.",
+      "include_filters": [
+        "scripts/**",
+        "shaders/*.gdshader",
+        "scenes/ui/**",
+        "resources/**",
+        "tests/**"
+      ],
+      "exclude_filters": [
+        "scripts/hot_update/**",
+        "assets/**",
+        "Models/**",
+        "imported_models/**",
+        "addons/**"
+      ],
+      "load_order": 10,
+      "restart_required": true,
+      "required": true
+    },
+    {
+      "id": "characters_party_monster",
+      "ship_as_manifest_package": true,
+      "strategy": "godot_export_pack",
+      "description": "Party Monster authored skin, shaders, manifest, and source asset folder.",
+      "include_filters": [
+        "assets/characters/party_monster/**",
+        "scripts/party_monster_*.gd",
+        "shaders/party_monster_*.gdshader"
+      ],
+      "exclude_filters": [
+        "assets/characters/party_monster/source/**/*.blend",
+        "assets/characters/party_monster/source/**/*.psd"
+      ],
+      "load_order": 30,
+      "restart_required": true,
+      "required": false
+    },
+    {
+      "id": "maps_warehouse",
+      "ship_as_manifest_package": true,
+      "strategy": "godot_export_pack",
+      "description": "Warehouse map scenes and their migrated city/warehouse dependencies.",
+      "include_filters": [
+        "scenes/level/maps/*warehouse*.tscn",
+        "assets/unity_migrated/polygon_apocalypse/**",
+        "scripts/polygon_apocalypse_map.gd",
+        "scripts/imported_static_map.gd"
+      ],
+      "exclude_filters": [
+        "assets/unity_migrated/polygon_apocalypse/**/*.psd",
+        "assets/unity_migrated/polygon_apocalypse/**/*.blend"
+      ],
+      "load_order": 50,
+      "restart_required": true,
+      "required": false
+    },
+    {
+      "id": "audio_video",
+      "ship_as_manifest_package": true,
+      "strategy": "godot_export_pack",
+      "description": "Large media that should move less often than code and map patches.",
+      "include_filters": [
+        "assets/**/*.wav",
+        "assets/**/*.ogg",
+        "assets/**/*.mp3",
+        "assets/**/*.mp4",
+        "assets/**/*.webm",
+        "video/**"
+      ],
+      "exclude_filters": [],
+      "load_order": 80,
+      "restart_required": false,
+      "required": false
+    }
+  ]
+}

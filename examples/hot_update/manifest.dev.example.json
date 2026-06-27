@@ -1,0 +1,35 @@
+{
+  "app_id": "monster_hunter",
+  "base_url": "https://updates.example.com/maomao/dev",
+  "channel": "dev",
+  "content_version": "2026.06.27.1",
+  "min_app_version": "0.4.4",
+  "packages": [
+    {
+      "id": "core_patch",
+      "load_order": 10,
+      "required": true,
+      "restart_required": true,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 0,
+      "type": "patch",
+      "url": "packages/core_patch_0.4.5.pck",
+      "version": "0.4.5"
+    },
+    {
+      "id": "maps_warehouse",
+      "load_order": 50,
+      "required": true,
+      "restart_required": true,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 0,
+      "type": "content",
+      "url": "packages/maps_warehouse_0.4.5.pck",
+      "version": "0.4.5"
+    }
+  ],
+  "protocol_version": 1,
+  "schema_version": 1,
+  "version": "0.4.5"
+}
+
