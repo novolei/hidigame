@@ -60,6 +60,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest-only", action="store_true", help="Upload/configure only the release manifest.")
     parser.add_argument("--cleanup-only", action="store_true", help="Only remove stale remote PCK files and old stage dirs.")
     parser.add_argument("--preflight-only", action="store_true", help="Connect and inspect remote capacity/services only.")
+    parser.add_argument(
+        "--allow-empty-packages",
+        action="store_true",
+        help="Allow a baseline release manifest with no incremental PCK packages.",
+    )
     return parser.parse_args()
 
 
@@ -76,7 +81,7 @@ def main() -> int:
 
     if not manifest.is_file():
         raise FileNotFoundError(manifest)
-    if uploads_enabled and not packages:
+    if uploads_enabled and not packages and not args.allow_empty_packages:
         raise FileNotFoundError(f"No PCK packages found under {package_dir}")
     if uploads_enabled and not args.no_base and not base_zip.is_file():
         raise FileNotFoundError(base_zip)
@@ -134,7 +139,7 @@ def main() -> int:
             try:
                 print(f"[{host.code}] connected to {host.address}")
                 mkdir_p_sftp(sftp, stage_dir)
-                if not args.manifest_only:
+                if not args.manifest_only and packages:
                     mkdir_p_sftp(sftp, posixpath.join(stage_dir, "packages"))
                 if not args.manifest_only and not args.no_server_pack:
                     put_file(sftp, server_pack, posixpath.join(stage_dir, "maomao_server.pck"), host.code)
@@ -155,16 +160,21 @@ def main() -> int:
                 install_packages_command = [
                     "set -e",
                     f"mkdir -p {shlex.quote(remote_package_dir)}",
-                    f"cp -f {shlex.quote(posixpath.join(stage_dir, 'packages'))}/*.pck {shlex.quote(remote_package_dir)}/",
                 ]
-                stat_paths = [remote_package_dir]
+                stat_paths = []
+                if packages:
+                    install_packages_command.append(
+                        f"cp -f {shlex.quote(posixpath.join(stage_dir, 'packages'))}/*.pck {shlex.quote(remote_package_dir)}/"
+                    )
+                    stat_paths.append(remote_package_dir)
                 if not args.no_base:
                     install_packages_command.extend([
                         f"mkdir -p {shlex.quote(remote_base_dir)}",
                         f"cp -f {shlex.quote(posixpath.join(stage_dir, 'baseInstall.zip'))} {shlex.quote(remote_base_zip)}",
                     ])
                     stat_paths.append(remote_base_zip)
-                install_packages_command.append(remote_stat_command(stat_paths))
+                if stat_paths:
+                    install_packages_command.append(remote_stat_command(stat_paths))
                 run_privileged(ssh, "\n".join(install_packages_command), password, user)
                 print(f"[{host.code}] package/base files installed")
             if args.configure_nginx:
