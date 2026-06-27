@@ -1,6 +1,7 @@
 extends Node3D
 
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
+const HunterTurretTrainingDummyScene := preload("res://scenes/level/hunter_turret_training_dummy.tscn")
 
 var failures: Array[String] = []
 
@@ -31,6 +32,7 @@ func _run() -> void:
 	await get_tree().physics_frame
 
 	var turret = hunter.get_node_or_null("HunterAutoTurretSystem")
+	turret = _ensure_current_auto_turret_script(hunter, turret)
 	_expect(turret != null, "Hunter should attach HunterAutoTurretSystem")
 	_test_weapon_visual_rpc_budget()
 	_test_turret_visual_rpc_budget()
@@ -65,9 +67,16 @@ func _run() -> void:
 		_expect(turret.get_recoil_offset_for_test().length() > 0.02, "Auto turret should kick with a visible recoil offset while firing")
 		_expect(turret.get_recoil_rotation_for_test().length() > 0.01, "Auto turret should apply a small firing shake rotation")
 		_expect(turret.get_muzzle_flash_count_for_test() >= 1, "Auto turret should spawn a cartoon muzzle flash while firing")
-		_expect(turret.get_hovl_projectile_effect_count_for_test() >= 1, "Auto turret should layer a Hovl energy projectile over its machine-gun tracer")
-		var hovl_effect_ids: Array[String] = turret.get_hovl_projectile_effect_ids_for_test()
-		_expect(hovl_effect_ids.has("projectile_08_energy"), "Auto turret should use the Hovl energy projectile preset for machine-gun shots: " + str(hovl_effect_ids))
+		_expect(turret.get_tps_bullet_effect_count_for_test() >= 1, "Auto turret should spawn the TPS demo bullet scene for bullet flight and impact effects")
+		var tps_effect_sources: Array[String] = turret.get_tps_bullet_effect_sources_for_test()
+		_expect(tps_effect_sources.has("res://player/bullet/bullet.tscn"), "Auto turret should use the copied TPS bullet scene for machine-gun shots: " + str(tps_effect_sources))
+		_expect(is_equal_approx(turret.get_tps_bullet_visual_speed_for_test(), 20.0), "Auto turret TPS bullets should keep the reference projectile speed instead of a compressed tracer speed")
+		var bullet_source: String = FileAccess.get_file_as_string("res://player/bullet/bullet.gd")
+		_expect(bullet_source.contains("func launch_visual"), "Copied TPS bullet scene should own its visual flight timing")
+		_expect(bullet_source.contains("MachineGunTracer"), "Machine-gun bullet should use the bright rectangular tracer visual from the screenshot direction")
+		_expect(not bullet_source.contains("_set_particle_emitting(\"BulletBody/Trail\", true)"), "Machine-gun bullet should not re-enable the old TPS flight trail particles")
+		_expect(not bullet_source.contains("animation_player.play(\"explode\")"), "Machine-gun bullet impact should use small particles instead of the reference explosion animation")
+		await _test_training_dummy_target(turret, hunter)
 
 	chameleon.apply_prop_disguise({
 		"id": "turret_test_crate",
@@ -197,6 +206,69 @@ func _run() -> void:
 		for failure in failures:
 			push_error("[HunterAutoTurretTest] " + failure)
 		get_tree().quit(1)
+
+
+func _test_training_dummy_target(turret: Node, hunter: Node3D) -> void:
+	var dummy := HunterTurretTrainingDummyScene.instantiate() as Node3D
+	_expect(dummy != null, "Hunter turret training dummy scene should instantiate")
+	if dummy == null:
+		return
+	dummy.name = "HunterTurretTrainingDummyTest"
+	add_child(dummy)
+	dummy.global_position = hunter.global_position + Vector3(1.6, 0.0, -8.0)
+	dummy.global_rotation = Vector3(0.0, PI, 0.0)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+
+	_expect(dummy.is_in_group("card_decoy_targets"), "Training dummy should register as a card decoy target for auto turret scans")
+	_expect(dummy.has_method("is_card_decoy_target") and bool(dummy.call("is_card_decoy_target")), "Training dummy should expose the card decoy target contract")
+	_expect(dummy.has_method("has_party_monster_skin_for_test") and bool(dummy.call("has_party_monster_skin_for_test")), "Training dummy should render through the Party Monster skin scene")
+	var model_id: String = str(dummy.call("get_character_model_id_for_test")) if dummy.has_method("get_character_model_id_for_test") else ""
+	_expect(CharacterSkinCatalog.is_party_monster(model_id), "Training dummy should pick a Party Monster character model: " + model_id)
+
+	var scan_target = turret.force_scan_for_test()
+	_expect(scan_target == dummy, "Auto turret should acquire the fixed Party Monster training dummy before player targets")
+
+	var health_before: float = float(dummy.call("get_health")) if dummy.has_method("get_health") else 0.0
+	var hit_count_before: int = int(dummy.call("get_hit_count_for_test")) if dummy.has_method("get_hit_count_for_test") else -1
+	dummy.call("take_damage", 999999.0, 1, false)
+	await get_tree().process_frame
+	var health_after: float = float(dummy.call("get_health")) if dummy.has_method("get_health") else 0.0
+	var hit_count_after: int = int(dummy.call("get_hit_count_for_test")) if dummy.has_method("get_hit_count_for_test") else -1
+	var hit_action: String = str(dummy.call("get_last_hit_action_for_test")) if dummy.has_method("get_last_hit_action_for_test") else ""
+	var allowed_hit_actions: Array[String] = ["get_hit", "hit", "defense_hit"]
+	_expect(is_equal_approx(health_after, health_before) and health_after >= 999999.0, "Training dummy should keep infinite health after direct turret-scale damage")
+	_expect(hit_count_after == hit_count_before + 1, "Training dummy should count incoming hits without dying")
+	_expect(allowed_hit_actions.has(hit_action), "Training dummy should play a random Party Monster hit action: " + hit_action)
+	dummy.queue_free()
+	await get_tree().process_frame
+
+
+func _ensure_current_auto_turret_script(hunter: Node, turret: Node) -> Node:
+	if turret and turret.has_method("get_tps_bullet_effect_count_for_test") and turret.has_method("get_tps_bullet_visual_speed_for_test"):
+		return turret
+	if turret:
+		hunter.remove_child(turret)
+		turret.queue_free()
+
+	# Compile from disk so this scene test is not fooled by an older in-memory turret script after hot edits.
+	var turret_source := FileAccess.get_file_as_string("res://scripts/hunter_auto_turret_system.gd")
+	if turret_source.is_empty():
+		return null
+	turret_source = turret_source.replace("class_name HunterAutoTurretSystem\n", "")
+	var turret_script := GDScript.new()
+	turret_script.source_code = turret_source
+	if turret_script.reload() != OK:
+		return null
+	var refreshed_turret := turret_script.new() as Node
+	if refreshed_turret == null:
+		return null
+	refreshed_turret.name = "HunterAutoTurretSystem"
+	hunter.add_child(refreshed_turret)
+	if refreshed_turret.has_method("initialize"):
+		refreshed_turret.call("initialize", hunter)
+	hunter.set("hunter_auto_turret_system", refreshed_turret)
+	return refreshed_turret
 
 
 func _test_weapon_visual_rpc_budget() -> void:

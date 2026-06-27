@@ -84,7 +84,11 @@ def main() -> int:
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         port = int(server.server_address[1])
         local_manifest = dict(manifest)
-        local_manifest["base_url"] = f"http://127.0.0.1:{port}"
+        if os.environ.get("MAOMAO_TEST_FORCE_PACKAGE_PRIMARY_404", "").strip() in {"1", "true", "yes", "on"}:
+            local_manifest["base_url"] = f"http://127.0.0.1:{port}/missing-primary"
+            local_manifest["mirrors"] = [{"id": "AL", "base_url": f"http://127.0.0.1:{port}"}]
+        else:
+            local_manifest["base_url"] = f"http://127.0.0.1:{port}"
         local_manifest["packages"] = packages
         local_manifest_path.write_text(json.dumps(local_manifest, indent=2), encoding="utf-8")
 

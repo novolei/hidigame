@@ -1,0 +1,19 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cc5j75vtrp34g"]
+
+[ext_resource type="Texture2D" uid="uid://lmnwrtxld0gs" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/column_orm.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://bmvkks2n30ix8" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/column_normal.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://dsi2a4klwif6i" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/column_albedo.png" id="3"]
+
+[resource]
+resource_name = "column"
+albedo_texture = ExtResource("3")
+metallic = 0.5
+metallic_texture = ExtResource("1")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("1")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("2")
+ao_enabled = true
+ao_texture = ExtResource("1")
+texture_filter = 5

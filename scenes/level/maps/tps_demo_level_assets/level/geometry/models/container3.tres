@@ -1,0 +1,19 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://hul8bo85eqmi"]
+
+[ext_resource type="Texture2D" uid="uid://cgbjb7dn28unh" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/props/container3_normal.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://cq51xfm8pssqu" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/props/container3_orm.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://b76l8n0hjgeai" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/props/container3_albedo.png" id="3"]
+
+[resource]
+resource_name = "container3"
+albedo_texture = ExtResource("3")
+metallic = 0.5
+metallic_texture = ExtResource("2")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("2")
+roughness_texture_channel = 2
+normal_enabled = true
+normal_texture = ExtResource("1")
+ao_enabled = true
+ao_texture = ExtResource("2")
+texture_filter = 5

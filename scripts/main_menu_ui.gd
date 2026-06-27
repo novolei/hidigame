@@ -30,6 +30,20 @@ const SETTINGS_BACKGROUND_PATH := "res://assets/ui/settings_background.png"
 const UI_CLICK_SOUND_PATH := "res://assets/audio/ui/ui_button_click.mp3"
 const UI_SELECT_SOUND_PATH := "res://assets/audio/ui/ui_select_click.mp3"
 const UI_SELECT_CLICK_META := "_ui_select_click"
+const HotUpdateStoreScript := preload("res://scripts/hot_update/hot_update_store.gd")
+const STARTUP_WORDMARK_FONT_PATH := "res://assets/fonts/startup/SairaStencil-ExtraBoldItalic.ttf"
+const STARTUP_WORDMARK_GLYPH_SPACING := -3
+const STARTUP_WORDMARK_SPACE_SPACING := -10
+const SETTINGS_TAB_GENERAL := "general"
+const SETTINGS_TAB_VIDEO := "video"
+const SETTINGS_TAB_RENDER := "render"
+const SETTINGS_TAB_GAMEPLAY := "gameplay"
+const SETTINGS_TABS := [
+	{"id": SETTINGS_TAB_GENERAL, "label": "GENERAL"},
+	{"id": SETTINGS_TAB_VIDEO, "label": "VIDEO"},
+	{"id": SETTINGS_TAB_RENDER, "label": "RENDER"},
+	{"id": SETTINGS_TAB_GAMEPLAY, "label": "GAMEPLAY"},
+]
 
 var selected_role: int = Network.Role.CHAMELEON
 var lobby_visible := false
@@ -39,6 +53,7 @@ var lobby_chat_visible := false
 var lobby_chat_fading := false
 var _lobby_chat_fade_token := 0
 var settings_visible := false
+var settings_active_tab := SETTINGS_TAB_GENERAL
 var public_lobby_visible := false
 var landing_action_panel_mode := ""
 var public_lobby_rooms: Array = []
@@ -107,6 +122,7 @@ var _font_heading: Font
 var _font_body: Font
 var _font_button: Font
 var _font_menu: Font
+var _font_wordmark: Font
 var _icon_cache: Dictionary = {}
 var _layout_bucket := Vector2i.ZERO
 var _public_ip_request: HTTPRequest
@@ -534,11 +550,60 @@ func _load_fonts() -> void:
 	_font_body = _load_font("res://assets/fonts/SairaCondensed-Medium.woff2")
 	_font_button = _load_font("res://assets/fonts/SairaCondensed-Bold.woff2")
 	_font_menu = _load_font("res://assets/fonts/SairaExtraCondensed-Bold.woff2")
+	_font_wordmark = _load_startup_wordmark_font()
 
 
 func _load_font(path: String) -> Font:
 	var resource = load(path)
 	return resource if resource is Font else null
+
+
+func _load_startup_wordmark_font() -> Font:
+	var resource := _load_font(STARTUP_WORDMARK_FONT_PATH)
+	if resource == null:
+		return null
+	var variation := FontVariation.new()
+	variation.base_font = resource
+	var text_server := TextServerManager.get_primary_interface()
+	if text_server != null:
+		variation.variation_opentype = { text_server.name_to_tag("wght"): 800 }
+	variation.set_spacing(TextServer.SPACING_GLYPH, STARTUP_WORDMARK_GLYPH_SPACING)
+	variation.set_spacing(TextServer.SPACING_SPACE, STARTUP_WORDMARK_SPACE_SPACING)
+	return variation
+
+
+func _display_version() -> String:
+	var manifest_version := _current_manifest_version()
+	if not manifest_version.is_empty():
+		return manifest_version
+	return _app_version()
+
+
+func _current_manifest_version() -> String:
+	var tree := get_tree()
+	if tree != null:
+		var manager: Node = tree.root.get_node_or_null("HotUpdate")
+		if manager != null:
+			var remote_value: Variant = manager.get("remote_manifest")
+			if remote_value is Dictionary:
+				var remote_manifest: Dictionary = remote_value as Dictionary
+				var remote_version := _manifest_version_from_dict(remote_manifest)
+				if not remote_version.is_empty():
+					return remote_version
+	var installed_manifest: Dictionary = HotUpdateStoreScript.load_installed_manifest()
+	return _manifest_version_from_dict(installed_manifest)
+
+
+func _manifest_version_from_dict(manifest: Dictionary) -> String:
+	var version := str(manifest.get("version", "")).strip_edges()
+	if not version.is_empty():
+		return version
+	return str(manifest.get("content_version", "")).strip_edges()
+
+
+func _app_version() -> String:
+	var value := str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
+	return value if not value.is_empty() else "dev"
 
 
 func _use_brand_font() -> bool:
@@ -598,6 +663,7 @@ func _style(bg: Color, border: Color, border_width: int, radius: int) -> StyleBo
 
 
 func _build_ui() -> void:
+	var discarded_index := 0
 	for child in get_children():
 		if _public_ip_request and is_instance_valid(_public_ip_request) and child == _public_ip_request:
 			continue
@@ -605,6 +671,8 @@ func _build_ui() -> void:
 			continue
 		if _ui_select_player and is_instance_valid(_ui_select_player) and child == _ui_select_player:
 			continue
+		child.name = "_RebuildDiscarded%d" % discarded_index
+		discarded_index += 1
 		child.queue_free()
 	landing_role_buttons.clear()
 	lobby_role_buttons.clear()
@@ -847,10 +915,8 @@ func _build_settings_panel() -> void:
 	top_tabs.offset_bottom = _s(82)
 	top_tabs.add_theme_constant_override("separation", 0)
 	canvas.add_child(top_tabs)
-	top_tabs.add_child(_settings_tab("GENERAL", true))
-	top_tabs.add_child(_settings_tab("VIDEO", false))
-	top_tabs.add_child(_settings_tab("CONTROLS", false))
-	top_tabs.add_child(_settings_tab("GAMEPLAY", false))
+	for tab_config in SETTINGS_TABS:
+		top_tabs.add_child(_settings_tab(str(tab_config.get("label", "")), str(tab_config.get("id", ""))))
 
 	var title := _label(I18n.t("settings").to_upper(), 96, true)
 	title.name = "SettingsTitle"
@@ -864,50 +930,29 @@ func _build_settings_panel() -> void:
 	title.add_theme_constant_override("outline_size", _s(2))
 	canvas.add_child(title)
 
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var scroll_left: int = mini(_s(650), roundi(viewport_size.x * 0.52))
+	var scroll_top: int = _s(238)
+	var scroll_right: int = mini(_s(1810), roundi(viewport_size.x) - _s(48))
+	var scroll_bottom: int = maxi(scroll_top + _s(220), roundi(viewport_size.y) - _s(124))
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "SettingsScroll"
+	scroll.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	scroll.offset_left = scroll_left
+	scroll.offset_top = scroll_top
+	scroll.offset_right = scroll_right
+	scroll.offset_bottom = scroll_bottom
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	canvas.add_child(scroll)
+
 	var content := VBoxContainer.new()
 	content.name = "SettingsRows"
-	content.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	content.offset_left = _s(680)
-	content.offset_top = _s(340)
-	content.offset_right = _s(1810)
-	content.offset_bottom = _s(670)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", _s(8))
-	canvas.add_child(content)
+	scroll.add_child(content)
 
-	var language_row := _settings_row_container("LanguageSettingRow")
-	content.add_child(language_row)
-	var language_box := HBoxContainer.new()
-	language_box.name = "LanguageSettingBox"
-	language_box.add_theme_constant_override("separation", _s(12))
-	language_row.add_child(language_box)
-	var language_label := _settings_row_label(I18n.t("language"))
-	language_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	language_box.add_child(language_label)
-	language_option = _settings_language_option()
-	language_box.add_child(language_option)
-
-	var fov_row := _settings_row_container("FovSettingRow")
-	content.add_child(fov_row)
-	var fov_box := HBoxContainer.new()
-	fov_box.name = "FovSettingBox"
-	fov_box.add_theme_constant_override("separation", _s(14))
-	fov_row.add_child(fov_box)
-	var fov_label := _settings_row_label(I18n.t("camera_fov"))
-	fov_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fov_box.add_child(fov_label)
-	fov_value_label = _settings_value_label("")
-	fov_value_label.custom_minimum_size = _sv(70, 34)
-	fov_box.add_child(fov_value_label)
-	fov_slider = HSlider.new()
-	fov_slider.min_value = GameSettings.MIN_FOV
-	fov_slider.max_value = GameSettings.MAX_FOV
-	fov_slider.step = 1.0
-	fov_slider.value = GameSettings.camera_fov
-	fov_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fov_slider.custom_minimum_size = _sv(320, 36)
-	fov_slider.value_changed.connect(_on_fov_slider_changed)
-	fov_box.add_child(fov_slider)
-	_update_fov_value_label()
+	_build_settings_active_page(content)
 
 	var footer := HBoxContainer.new()
 	footer.name = "SettingsFooter"
@@ -924,12 +969,10 @@ func _build_settings_panel() -> void:
 	reset_button.custom_minimum_size = _sv(190, 42)
 	reset_button.pressed.connect(func():
 		GameSettings.reset_camera_fov()
-		if fov_slider:
-			fov_slider.value = GameSettings.camera_fov
-		_update_fov_value_label()
+		GameSettings.reset_graphics_settings()
+		_build_ui()
 	)
 	footer.add_child(reset_button)
-	footer.add_child(_key_hint("ESC", I18n.t("back").to_upper()))
 	var back_button := _button(I18n.t("back").to_upper(), true)
 	back_button.custom_minimum_size = _sv(150, 42)
 	back_button.pressed.connect(func(): _set_settings_visible(false))
@@ -971,18 +1014,127 @@ func _build_settings_background(canvas: Control) -> void:
 	canvas.add_child(wash)
 
 
-func _settings_tab(text: String, active: bool) -> Control:
-	var tab := PanelContainer.new()
+func _settings_tab_exists(tab_id: String) -> bool:
+	for tab_config in SETTINGS_TABS:
+		if str(tab_config.get("id", "")) == tab_id:
+			return true
+	return false
+
+
+func _set_settings_active_tab(tab_id: String) -> void:
+	if not _settings_tab_exists(tab_id):
+		tab_id = SETTINGS_TAB_GENERAL
+	if settings_active_tab == tab_id:
+		return
+	settings_active_tab = tab_id
+	_build_ui()
+	if public_lobby_visible:
+		update_public_lobby(public_lobby_rooms)
+	elif lobby_visible:
+		update_lobby(Network.players, Network.lobby_config)
+
+
+func _build_settings_active_page(content: VBoxContainer) -> void:
+	if not _settings_tab_exists(settings_active_tab):
+		settings_active_tab = SETTINGS_TAB_GENERAL
+	match settings_active_tab:
+		SETTINGS_TAB_VIDEO:
+			_build_settings_video_page(content)
+		SETTINGS_TAB_RENDER:
+			_build_settings_render_page(content)
+		SETTINGS_TAB_GAMEPLAY:
+			_build_settings_gameplay_page(content)
+		_:
+			_build_settings_general_page(content)
+
+
+func _build_settings_general_page(content: VBoxContainer) -> void:
+	content.add_child(_settings_section_label(I18n.t("settings.section.general")))
+	_add_settings_language_row(content)
+
+
+func _build_settings_video_page(content: VBoxContainer) -> void:
+	content.add_child(_settings_section_label(I18n.t("settings.section.video")))
+	_add_settings_option_row(content, "DisplayModeSettingRow", I18n.t("settings.display_mode"), "display_mode", [
+		{"label": I18n.t("settings.display_mode.windowed"), "value": Window.MODE_WINDOWED},
+		{"label": I18n.t("settings.display_mode.fullscreen"), "value": Window.MODE_FULLSCREEN},
+		{"label": I18n.t("settings.display_mode.exclusive"), "value": Window.MODE_EXCLUSIVE_FULLSCREEN},
+	])
+	_add_settings_option_row(content, "VSyncSettingRow", I18n.t("settings.vsync"), "vsync", [
+		{"label": I18n.t("settings.off"), "value": DisplayServer.VSYNC_DISABLED},
+		{"label": I18n.t("settings.on"), "value": DisplayServer.VSYNC_ENABLED},
+		{"label": I18n.t("settings.vsync.adaptive"), "value": DisplayServer.VSYNC_ADAPTIVE},
+		{"label": I18n.t("settings.vsync.mailbox"), "value": DisplayServer.VSYNC_MAILBOX},
+	])
+	_add_settings_option_row(content, "MaxFpsSettingRow", I18n.t("settings.max_fps"), "max_fps", [
+		{"label": "30", "value": 30},
+		{"label": "60", "value": 60},
+		{"label": "90", "value": 90},
+		{"label": "120", "value": 120},
+		{"label": "144", "value": 144},
+		{"label": "160", "value": 160},
+		{"label": "240", "value": 240},
+		{"label": I18n.t("settings.unlimited"), "value": 0},
+	])
+	_add_settings_option_row(content, "ResolutionScaleSettingRow", I18n.t("settings.resolution_scale"), "resolution_scale", [
+		{"label": I18n.t("settings.resolution_scale.ultra_performance"), "value": 1.0 / 3.0},
+		{"label": I18n.t("settings.resolution_scale.performance"), "value": 0.5},
+		{"label": I18n.t("settings.resolution_scale.balanced"), "value": 1.0 / 1.7},
+		{"label": I18n.t("settings.resolution_scale.quality"), "value": 1.0 / 1.3},
+		{"label": I18n.t("settings.resolution_scale.native"), "value": 1.0},
+	])
+	_add_settings_option_row(content, "ScaleFilterSettingRow", I18n.t("settings.scale_filter"), "scale_filter", [
+		{"label": "BILINEAR", "value": Viewport.SCALING_3D_MODE_BILINEAR},
+		{"label": "FSR 1", "value": Viewport.SCALING_3D_MODE_FSR},
+		{"label": "FSR 2", "value": Viewport.SCALING_3D_MODE_FSR2},
+	])
+
+
+func _build_settings_render_page(content: VBoxContainer) -> void:
+	content.add_child(_settings_section_label(I18n.t("settings.section.rendering")))
+	_add_settings_option_row(content, "TaaSettingRow", "TAA", "taa", _settings_bool_items())
+	_add_settings_option_row(content, "MsaaSettingRow", "MSAA", "msaa", [
+		{"label": I18n.t("settings.off"), "value": Viewport.MSAA_DISABLED},
+		{"label": "2X", "value": Viewport.MSAA_2X},
+		{"label": "4X", "value": Viewport.MSAA_4X},
+		{"label": "8X", "value": Viewport.MSAA_8X},
+	])
+	_add_settings_option_row(content, "FxaaSettingRow", "FXAA", "fxaa", _settings_bool_items())
+	_add_settings_option_row(content, "ShadowSettingRow", I18n.t("settings.shadow_mapping"), "shadow_mapping", _settings_bool_items())
+	_add_settings_option_row(content, "SsaoSettingRow", "SSAO", "ssao_quality", _settings_quality_items())
+	_add_settings_option_row(content, "SsilSettingRow", "SSIL", "ssil_quality", _settings_quality_items())
+	_add_settings_option_row(content, "BloomSettingRow", I18n.t("settings.bloom"), "bloom", _settings_bool_items())
+	_add_settings_option_row(content, "VolumetricFogSettingRow", I18n.t("settings.volumetric_fog"), "volumetric_fog", _settings_bool_items())
+	_add_settings_option_row(content, "GiSettingRow", I18n.t("settings.global_illumination"), "gi_quality", [
+		{"label": I18n.t("settings.off"), "value": GameSettings.GIQuality.DISABLED},
+		{"label": I18n.t("settings.quality.medium"), "value": GameSettings.GIQuality.LOW},
+		{"label": I18n.t("settings.quality.high"), "value": GameSettings.GIQuality.HIGH},
+	])
+
+
+func _build_settings_gameplay_page(content: VBoxContainer) -> void:
+	content.add_child(_settings_section_label(I18n.t("settings.section.gameplay")))
+	_add_settings_fov_row(content)
+
+
+func _settings_tab(text: String, tab_id: String) -> Button:
+	var active := settings_active_tab == tab_id
+	var tab := Button.new()
 	tab.name = "SettingsTab%s" % text.capitalize().replace(" ", "")
+	tab.text = text
 	tab.custom_minimum_size = _sv(174, 54)
-	var bg := Color(0.140, 0.585, 0.825, 0.94) if active else Color(0.085, 0.130, 0.220, 0.78)
-	var border := Color(0.160, 0.900, 1.0, 0.95) if active else Color(0.230, 0.310, 0.430, 0.65)
-	tab.add_theme_stylebox_override("panel", _style(bg, border, 1, 1))
-	var label := _label(text, 22, true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0) if active else Color(0.500, 0.820, 1.0, 0.92))
-	tab.add_child(label)
+	tab.focus_mode = Control.FOCUS_NONE
+	tab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tab.add_theme_font_size_override("font_size", _s(22))
+	tab.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0) if active else Color(0.500, 0.820, 1.0, 0.92))
+	var active_style := _style(Color(0.140, 0.585, 0.825, 0.94), Color(0.160, 0.900, 1.0, 0.95), 1, 1)
+	var idle_style := _style(Color(0.085, 0.130, 0.220, 0.78), Color(0.230, 0.310, 0.430, 0.65), 1, 1)
+	var hover_style := _style(Color(0.130, 0.250, 0.360, 0.88), Color(0.360, 0.700, 0.960, 0.82), 1, 1)
+	tab.add_theme_stylebox_override("normal", active_style if active else idle_style)
+	tab.add_theme_stylebox_override("hover", active_style if active else hover_style)
+	tab.add_theme_stylebox_override("pressed", active_style)
+	if not active:
+		tab.pressed.connect(func(): _set_settings_active_tab(tab_id))
 	return tab
 
 
@@ -1029,6 +1181,113 @@ func _settings_language_option() -> OptionButton:
 	return option
 
 
+func _settings_section_label(text: String) -> Label:
+	var label := _label(text.to_upper(), 17, true)
+	label.custom_minimum_size = _sv(0, 30)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.add_theme_color_override("font_color", Color(0.530, 0.900, 1.0, 0.96))
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.080, 0.160, 0.55))
+	label.add_theme_constant_override("outline_size", _s(1))
+	return label
+
+
+func _add_settings_language_row(content: VBoxContainer) -> void:
+	var row := _settings_row_container("LanguageSettingRow")
+	var layout := _settings_row_layout(row)
+	layout.add_child(_settings_row_label(I18n.t("language")))
+	var option := _settings_language_option()
+	option.size_flags_horizontal = Control.SIZE_SHRINK_END
+	layout.add_child(option)
+	content.add_child(row)
+
+
+func _add_settings_fov_row(content: VBoxContainer) -> void:
+	var row := _settings_row_container("FovSettingRow")
+	var layout := _settings_row_layout(row)
+	layout.add_child(_settings_row_label(I18n.t("camera_fov")))
+	fov_slider = HSlider.new()
+	fov_slider.name = "FovSlider"
+	fov_slider.min_value = GameSettings.MIN_FOV
+	fov_slider.max_value = GameSettings.MAX_FOV
+	fov_slider.step = 1.0
+	fov_slider.value = GameSettings.camera_fov
+	fov_slider.custom_minimum_size = _sv(280, 42)
+	fov_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fov_slider.value_changed.connect(_on_fov_slider_changed)
+	layout.add_child(fov_slider)
+	fov_value_label = _settings_value_label("")
+	fov_value_label.custom_minimum_size = _sv(102, 0)
+	layout.add_child(fov_value_label)
+	_update_fov_value_label()
+	content.add_child(row)
+
+
+func _add_settings_option_row(content: VBoxContainer, row_name: String, label_text: String, setting_key: String, items: Array) -> void:
+	var row := _settings_row_container(row_name)
+	var layout := _settings_row_layout(row)
+	layout.add_child(_settings_row_label(label_text))
+	var option := _settings_graphics_option(setting_key, items)
+	layout.add_child(option)
+	content.add_child(row)
+
+
+func _settings_row_layout(row: PanelContainer) -> HBoxContainer:
+	var layout := HBoxContainer.new()
+	layout.name = "RowLayout"
+	layout.add_theme_constant_override("separation", _s(14))
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_child(layout)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = _sv(14, 0)
+	layout.add_child(spacer)
+	return layout
+
+
+func _settings_graphics_option(setting_key: String, items: Array) -> OptionButton:
+	var option := _option_button()
+	option.name = "%sOption" % setting_key.capitalize().replace(" ", "")
+	option.custom_minimum_size = _sv(300, 42)
+	option.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var settings := GameSettings.graphics_settings()
+	var current_value = settings.get(setting_key)
+	for item in items:
+		option.add_item(str(item.get("label", "")))
+		option.set_item_metadata(option.item_count - 1, item.get("value"))
+		if _settings_values_match(item.get("value"), current_value):
+			option.select(option.item_count - 1)
+	if option.selected < 0 and option.item_count > 0:
+		option.select(0)
+	_refresh_option_popup_checks(option)
+	option.item_selected.connect(func(index):
+		_play_ui_select_sound()
+		_refresh_option_popup_checks(option)
+		GameSettings.set_graphics_setting(setting_key, option.get_item_metadata(index))
+	)
+	return option
+
+
+func _settings_bool_items() -> Array:
+	return [
+		{"label": I18n.t("settings.off"), "value": false},
+		{"label": I18n.t("settings.on"), "value": true},
+	]
+
+
+func _settings_quality_items() -> Array:
+	return [
+		{"label": I18n.t("settings.off"), "value": -1},
+		{"label": I18n.t("settings.quality.medium"), "value": RenderingServer.ENV_SSAO_QUALITY_MEDIUM},
+		{"label": I18n.t("settings.quality.high"), "value": RenderingServer.ENV_SSAO_QUALITY_HIGH},
+	]
+
+
+func _settings_values_match(left, right) -> bool:
+	if left is float or right is float:
+		return is_equal_approx(float(left), float(right))
+	return left == right
+
+
 func _set_settings_visible(value: bool) -> void:
 	settings_visible = value
 	if value and not lobby_visible and not public_lobby_visible:
@@ -1059,9 +1318,9 @@ func _build_landing_ui() -> void:
 	menu.name = "LandingVerticalMenu"
 	menu.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	menu.offset_left = _s(64)
-	menu.offset_top = _s(188)
+	menu.offset_top = _s(236)
 	menu.offset_right = _s(900)
-	menu.offset_bottom = _s(620)
+	menu.offset_bottom = _s(668)
 	menu.add_theme_constant_override("separation", _s(0))
 	add_child(menu)
 
@@ -1134,6 +1393,8 @@ func _build_landing_brand() -> void:
 	add_child(brand)
 
 	var title := _label(I18n.t("app.title"), 76, true)
+	if _font_wordmark:
+		title.add_theme_font_override("font", _font_wordmark)
 	title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.99))
 	title.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.78))
 	title.add_theme_constant_override("outline_size", _s(4))
@@ -1142,7 +1403,7 @@ func _build_landing_brand() -> void:
 	title.add_theme_constant_override("shadow_offset_y", _s(3))
 	brand.add_child(title)
 
-	var subtitle := _muted_label("1.0.0", 17)
+	var subtitle := _muted_label(_display_version(), 17)
 	subtitle.add_theme_color_override("font_color", Color(0.850, 0.930, 1.0, 0.88))
 	subtitle.add_theme_color_override("font_shadow_color", Color(0.0, 0.060, 0.130, 0.78))
 	subtitle.add_theme_constant_override("shadow_offset_x", _s(2))
@@ -1690,7 +1951,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(players_hint_label)
 	box.add_child(_thin_separator())
 
-	map_option = _option(["Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "garden", "Japanese Town Street", "Western Town Prop Hunt", "Polygon Apocalypse Bunker", "Polygon Apocalypse Interior", "Polygon Apocalypse City", "Polygon Apocalypse City URP", "Polygon Apocalypse City: Downtown Escape", "Polygon Apocalypse City: Quarantine Crossing", "Polygon Apocalypse City: Market Row", "Polygon Apocalypse City: Overpass Camp", "Polygon Apocalypse City: Warehouse Ward", "Polygon Apocalypse City URP: Downtown Escape", "Polygon Apocalypse City URP: Quarantine Crossing", "Polygon Apocalypse City URP: Market Row", "Polygon Apocalypse City URP: Overpass Camp", "Polygon Apocalypse City URP: Warehouse Ward"], "map")
+	map_option = _option(["Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "TPS Demo Level", "garden", "Japanese Town Street", "Western Town Prop Hunt", "Polygon Apocalypse Bunker", "Polygon Apocalypse Interior", "Polygon Apocalypse City", "Polygon Apocalypse City URP", "Polygon Apocalypse City: Downtown Escape", "Polygon Apocalypse City: Quarantine Crossing", "Polygon Apocalypse City: Market Row", "Polygon Apocalypse City: Overpass Camp", "Polygon Apocalypse City: Warehouse Ward", "Polygon Apocalypse City URP: Downtown Escape", "Polygon Apocalypse City URP: Quarantine Crossing", "Polygon Apocalypse City URP: Market Row", "Polygon Apocalypse City URP: Overpass Camp", "Polygon Apocalypse City URP: Warehouse Ward"], "map")
 	variant_option = _option(["Default", "Low Ammo", "Fast Hunt"], "variant")
 	condition_option = _option(["Normal", "Rain", "Night"], "condition")
 	game_show_option = _option(["None", "Airdrop Show", "Chaos Show"], "game_show")

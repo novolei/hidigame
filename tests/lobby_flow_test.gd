@@ -699,6 +699,7 @@ func _test_level_start_match_path() -> void:
 	_expect(Network.multiplayer.is_server(), "Level test should create a local host peer")
 	Network.lobby_config.merge({
 		"lobby_id": "PLAY",
+		"map": "Tank Demo Desert",
 		"match_duration_sec": 300,
 		"prep_duration_sec": 60,
 		"host_hunter_count": 1,
@@ -709,28 +710,26 @@ func _test_level_start_match_path() -> void:
 		2: _player("Hunter", Network.Role.HUNTER),
 	}
 	level.main_menu.show_lobby("PLAY", true)
+	_expect(level.get_node_or_null("Environment/TankDemoMapRoot") == null, "Selecting a map in the lobby should not mount it before Start Match")
 
-	await level._on_start_match_pressed(Network.lobby_config.duplicate())
+	await level.call("_on_start_match_pressed", Network.lobby_config.duplicate())
+	await get_tree().process_frame
 	await get_tree().process_frame
 
-	_expect(level.game_state == level.GameState.CARD_DRAFT, "Start Match should move Level from LOBBY to card drafting")
+	_expect(level.get_node_or_null("MapLoadingOverlay") != null, "Start Match should create the map loading overlay")
+	_expect(await _wait_for_level_state(level, level.GameState.MATCH_INTRO, 180), "Start Match should finish map loading before the 3 second countdown")
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Start Match should move Level from LOBBY through loading to the 3 second countdown")
+	_expect(level.get_node_or_null("Environment/TankDemoMapRoot") != null, "Start Match loading should mount the selected map")
 	_expect(not level.main_menu.visible, "Start Match should hide the lobby UI")
-	_expect(int(round(level.prep_remaining)) == 0, "Card drafting should not consume hide prep time")
+	_expect(int(round(level.prep_remaining)) == 0, "Loading and countdown should not consume hide prep time")
 	_expect(Network.get_hunters().size() == 1, "Start Match should keep one configured Hunter")
 	_expect(Network.get_props().size() == 1, "Start Match should keep one Prop")
-	_finish_all_card_drafts()
-	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Card draft completion should start skin configuration")
-	_expect(int(ceil(level.skin_config_remaining)) == 20, "Skin configuration should start with a 20 second countdown")
-	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Prop players should receive a Party Monster default skin")
-	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
-	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.MATCH_INTRO, "Skin configuration completion should start the global match intro countdown")
+	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Prop players should receive a Party Monster default skin before countdown")
 	_expect(int(ceil(level.match_intro_remaining)) == 3, "Match intro should start with a 3 second countdown")
 	level._process(level.MATCH_INTRO_DURATION + 0.1)
 	await get_tree().process_frame
 	_expect(level.game_state == level.GameState.PREP, "Match intro completion should start hide prep")
-	_expect(int(round(level.prep_remaining)) == 60, "Prep should start with the full configured hide time after drafting")
+	_expect(int(round(level.prep_remaining)) == 60, "Prep should start with the full configured hide time after countdown")
 	level._apply_configured_gravity()
 	_expect(absf(level.active_gravity_mps2 - 14.7) < 0.01, "Level should apply configured lobby gravity")
 
@@ -942,19 +941,17 @@ func _test_single_player_character_test_start() -> void:
 	_expect(not level.main_menu.start_button.disabled, "Single-player character test should allow Start Match")
 	_expect(level.main_menu.players_hint_label.text == I18n.t("single_player_test_ready"), "Single-player test should show explicit lobby hint")
 
-	await level._on_start_match_pressed(Network.lobby_config.duplicate())
+	await level.call("_on_start_match_pressed", Network.lobby_config.duplicate())
+	await get_tree().process_frame
 	await get_tree().process_frame
 
-	_expect(level.game_state == level.GameState.CARD_DRAFT, "Single-player test should enter card drafting before PREP")
+	_expect(level.get_node_or_null("MapLoadingOverlay") != null, "Single-player Start Match should create the map loading overlay")
+	_expect(await _wait_for_level_state(level, level.GameState.MATCH_INTRO, 180), "Single-player Start Match should finish loading before the 3 second countdown")
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Single-player test should enter the 3 second countdown before PREP")
 	_expect(Network.players[1]["role"] == Network.Role.CHAMELEON, "Single-player test should auto fallback to Chameleon")
 	_expect(Network.get_props().size() == 1, "Single-player test should count the solo player as a prop")
-	_finish_all_card_drafts()
-	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Single-player card draft completion should enter skin configuration")
 	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Single-player prop should receive a Party Monster default skin")
-	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
-	await get_tree().process_frame
-	_expect(level.game_state == level.GameState.MATCH_INTRO, "Single-player skin configuration should enter the match intro countdown")
+	_expect(int(ceil(level.match_intro_remaining)) == 3, "Single-player match intro should start with a 3 second countdown")
 	level._process(level.MATCH_INTRO_DURATION + 0.1)
 	await get_tree().process_frame
 	_expect(level.game_state == level.GameState.PREP, "Single-player match intro completion should enter PREP")
@@ -1113,6 +1110,14 @@ func _jsonl_events_contain(events: Array[Dictionary], event_name: String) -> boo
 		if str(event.get("event", "")) == event_name:
 			return true
 	return false
+
+
+func _wait_for_level_state(level: Node, target_state: int, max_frames: int = 180) -> bool:
+	for _i in range(max_frames):
+		if int(level.get("game_state")) == target_state:
+			return true
+		await get_tree().process_frame
+	return int(level.get("game_state")) == target_state
 
 
 func _expect(condition: bool, message: String) -> void:

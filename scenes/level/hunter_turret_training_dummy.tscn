@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://dy7febh6yyvxa"]
+
+[ext_resource type="Script" uid="uid://cfrnf5bpoea20" path="res://scripts/hunter_turret_training_dummy.gd" id="1_lbb8x"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lbb8x"]
+resource_local_to_scene = true
+radius = 0.42
+height = 1.85
+
+[node name="HunterTurretTrainingDummy" type="StaticBody3D" unique_id=284828100]
+script = ExtResource("1_lbb8x")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1789074468]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.925, 0)
+shape = SubResource("CapsuleShape3D_lbb8x")

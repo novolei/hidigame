@@ -1,0 +1,153 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://cmcnjjy0in4nn"
+path="res://.godot/imported/props.glb-a33d495d023c06bee2ca0d26560c0e09.scn"
+
+[deps]
+
+source_file="res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/props.glb"
+dest_files=["res://.godot/imported/props.glb-a33d495d023c06bee2ca0d26560c0e09.scn"]
+
+[params]
+
+nodes/root_type="Node3D"
+nodes/root_name="PropsModel"
+nodes/root_script=null
+mesh_library/use_node_names_as_mesh_names=false
+array_mesh/deduplicate_surfaces=true
+nodes/apply_root_scale=true
+nodes/root_scale=1.0
+nodes/import_as_skeleton_bones=false
+nodes/use_name_suffixes=true
+nodes/use_node_type_suffixes=true
+meshes/ensure_tangents=true
+meshes/generate_lods=true
+meshes/create_shadow_meshes=true
+meshes/light_baking=2
+meshes/lightmap_texel_size=0.1
+meshes/force_disable_compression=false
+skins/use_named_skins=true
+animation/import=false
+animation/fps=15
+animation/trimming=false
+animation/remove_immutable_tracks=true
+animation/import_rest_as_RESET=false
+import_script/path=""
+materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
+_subresources={
+"materials": {
+"container2": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container2.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container2.tres"
+},
+"container3": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container3.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container3.tres"
+},
+"container4": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container4.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container4.tres"
+},
+"cycles_glow_orange": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/cycles_glow_orange.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/cycles_glow_orange.tres"
+},
+"flat_emitter_blue": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_blue.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_blue.tres"
+},
+"flat_emitter_orange": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_orange.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_orange.tres"
+},
+"flat_emitter_powerful_white": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_powerful_white.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_powerful_white.tres"
+},
+"flat_emitter_white": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_white.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_white.tres"
+},
+"floor_grate_wholes": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/floor_grate_wholes.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/floor_grate_wholes.tres"
+},
+"mid_cargo_box": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/mid_cargo_box.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/mid_cargo_box.tres"
+},
+"reactor_cylinder": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_cylinder.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_cylinder.tres"
+},
+"reactor_emitter": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_emitter.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_emitter.tres"
+},
+"scifi_car": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/scifi_car.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/scifi_car.tres"
+},
+"scifi_car_glass": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/scifi_car_glass.tres",
+"use_external/path": "uid://cjn5c5md8djfr"
+},
+"tile_black_plastic": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_black_plastic.tres",
+"use_external/path": "uid://lg6qj8wpa5va"
+},
+"tile_default_metal": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_default_metal.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_default_metal.tres"
+},
+"tile_painted_gun_metal": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_painted_gun_metal.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_painted_gun_metal.tres"
+},
+"tile_silver_metal": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_silver_metal.tres",
+"use_external/path": "uid://xa4yqg750fv7"
+},
+"tile_steel": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_steel.tres",
+"use_external/path": "uid://cusvgibyf81nn"
+},
+"train_inner": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/train_inner.tres",
+"use_external/path": "uid://dqem6h7nwsf10"
+},
+"train_texture": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/train_texture.tres",
+"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/train_texture.tres"
+}
+}
+}
+gltf/naming_version=0
+gltf/embedded_image_handling=1
+gltf/texture_map_mode=0

@@ -28,11 +28,49 @@ func _ready() -> void:
 	if _spring_arm:
 		_target_spring_length = _spring_arm.spring_length
 		_camera = _spring_arm.get_node_or_null("Camera3D") as Camera3D
+		refresh_camera_collision_exclusions()
 	_target_fov = GameSettings.camera_fov
 	if _camera:
 		_camera.fov = _target_fov
+	_apply_camera_interpolation_policy()
 	if not GameSettings.fov_changed.is_connected(_on_fov_changed):
 		GameSettings.fov_changed.connect(_on_fov_changed)
+	call_deferred("refresh_camera_collision_exclusions")
+
+
+func _apply_camera_interpolation_policy() -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	if _spring_arm:
+		_spring_arm.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	if _camera:
+		_camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+
+func refresh_camera_collision_exclusions() -> void:
+	if not _spring_arm:
+		return
+	_spring_arm.clear_excluded_objects()
+	var owner_collision := _find_camera_collision_owner()
+	if owner_collision == null:
+		return
+	_spring_arm.add_excluded_object(owner_collision.get_rid())
+	_add_camera_collision_child_exclusions(owner_collision, owner_collision)
+
+
+func _find_camera_collision_owner() -> CollisionObject3D:
+	var node: Node = get_parent()
+	while node:
+		if node is CollisionObject3D:
+			return node as CollisionObject3D
+		node = node.get_parent()
+	return null
+
+
+func _add_camera_collision_child_exclusions(root: Node, owner_collision: CollisionObject3D) -> void:
+	for child in root.get_children():
+		if child is CollisionObject3D and child != owner_collision:
+			_spring_arm.add_excluded_object((child as CollisionObject3D).get_rid())
+		_add_camera_collision_child_exclusions(child, owner_collision)
 
 
 func _process(delta: float) -> void:
@@ -66,9 +104,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _request_owner_skin_performance_action(action: String) -> bool:
-	var owner := get_parent()
-	if owner and owner.has_method("request_skin_performance_action"):
-		return bool(owner.call("request_skin_performance_action", action))
+	var owner_node := get_parent()
+	if owner_node and owner_node.has_method("request_skin_performance_action"):
+		return bool(owner_node.call("request_skin_performance_action", action))
 	return false
 
 

@@ -120,12 +120,13 @@ func _on_progress_timer_timeout() -> void:
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	_stop_progress_timer()
-	if _operation == "manifest":
-		_finish_manifest(result, response_code, body)
-	elif _operation == "package":
-		_finish_package(result, response_code)
+	var completed_operation: String = _operation
 	_operation = ""
 	_request.download_file = ""
+	if completed_operation == "manifest":
+		_finish_manifest(result, response_code, body)
+	elif completed_operation == "package":
+		_finish_package(result, response_code)
 
 
 func _finish_manifest(result: int, response_code: int, body: PackedByteArray) -> void:

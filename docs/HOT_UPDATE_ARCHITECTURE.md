@@ -43,7 +43,13 @@ The remote manifest is a JSON object:
   "content_version": "2026.06.27.1",
   "min_app_version": "0.4.4",
   "protocol_version": 1,
-  "base_url": "https://updates.example.com/maomao/dev",
+  "base_url": "https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/dev",
+  "mirrors": [
+    {
+      "id": "AL",
+      "base_url": "https://<AL_PUBLIC_IP_OR_DOMAIN>/maomao/dev"
+    }
+  ],
   "packages": [
     {
       "id": "core_patch",
@@ -72,13 +78,15 @@ Package fields:
 - `required`: Required packages are considered during the default update check. Optional packages stay in the manifest but are not auto-downloaded unless the caller explicitly includes optional content.
 - `restart_required`: True for script, scene, project config, autoload, or shader changes.
 
+Top-level `base_url` is the primary package origin. For the current VPS topology, `base_url` must point to TX and top-level `mirrors` should include AL. Package URLs are tried in this order: absolute package URL or TX `base_url` first, then AL mirror base URLs, then any package-level absolute mirror URLs.
+
 Installed state is written to `user://hot_update/installed_manifest.json`. Downloaded packages live under `user://hot_update/packages/`.
 
 ## Runtime Flow
 
 1. `HotUpdate` autoload enters before `Network`.
 2. If enabled and not running as a public dedicated server, it loads verified installed packages from `user://hot_update/packages/`.
-3. If `hot_update/auto_check_on_boot` or `MAOMAO_UPDATE_MANIFEST_URL` is configured, it downloads the remote manifest with `HTTPRequest`.
+3. If `hot_update/auto_check_on_boot` or `MAOMAO_UPDATE_MANIFEST_URL` is configured, it downloads the remote manifest with `HTTPRequest`. `MAOMAO_UPDATE_MANIFEST_MIRROR_URLS` or `hot_update/manifest_mirror_urls` can provide manifest fallback sources.
 4. The manifest is validated for schema, channel, app version, protocol version, package SHA, and package order.
 5. Missing or changed required packages are downloaded into `user://hot_update/tmp/`. Optional packages can be downloaded by calling the check path with optional content enabled for a later content browser or map-selection flow.
 6. Each package is verified by byte count and SHA-256 before being promoted into `user://hot_update/packages/`.
@@ -93,6 +101,7 @@ Runtime project settings:
 - `hot_update/load_installed_packs_on_boot`: Whether to mount already installed packs before other autoloads run.
 - `hot_update/show_status_overlay`: Whether to show a small in-game status panel for checking/installing updates.
 - `hot_update/manifest_url`: Default remote manifest URL.
+- `hot_update/manifest_mirror_urls`: Optional manifest mirror URL list, used after the primary manifest URL fails.
 - `hot_update/channel`: Client channel such as `dev`, `staging`, or `live`.
 - `hot_update/protocol_version`: Network/content protocol gate.
 - `hot_update/http_timeout_sec`: Manifest request timeout. `0.0` disables the timeout.
@@ -119,10 +128,11 @@ python tools/hot_update/build_release_packages.py `
   --version 0.4.5 `
   --content-version 2026.06.27.1 `
   --min-app-version 0.4.4 `
-  --base-url https://updates.example.com/maomao/dev
+  --base-url https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/dev `
+  --mirror-base-url AL=https://<AL_PUBLIC_IP_OR_DOMAIN>/maomao/dev
 ```
 
-This writes `package_plan.json`, `export_plan.json`, and `export_hot_update.ps1` under the release directory. Add `--run-export` to let the script temporarily swap in generated Godot export presets, call Godot 4.7 `--export-pack` or `--export-patch`, restore the original `export_presets.cfg`, and write `manifest.json`.
+This writes `package_plan.json`, `export_plan.json`, and `export_hot_update.ps1` under the release directory. Add `--run-export` to let the script temporarily swap in generated Godot export presets, call Godot 4.7 `--export-pack` or `--export-patch`, restore the original `export_presets.cfg`, and write `manifest.json`. The generated manifest keeps TX as `base_url` and writes AL into `mirrors`.
 
 Validated local export snapshot from 2026-06-27:
 

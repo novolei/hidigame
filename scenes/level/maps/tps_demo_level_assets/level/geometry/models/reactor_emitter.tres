@@ -1,0 +1,18 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://divqgi5ftci6o"]
+
+[ext_resource type="Texture2D" uid="uid://d31sucntgmy5t" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/reactor_emitter_albedo.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://r6ubxifyhgyo" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/reactor_emitter_orm.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://lvoun2p25upj" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/reactor_emitter_normal.png" id="3"]
+
+[resource]
+resource_name = "reactor_emitter"
+albedo_texture = ExtResource("1")
+metallic_texture = ExtResource("2")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("2")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3")
+ao_enabled = true
+ao_texture = ExtResource("2")
+texture_filter = 5

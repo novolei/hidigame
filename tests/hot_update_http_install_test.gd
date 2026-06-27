@@ -32,9 +32,12 @@ func _run() -> void:
 		_finish()
 		return
 
+	var previous_auto_check: Variant = ProjectSettings.get_setting(Constants.SETTING_AUTO_CHECK_ON_BOOT, false)
+	ProjectSettings.set_setting(Constants.SETTING_AUTO_CHECK_ON_BOOT, false)
 	var manager: Node = ManagerScript.new()
 	root.add_child(manager)
 	await process_frame
+	ProjectSettings.set_setting(Constants.SETTING_AUTO_CHECK_ON_BOOT, previous_auto_check)
 
 	manager.status_changed.connect(func(message: String) -> void:
 		print("[HotUpdateHttpInstallTest] " + message)

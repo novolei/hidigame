@@ -34,13 +34,13 @@ const RECOIL_POSITION_KICK := 0.075
 const RECOIL_ROTATION_KICK := 0.055
 const MUZZLE_FLASH_SECONDS := 0.105
 const MODEL_FORWARD_YAW_OFFSET := PI
-const HOVL_PROJECTILE_EFFECT_SCRIPT := preload("res://scripts/hovl_projectile_effect.gd")
 const NetworkInterestScript := preload("res://scripts/network_interest.gd")
-const HOVL_AUTO_TURRET_EFFECT_ID := "projectile_08_energy"
-const HOVL_AUTO_TURRET_HIT_EFFECT_ID := "projectile_16_star"
-const HOVL_AUTO_TURRET_EFFECT_SECONDS := 0.16
-const HOVL_AUTO_TURRET_EFFECT_SCALE := 0.48
-const HOVL_AUTO_TURRET_MIN_DISTANCE := 1.1
+const TPS_BULLET_SCENE := preload("res://player/bullet/bullet.tscn")
+const TPS_BULLET_SCENE_PATH := "res://player/bullet/bullet.tscn"
+const TPS_BULLET_VISUAL_SPEED := 20.0
+const TPS_BULLET_VISUAL_MIN_SECONDS := 0.08
+const TPS_BULLET_VISUAL_MAX_SECONDS := 1.25
+const TPS_BULLET_MIN_DISTANCE := 0.12
 const TURRET_VISUAL_RPC_RELEVANCE_RADIUS := 48.0
 
 var hunter: Node3D = null
@@ -272,24 +272,24 @@ func get_muzzle_flash_count_for_test() -> int:
 	return count
 
 
-func get_hovl_projectile_effect_count_for_test() -> int:
+func get_tps_bullet_effect_count_for_test() -> int:
 	var count := 0
 	for child in get_children():
-		if str(child.name).begins_with("AutoTurretHovlProjectile"):
+		if str(child.name).begins_with("AutoTurretTpsBullet"):
 			count += 1
 	return count
 
 
-func get_hovl_projectile_effect_ids_for_test() -> Array[String]:
-	var ids: Array[String] = []
+func get_tps_bullet_effect_sources_for_test() -> Array[String]:
+	var sources: Array[String] = []
 	for child in get_children():
-		if str(child.name).begins_with("AutoTurretHovlProjectile"):
-			var effect_id := str(child.get("effect_id"))
-			if effect_id == "" and child.has_method("source_summary"):
-				var summary: Dictionary = child.call("source_summary")
-				effect_id = str(summary.get("id", ""))
-			ids.append(effect_id)
-	return ids
+		if str(child.name).begins_with("AutoTurretTpsBullet"):
+			sources.append(str(child.get_meta("effect_source", "")))
+	return sources
+
+
+func get_tps_bullet_visual_speed_for_test() -> float:
+	return TPS_BULLET_VISUAL_SPEED
 
 
 func has_single_shot_audio_for_test() -> bool:
@@ -335,13 +335,13 @@ func get_textured_visual_mesh_count_for_test() -> int:
 
 
 func trigger_visual_shot_for_test(start: Vector3, end: Vector3) -> void:
-	clear_hovl_projectile_effects_for_test()
+	clear_tps_bullet_effects_for_test()
 	_broadcast_turret_shot(start, end, Vector3.UP, false)
 
 
-func clear_hovl_projectile_effects_for_test() -> void:
+func clear_tps_bullet_effects_for_test() -> void:
 	for child in get_children():
-		if str(child.name).begins_with("AutoTurretHovlProjectile"):
+		if str(child.name).begins_with("AutoTurretTpsBullet"):
 			remove_child(child)
 			child.queue_free()
 
@@ -895,9 +895,7 @@ func _broadcast_turret_shot(start: Vector3, end: Vector3, normal: Vector3, hit_p
 	var shot_direction := (end - start).normalized()
 	_apply_fire_recoil()
 	_spawn_muzzle_flash(start, shot_direction)
-	_spawn_hovl_projectile_effect(start, end, hit_prop)
-	_spawn_tracer(start, end, hit_prop)
-	_spawn_impact(end, normal, hit_prop)
+	_spawn_tps_bullet_effect(start, end, normal, hit_prop)
 	_play_shot_audio(start)
 
 
@@ -977,92 +975,64 @@ func _add_flash_blob(parent: Node3D, local_position: Vector3, radius: float, col
 	parent.add_child(blob)
 
 
-func _spawn_hovl_projectile_effect(start: Vector3, end: Vector3, hit_prop: bool) -> void:
+func _normalized_or_up(vector: Vector3) -> Vector3:
+	if vector.length_squared() > 0.0001:
+		return vector.normalized()
+	return Vector3.UP
+
+
+func _basis_from_negative_z_axis(axis: Vector3) -> Basis:
+	var forward := axis.normalized()
+	if forward.length_squared() <= 0.0001:
+		forward = Vector3.FORWARD
+	var z := -forward
+	var up := Vector3.UP
+	if absf(z.dot(up)) > 0.96:
+		up = Vector3.RIGHT
+	var x := up.cross(z).normalized()
+	var y := z.cross(x).normalized()
+	return Basis(x, y, z).orthonormalized()
+
+
+func _spawn_tps_bullet_effect(start: Vector3, end: Vector3, normal: Vector3, hit_prop: bool) -> void:
 	var length := start.distance_to(end)
-	if length < HOVL_AUTO_TURRET_MIN_DISTANCE:
+	if length < TPS_BULLET_MIN_DISTANCE:
 		return
-	var effect := HOVL_PROJECTILE_EFFECT_SCRIPT.new() as Node3D
-	if effect == null:
+	var bullet := TPS_BULLET_SCENE.instantiate() as Node3D
+	if bullet == null:
 		return
-	effect.name = "AutoTurretHovlProjectile"
-	effect.top_level = true
-	effect.scale = Vector3.ONE * HOVL_AUTO_TURRET_EFFECT_SCALE
-	add_child(effect)
-	var effect_id := HOVL_AUTO_TURRET_HIT_EFFECT_ID if hit_prop else HOVL_AUTO_TURRET_EFFECT_ID
-	if effect.has_method("configure"):
-		effect.call("configure", effect_id, length, HOVL_AUTO_TURRET_EFFECT_SECONDS)
-	if effect.has_method("launch"):
-		effect.call("launch", start, end, true)
+	bullet.name = "AutoTurretTpsBullet"
+	bullet.top_level = true
+	bullet.set_meta("effect_source", TPS_BULLET_SCENE_PATH)
+	bullet.set_meta("hit_prop", hit_prop)
+	bullet.set_meta("impact_style", "machine_gun_particles")
+	add_child(bullet)
+
+	var direction := (end - start).normalized()
+	var impact_normal := _normalized_or_up(normal)
+	bullet.global_position = start
+	bullet.global_transform.basis = _basis_from_negative_z_axis(direction)
+	if bullet.has_method("launch_visual"):
+		bullet.call("launch_visual", start, end, impact_normal, hit_prop)
+		return
+	if bullet.has_method("play_flight"):
+		bullet.call("play_flight")
+
+	var impact_position := end + impact_normal * 0.018
+	var travel_seconds := clampf(length / TPS_BULLET_VISUAL_SPEED, TPS_BULLET_VISUAL_MIN_SECONDS, TPS_BULLET_VISUAL_MAX_SECONDS)
+	var tween := bullet.create_tween()
+	tween.tween_property(bullet, "global_position", impact_position, travel_seconds).set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(Callable(self, "_trigger_tps_bullet_impact").bind(bullet, impact_position, impact_normal))
+
+
+func _trigger_tps_bullet_impact(bullet: Node3D, impact_position: Vector3, _impact_normal: Vector3) -> void:
+	if bullet == null or not is_instance_valid(bullet):
+		return
+	bullet.global_position = impact_position
+	if bullet.has_method("play_impact"):
+		bullet.call("play_impact")
 	else:
-		effect.global_position = start
-
-
-func _spawn_tracer(start: Vector3, end: Vector3, hit_prop: bool) -> void:
-	var length := start.distance_to(end)
-	if length <= 0.02:
-		return
-	var tracer := MeshInstance3D.new()
-	tracer.name = "AutoTurretTracer"
-	tracer.top_level = true
-	var mesh := CylinderMesh.new()
-	var tracer_radius := 0.018 if hit_prop else 0.012
-	mesh.top_radius = tracer_radius
-	mesh.bottom_radius = tracer_radius
-	mesh.height = length
-	mesh.radial_segments = 8
-	tracer.mesh = mesh
-	tracer.material_override = _make_emissive_material(
-		Color(0.15, 0.92, 1.0, 0.72),
-		Color(0.20, 1.0, 0.92, 1.0) if hit_prop else Color(1.0, 0.56, 0.22, 1.0),
-		2.8
-	)
-	add_child(tracer)
-	tracer.global_position = (start + end) * 0.5
-	tracer.global_transform.basis = _basis_from_y_axis((end - start).normalized())
-	var tween := tracer.create_tween()
-	tween.tween_property(tracer, "scale", Vector3(0.45, 1.0, 0.45), 0.055)
-	tween.tween_property(tracer, "scale", Vector3(0.08, 1.0, 0.08), 0.13).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_callback(tracer.queue_free)
-
-
-func _spawn_impact(impact_position: Vector3, normal: Vector3, hit_prop: bool) -> void:
-	var root := Node3D.new()
-	root.name = "AutoTurretImpact"
-	root.top_level = true
-	add_child(root)
-	root.global_position = impact_position + normal.normalized() * 0.018
-
-	var mark := MeshInstance3D.new()
-	mark.name = "AutoTurretBulletMark"
-	var mark_mesh := CylinderMesh.new()
-	var mark_radius := 0.095 if hit_prop else 0.07
-	mark_mesh.top_radius = mark_radius
-	mark_mesh.bottom_radius = mark_radius
-	mark_mesh.height = 0.012
-	mark_mesh.radial_segments = 18
-	mark.mesh = mark_mesh
-	mark.material_override = _make_transparent_material(Color(0.015, 0.018, 0.02, 0.84))
-	root.add_child(mark)
-	mark.global_transform.basis = _basis_from_y_axis(normal.normalized())
-
-	var mote_count := 9 if hit_prop else 6
-	for i in range(mote_count):
-		var mote := MeshInstance3D.new()
-		mote.name = "AutoTurretDustMote"
-		var mote_mesh := SphereMesh.new()
-		mote_mesh.radius = _rng.randf_range(0.025, 0.055)
-		mote_mesh.height = mote_mesh.radius * 2.0
-		mote.mesh = mote_mesh
-		mote.material_override = _make_transparent_material(Color(0.58, 0.50, 0.42, 0.46))
-		root.add_child(mote)
-		var drift := (normal.normalized() * _rng.randf_range(0.12, 0.38)) + Vector3(_rng.randf_range(-0.16, 0.16), _rng.randf_range(0.08, 0.32), _rng.randf_range(-0.16, 0.16))
-		var tween := mote.create_tween()
-		tween.parallel().tween_property(mote, "position", drift, 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tween.parallel().tween_property(mote, "scale", Vector3.ONE * 0.18, 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-
-	var cleanup := root.create_tween()
-	cleanup.tween_interval(1.4)
-	cleanup.tween_callback(root.queue_free)
+		bullet.queue_free()
 
 
 func _play_shot_audio(audio_position: Vector3) -> void:

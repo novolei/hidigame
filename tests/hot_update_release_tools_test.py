@@ -40,6 +40,8 @@ def main() -> int:
             "0.4.4",
             "--base-url",
             "https://updates.example.com/maomao/dev",
+            "--mirror-base-url",
+            "AL=https://updates-al.example.com/maomao/dev",
         ]
         subprocess.run(command, cwd=repo_root, check=True)
 
@@ -48,12 +50,18 @@ def main() -> int:
         package_ids = [package["id"] for package in package_plan["packages"]]
         if package_ids != ["core_patch", "characters_party_monster", "maps_warehouse", "audio_video"]:
             raise AssertionError(f"Unexpected package ids/order: {package_ids}")
+        expected_mirrors = [{"base_url": "https://updates-al.example.com/maomao/dev", "id": "AL"}]
+        if package_plan.get("mirrors") != expected_mirrors:
+            raise AssertionError(f"Unexpected mirror origins in package plan: {package_plan.get('mirrors')}")
         if any("include_filters" in package for package in package_plan["packages"]):
             raise AssertionError("Build-only include filters leaked into package_plan packages")
         if len(export_plan["packages"]) != len(package_plan["packages"]):
             raise AssertionError("Export plan and package plan package counts differ")
         if not (release_dir / "export_hot_update.ps1").is_file():
             raise AssertionError("PowerShell export command file was not written")
+        export_command_text = (release_dir / "export_hot_update.ps1").read_text(encoding="utf-8")
+        if "--mirror-base-url" not in export_command_text or "AL=https://updates-al.example.com/maomao/dev" not in export_command_text:
+            raise AssertionError("PowerShell export command file did not preserve mirror origin options")
         rendered_preset = release_tool.render_temp_export_presets(
             (repo_root / "export_presets.cfg").read_text(encoding="utf-8"),
             "Windows Desktop",
@@ -82,6 +90,8 @@ def main() -> int:
             check=True,
         )
         manifest = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
+        if manifest.get("mirrors") != expected_mirrors:
+            raise AssertionError(f"Unexpected mirror origins in manifest: {manifest.get('mirrors')}")
         for package in manifest["packages"]:
             if "file" in package or "include_filters" in package or "exclude_filters" in package:
                 raise AssertionError(f"Build-only keys leaked into manifest package: {package}")

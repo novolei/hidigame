@@ -1,0 +1,20 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bw3ekygtjkqei"]
+
+[ext_resource type="Texture2D" uid="uid://c2dyl3fd5uppm" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_misc_1_normal.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://b634cyf3y38jf" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_misc_1_albedo.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://tpq3a5o1mehq" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_misc_1_orm.png" id="3"]
+
+[resource]
+resource_name = "trim_misc_1"
+albedo_texture = ExtResource("2")
+metallic = 0.5
+metallic_texture = ExtResource("3")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("3")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_scale = 1.5
+normal_texture = ExtResource("1")
+ao_enabled = true
+ao_texture = ExtResource("3")
+texture_filter = 5

@@ -2,7 +2,6 @@ extends Control
 class_name IntroVideo
 
 const NEXT_SCENE_PATH := "res://scenes/level/level.tscn"
-const MAIN_MENU_TRANSITION_COVER_PATH := "res://assets/ui/main_menu_transition_cover.png"
 const VIDEO_FAILSAFE_SECONDS := 8.0
 const BASE_VIEWPORT := Vector2(1920.0, 1080.0)
 const BADGE_BASE_HEIGHT := 120.0
@@ -19,15 +18,57 @@ const WATERMARK_COVER_MAX_SCALE := 1.10
 const INTRO_FADE_OUT_SECONDS := 0.42
 const MAIN_SCENE_FADE_IN_SECONDS := 0.28
 const INTRO_PRE_EXIT_SECONDS := 0.36
-const INTRO_TRANSITION_COLOR := Color(0.200, 0.549, 0.965, 1.0)
-const INTRO_FADE_COLOR := Color(0.200, 0.549, 0.965, 0.72)
+const STARTUP_BLUE_BACKGROUND := Color8(45, 143, 252, 255)
+const INTRO_TRANSITION_COLOR := STARTUP_BLUE_BACKGROUND
+const INTRO_FADE_COLOR := STARTUP_BLUE_BACKGROUND
+const TRANSITION_LOADING_FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const TRANSITION_LOADING_DOT_COUNT := 3
-const TRANSITION_LOADING_DOT_SIZE := 12.0
-const TRANSITION_LOADING_DOT_SPACING := 10.0
-const TRANSITION_LOADING_BASE_MARGIN := Vector2(44.0, 40.0)
+const TRANSITION_LOADING_RING_SIZE := 105.0
+const TRANSITION_LOADING_RING_WIDTH := 8.75
+const TRANSITION_LOADING_LABEL_WIDTH := 192.5
+const TRANSITION_LOADING_LABEL_HEIGHT := 57.5
+const TRANSITION_LOADING_LABEL_GAP := 30.0
+const TRANSITION_LOADING_DOT_GAP := 15.0
+const TRANSITION_LOADING_DOT_SIZE := 15.0
+const TRANSITION_LOADING_DOT_SPACING := 11.25
 const TRANSITION_LOADING_MIN_SCALE := 0.78
 const TRANSITION_LOADING_MAX_SCALE := 1.12
 const TRANSITION_LOADING_PULSE_SPEED := 4.8
+const TRANSITION_LOADING_RING_SPEED := 1.15
+const TRANSITION_LOADING_COLOR := Color(1.0, 1.0, 1.0, 0.75)
+const TRANSITION_LOADING_RING_BLUE := Color(0.36, 0.76, 1.0, 0.95)
+const TRANSITION_LOADING_TEXT_COLOR := TRANSITION_LOADING_COLOR
+const TRANSITION_LOADING_TRACK_COLOR := TRANSITION_LOADING_COLOR
+const TRANSITION_LOADING_PROGRESS_COLOR := TRANSITION_LOADING_RING_BLUE
+const TRANSITION_LOADING_HIGHLIGHT_COLOR := TRANSITION_LOADING_COLOR
+const TRANSITION_LOADING_SHADOW_COLOR := TRANSITION_LOADING_COLOR
+
+
+class TransitionRingProgress:
+	extends Control
+
+	var progress := 0.72
+	var track_color := TRANSITION_LOADING_TRACK_COLOR
+	var progress_color := TRANSITION_LOADING_PROGRESS_COLOR
+	var highlight_color := TRANSITION_LOADING_HIGHLIGHT_COLOR
+	var inner_shadow_color := TRANSITION_LOADING_SHADOW_COLOR
+	var ring_width := TRANSITION_LOADING_RING_WIDTH
+	var minimum_sweep := 0.28
+
+	func set_progress(value: float) -> void:
+		progress = clampf(value, 0.0, 1.0)
+		queue_redraw()
+
+	func _draw() -> void:
+		var center: Vector2 = size * 0.5
+		var radius: float = maxf(1.0, minf(size.x, size.y) * 0.5 - ring_width * 0.5)
+		var start_angle: float = -PI * 0.5
+		draw_arc(center + Vector2(0.0, 1.0), radius, start_angle, start_angle + TAU, 96, inner_shadow_color, ring_width + 1.0, true)
+		draw_arc(center + Vector2(0.0, -1.0), radius, start_angle, start_angle + TAU, 96, highlight_color, maxf(1.0, ring_width * 0.45), true)
+		draw_arc(center, radius, start_angle, start_angle + TAU, 96, track_color, ring_width, true)
+		var sweep: float = maxf(TAU * progress, TAU * minimum_sweep)
+		draw_arc(center, radius, start_angle, start_angle + sweep, 96, progress_color, ring_width, true)
+
 
 @onready var video_player: VideoStreamPlayer = $VideoStreamPlayer
 @onready var watermark_cover: TextureRect = get_node_or_null("WatermarkCover") as TextureRect
@@ -40,6 +81,8 @@ var _transitioning := false
 var _next_scene_load_requested := false
 var _badge_background_style: StyleBoxFlat = null
 var transition_loading_indicator: Control = null
+var transition_loading_ring: TransitionRingProgress = null
+var transition_loading_label: Label = null
 var _transition_loading_dots: Array[Panel] = []
 var _transition_loading_elapsed := 0.0
 
@@ -177,11 +220,11 @@ func _configure_transition_snapshot() -> void:
 	transition_snapshot.offset_right = 0.0
 	transition_snapshot.offset_bottom = 0.0
 	transition_snapshot.mouse_filter = Control.MOUSE_FILTER_STOP
-	transition_snapshot.texture = _get_transition_cover_texture()
+	transition_snapshot.texture = null
 	transition_snapshot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	transition_snapshot.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	transition_snapshot.modulate.a = 0.0
-	transition_snapshot.visible = transition_snapshot.texture != null
+	transition_snapshot.visible = false
 	transition_snapshot.z_index = 21
 
 
@@ -190,11 +233,15 @@ func _configure_transition_loading_indicator() -> void:
 		transition_loading_indicator = Control.new()
 		transition_loading_indicator.name = "TransitionLoading"
 		add_child(transition_loading_indicator)
+		transition_loading_ring = TransitionRingProgress.new()
+		transition_loading_ring.name = "LoadingRing"
+		transition_loading_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		transition_loading_indicator.add_child(transition_loading_ring)
+		transition_loading_label = _create_transition_loading_label()
+		transition_loading_indicator.add_child(transition_loading_label)
 		_transition_loading_dots.clear()
 		for index in range(TRANSITION_LOADING_DOT_COUNT):
-			var dot: Panel = Panel.new()
-			dot.name = "LoadingDot%d" % [index + 1]
-			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var dot: Panel = _create_transition_loading_dot(index)
 			transition_loading_indicator.add_child(dot)
 			_transition_loading_dots.append(dot)
 	transition_loading_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -202,6 +249,30 @@ func _configure_transition_loading_indicator() -> void:
 	transition_loading_indicator.visible = false
 	transition_loading_indicator.modulate.a = 0.0
 	_update_transition_loading_layout()
+
+
+func _create_transition_loading_label() -> Label:
+	var label: Label = Label.new()
+	label.name = "LoadingLabel"
+	label.text = "LOADING"
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", TRANSITION_LOADING_TEXT_COLOR)
+	label.add_theme_color_override("font_shadow_color", TRANSITION_LOADING_COLOR)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	var font_resource: Resource = ResourceLoader.load(TRANSITION_LOADING_FONT_PATH)
+	if font_resource is Font:
+		label.add_theme_font_override("font", font_resource as Font)
+	return label
+
+
+func _create_transition_loading_dot(index: int) -> Panel:
+	var dot: Panel = Panel.new()
+	dot.name = "LoadingDot%d" % [index + 1]
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return dot
 
 
 func _set_transition_loading_visible(value: bool) -> void:
@@ -219,56 +290,76 @@ func _set_transition_loading_visible(value: bool) -> void:
 
 
 func _update_transition_loading_layout() -> void:
-	if transition_loading_indicator == null:
+	if transition_loading_indicator == null or transition_loading_ring == null or transition_loading_label == null:
 		return
+	_layout_transition_loading_group(transition_loading_indicator, transition_loading_ring, transition_loading_label, _transition_loading_dots)
+
+
+func _layout_transition_loading_group(loading: Control, ring: TransitionRingProgress, label: Label, dots: Array[Panel]) -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var scale_value: float = minf(viewport_size.x / BASE_VIEWPORT.x, viewport_size.y / BASE_VIEWPORT.y)
 	scale_value = clampf(scale_value, TRANSITION_LOADING_MIN_SCALE, TRANSITION_LOADING_MAX_SCALE)
+	var ring_size: float = TRANSITION_LOADING_RING_SIZE * scale_value
 	var dot_size: float = TRANSITION_LOADING_DOT_SIZE * scale_value
 	var separation: float = TRANSITION_LOADING_DOT_SPACING * scale_value
-	var dot_count: int = _transition_loading_dots.size()
-	var total_width: float = dot_size * float(dot_count) + separation * float(maxi(0, dot_count - 1))
-	var total_size: Vector2 = Vector2(total_width, dot_size)
-	var margin: Vector2 = TRANSITION_LOADING_BASE_MARGIN * scale_value
-	transition_loading_indicator.position = viewport_size - margin - total_size
-	transition_loading_indicator.size = total_size
+	var dot_count: int = dots.size()
+	var dot_total_width: float = dot_size * float(dot_count) + separation * float(maxi(0, dot_count - 1))
+	var label_size: Vector2 = Vector2(TRANSITION_LOADING_LABEL_WIDTH, TRANSITION_LOADING_LABEL_HEIGHT) * scale_value
+	var label_gap: float = TRANSITION_LOADING_LABEL_GAP * scale_value
+	var dot_gap: float = TRANSITION_LOADING_DOT_GAP * scale_value
+	var total_width: float = ring_size + label_gap + label_size.x + dot_gap + dot_total_width
+	var total_height: float = maxf(maxf(ring_size, label_size.y), dot_size)
+	var total_size: Vector2 = Vector2(total_width, total_height)
+	loading.position = (viewport_size - total_size) * 0.5
+	loading.size = total_size
+
+	ring.position = Vector2.ZERO
+	ring.size = Vector2(ring_size, ring_size)
+	ring.custom_minimum_size = ring.size
+	ring.pivot_offset = ring.size * 0.5
+	ring.ring_width = maxf(3.0, TRANSITION_LOADING_RING_WIDTH * scale_value)
+	ring.queue_redraw()
+
+	label.position = Vector2(ring_size + label_gap, (total_height - label_size.y) * 0.5)
+	label.size = label_size
+	label.add_theme_font_size_override("font_size", max(20, roundi(40.0 * scale_value)))
+
+	var dots_start_x: float = label.position.x + label_size.x + dot_gap
 	for index in range(dot_count):
-		var dot: Panel = _transition_loading_dots[index]
-		dot.position = Vector2(float(index) * (dot_size + separation), 0.0)
+		var dot: Panel = dots[index]
+		dot.position = Vector2(dots_start_x + float(index) * (dot_size + separation), (total_height - dot_size) * 0.5)
 		dot.size = Vector2(dot_size, dot_size)
 		dot.pivot_offset = dot.size * 0.5
 		dot.add_theme_stylebox_override("panel", _create_transition_loading_dot_style(dot_size, scale_value))
 
 
 func _update_transition_loading_animation() -> void:
+	if transition_loading_ring != null:
+		transition_loading_ring.rotation = _transition_loading_elapsed * TRANSITION_LOADING_RING_SPEED
+		var ring_wave: float = (sin(_transition_loading_elapsed * 2.6) + 1.0) * 0.5
+		transition_loading_ring.set_progress(lerpf(0.54, 0.82, ring_wave))
 	var dot_count: int = _transition_loading_dots.size()
 	for index in range(dot_count):
 		var dot: Panel = _transition_loading_dots[index]
 		var phase: float = fmod(_transition_loading_elapsed * TRANSITION_LOADING_PULSE_SPEED - float(index) * 0.72, PI * 2.0)
 		var wave: float = (sin(phase) + 1.0) * 0.5
-		dot.modulate.a = lerpf(0.36, 1.0, wave)
-		var dot_scale: float = lerpf(0.78, 1.08, wave)
+		dot.modulate.a = 1.0
+		var dot_scale: float = lerpf(0.76, 1.10, wave)
 		dot.scale = Vector2(dot_scale, dot_scale)
 
 
 func _create_transition_loading_dot_style(dot_size: float, scale_value: float) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(1.0, 1.0, 1.0, 0.94)
+	style.bg_color = TRANSITION_LOADING_COLOR
 	style.set_corner_radius_all(int(round(dot_size * 0.5)))
-	style.shadow_color = Color(0.02, 0.12, 0.25, 0.22)
-	style.shadow_size = int(round(5.0 * scale_value))
-	style.shadow_offset = Vector2(0.0, 1.5 * scale_value)
+	style.shadow_color = TRANSITION_LOADING_COLOR
+	style.shadow_size = int(round(4.0 * scale_value))
+	style.shadow_offset = Vector2(0.0, 1.2 * scale_value)
 	return style
 
 
 func _is_transition_snapshot_ready() -> bool:
-	return transition_snapshot != null and transition_snapshot.texture != null
-
-
-func _get_transition_cover_texture() -> Texture2D:
-	if not ResourceLoader.exists(MAIN_MENU_TRANSITION_COVER_PATH):
-		return null
-	return ResourceLoader.load(MAIN_MENU_TRANSITION_COVER_PATH, "Texture2D") as Texture2D
+	return false
 
 
 func _request_next_scene_preload() -> void:
@@ -348,28 +439,18 @@ func _get_next_packed_scene() -> PackedScene:
 
 
 func _create_root_transition_cover() -> Control:
-	var texture: Texture2D = _get_transition_cover_texture()
-	var cover: Control
-	if texture:
-		var image_cover: TextureRect = TextureRect.new()
-		image_cover.texture = texture
-		image_cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		image_cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		cover = image_cover
-	else:
-		var fallback_cover: Control = Control.new()
-		var color_cover: ColorRect = ColorRect.new()
-		color_cover.name = "BlueBackground"
-		color_cover.color = INTRO_TRANSITION_COLOR
-		color_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		color_cover.set_anchors_preset(Control.PRESET_FULL_RECT)
-		color_cover.offset_left = 0.0
-		color_cover.offset_top = 0.0
-		color_cover.offset_right = 0.0
-		color_cover.offset_bottom = 0.0
-		fallback_cover.add_child(color_cover)
-		_add_static_transition_loading_indicator(fallback_cover)
-		cover = fallback_cover
+	var cover: Control = Control.new()
+	var color_cover: ColorRect = ColorRect.new()
+	color_cover.name = "BlueBackground"
+	color_cover.color = INTRO_TRANSITION_COLOR
+	color_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	color_cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+	color_cover.offset_left = 0.0
+	color_cover.offset_top = 0.0
+	color_cover.offset_right = 0.0
+	color_cover.offset_bottom = 0.0
+	cover.add_child(color_cover)
+	_add_static_transition_loading_indicator(cover)
 	cover.name = "IntroSceneTransitionCover"
 	cover.modulate.a = 1.0
 	cover.z_index = 4096
@@ -389,27 +470,24 @@ func _add_static_transition_loading_indicator(parent: Control) -> void:
 	loading.z_index = 1
 	parent.add_child(loading)
 
-	var viewport_size: Vector2 = get_viewport_rect().size
-	var scale_value: float = minf(viewport_size.x / BASE_VIEWPORT.x, viewport_size.y / BASE_VIEWPORT.y)
-	scale_value = clampf(scale_value, TRANSITION_LOADING_MIN_SCALE, TRANSITION_LOADING_MAX_SCALE)
-	var dot_size: float = TRANSITION_LOADING_DOT_SIZE * scale_value
-	var separation: float = TRANSITION_LOADING_DOT_SPACING * scale_value
-	var total_width: float = dot_size * float(TRANSITION_LOADING_DOT_COUNT) + separation * float(TRANSITION_LOADING_DOT_COUNT - 1)
-	var total_size: Vector2 = Vector2(total_width, dot_size)
-	var margin: Vector2 = TRANSITION_LOADING_BASE_MARGIN * scale_value
-	loading.position = viewport_size - margin - total_size
-	loading.size = total_size
+	var ring: TransitionRingProgress = TransitionRingProgress.new()
+	ring.name = "LoadingRing"
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.rotation = 0.46
+	ring.set_progress(0.72)
+	loading.add_child(ring)
+
+	var label: Label = _create_transition_loading_label()
+	loading.add_child(label)
+
+	var dots: Array[Panel] = []
 	for index in range(TRANSITION_LOADING_DOT_COUNT):
-		var dot: Panel = Panel.new()
-		dot.name = "LoadingDot%d" % [index + 1]
-		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		dot.position = Vector2(float(index) * (dot_size + separation), 0.0)
-		dot.size = Vector2(dot_size, dot_size)
-		dot.pivot_offset = dot.size * 0.5
+		var dot: Panel = _create_transition_loading_dot(index)
 		dot.scale = Vector2(0.92, 0.92)
-		dot.modulate.a = lerpf(0.50, 1.0, float(index + 1) / float(TRANSITION_LOADING_DOT_COUNT))
-		dot.add_theme_stylebox_override("panel", _create_transition_loading_dot_style(dot_size, scale_value))
+		dot.modulate.a = 1.0
 		loading.add_child(dot)
+		dots.append(dot)
+	_layout_transition_loading_group(loading, ring, label, dots)
 
 
 func _fade_out_root_transition_cover(cover: Control) -> void:
@@ -426,13 +504,8 @@ func _fade_out_root_transition_cover(cover: Control) -> void:
 func _play_exit_transition() -> void:
 	var tween := create_tween()
 	tween.set_parallel(true)
-	var use_snapshot: bool = _is_transition_snapshot_ready()
-	_set_transition_loading_visible(not use_snapshot)
-	if use_snapshot:
-		transition_snapshot.visible = true
-		transition_snapshot.modulate.a = 0.0
-		tween.tween_property(transition_snapshot, "modulate:a", 1.0, INTRO_FADE_OUT_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	elif transition_fade:
+	_set_transition_loading_visible(true)
+	if transition_fade:
 		transition_fade.visible = true
 		transition_fade.modulate.a = 0.0
 		tween.tween_property(transition_fade, "modulate:a", 1.0, INTRO_FADE_OUT_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://cnedxfn2pxh2t" path="res://level/level.tscn" id="8_gdquest"]
 [ext_resource type="Shader" uid="uid://cdlt3ujrpad32" path="res://level/sky_with_stars.tres" id="9_starsky"]
 [ext_resource type="Texture2D" uid="uid://ca3jtautvrj1u" path="res://level/moon.png" id="10_moon"]
+[ext_resource type="PackedScene" uid="uid://dy7febh6yyvxa" path="res://scenes/level/hunter_turret_training_dummy.tscn" id="11_pe1ox"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_r5xs5"]
 size = Vector2(90, 90)
@@ -108,7 +109,7 @@ shadow_blur = 1.35
 directional_shadow_max_distance = 80.0
 
 [node name="GDQuestControllerArena" parent="Environment" unique_id=1652334526 instance=ExtResource("8_gdquest")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.861568, -0.6645813, 27.616978)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33.784912, -0.6645813, 39.12569)
 
 [node name="ToyWorldFillLight" type="DirectionalLight3D" parent="Environment" unique_id=1802698653]
 transform = Transform3D(-0.7431448, -0.27215993, 0.6112812, 0, 0.9135454, 0.40673664, -0.6691306, 0.3022642, -0.67889655, 0, 0, 0)
@@ -156,3 +157,9 @@ visible = false
 visible = false
 
 [node name="HologramFlagContainer" type="Node3D" parent="." unique_id=440190093]
+
+[node name="TrainingTargets" type="Node3D" parent="." unique_id=1577044867]
+
+[node name="HunterTurretTrainingDummy" parent="TrainingTargets" unique_id=284828100 instance=ExtResource("11_pe1ox")]
+transform = Transform3D(-1, 0, -1.509958e-07, 0, 1, 0, 1.509958e-07, 0, -1, -32, 0, 8)
+collision_mask = 0

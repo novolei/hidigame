@@ -203,6 +203,7 @@ signal prep_phase_started(remaining_sec: float)      # 准备阶段开始
 signal prep_phase_ended()                            # 准备阶段结束
 signal match_started()                               # 正式比赛开始
 signal start_match_requested()                       # host 点击开始
+signal match_loading_started(map_name: String)
 signal card_draft_updated(peer_id: int, draft_state: Dictionary)
 signal card_loadout_updated(peer_id: int, loadout: Array)
 signal card_activated(peer_id: int, card_id: String, slot_index: int)
@@ -263,6 +264,12 @@ func _prop_role_count(lobby_players: Dictionary) -> int:
 
 
 @rpc("authority", "call_local", "reliable")
+func _rpc_match_loading_started(map_name: String):
+	_runtime_debug_log("[Network] RPC match_loading_started RECEIVED, map=", map_name)
+	match_loading_started.emit(map_name)
+
+
+@rpc("authority", "call_local", "reliable")
 func _rpc_match_intro_started(remaining_sec: float):
 	_runtime_debug_log("[Network] RPC match_intro_started RECEIVED, remaining=", remaining_sec)
 	match_intro_started.emit(remaining_sec)
@@ -288,6 +295,13 @@ func _rpc_match_started():
 	match_started.emit()
 
 # 服务器侧:广播给所有客户端
+func server_broadcast_match_loading_started(map_name: String) -> void:
+	if not multiplayer.is_server():
+		return
+	_runtime_debug_log("[Network] SERVER broadcasting match_loading_started, map=", map_name, " peer_count=", multiplayer.get_peers().size())
+	_rpc_match_loading_started.rpc(map_name)
+
+
 func server_broadcast_match_intro_started(remaining_sec: float) -> void:
 	if not multiplayer.is_server():
 		return

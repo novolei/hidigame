@@ -49,7 +49,7 @@ func _init() -> void:
 	var required_actions := [
 		"idle", "long_idle", "dizzy", "walk", "run", "jump", "jump_start", "jump_air", "jump_end", "fall", "land",
 		"attack", "attack_drill", "attack_saw", "attack_shark", "get_hit", "hit", "defense", "defense_hit",
-		"die", "die_recover", "dance", "victory", "grab", "grab_idle", "push", "slide", "throw",
+		"die", "die_recover", "trip", "dance", "victory", "grab", "grab_idle", "push", "slide", "throw",
 		"animation_layer_run", "root_motion_run", "root_motion_walk", "root_motion_slide",
 	]
 	for action_name in required_actions:
@@ -63,11 +63,11 @@ func _init() -> void:
 				if not animation_player.has_animation(clip_name):
 					failures.append("Action %s references missing clip %s" % [action_name, clip_name])
 
-	for method_name in ["idle", "move", "run", "jump", "fall", "land", "attack", "get_hit", "die", "dance", "dizzy", "victory", "grab", "grab_idle", "push", "slide", "throw", "play_action", "play_clip", "get_current_animation_length"]:
+	for method_name in ["idle", "move", "run", "jump", "fall", "land", "attack", "get_hit", "die", "trip", "dance", "dizzy", "victory", "grab", "grab_idle", "push", "slide", "throw", "play_action", "play_clip", "get_current_animation_length"]:
 		if not skin.has_method(method_name):
 			failures.append("Party Monster should expose method: %s" % method_name)
 
-	for action_name in ["idle", "move", "attack", "get_hit", "dance", "victory", "jump", "push", "slide", "throw", "die"]:
+	for action_name in ["idle", "move", "attack", "get_hit", "dance", "victory", "jump", "push", "slide", "throw", "trip", "die"]:
 		if skin.has_method("play_action") and not bool(skin.call("play_action", action_name)):
 			failures.append("Party Monster play_action should accept: %s" % action_name)
 		var current_clip := str(skin.call("get_current_animation_clip")) if skin.has_method("get_current_animation_clip") else ""
@@ -139,10 +139,17 @@ func _append_performance_camera_source_failures(failures: Array[String]) -> void
 		failures.append("Remote network motion should not immediately override an active performance broadcast")
 	if player_source.contains("outline.name = \"PartyMonsterBountyOutline\"") or player_source.contains("_get_party_monster_bounty_outline_material") or player_source.contains("func _refresh_party_monster_bounty_outlines"):
 		failures.append("Party Monster bounty marker should not create copied full-body transparent outline meshes")
+	for token in ["_try_party_monster_trip_from_slide_collisions", "_try_party_monster_trip_from_forward_sensor", "PhysicsRayQueryParameters3D.create", "PARTY_MONSTER_TRIP_MIN_SURFACE_HEIGHT_RATIO", "_is_party_monster_trip_surface_high_enough", "_begin_party_monster_trip_lock", "_finish_party_monster_trip_lock", "_should_hold_party_monster_trip_action"]:
+		if not player_source.contains(token):
+			failures.append("Player should keep Party Monster deterministic trip token: %s" % token)
+	var skin_source := FileAccess.get_file_as_string("res://assets/characters/party_monster/party_monster_skin.gd")
+	for token in ["\"trip\": [\"trip_01\", \"trip_02\"]", "_make_trip_animation_camera_safe"]:
+		if not skin_source.contains(token):
+			failures.append("Party Monster skin should keep camera-safe trip token: %s" % token)
 	var spring_source := FileAccess.get_file_as_string("res://scripts/spring_arm_offset.gd")
-	for token in ["capture_camera_rig_state", "apply_camera_rig_state", "set_camera_input_locked", "_camera_input_locked", "_request_owner_skin_performance_action(\"dance\")", "_request_owner_skin_performance_action(\"victory\")"]:
+	for token in ["capture_camera_rig_state", "apply_camera_rig_state", "set_camera_input_locked", "_camera_input_locked", "_request_owner_skin_performance_action(\"dance\")", "_request_owner_skin_performance_action(\"victory\")", "refresh_camera_collision_exclusions", "add_excluded_object", "clear_excluded_objects"]:
 		if not spring_source.contains(token):
-			failures.append("Spring arm should keep performance camera rig token: %s" % token)
+			failures.append("Spring arm should keep camera rig token: %s" % token)
 	if spring_source.contains("button_event.button_index == MOUSE_BUTTON_WHEEL_UP:\n\t\t\tzoom_camera"):
 		failures.append("Spring arm mouse wheel up should trigger dance instead of zoom")
 	if spring_source.contains("button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:\n\t\t\tzoom_camera"):

@@ -18,6 +18,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.randomize()
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_to_group("card_decoy_targets")
 	collision_layer = 1
 	collision_mask = 0
@@ -34,6 +35,8 @@ func configure(next_owner: Node3D, duration: float, local_offset: Vector3 = Vect
 	if source_owner and is_instance_valid(source_owner):
 		global_position = _target_position()
 		global_rotation.y = source_owner.global_rotation.y
+		if is_inside_tree():
+			reset_physics_interpolation()
 	_ensure_collision()
 	_ensure_visual()
 

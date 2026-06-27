@@ -77,6 +77,8 @@ func apply_data(data: Dictionary) -> void:
 	_configure_physics_body()
 	ground_position = data.get("position", global_position)
 	global_position = ground_position
+	if is_inside_tree():
+		reset_physics_interpolation()
 	rotation.y = float(data.get("rotation_y", rotation.y))
 	_refresh_groups()
 	_rebuild_visual()
@@ -262,12 +264,18 @@ func _configure_physics_body() -> void:
 
 
 func _configure_multiplayer_body_authority() -> void:
-	if multiplayer.is_server():
+	_apply_network_interpolation_policy()
+	if multiplayer.multiplayer_peer == null or multiplayer.is_server():
 		freeze = false
 		return
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	sleeping = true
+
+
+func _apply_network_interpolation_policy() -> void:
+	var use_engine_interpolation: bool = multiplayer.multiplayer_peer == null or multiplayer.is_server()
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT if use_engine_interpolation else Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 
 func _should_broadcast_network_state() -> bool:
@@ -324,10 +332,12 @@ func _sync_prop_rest_state(next_transform: Transform3D, next_linear_velocity: Ve
 func _apply_network_physics_state(next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool, force: bool = false) -> void:
 	if is_inside_tree() and multiplayer.is_server() and not force:
 		return
+	_apply_network_interpolation_policy()
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	if is_inside_tree():
 		global_transform = next_transform
+		reset_physics_interpolation()
 	else:
 		transform = next_transform
 	linear_velocity = next_linear_velocity
@@ -350,6 +360,8 @@ func _get_level_node() -> Node:
 func _place_body_and_visual_on_ground() -> void:
 	var base_ground := ground_position
 	global_position = Vector3(base_ground.x, base_ground.y + collision_half_height + GROUND_CLEARANCE, base_ground.z)
+	if is_inside_tree():
+		reset_physics_interpolation()
 	if not visual_root:
 		return
 	visual_root.position.y = 0.0

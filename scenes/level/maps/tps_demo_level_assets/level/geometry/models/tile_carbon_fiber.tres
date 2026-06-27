@@ -1,0 +1,20 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://yglwohitnfve"]
+
+[ext_resource type="Texture2D" uid="uid://bsvfhunudblk3" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/tile_carbon_fiber_orm.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://4lwidflt065w" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/tile_carbon_fiber_albedo.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://cqek2fitslosc" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/tile_carbon_fiber_normal.png" id="3"]
+
+[resource]
+resource_name = "tile_carbon_fiber"
+albedo_texture = ExtResource("2")
+metallic = 0.5
+metallic_texture = ExtResource("1")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("1")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_scale = 3.0
+normal_texture = ExtResource("3")
+ao_enabled = true
+ao_texture = ExtResource("1")
+texture_filter = 5

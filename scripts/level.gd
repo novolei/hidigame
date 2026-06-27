@@ -20,8 +20,34 @@ const MapPropSyncBudgetScript := preload("res://scripts/map_prop_sync_budget.gd"
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PartyMonsterAccessoryPickupScript := preload("res://scripts/party_monster_accessory_pickup.gd")
 const PartyMonsterHuntHUDScript := preload("res://scripts/party_monster_hunt_hud.gd")
+const DebugOverlayScript := preload("res://scripts/debug_overlay.gd")
 const NetworkDiagnosticConsoleScript := preload("res://scripts/network_diagnostic_console.gd")
 const HologramFlagScene := preload("res://scenes/effects/hologram_flag.tscn")
+const BENCHMARK_WINDOW_SIZE := Vector2i(1280, 720)
+const BENCHMARK_DECOR_VISIBILITY_RANGE := 90.0
+const BENCHMARK_DECOR_VISIBILITY_MARGIN := 12.0
+const MENU_BACKGROUND_NODE_PATHS := [
+	"Environment",
+	"PlayersContainer",
+	"PreparationRoom",
+	"HologramFlagContainer",
+	"TrainingTargets",
+]
+const LOADING_TIPS := [
+	"Tip: Hunters should listen for prop movement before committing to a chase.",
+	"Tip: Props survive longer when they break line of sight before disguising.",
+	"Tip: Stalkers can punish predictable patrol routes.",
+	"Tip: Machine-gun tracers are easiest to read when you watch the impact sparks.",
+	"Tip: Team balance is decided before loading finishes, so pick your role early.",
+]
+const LOADING_MIN_SECONDS := 1.25
+const LOADING_TIP_SECONDS := 1.8
+const LOADING_TITLE_FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
+const LOADING_VALUE_FONT_PATH := "res://assets/fonts/Saira-9.woff2"
+const LOADING_BODY_FONT_PATH := "res://assets/fonts/SairaCondensed-Medium.woff2"
+const LOADING_START_COLOR := Color(0.18, 0.74, 1.0, 1.0)
+const LOADING_BAND_BG_COLOR := Color(0.015, 0.035, 0.07, 0.82)
+const LOADING_BAND_BORDER_COLOR := Color(0.40, 0.82, 1.0, 0.58)
 
 @onready var multiplayer_chat: MultiplayerChatUI = $MultiplayerChatUI
 @onready var inventory_ui: InventoryUI = $InventoryUI
@@ -37,14 +63,41 @@ var skill_hud = null
 var card_hud = null
 var match_status_hud = null
 var party_monster_hunt_hud = null
+var debug_overlay: DebugOverlay = null
+var benchmark_mode_enabled := false
+var _benchmark_restore_state: Dictionary = {}
+var _benchmark_environment_state: Dictionary = {}
+var _benchmark_light_states: Array[Dictionary] = []
+var _benchmark_geometry_states: Array[Dictionary] = []
+var _menu_background_suspended := false
+var _menu_world_environment_resource: Environment = null
 var match_intro_overlay: MatchIntroOverlay = null
 var character_setup_overlay: CharacterSetupOverlay = null
+var loading_overlay_layer: CanvasLayer = null
+var loading_root_control: Control = null
+var loading_title_label: Label = null
+var loading_map_label: Label = null
+var loading_tip_label: Label = null
+var loading_progress_bar: ProgressBar = null
+var loading_progress_sweep: ColorRect = null
+var loading_status_label: Label = null
+var loading_percent_label: Label = null
+var loading_scan_line: ColorRect = null
+var loading_tip_timer: float = 0.0
+var loading_tip_index: int = 0
+var loading_overlay_time: float = 0.0
+var loading_sequence_active: bool = false
+var loading_title_font: Font = null
+var loading_value_font: Font = null
+var loading_body_font: Font = null
+var loading_show_tween: Tween = null
 
 # -----------------------------------------------------------------------------
 # Game state
 # -----------------------------------------------------------------------------
 enum GameState {
 	LOBBY,
+	LOADING,
 	CARD_DRAFT,
 	SKIN_CONFIG,
 	MATCH_INTRO,
@@ -113,6 +166,7 @@ const MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC: int = 90
 const MAP_PROP_IMPACT_THROTTLE_MAX_ENTRIES: int = 256
 const MAP_PROP_IMPACT_THROTTLE_PRUNE_MSEC: int = 2000
 const WORLD_COLLISION_MASK: int = 2
+const TPS_DEMO_LEVEL_MAP_NAME := "TPS Demo Level"
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
 const GROUND_RAY_DOWN: float = 160.0
@@ -124,6 +178,7 @@ const TANK_DEMO_MAP_SCENES := {
 	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
 	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
 	"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
+	"TPS Demo Level": "res://scenes/level/maps/tps_demo_level.tscn",
 	"garden": "res://scenes/level/maps/garden.tscn",
 	"Japanese Town Street": "res://scenes/level/maps/japanese_town_street.tscn",
 	"Western Town Prop Hunt": "res://scenes/level/maps/western_town_prop_hunt.tscn",
@@ -174,13 +229,21 @@ func _runtime_debug_log(
 	value10: Variant = null,
 	value11: Variant = null
 ) -> void:
-	if not GameSettings.should_log_runtime_debug():
+	var settings := _game_settings()
+	if settings and settings.has_method("should_log_runtime_debug") and not bool(settings.call("should_log_runtime_debug")):
 		return
 	var output := ""
 	for value in [value0, value1, value2, value3, value4, value5, value6, value7, value8, value9, value10, value11]:
 		if value != null:
 			output += str(value)
 	print(output)
+
+
+func _game_settings() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	return tree.root.get_node_or_null("GameSettings")
 
 
 func _has_runtime_multiplayer_peer() -> bool:
@@ -213,6 +276,10 @@ func _ready():
 
 	_configure_match_lighting()
 	_ensure_fixed_shadow_cover()
+	var settings := _game_settings()
+	var graphics_changed_callable: Callable = Callable(self, "_on_graphics_settings_changed")
+	if settings and settings.has_signal("graphics_changed") and not settings.is_connected("graphics_changed", graphics_changed_callable):
+		settings.connect("graphics_changed", graphics_changed_callable)
 
 	multiplayer_chat.hide()
 	multiplayer_chat.set_process_input(true)
@@ -245,6 +312,7 @@ func _ready():
 	Network.player_character_model_changed.connect(_on_player_character_model_changed)
 	Network.player_party_monster_accessories_changed.connect(_on_player_party_monster_accessories_changed)
 	Network.skin_config_started.connect(_on_skin_config_started)
+	Network.match_loading_started.connect(_on_match_loading_started)
 	Network.match_intro_started.connect(_on_match_intro_started)
 	Network.card_draft_updated.connect(_on_card_draft_updated)
 	Network.card_loadout_updated.connect(_on_card_loadout_updated)
@@ -263,8 +331,6 @@ func _ready():
 	Network.private_connection_status_changed.connect(_on_private_connection_status_changed)
 	Network.lobby_config_updated.connect(func(_config):
 		_refresh_lobby_ui()
-		if game_state == GameState.LOBBY:
-			_apply_selected_map_scene()
 	)
 	Network.start_match_requested.connect(_server_start_from_lobby)
 	SteamBridge.lobby_created.connect(_on_steam_lobby_created)
@@ -285,7 +351,9 @@ func _ready():
 		_set_preparation_room_active(true)
 		_set_preparation_gate_open(false)
 
-	_apply_selected_map_scene()
+	_apply_runtime_graphics_settings()
+	_sync_menu_background_performance_state(true)
+	_ensure_debug_overlay()
 	_ensure_status_hud()
 	_ensure_skill_hud()
 	_ensure_card_hud()
@@ -301,6 +369,404 @@ func _ready():
 
 func _mark_public_room_runtime_ready() -> void:
 	Network.mark_public_room_runtime_ready()
+
+
+func _on_match_loading_started(map_name: String) -> void:
+	if _is_multiplayer_server():
+		return
+	call_deferred("_begin_client_match_loading", map_name)
+
+
+func _begin_client_match_loading(map_name: String) -> void:
+	await _run_match_loading_sequence(map_name)
+	if game_state == GameState.LOADING:
+		_set_loading_progress(100.0, "Waiting for host...")
+
+
+func _server_start_loading_phase() -> void:
+	if not _is_multiplayer_server():
+		return
+	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	Network.server_broadcast_match_loading_started(selected_map)
+	await _run_match_loading_sequence(selected_map)
+	if game_state != GameState.LOADING:
+		return
+	_hide_loading_overlay()
+	_server_start_match_intro_phase()
+
+
+func _run_match_loading_sequence(map_name: String) -> void:
+	if loading_sequence_active:
+		return
+	loading_sequence_active = true
+	game_state = GameState.LOADING
+	if main_menu:
+		main_menu.hide_menu()
+	_set_hud_visible(false)
+	_show_loading_overlay(map_name)
+	_set_loading_progress(6.0, "Preparing lobby configuration...")
+	await get_tree().process_frame
+	await _preload_selected_map_resource(map_name)
+	_set_loading_progress(78.0, "Mounting arena...")
+	Network.lobby_config["map"] = map_name
+	_apply_selected_map_scene()
+	_apply_runtime_graphics_settings()
+	await get_tree().process_frame
+	_set_loading_progress(88.0, "Preparing players...")
+	await get_tree().process_frame
+	_set_loading_progress(96.0, "Finalizing match setup...")
+	var started_msec := Time.get_ticks_msec()
+	while float(Time.get_ticks_msec() - started_msec) / 1000.0 < LOADING_MIN_SECONDS:
+		await get_tree().process_frame
+	_set_loading_progress(100.0, "Ready")
+	loading_sequence_active = false
+
+
+func _preload_selected_map_resource(map_name: String) -> void:
+	if not TANK_DEMO_MAP_SCENES.has(map_name):
+		_set_loading_progress(48.0, "Using default arena...")
+		await get_tree().process_frame
+		return
+	var scene_path := str(TANK_DEMO_MAP_SCENES[map_name])
+	_set_loading_progress(12.0, "Loading " + map_name + "...")
+	if ResourceLoader.has_cached(scene_path):
+		_set_loading_progress(70.0, "Arena already cached...")
+		await get_tree().process_frame
+		return
+	var request_error := ResourceLoader.load_threaded_request(scene_path, "PackedScene", true)
+	if request_error != OK:
+		var fallback := load(scene_path)
+		if fallback is PackedScene:
+			_set_loading_progress(70.0, "Arena loaded...")
+		else:
+			push_warning("Configured map scene did not load: " + scene_path)
+		await get_tree().process_frame
+		return
+	var progress: Array = []
+	var status := ResourceLoader.load_threaded_get_status(scene_path, progress)
+	while status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		var ratio := 0.0
+		if not progress.is_empty():
+			ratio = clampf(float(progress[0]), 0.0, 1.0)
+		_set_loading_progress(12.0 + ratio * 58.0, "Loading " + map_name + "...")
+		await get_tree().process_frame
+		progress.clear()
+		status = ResourceLoader.load_threaded_get_status(scene_path, progress)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		ResourceLoader.load_threaded_get(scene_path)
+		_set_loading_progress(72.0, "Arena loaded...")
+	elif status == ResourceLoader.THREAD_LOAD_FAILED:
+		push_warning("Configured map scene did not load: " + scene_path)
+	else:
+		push_warning("Configured map scene load status was invalid: " + scene_path)
+	await get_tree().process_frame
+
+
+func _show_loading_overlay(map_name: String) -> void:
+	_ensure_loading_overlay()
+	loading_overlay_time = 0.0
+	loading_overlay_layer.visible = true
+	loading_tip_timer = LOADING_TIP_SECONDS
+	loading_tip_index = randi() % maxi(LOADING_TIPS.size(), 1)
+	if loading_map_label:
+		loading_map_label.text = map_name.to_upper()
+	if loading_root_control:
+		loading_root_control.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	if loading_title_label:
+		loading_title_label.modulate = Color.WHITE
+	if loading_progress_sweep:
+		loading_progress_sweep.position = Vector2(-160.0, 0.0)
+	_set_loading_tip(loading_tip_index, false)
+	_set_loading_progress(0.0, "Loading " + map_name + "...")
+	_start_loading_show_tween()
+
+
+func _hide_loading_overlay() -> void:
+	if loading_show_tween and loading_show_tween.is_valid():
+		loading_show_tween.kill()
+	if loading_root_control:
+		loading_root_control.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	if loading_overlay_layer:
+		loading_overlay_layer.visible = false
+
+
+func _ensure_loading_overlay() -> void:
+	if loading_overlay_layer:
+		return
+	_ensure_loading_fonts()
+	loading_overlay_layer = CanvasLayer.new()
+	loading_overlay_layer.name = "MapLoadingOverlay"
+	loading_overlay_layer.layer = 90
+	loading_overlay_layer.visible = false
+	add_child(loading_overlay_layer)
+
+	loading_root_control = Control.new()
+	loading_root_control.name = "LoadingRoot"
+	loading_root_control.mouse_filter = Control.MOUSE_FILTER_STOP
+	loading_root_control.set_anchors_preset(Control.PRESET_FULL_RECT)
+	loading_overlay_layer.add_child(loading_root_control)
+
+	var background := ColorRect.new()
+	background.name = "BlueBackdrop"
+	background.color = Color(0.006, 0.030, 0.075, 0.98)
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	loading_root_control.add_child(background)
+
+	var upper_glow := ColorRect.new()
+	upper_glow.name = "UpperCyanWash"
+	upper_glow.color = Color(0.0, 0.58, 1.0, 0.18)
+	upper_glow.anchor_right = 1.0
+	upper_glow.offset_bottom = 220.0
+	loading_root_control.add_child(upper_glow)
+
+	var lower_glow := ColorRect.new()
+	lower_glow.name = "LowerDeepBlueWash"
+	lower_glow.color = Color(0.02, 0.16, 0.42, 0.26)
+	lower_glow.anchor_top = 1.0
+	lower_glow.anchor_right = 1.0
+	lower_glow.anchor_bottom = 1.0
+	lower_glow.offset_top = -260.0
+	loading_root_control.add_child(lower_glow)
+
+	loading_scan_line = ColorRect.new()
+	loading_scan_line.name = "LoadingScanLine"
+	loading_scan_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loading_scan_line.color = Color(0.65, 0.92, 1.0, 0.12)
+	loading_scan_line.anchor_left = 0.0
+	loading_scan_line.anchor_right = 1.0
+	loading_scan_line.offset_top = -70.0
+	loading_scan_line.offset_bottom = -68.0
+	loading_root_control.add_child(loading_scan_line)
+
+	var band := PanelContainer.new()
+	band.name = "LoadingBand"
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.anchor_left = 0.0
+	band.anchor_right = 1.0
+	band.anchor_top = 0.5
+	band.anchor_bottom = 0.5
+	band.offset_left = 0.0
+	band.offset_right = 0.0
+	band.offset_top = -180.0
+	band.offset_bottom = 180.0
+	band.add_theme_stylebox_override("panel", _loading_band_style())
+	loading_root_control.add_child(band)
+
+	var content := VBoxContainer.new()
+	content.name = "LoadingContent"
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.custom_minimum_size = Vector2(980.0, 300.0)
+	content.add_theme_constant_override("separation", 12)
+	band.add_child(content)
+
+	var eyebrow := _make_loading_label("ARENA SYNC", 20, Color(0.62, 0.90, 1.0, 0.78), _get_loading_value_font(), 3)
+	eyebrow.name = "LoadingEyebrow"
+	content.add_child(eyebrow)
+
+	loading_title_label = _make_loading_label("LOADING MATCH", 58, LOADING_START_COLOR, _get_loading_title_font(), 8)
+	loading_title_label.name = "LoadingTitle"
+	content.add_child(loading_title_label)
+
+	loading_map_label = _make_loading_label("", 22, Color(0.88, 0.94, 1.0, 0.76), _get_loading_body_font(), 2)
+	loading_map_label.name = "LoadingMapName"
+	content.add_child(loading_map_label)
+
+	loading_tip_label = _make_loading_label("", 25, Color(0.90, 0.97, 1.0, 0.94), _get_loading_value_font(), 4)
+	loading_tip_label.name = "LoadingTip"
+	loading_tip_label.custom_minimum_size = Vector2(900.0, 52.0)
+	loading_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(loading_tip_label)
+
+	var progress_group := PanelContainer.new()
+	progress_group.name = "LoadingProgressGroup"
+	progress_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	progress_group.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	progress_group.custom_minimum_size = Vector2(920.0, 58.0)
+	progress_group.add_theme_stylebox_override("panel", _loading_style(Color(0.010, 0.040, 0.105, 0.70), Color(0.35, 0.82, 1.0, 0.42), 1, 12))
+	content.add_child(progress_group)
+
+	var progress_row := HBoxContainer.new()
+	progress_row.name = "LoadingProgressRow"
+	progress_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	progress_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	progress_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	progress_row.add_theme_constant_override("separation", 10)
+	progress_group.add_child(progress_row)
+
+	loading_progress_bar = ProgressBar.new()
+	loading_progress_bar.name = "LoadingProgressBar"
+	loading_progress_bar.min_value = 0.0
+	loading_progress_bar.max_value = 100.0
+	loading_progress_bar.step = 0.1
+	loading_progress_bar.show_percentage = false
+	loading_progress_bar.clip_contents = true
+	loading_progress_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	loading_progress_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	loading_progress_bar.custom_minimum_size = Vector2(760.0, 34.0)
+	loading_progress_bar.add_theme_stylebox_override("background", _loading_style(Color(0.006, 0.050, 0.135, 0.98), Color(0.42, 0.86, 1.0, 0.84), 2, 10))
+	loading_progress_bar.add_theme_stylebox_override("fill", _loading_style(Color(0.05, 0.74, 1.0, 1.0), Color(0.88, 0.98, 1.0, 0.96), 2, 10))
+	progress_row.add_child(loading_progress_bar)
+
+	loading_progress_sweep = ColorRect.new()
+	loading_progress_sweep.name = "LoadingProgressSweep"
+	loading_progress_sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loading_progress_sweep.color = Color(0.92, 1.0, 1.0, 0.34)
+	loading_progress_sweep.position = Vector2(-160.0, 0.0)
+	loading_progress_sweep.size = Vector2(150.0, 34.0)
+	loading_progress_bar.add_child(loading_progress_sweep)
+
+	loading_percent_label = _make_loading_label("0%", 38, Color(1.0, 1.0, 1.0, 0.96), _get_loading_value_font(), 8)
+	loading_percent_label.name = "LoadingPercent"
+	loading_percent_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	loading_percent_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	loading_percent_label.custom_minimum_size = Vector2(88.0, 44.0)
+	progress_row.add_child(loading_percent_label)
+
+	loading_status_label = _make_loading_label("", 17, Color(0.64, 0.84, 0.98, 0.84), _get_loading_body_font(), 2)
+	loading_status_label.name = "LoadingStatus"
+	loading_status_label.custom_minimum_size = Vector2(900.0, 28.0)
+	content.add_child(loading_status_label)
+
+
+func _ensure_loading_fonts() -> void:
+	if loading_title_font and loading_value_font and loading_body_font:
+		return
+	loading_title_font = _load_loading_font(LOADING_TITLE_FONT_PATH)
+	loading_value_font = _load_loading_font(LOADING_VALUE_FONT_PATH)
+	loading_body_font = _load_loading_font(LOADING_BODY_FONT_PATH)
+
+
+func _load_loading_font(path: String) -> Font:
+	var resource: Resource = load(path)
+	return resource if resource is Font else null
+
+
+func _get_loading_title_font() -> Font:
+	return loading_title_font if loading_title_font else ThemeDB.fallback_font
+
+
+func _get_loading_value_font() -> Font:
+	return loading_value_font if loading_value_font else _get_loading_title_font()
+
+
+func _get_loading_body_font() -> Font:
+	return loading_body_font if loading_body_font else _get_loading_value_font()
+
+
+func _make_loading_label(text: String, font_size: int, color: Color, font: Font, outline_size: int) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_override("font", font if font else ThemeDB.fallback_font)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.76))
+	label.add_theme_constant_override("outline_size", outline_size)
+	return label
+
+
+func _loading_band_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = LOADING_BAND_BG_COLOR
+	style.border_color = LOADING_BAND_BORDER_COLOR
+	style.border_width_top = 2
+	style.border_width_bottom = 2
+	style.content_margin_left = 48.0
+	style.content_margin_right = 48.0
+	style.content_margin_top = 30.0
+	style.content_margin_bottom = 30.0
+	return style
+
+
+func _loading_style(bg_color: Color, border_color: Color, border_width: int, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.border_color = border_color
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(radius)
+	style.shadow_color = Color(0.15, 0.68, 1.0, 0.18)
+	style.shadow_size = 8 if border_width > 0 else 0
+	return style
+
+
+func _start_loading_show_tween() -> void:
+	if not loading_root_control:
+		return
+	if loading_show_tween and loading_show_tween.is_valid():
+		loading_show_tween.kill()
+	loading_show_tween = create_tween()
+	loading_show_tween.tween_property(loading_root_control, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _set_loading_progress(value: float, status_text: String) -> void:
+	if not loading_progress_bar:
+		return
+	var progress := clampf(value, 0.0, 100.0)
+	loading_progress_bar.value = progress
+	if loading_percent_label:
+		loading_percent_label.text = "%d%%" % int(round(progress))
+	if loading_status_label:
+		loading_status_label.text = status_text.to_upper()
+	if loading_progress_sweep:
+		loading_progress_sweep.visible = progress > 1.0
+
+
+func _update_loading_tip(delta: float) -> void:
+	if not loading_overlay_layer or not loading_overlay_layer.visible:
+		return
+	_update_loading_overlay_motion(delta)
+	loading_tip_timer -= delta
+	if loading_tip_timer <= 0.0:
+		loading_tip_index = (loading_tip_index + 1) % maxi(LOADING_TIPS.size(), 1)
+		_set_loading_tip(loading_tip_index)
+		loading_tip_timer = LOADING_TIP_SECONDS
+
+
+func _update_loading_overlay_motion(delta: float) -> void:
+	loading_overlay_time += delta
+	var pulse := 0.5 + 0.5 * sin(loading_overlay_time * TAU * 0.72)
+	if loading_title_label:
+		var title_color: Color = LOADING_START_COLOR.lerp(Color(0.75, 0.95, 1.0, 1.0), pulse * 0.35)
+		loading_title_label.add_theme_color_override("font_color", title_color)
+		var title_modulate: Color = loading_title_label.modulate
+		title_modulate.a = 0.92 + pulse * 0.08
+		loading_title_label.modulate = title_modulate
+	if loading_scan_line:
+		var viewport_height: float = maxf(1.0, get_viewport().get_visible_rect().size.y)
+		var scan_y: float = fposmod(loading_overlay_time * 115.0, viewport_height + 140.0) - 70.0
+		loading_scan_line.offset_top = scan_y
+		loading_scan_line.offset_bottom = scan_y + 2.0
+		var scan_color: Color = loading_scan_line.color
+		scan_color.a = 0.10 + pulse * 0.06
+		loading_scan_line.color = scan_color
+	if loading_progress_sweep and loading_progress_bar:
+		var bar_width: float = maxf(loading_progress_bar.size.x, loading_progress_bar.custom_minimum_size.x)
+		var bar_height: float = maxf(loading_progress_bar.size.y, loading_progress_bar.custom_minimum_size.y)
+		loading_progress_sweep.size = Vector2(150.0, bar_height)
+		loading_progress_sweep.position = Vector2(fposmod(loading_overlay_time * 310.0, bar_width + 170.0) - 160.0, 0.0)
+	if loading_tip_label:
+		var tip_modulate: Color = loading_tip_label.modulate
+		tip_modulate.a = move_toward(tip_modulate.a, 1.0, delta * 2.8)
+		loading_tip_label.modulate = tip_modulate
+	if loading_percent_label:
+		var percent_modulate: Color = loading_percent_label.modulate
+		percent_modulate.a = 0.90 + pulse * 0.10
+		loading_percent_label.modulate = percent_modulate
+
+
+func _set_loading_tip(index: int, animate: bool = true) -> void:
+	if not loading_tip_label or LOADING_TIPS.is_empty():
+		return
+	loading_tip_label.text = str(LOADING_TIPS[index % LOADING_TIPS.size()])
+	var tip_modulate: Color = loading_tip_label.modulate
+	tip_modulate.a = 0.42 if animate else 1.0
+	loading_tip_label.modulate = tip_modulate
 
 
 func _apply_selected_map_scene() -> void:
@@ -335,8 +801,24 @@ func _apply_selected_map_scene() -> void:
 		push_warning("Configured map scene did not instantiate: " + selected_map)
 		return
 	map_root.name = "TankDemoMapRoot"
+	map_root.set_meta("selected_map", selected_map)
 	environment.add_child(map_root)
 	_sanitize_embedded_map_lighting(map_root)
+	_adapt_embedded_map_collision(map_root, selected_map)
+
+
+func _apply_selected_map_scene_if_stale() -> void:
+	var environment := get_node_or_null("Environment") as Node3D
+	if not environment:
+		return
+	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	var existing := environment.get_node_or_null("TankDemoMapRoot")
+	if TANK_DEMO_MAP_SCENES.has(selected_map):
+		if existing and str(existing.get_meta("selected_map", "")) == selected_map:
+			return
+		_apply_selected_map_scene()
+	elif existing:
+		_apply_selected_map_scene()
 
 
 func _sanitize_embedded_map_lighting(map_root: Node) -> void:
@@ -355,9 +837,316 @@ func _sanitize_embedded_map_lighting(map_root: Node) -> void:
 			directional.light_energy = 0.0
 
 
+func _adapt_embedded_map_collision(map_root: Node, selected_map: String) -> void:
+	if selected_map != TPS_DEMO_LEVEL_MAP_NAME or map_root == null:
+		return
+	var adapted_count := 0
+	var skipped_area_count := 0
+	var collision_nodes: Array[Node] = map_root.find_children("*", "CollisionObject3D", true, false)
+	for node in collision_nodes:
+		var collision := node as CollisionObject3D
+		if collision == null:
+			continue
+		if collision is Area3D:
+			skipped_area_count += 1
+			continue
+		if collision.collision_layer == 0:
+			continue
+		collision.collision_layer = WORLD_COLLISION_MASK
+		adapted_count += 1
+	map_root.set_meta("world_collision_adapted_count", adapted_count)
+	map_root.set_meta("world_collision_skipped_area_count", skipped_area_count)
+
+
+func is_benchmark_mode_enabled() -> bool:
+	return benchmark_mode_enabled
+
+
+func get_benchmark_status_text() -> String:
+	if not benchmark_mode_enabled:
+		return "Off"
+	return "On %dx%d VSync Off" % [BENCHMARK_WINDOW_SIZE.x, BENCHMARK_WINDOW_SIZE.y]
+
+
+func get_benchmark_metrics() -> Dictionary:
+	var metrics: Dictionary = {
+		"enabled": benchmark_mode_enabled,
+		"fps": Engine.get_frames_per_second(),
+		"max_fps": Engine.max_fps,
+		"menu_background_suspended": _menu_background_suspended,
+		"draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+		"render_objects": Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+		"primitives": Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+		"memory_static_mib": float(Performance.get_monitor(Performance.MEMORY_STATIC)) / 1048576.0,
+	}
+	if DisplayServer.get_name() != "headless":
+		metrics["vsync_mode"] = DisplayServer.window_get_vsync_mode()
+		metrics["window_mode"] = DisplayServer.window_get_mode()
+		metrics["window_size"] = DisplayServer.window_get_size()
+	return metrics
+
+
+func _on_graphics_settings_changed(_settings: Dictionary) -> void:
+	_apply_runtime_graphics_settings()
+
+
+func _apply_runtime_graphics_settings() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	_configure_match_lighting()
+	var settings := _game_settings()
+	if settings and settings.has_method("apply_graphics_settings"):
+		settings.call("apply_graphics_settings", get_window(), get_viewport(), _get_match_environment_resource(), self)
+	if benchmark_mode_enabled:
+		_apply_benchmark_window_state(true)
+		_apply_benchmark_render_policy(true)
+	_sync_menu_background_performance_state(true)
+
+
+func _set_benchmark_mode_enabled(enabled: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if benchmark_mode_enabled == enabled:
+		return
+	if enabled:
+		_capture_benchmark_restore_state()
+		benchmark_mode_enabled = true
+		_apply_benchmark_window_state(true)
+		_apply_benchmark_render_policy(true)
+	else:
+		benchmark_mode_enabled = false
+		_apply_benchmark_render_policy(false)
+		_apply_benchmark_window_state(false)
+	if debug_overlay and is_instance_valid(debug_overlay):
+		debug_overlay._process(0.0)
+
+
+func _capture_benchmark_restore_state() -> void:
+	var viewport: Viewport = get_viewport()
+	_benchmark_restore_state = {
+		"vsync_mode": DisplayServer.window_get_vsync_mode(),
+		"window_mode": DisplayServer.window_get_mode(),
+		"window_size": DisplayServer.window_get_size(),
+		"window_position": DisplayServer.window_get_position(),
+		"max_fps": Engine.max_fps,
+	}
+	if viewport:
+		_benchmark_restore_state["scaling_3d_mode"] = viewport.scaling_3d_mode
+		_benchmark_restore_state["scaling_3d_scale"] = viewport.scaling_3d_scale
+
+
+func _apply_benchmark_window_state(enabled: bool) -> void:
+	var viewport: Viewport = get_viewport()
+	if enabled:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		Engine.max_fps = 0
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(BENCHMARK_WINDOW_SIZE)
+		if viewport:
+			viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+			viewport.scaling_3d_scale = 1.0
+		return
+	if _benchmark_restore_state.is_empty():
+		return
+	if viewport:
+		if _benchmark_restore_state.has("scaling_3d_mode"):
+			viewport.set("scaling_3d_mode", int(_benchmark_restore_state.get("scaling_3d_mode", viewport.scaling_3d_mode)))
+		if _benchmark_restore_state.has("scaling_3d_scale"):
+			viewport.scaling_3d_scale = float(_benchmark_restore_state.get("scaling_3d_scale", viewport.scaling_3d_scale))
+	DisplayServer.window_set_vsync_mode(int(_benchmark_restore_state.get("vsync_mode", DisplayServer.VSYNC_ENABLED)))
+	Engine.max_fps = int(_benchmark_restore_state.get("max_fps", 0))
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	if _benchmark_restore_state.has("window_size"):
+		DisplayServer.window_set_size(_benchmark_restore_state.get("window_size", BENCHMARK_WINDOW_SIZE))
+	if _benchmark_restore_state.has("window_position"):
+		DisplayServer.window_set_position(_benchmark_restore_state.get("window_position", Vector2i.ZERO))
+	DisplayServer.window_set_mode(int(_benchmark_restore_state.get("window_mode", DisplayServer.WINDOW_MODE_WINDOWED)))
+	_benchmark_restore_state.clear()
+
+
+func _apply_benchmark_render_policy(enabled: bool) -> void:
+	var environment: Environment = _get_match_environment_resource()
+	if environment:
+		_apply_benchmark_environment_policy(environment, enabled)
+	_apply_benchmark_light_policy(enabled)
+	_apply_benchmark_geometry_policy(enabled)
+
+
+func _get_match_environment_resource() -> Environment:
+	var world_environment := get_node_or_null("Environment/WorldEnvironment") as WorldEnvironment
+	if world_environment and world_environment.environment:
+		return world_environment.environment
+	return _menu_world_environment_resource
+
+
+func _apply_benchmark_environment_policy(environment: Environment, enabled: bool) -> void:
+	if enabled:
+		if _benchmark_environment_state.is_empty():
+			_benchmark_environment_state = _make_property_state(environment, [
+				"glow_enabled",
+				"fog_enabled",
+				"volumetric_fog_enabled",
+				"ssao_enabled",
+				"ssil_enabled",
+				"sdfgi_enabled",
+				"tonemap_mode",
+				"tonemap_exposure",
+			])
+		_set_property_if_present(environment, "glow_enabled", false)
+		_set_property_if_present(environment, "fog_enabled", false)
+		_set_property_if_present(environment, "volumetric_fog_enabled", false)
+		_set_property_if_present(environment, "ssao_enabled", false)
+		_set_property_if_present(environment, "ssil_enabled", false)
+		_set_property_if_present(environment, "sdfgi_enabled", false)
+		_set_property_if_present(environment, "tonemap_mode", Environment.TONE_MAPPER_LINEAR)
+		_set_property_if_present(environment, "tonemap_exposure", 1.0)
+		return
+	_restore_property_state(_benchmark_environment_state)
+	_benchmark_environment_state.clear()
+
+
+func _apply_benchmark_light_policy(enabled: bool) -> void:
+	if enabled:
+		_benchmark_light_states.clear()
+		var lights: Array[Node] = find_children("*", "Light3D", true, false)
+		for node in lights:
+			var light := node as Light3D
+			if not light:
+				continue
+			_benchmark_light_states.append(_make_property_state(light, [
+				"visible",
+				"shadow_enabled",
+				"shadow_blur",
+				"light_energy",
+				"light_volumetric_fog_energy",
+				"distance_fade_enabled",
+				"distance_fade_begin",
+				"distance_fade_length",
+				"distance_fade_shadow",
+				"directional_shadow_max_distance",
+			]))
+			light.shadow_enabled = false
+			light.light_volumetric_fog_energy = 0.0
+			_set_property_if_present(light, "shadow_blur", 0.0)
+			_set_property_if_present(light, "directional_shadow_max_distance", 45.0)
+			_set_property_if_present(light, "distance_fade_enabled", true)
+			_set_property_if_present(light, "distance_fade_begin", 28.0)
+			_set_property_if_present(light, "distance_fade_length", 10.0)
+			_set_property_if_present(light, "distance_fade_shadow", 20.0)
+		return
+	for state in _benchmark_light_states:
+		_restore_property_state(state)
+	_benchmark_light_states.clear()
+
+
+func _apply_benchmark_geometry_policy(enabled: bool) -> void:
+	if enabled:
+		_benchmark_geometry_states.clear()
+		var geometry_nodes: Array[Node] = []
+		geometry_nodes.append_array(find_children("*", "MeshInstance3D", true, false))
+		geometry_nodes.append_array(find_children("*", "CSGShape3D", true, false))
+		geometry_nodes.append_array(find_children("*", "GPUParticles3D", true, false))
+		geometry_nodes.append_array(find_children("*", "Label3D", true, false))
+		for node in geometry_nodes:
+			var instance := node as GeometryInstance3D
+			if not instance:
+				continue
+			_benchmark_geometry_states.append(_make_property_state(instance, [
+				"cast_shadow",
+				"gi_mode",
+				"visibility_range_end",
+				"visibility_range_end_margin",
+				"visibility_range_fade_mode",
+			]))
+			_set_property_if_present(instance, "cast_shadow", GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+			instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+			if _should_limit_benchmark_visibility(instance):
+				instance.visibility_range_end = BENCHMARK_DECOR_VISIBILITY_RANGE
+				instance.visibility_range_end_margin = BENCHMARK_DECOR_VISIBILITY_MARGIN
+				instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		return
+	for state in _benchmark_geometry_states:
+		_restore_property_state(state)
+	_benchmark_geometry_states.clear()
+
+
+func _should_limit_benchmark_visibility(instance: GeometryInstance3D) -> bool:
+	var lower_name := String(instance.name).to_lower()
+	for token in ["ground", "floor", "wall", "border", "gate", "terrain", "map"]:
+		if lower_name.contains(token):
+			return false
+	return true
+
+
+func _make_property_state(object: Object, property_names: Array) -> Dictionary:
+	var properties: Dictionary = {}
+	for property_name in property_names:
+		var key := str(property_name)
+		if _has_property(object, key):
+			properties[key] = object.get(key)
+	return {
+		"node": object,
+		"properties": properties,
+	}
+
+
+func _restore_property_state(state: Dictionary) -> void:
+	var object := state.get("node", null) as Object
+	if object == null or not is_instance_valid(object):
+		return
+	var properties: Dictionary = state.get("properties", {})
+	for property_name in properties.keys():
+		var key := str(property_name)
+		if _has_property(object, key):
+			object.set(key, properties[property_name])
+
+
+func _has_property(object: Object, property_name: String) -> bool:
+	if object == null:
+		return false
+	for property in object.get_property_list():
+		if str(property.get("name", "")) == property_name:
+			return true
+	return false
+
+
+func _sync_menu_background_performance_state(force: bool = false) -> void:
+	var should_suspend := _should_suspend_background_world_for_menu()
+	if not force and should_suspend == _menu_background_suspended:
+		return
+	_menu_background_suspended = should_suspend
+	_set_menu_background_suspended(should_suspend)
+
+
+func _should_suspend_background_world_for_menu() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	return game_state == GameState.LOBBY and main_menu and main_menu.is_menu_visible()
+
+
+func _set_menu_background_suspended(suspended: bool) -> void:
+	for node_path in MENU_BACKGROUND_NODE_PATHS:
+		var node := get_node_or_null(str(node_path)) as Node3D
+		if node:
+			node.visible = not suspended
+	var world_environment := get_node_or_null("Environment/WorldEnvironment") as WorldEnvironment
+	if not world_environment:
+		return
+	if suspended:
+		if _menu_world_environment_resource == null:
+			_menu_world_environment_resource = world_environment.environment
+		world_environment.environment = null
+	elif _menu_world_environment_resource:
+		world_environment.environment = _menu_world_environment_resource
+		_menu_world_environment_resource = null
+
+
 func _process(delta):
+	_sync_menu_background_performance_state()
 	# 鏇存柊鍊掕鏃舵樉绀?浠讳綍鐘舵€?
-	if game_state == GameState.SKIN_CONFIG:
+	if game_state == GameState.LOADING:
+		_update_loading_tip(delta)
+	elif game_state == GameState.SKIN_CONFIG:
 		skin_config_remaining = max(0.0, skin_config_remaining - delta)
 		_update_character_setup_ui()
 		if _is_multiplayer_server() and skin_config_remaining <= 0.0:
@@ -754,6 +1543,7 @@ func _hide_menu_after_spawn() -> void:
 	await get_tree().process_frame
 	if main_menu and is_instance_valid(main_menu):
 		main_menu.hide_menu()
+	_sync_menu_background_performance_state(true)
 	_update_mouse_capture()
 
 
@@ -770,6 +1560,18 @@ func _should_spawn_player_nodes() -> bool:
 # -----------------------------------------------------------------------------
 # 鏈嶅姟鍣?鐜╁杩炴帴 / 瑙掕壊 / spawn
 # -----------------------------------------------------------------------------
+func _place_player_immediate(player_node: Node, next_position: Vector3) -> void:
+	if player_node == null:
+		return
+	if player_node.has_method("set_global_position_immediate"):
+		player_node.call("set_global_position_immediate", next_position)
+	elif player_node is Node3D:
+		var spatial := player_node as Node3D
+		spatial.global_position = next_position
+		if spatial.is_inside_tree():
+			spatial.reset_physics_interpolation()
+
+
 func _on_player_connected(peer_id, player_info):
 	_handle_room_player_joined(int(peer_id), player_info)
 	if _should_spawn_player_nodes():
@@ -1009,8 +1811,10 @@ func _add_player(id: int, player_info: Dictionary):
 
 	var player = player_scene.instantiate()
 	player.name = str(id)
-	player.position = get_spawn_point_for_role(int(player_info.get("role", Network.Role.NONE)), id)
+	var spawn_position := get_spawn_point_for_role(int(player_info.get("role", Network.Role.NONE)), id)
+	player.position = spawn_position
 	players_container.add_child(player, true)
+	_place_player_immediate(player, spawn_position)
 
 	var nick = str(player_info.get("nick", "Player_" + str(id)))
 	player.nickname.text = nick
@@ -1044,7 +1848,7 @@ func _try_reposition_player(pid: int) -> bool:
 		return false
 
 	var new_pos = get_spawn_point_for_role(role, pid)
-	player_node.global_position = new_pos
+	_place_player_immediate(player_node, new_pos)
 
 	# Hunter 鍦?PREP 闃舵閿佸畾
 	if player_node.has_method("set_match_intro_locked"):
@@ -1229,7 +2033,7 @@ func _server_schedule_prep_phase() -> void:
 	await get_tree().process_frame
 
 	# 杩涘叆鍑嗗闃舵
-	_server_start_card_draft_phase()
+	await _server_start_loading_phase()
 
 
 func _on_lobby_config_changed(config: Dictionary) -> void:
@@ -1246,7 +2050,7 @@ func _on_start_match_pressed(config: Dictionary) -> void:
 	Network.request_update_lobby_config(config)
 	if _is_multiplayer_server():
 		await get_tree().process_frame
-		_server_start_from_lobby()
+		await _server_start_from_lobby()
 	else:
 		Network.request_start_match()
 
@@ -1261,12 +2065,13 @@ func _server_start_from_lobby() -> void:
 		return
 	Network.server_auto_balance_roles(true)
 	await get_tree().process_frame
-	_server_start_card_draft_phase()
+	await _server_start_loading_phase()
 
 
 func _server_start_card_draft_phase() -> void:
 	if not _is_multiplayer_server():
 		return
+	_hide_loading_overlay()
 	main_menu.hide_menu()
 	game_state = GameState.CARD_DRAFT
 	Network.server_start_card_drafts_for_match()
@@ -1296,6 +2101,8 @@ func _server_start_match_intro_phase() -> void:
 	if not _is_multiplayer_server():
 		return
 	game_state = GameState.MATCH_INTRO
+	_hide_loading_overlay()
+	_ensure_hider_party_monster_defaults()
 	skin_config_remaining = 0.0
 	match_intro_remaining = MATCH_INTRO_DURATION
 	_set_preparation_room_active(true)
@@ -1329,7 +2136,7 @@ func _server_start_prep_phase() -> void:
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(true)
 			# 绉诲姩鍒板噯澶囧浣嶇疆
-			p.global_position = get_spawn_point_for_role(Network.Role.HUNTER, pid)
+			_place_player_immediate(p, get_spawn_point_for_role(Network.Role.HUNTER, pid))
 
 	# 鍦?server 鏈湴绔嬪嵆鏇存柊 HUD
 	_runtime_debug_log("[Level] SERVER: prep_timer_label = ", prep_timer_label)
@@ -1357,7 +2164,7 @@ func _server_end_prep_phase() -> void:
 			if p.has_method("set_prep_locked"):
 				p.set_prep_locked(false)
 			# 绉诲姩鍒颁富鎴樺満鍏ュ彛
-			p.global_position = get_grounded_spawn_position(LevelLayout.hunter_release_point(release_index, hunter_ids.size()))
+			_place_player_immediate(p, get_grounded_spawn_position(LevelLayout.hunter_release_point(release_index, hunter_ids.size())))
 
 	_set_preparation_room_active(false)
 
@@ -1738,6 +2545,8 @@ func _spawn_or_update_hologram_flag(owner_id: int, state: Dictionary) -> Hologra
 	flag.configure(state)
 	var flag_transform: Transform3D = state.get("transform", Transform3D.IDENTITY)
 	flag.global_transform = flag_transform
+	if flag.is_inside_tree():
+		flag.reset_physics_interpolation()
 	return flag
 
 
@@ -2452,6 +3261,7 @@ func _should_mark_party_monster_bounty_player(info: Dictionary) -> bool:
 
 func _on_skin_config_started(remaining: float) -> void:
 	game_state = GameState.SKIN_CONFIG
+	_hide_loading_overlay()
 	skin_config_remaining = maxf(0.0, remaining)
 	match_intro_remaining = 0.0
 	prep_remaining = 0.0
@@ -2468,6 +3278,7 @@ func _on_skin_config_started(remaining: float) -> void:
 
 func _on_match_intro_started(remaining: float) -> void:
 	game_state = GameState.MATCH_INTRO
+	_hide_loading_overlay()
 	match_intro_remaining = maxf(0.0, remaining)
 	skin_config_remaining = 0.0
 	prep_remaining = 0.0
@@ -2485,6 +3296,7 @@ func _on_match_intro_started(remaining: float) -> void:
 
 func _on_prep_phase_started(remaining: float) -> void:
 	game_state = GameState.PREP
+	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_set_preparation_room_active(true)
 	_hide_character_setup_overlay()
@@ -2514,6 +3326,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 
 func _on_prep_phase_ended() -> void:
 	game_state = GameState.PLAY
+	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_hide_match_intro_overlay()
 	_set_match_intro_locked(false)
@@ -2532,6 +3345,7 @@ func _on_prep_phase_ended() -> void:
 
 func _on_match_started() -> void:
 	game_state = GameState.PLAY
+	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_set_preparation_room_active(false)
 	_hide_match_intro_overlay()
@@ -2676,6 +3490,19 @@ func _set_preparation_gate_open(open: bool) -> void:
 	_runtime_debug_log("[Level] Preparation gate ", "opened" if open else "closed", " (legacy gate collider disabled)")
 
 
+func _ensure_debug_overlay() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud: CanvasLayer = $HUDCanvas
+	debug_overlay = hud.get_node_or_null("DebugOverlay") as DebugOverlay
+	if not debug_overlay:
+		debug_overlay = DebugOverlayScript.new() as DebugOverlay
+		debug_overlay.name = "DebugOverlay"
+		hud.add_child(debug_overlay)
+
+
 func _ensure_status_hud() -> void:
 	if not has_node("HUDCanvas"):
 		return
@@ -2690,6 +3517,7 @@ func _ensure_status_hud() -> void:
 		status_label.add_theme_constant_override("shadow_offset_x", 2)
 		status_label.add_theme_constant_override("shadow_offset_y", 2)
 		hud.add_child(status_label)
+	status_label.position = Vector2(16, 138 if debug_overlay else 16)
 
 	combat_feedback_label = hud.get_node_or_null("CombatFeedbackLabel")
 	if not combat_feedback_label:
@@ -2986,7 +3814,7 @@ func _update_status_hud() -> void:
 	if not status_label.visible:
 		return
 	var role = Network.get_my_role()
-	var phase_key = ["LOBBY", "CARD_DRAFT", "SKIN_CONFIG", "MATCH_INTRO", "PREP", "PLAY", "END"][game_state]
+	var phase_key = ["LOBBY", "LOADING", "CARD_DRAFT", "SKIN_CONFIG", "MATCH_INTRO", "PREP", "PLAY", "END"][game_state]
 	var phase = I18n.t("phase." + phase_key)
 	var lines := [
 		"%s: %s" % [I18n.t("phase"), phase],
@@ -3102,8 +3930,9 @@ func _update_card_hud() -> void:
 
 func _on_card_draft_updated(peer_id: int, _draft_state: Dictionary) -> void:
 	if peer_id == _local_peer_id():
-		if not _draft_state.is_empty() and not bool(_draft_state.get("complete", false)) and game_state == GameState.LOBBY:
+		if not _draft_state.is_empty() and not bool(_draft_state.get("complete", false)) and (game_state == GameState.LOBBY or game_state == GameState.LOADING):
 			game_state = GameState.CARD_DRAFT
+			_hide_loading_overlay()
 			if main_menu:
 				main_menu.hide_menu()
 			_set_hud_visible(true)
@@ -3369,6 +4198,12 @@ func is_chat_visible() -> bool:
 func _input(event):
 	if event is InputEventMouseButton and event.pressed and _should_capture_mouse():
 		_capture_game_mouse()
+	if event.is_action_pressed("toggle_benchmark_mode"):
+		if event is InputEventKey and (event as InputEventKey).echo:
+			return
+		_set_benchmark_mode_enabled(not benchmark_mode_enabled)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
 		if _handle_network_console_key(key_event):

@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://c2gpxkhpbvilu"]
+
+[ext_resource type="PackedScene" uid="uid://b25uqksva4nae" path="res://scenes/level/maps/tps_demo_level_assets/level/level.tscn" id="1_60bm0"]
+
+[node name="TpsDemoLevelMap" type="Node3D" unique_id=857159455]
+
+[node name="TpsDemoLevelContent" parent="." unique_id=582382165 instance=ExtResource("1_60bm0")]

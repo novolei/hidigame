@@ -27,6 +27,10 @@ func _test_manifest_validation_and_pending_packages() -> void:
 	var remote := _remote_manifest()
 	var validation_errors := Manifest.validate(remote)
 	_expect(validation_errors.is_empty(), "Valid manifest should pass validation: %s" % str(validation_errors))
+	var package_urls := Manifest.package_urls(remote, (remote.get("packages", []) as Array)[0] as Dictionary, "https://updates.example.invalid/maomao/dev/manifest.json")
+	_expect(package_urls.size() == 2, "Package URLs should include primary and mirror sources")
+	_expect(package_urls[0] == "https://updates.example.invalid/maomao/dev/packages/core_patch_0.4.5.pck", "Primary package URL should be first")
+	_expect(package_urls[1] == "https://updates-al.example.invalid/maomao/dev/packages/core_patch_0.4.5.pck", "Mirror package URL should be second")
 	var installed := {
 		"schema_version": Constants.MANIFEST_SCHEMA_VERSION,
 		"packages": [
@@ -93,6 +97,12 @@ func _remote_manifest() -> Dictionary:
 		"min_app_version": "0.4.4",
 		"protocol_version": Constants.DEFAULT_PROTOCOL_VERSION,
 		"base_url": "https://updates.example.invalid/maomao/dev",
+		"mirrors": [
+			{
+				"id": "AL",
+				"base_url": "https://updates-al.example.invalid/maomao/dev",
+			},
+		],
 		"packages": [
 			{
 				"id": "core_patch",

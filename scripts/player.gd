@@ -74,6 +74,18 @@ const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hu
 const DEATH_DISSOLVE_SECONDS := 2.4
 const DEATH_DISSOLVE_NOISE_SCALE := 1.65
 const DEATH_DISSOLVE_EDGE_WIDTH := 0.055
+const PARTY_MONSTER_TRIP_MIN_SPEED := RUN_SPEED * 0.55
+const PARTY_MONSTER_TRIP_COOLDOWN_SECONDS := 2.6
+const PARTY_MONSTER_TRIP_REACTION_LOCK_SECONDS := 0.95
+const PARTY_MONSTER_TRIP_FALLBACK_LOCK_SECONDS := 1.25
+const PARTY_MONSTER_TRIP_MIN_SURFACE_HEIGHT_RATIO := 0.5
+const PARTY_MONSTER_TRIP_HEIGHT_MARGIN := 0.08
+const PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y := -1000000.0
+const PARTY_MONSTER_TRIP_COLLISION_NORMAL_MAX_Y := 0.55
+const PARTY_MONSTER_TRIP_MIN_COLLISION_OPPOSITION := 0.20
+const PARTY_MONSTER_TRIP_GROUND_CONTACT_HEIGHT := 2.25
+const PARTY_MONSTER_TRIP_SENSOR_FORWARD_OFFSET := 0.48
+const PARTY_MONSTER_TRIP_SENSOR_DISTANCE := 1.25
 const DEAD_FREE_CAM_NORMAL_SPEED := 8.0
 const DEAD_FREE_CAM_SPRINT_SPEED := 18.0
 const DEAD_FREE_CAM_ACCELERATION := 32.0
@@ -194,6 +206,9 @@ var _dead_free_camera_active := false
 var _death_dissolve_tween: Tween = null
 var _death_dissolve_root: Node3D = null
 var _death_dissolve_material: ShaderMaterial = null
+var _party_monster_trip_cooldown := 0.0
+var _party_monster_trip_reaction_lock_remaining := 0.0
+var _party_monster_trip_action_locked := false
 var _dead_weapon_visual_hidden := false
 var _jump_audio: AudioStreamPlayer3D = null
 var _land_audio: AudioStreamPlayer3D = null
@@ -349,6 +364,15 @@ func _ready():
 	else:
 		if get_multiplayer_authority() == local_client_id:
 			request_inventory_sync.rpc_id(1)
+
+
+func set_global_position_immediate(next_position: Vector3) -> void:
+	global_position = next_position
+	if is_inside_tree():
+		reset_physics_interpolation()
+	_remote_visual_position = next_position
+	_remote_visual_position_initialized = true
+	_remote_motion_sampler.reset(next_position, true)
 
 
 func _check_role_after_assignment() -> void:
@@ -1408,6 +1432,8 @@ func _process_input_held():
 		return
 	if match_intro_locked:
 		return
+	if _party_monster_trip_action_locked:
+		return
 
 	# Hunter 鎸佺画寮€鐏?
 	if is_hunter():
@@ -1629,6 +1655,21 @@ func _physics_process(delta):
 		move_and_slide()
 		return
 
+	if _party_monster_trip_action_locked:
+		var trip_was_on_floor := is_on_floor()
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= gravity * delta
+		else:
+			velocity.y = minf(velocity.y, 0.0)
+		_current_speed = 0.0
+		_animate_body(Vector3.ZERO)
+		move_and_slide()
+		_update_safe_ground_position()
+		_update_movement_audio(delta, trip_was_on_floor)
+		return
+
 	if _camouflage_brush_locked and _chameleon_sculpt_shell_active:
 		_process_sculpt_free_fly(delta)
 		move_and_slide()
@@ -1676,6 +1717,8 @@ func _physics_process(delta):
 	_move(delta)
 	var impact_velocity := velocity
 	move_and_slide()
+	if not _try_party_monster_trip_from_slide_collisions(impact_velocity, was_on_floor):
+		_try_party_monster_trip_from_forward_sensor(impact_velocity, was_on_floor)
 	if _apply_prop_collision_impacts(impact_velocity) and impact_velocity.y <= 0.1:
 		velocity.y = minf(velocity.y, 0.0)
 	_update_safe_ground_position()
@@ -1690,6 +1733,12 @@ func _process(delta):
 		_clear_camouflage_gpu_runtime_work()
 	if _skin_performance_input_block_remaining > 0.0:
 		_skin_performance_input_block_remaining = maxf(0.0, _skin_performance_input_block_remaining - delta)
+	if _party_monster_trip_cooldown > 0.0:
+		_party_monster_trip_cooldown = maxf(0.0, _party_monster_trip_cooldown - delta)
+	if _party_monster_trip_reaction_lock_remaining > 0.0:
+		_party_monster_trip_reaction_lock_remaining = maxf(0.0, _party_monster_trip_reaction_lock_remaining - delta)
+		if _party_monster_trip_action_locked and _party_monster_trip_reaction_lock_remaining <= 0.0:
+			_finish_party_monster_trip_lock()
 	var is_local_player: bool = _is_local_authority()
 	if is_stalker():
 		if is_local_player:
@@ -1868,7 +1917,7 @@ func _apply_prop_collision_impacts(impact_velocity: Vector3) -> bool:
 	var horizontal_speed := Vector2(impact_velocity.x, impact_velocity.z).length()
 	if horizontal_speed < 1.0:
 		return false
-	var impacted := {}
+	var impacted: Dictionary = {}
 	var did_impact := false
 	for i in range(get_slide_collision_count()):
 		var collision := get_slide_collision(i)
@@ -1885,6 +1934,284 @@ func _apply_prop_collision_impacts(impact_velocity: Vector3) -> bool:
 		did_impact = true
 	did_impact = _apply_nearby_prop_impacts(impact_velocity, impacted) or did_impact
 	return did_impact
+
+
+func _try_party_monster_trip_from_slide_collisions(impact_velocity: Vector3, was_on_floor: bool) -> bool:
+	for i in range(get_slide_collision_count()):
+		var collision := get_slide_collision(i)
+		if not collision:
+			continue
+		if _try_party_monster_trip_from_collision(impact_velocity, collision, was_on_floor):
+			return true
+	return false
+
+
+func _try_party_monster_trip_from_collision(impact_velocity: Vector3, collision: KinematicCollision3D, was_on_floor: bool) -> bool:
+	if not _can_party_monster_trip_from_collision(impact_velocity, collision, was_on_floor):
+		return false
+	var collision_normal: Vector3 = collision.get_normal()
+	var trip_direction := _sanitize_party_monster_trip_direction(collision_normal, impact_velocity)
+	_submit_party_monster_trip_reaction(trip_direction)
+	return true
+
+
+func _try_party_monster_trip_from_forward_sensor(impact_velocity: Vector3, was_on_floor: bool) -> bool:
+	if not _can_party_monster_trip_now(impact_velocity, was_on_floor):
+		return false
+	var world: World3D = get_world_3d()
+	if world == null:
+		return false
+	var horizontal_velocity: Vector3 = _best_party_monster_trip_horizontal_velocity(impact_velocity)
+	var sensor_direction: Vector3 = horizontal_velocity.normalized()
+	var sensor_height: float = _get_party_monster_trip_min_obstacle_height()
+	var sensor_origin: Vector3 = global_position + Vector3.UP * sensor_height + sensor_direction * PARTY_MONSTER_TRIP_SENSOR_FORWARD_OFFSET
+	var sensor_target: Vector3 = sensor_origin + sensor_direction * PARTY_MONSTER_TRIP_SENSOR_DISTANCE
+	var query_mask := int(collision_mask)
+	if query_mask == 0:
+		query_mask = WORLD_COLLISION_MASK
+	var excluded: Array[RID] = []
+	excluded.append(get_rid())
+	var query := PhysicsRayQueryParameters3D.create(sensor_origin, sensor_target, query_mask, excluded)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := world.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return false
+	if not _can_party_monster_trip_from_sensor_hit(hit, sensor_direction):
+		return false
+	var hit_normal: Vector3 = hit.get("normal", -sensor_direction)
+	var trip_direction := _sanitize_party_monster_trip_direction(hit_normal, horizontal_velocity)
+	_submit_party_monster_trip_reaction(trip_direction)
+	return true
+
+
+func _can_party_monster_trip_now(impact_velocity: Vector3, was_on_floor: bool) -> bool:
+	if _party_monster_trip_action_locked or _party_monster_trip_cooldown > 0.0 or _is_dead or _is_prop_disguised:
+		return false
+	if not was_on_floor and not is_on_floor():
+		return false
+	if not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return false
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return false
+	if not _active_skin_node.has_method("trip") and not _active_skin_node.has_method("play_action"):
+		return false
+	return _is_party_monster_running_for_trip(impact_velocity)
+
+
+func _is_party_monster_running_for_trip(impact_velocity: Vector3) -> bool:
+	var horizontal_speed: float = _best_party_monster_trip_horizontal_velocity(impact_velocity).length()
+	if horizontal_speed < PARTY_MONSTER_TRIP_MIN_SPEED:
+		return false
+	return Input.is_action_pressed("shift") or horizontal_speed >= RUN_SPEED * 0.75
+
+
+func _best_party_monster_trip_horizontal_velocity(impact_velocity: Vector3) -> Vector3:
+	var horizontal_velocity := Vector3(impact_velocity.x, 0.0, impact_velocity.z)
+	var real_velocity := get_real_velocity()
+	var real_horizontal_velocity := Vector3(real_velocity.x, 0.0, real_velocity.z)
+	if real_horizontal_velocity.length() > horizontal_velocity.length():
+		horizontal_velocity = real_horizontal_velocity
+	return horizontal_velocity
+
+
+func _can_party_monster_trip_from_collision(impact_velocity: Vector3, collision: KinematicCollision3D, was_on_floor: bool) -> bool:
+	if not _can_party_monster_trip_now(impact_velocity, was_on_floor):
+		return false
+	var horizontal_velocity := _best_party_monster_trip_horizontal_velocity(impact_velocity)
+	var collision_normal: Vector3 = collision.get_normal()
+	if collision_normal.y > PARTY_MONSTER_TRIP_COLLISION_NORMAL_MAX_Y or collision_normal.y < -0.5:
+		return false
+	var flat_normal := Vector3(collision_normal.x, 0.0, collision_normal.z)
+	if flat_normal.length_squared() > 0.0001:
+		var opposition := -flat_normal.normalized().dot(horizontal_velocity.normalized())
+		if opposition < PARTY_MONSTER_TRIP_MIN_COLLISION_OPPOSITION:
+			return false
+	var collider: Object = collision.get_collider()
+	if collider == self:
+		return false
+	if collider is Node and (collider as Node).is_in_group("players"):
+		return false
+	var contact_position: Vector3 = collision.get_position()
+	if contact_position.y > global_position.y + PARTY_MONSTER_TRIP_GROUND_CONTACT_HEIGHT:
+		return false
+	if not _is_party_monster_trip_surface_high_enough(collider, contact_position):
+		return false
+	return true
+
+
+func _can_party_monster_trip_from_sensor_hit(hit: Dictionary, sensor_direction: Vector3) -> bool:
+	var collider: Object = hit.get("collider", null)
+	if collider == self:
+		return false
+	if collider is Node and (collider as Node).is_in_group("players"):
+		return false
+	var hit_position: Vector3 = hit.get("position", global_position)
+	if hit_position.y > global_position.y + PARTY_MONSTER_TRIP_GROUND_CONTACT_HEIGHT:
+		return false
+	if not _is_party_monster_trip_surface_high_enough(collider, hit_position):
+		return false
+	var hit_normal: Vector3 = hit.get("normal", Vector3.ZERO)
+	if hit_normal.y > PARTY_MONSTER_TRIP_COLLISION_NORMAL_MAX_Y or hit_normal.y < -0.5:
+		return false
+	var flat_normal := Vector3(hit_normal.x, 0.0, hit_normal.z)
+	if flat_normal.length_squared() > 0.0001:
+		var opposition := -flat_normal.normalized().dot(sensor_direction.normalized())
+		if opposition < PARTY_MONSTER_TRIP_MIN_COLLISION_OPPOSITION:
+			return false
+	return true
+
+
+func _get_party_monster_trip_min_obstacle_height() -> float:
+	return maxf(_get_hologram_player_height() * PARTY_MONSTER_TRIP_MIN_SURFACE_HEIGHT_RATIO, 0.6)
+
+
+func _is_party_monster_trip_surface_high_enough(collider: Object, contact_position: Vector3) -> bool:
+	var required_top_y: float = global_position.y + _get_party_monster_trip_min_obstacle_height() - PARTY_MONSTER_TRIP_HEIGHT_MARGIN
+	var obstacle_top_y: float = _get_party_monster_trip_obstacle_top_y(collider)
+	if obstacle_top_y > PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y:
+		return obstacle_top_y >= required_top_y
+	return contact_position.y >= required_top_y
+
+
+func _get_party_monster_trip_obstacle_top_y(collider: Object) -> float:
+	if not collider is Node3D:
+		return PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y
+	var obstacle_node := collider as Node3D
+	var top_y := PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y
+	var mesh_bounds: AABB = _calculate_node_bounds(obstacle_node)
+	if mesh_bounds.size != Vector3.ZERO:
+		var world_mesh_bounds: AABB = _transform_aabb(obstacle_node.global_transform, mesh_bounds)
+		top_y = maxf(top_y, world_mesh_bounds.position.y + world_mesh_bounds.size.y)
+	top_y = maxf(top_y, _get_collision_shapes_world_top_y(obstacle_node))
+	return top_y
+
+
+func _get_collision_shapes_world_top_y(node: Node) -> float:
+	var top_y := PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y
+	if node is CollisionShape3D:
+		top_y = maxf(top_y, _get_collision_shape_world_top_y(node as CollisionShape3D))
+	for child in node.get_children():
+		top_y = maxf(top_y, _get_collision_shapes_world_top_y(child))
+	return top_y
+
+
+func _get_collision_shape_world_top_y(collision_shape: CollisionShape3D) -> float:
+	if not collision_shape.shape:
+		return PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y
+	var local_bounds: AABB = _shape_local_aabb(collision_shape.shape)
+	if local_bounds.size == Vector3.ZERO:
+		return PARTY_MONSTER_TRIP_UNKNOWN_TOP_Y
+	var world_bounds: AABB = _transform_aabb(collision_shape.global_transform, local_bounds)
+	return world_bounds.position.y + world_bounds.size.y
+
+
+func _shape_local_aabb(shape: Shape3D) -> AABB:
+	if shape is BoxShape3D:
+		var size: Vector3 = (shape as BoxShape3D).size
+		return AABB(size * -0.5, size)
+	if shape is CapsuleShape3D:
+		var capsule := shape as CapsuleShape3D
+		var radius: float = capsule.radius
+		var height: float = maxf(capsule.height + radius * 2.0, radius * 2.0)
+		return AABB(Vector3(-radius, height * -0.5, -radius), Vector3(radius * 2.0, height, radius * 2.0))
+	if shape is CylinderShape3D:
+		var cylinder := shape as CylinderShape3D
+		var radius: float = cylinder.radius
+		var height: float = maxf(cylinder.height, 0.0)
+		return AABB(Vector3(-radius, height * -0.5, -radius), Vector3(radius * 2.0, height, radius * 2.0))
+	if shape is SphereShape3D:
+		var radius: float = (shape as SphereShape3D).radius
+		var size := Vector3.ONE * radius * 2.0
+		return AABB(size * -0.5, size)
+	return AABB()
+
+
+func _sanitize_party_monster_trip_direction(world_direction: Vector3, fallback_velocity: Vector3 = Vector3.ZERO) -> Vector3:
+	var direction := world_direction
+	direction.y = 0.0
+	if direction.length_squared() < 0.0001:
+		direction = -Vector3(fallback_velocity.x, 0.0, fallback_velocity.z)
+	if direction.length_squared() < 0.0001:
+		direction = -global_transform.basis.z
+	direction.y = 0.0
+	if direction.length_squared() < 0.0001:
+		return Vector3(0.0, 0.0, -1.0)
+	return direction.normalized()
+
+
+func _submit_party_monster_trip_reaction(world_direction: Vector3) -> void:
+	var clean_direction := _sanitize_party_monster_trip_direction(world_direction)
+	_party_monster_trip_cooldown = PARTY_MONSTER_TRIP_COOLDOWN_SECONDS
+	if not _has_active_skin_visual_peer():
+		_apply_party_monster_trip_reaction_rpc(clean_direction)
+	elif _is_runtime_multiplayer_server():
+		_apply_party_monster_trip_reaction_rpc.rpc(clean_direction)
+	else:
+		_request_party_monster_trip_reaction_rpc.rpc_id(1, clean_direction)
+
+
+func _has_active_skin_visual_peer() -> bool:
+	var peer := multiplayer.multiplayer_peer
+	if peer == null:
+		return false
+	if peer is OfflineMultiplayerPeer:
+		return false
+	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_party_monster_trip_reaction_rpc(world_direction: Vector3) -> void:
+	if not _is_runtime_multiplayer_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		push_warning("Client " + str(sender) + " tried to trip player " + str(get_multiplayer_authority()))
+		return
+	if _is_dead or _is_prop_disguised or not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return
+	_apply_party_monster_trip_reaction_rpc.rpc(_sanitize_party_monster_trip_direction(world_direction))
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _apply_party_monster_trip_reaction_rpc(world_direction: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	_play_party_monster_trip_reaction(world_direction)
+
+
+func _play_party_monster_trip_reaction(_world_direction: Vector3) -> void:
+	if _is_dead or _is_prop_disguised or not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	var did_play := false
+	if _active_skin_node.has_method("trip"):
+		_active_skin_node.call("trip")
+		did_play = true
+	elif _active_skin_node.has_method("play_action"):
+		did_play = bool(_active_skin_node.call("play_action", "trip"))
+	if did_play:
+		_begin_party_monster_trip_lock()
+
+
+func _begin_party_monster_trip_lock() -> void:
+	_party_monster_trip_action_locked = true
+	_party_monster_trip_cooldown = PARTY_MONSTER_TRIP_COOLDOWN_SECONDS
+	var animation_length: float = _get_active_skin_current_animation_length()
+	_party_monster_trip_reaction_lock_remaining = maxf(maxf(animation_length, PARTY_MONSTER_TRIP_FALLBACK_LOCK_SECONDS), PARTY_MONSTER_TRIP_REACTION_LOCK_SECONDS)
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_current_speed = 0.0
+
+
+func _finish_party_monster_trip_lock() -> void:
+	_party_monster_trip_action_locked = false
+	_party_monster_trip_reaction_lock_remaining = 0.0
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_current_speed = 0.0
 
 
 func _apply_nearby_prop_impacts(impact_velocity: Vector3, impacted: Dictionary) -> bool:
@@ -1957,14 +2284,16 @@ func _check_fall_and_respawn():
 		_respawn()
 
 func _respawn():
-	global_transform.origin = _find_safe_ground_position(_respawn_point)
+	_finish_party_monster_trip_lock()
+	set_global_position_immediate(_find_safe_ground_position(_respawn_point))
 	velocity = Vector3.ZERO
 	clear_prop_disguise()
 	_update_safe_ground_position(true)
 
 
 func _request_unstuck() -> void:
-	global_transform.origin = _find_safe_ground_position(global_position)
+	_finish_party_monster_trip_lock()
+	set_global_position_immediate(_find_safe_ground_position(global_position))
 	velocity = Vector3.ZERO
 	_update_safe_ground_position(true)
 
@@ -2256,7 +2585,7 @@ func _card_portal_step() -> void:
 	var distance := randf_range(40.0, 50.0)
 	var destination := _card_grounded_position(global_position + Vector3(cos(angle) * distance, 0.0, sin(angle) * distance))
 	_card_spawn_decoy(1.25, Vector3.ZERO)
-	global_position = destination
+	set_global_position_immediate(destination)
 	velocity = Vector3.ZERO
 	_card_feedback_to_owner("PORTAL", Color(0.72, 0.86, 1.0, 1.0), 0.75)
 
@@ -2702,7 +3031,7 @@ func set_chameleon_sculpt_shell_active(active: bool, restore_transform: Transfor
 		freeze()
 		return
 	if restore_transform != Transform3D.IDENTITY:
-		global_position = restore_transform.origin
+		set_global_position_immediate(restore_transform.origin)
 	velocity = Vector3.ZERO
 	if _collision_shape:
 		_collision_shape.disabled = false
@@ -4088,6 +4417,13 @@ func _sanitize_camouflage_brush_radius(radius: float) -> float:
 	return clampf(radius, CamouflageSystem.BRUSH_PRECISION_SAMPLE_MIN_RADIUS, CamouflageSystem.BRUSH_MAX_RADIUS)
 
 
+func _refresh_camera_collision_exclusions() -> void:
+	if not _spring_arm_offset or not is_instance_valid(_spring_arm_offset):
+		return
+	if _spring_arm_offset.has_method("refresh_camera_collision_exclusions"):
+		_spring_arm_offset.call_deferred("refresh_camera_collision_exclusions")
+
+
 func set_character_model(model_id: String) -> void:
 	var normalized := _resolve_character_model_for_role(model_id)
 	character_model_id = normalized
@@ -4112,6 +4448,7 @@ func set_character_model(model_id: String) -> void:
 		if is_stalker():
 			_refresh_stalker_visibility_view(true)
 			call_deferred("_refresh_stalker_visibility_view", true)
+		_refresh_camera_collision_exclusions()
 		return
 
 	var scene_path := CharacterSkinCatalog.scene_path_for(normalized)
@@ -4140,6 +4477,7 @@ func set_character_model(model_id: String) -> void:
 	if _robot_visual_root:
 		_robot_visual_root.visible = false
 	_body.add_child(_active_skin_node)
+	_refresh_camera_collision_exclusions()
 	_apply_remote_visual_performance_policy(_active_skin_node)
 	_connect_active_skin_animation_signals()
 	_play_skin_action("idle")
@@ -4513,7 +4851,7 @@ func _snap_prop_disguise_to_floor() -> void:
 	if hit.is_empty():
 		return
 	var hit_position: Vector3 = hit.get("position", global_position)
-	global_position.y = hit_position.y
+	set_global_position_immediate(Vector3(global_position.x, hit_position.y, global_position.z))
 	velocity.y = 0.0
 
 
@@ -5769,11 +6107,21 @@ func _play_skin_reaction(action: String) -> void:
 	_play_skin_action(action)
 
 
+func _should_hold_party_monster_trip_action(action: String) -> bool:
+	if not _party_monster_trip_action_locked:
+		return false
+	if not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return false
+	return action == "idle" or action == "move" or action == "walk" or action == "run" or action == "jump" or action == "fall" or action == "land"
+
+
 func _play_skin_action(action: String) -> void:
 	if not _active_skin_node or not is_instance_valid(_active_skin_node):
 		return
 
 	var normalized := action.strip_edges().to_lower()
+	if _should_hold_party_monster_trip_action(normalized):
+		return
 	if _skin_performance_camera_active and not SKIN_PERFORMANCE_ACTIONS.has(normalized) and normalized != "idle":
 		_restore_skin_performance_camera_now()
 	var did_play := false
@@ -5860,6 +6208,8 @@ func _get_active_skin_current_animation_length() -> float:
 
 
 func _on_active_skin_action_finished(action_name: String, _clip_name: String) -> void:
+	if action_name == "trip":
+		_finish_party_monster_trip_lock()
 	if not _skin_performance_camera_active:
 		return
 	if action_name != _skin_performance_camera_action:
@@ -6296,7 +6646,7 @@ func _server_revive_from_card_after_delay() -> void:
 	_clear_death_dissolve_visual()
 	_exit_dead_free_spectator()
 	health = 65.0
-	global_position = _card_find_respawn_outside_hunter_view()
+	set_global_position_immediate(_card_find_respawn_outside_hunter_view())
 	velocity = Vector3.ZERO
 	_set_character_visual_visible(true)
 	clear_prop_disguise()
@@ -6335,6 +6685,7 @@ func _broadcast_death(killer_id: int):
 	health = 0.0
 	if _should_log_runtime_debug():
 		print("[Combat] ", name, " was killed by ", killer_id)
+	_finish_party_monster_trip_lock()
 	_play_skin_reaction("die")
 	_begin_dead_observer_state()
 	var death_position := global_position

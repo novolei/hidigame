@@ -1,0 +1,23 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://jw3a7n1mi8ln"]
+
+[ext_resource type="Texture2D" uid="uid://w8wepuwm3evr" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_emission_lights_orm.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://bwxksp81557i1" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_emission_lights_albedo.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://bvl4w255oxdsq" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_emission_lights_normal.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://c8kvoecbsgkk1" path="res://scenes/level/maps/tps_demo_level_assets/level/textures/structure/trim_emission_lights_emission.png" id="4"]
+
+[resource]
+resource_name = "trim_emission_lights"
+albedo_texture = ExtResource("2")
+metallic = 0.5
+metallic_texture = ExtResource("1")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("1")
+roughness_texture_channel = 1
+emission_enabled = true
+emission_energy_multiplier = 9.92
+emission_texture = ExtResource("4")
+normal_enabled = true
+normal_texture = ExtResource("3")
+ao_enabled = true
+ao_texture = ExtResource("1")
+texture_filter = 5

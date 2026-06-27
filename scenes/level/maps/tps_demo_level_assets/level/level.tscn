@@ -1,0 +1,183 @@
+[gd_scene format=3 uid="uid://b25uqksva4nae"]
+
+[ext_resource type="PackedScene" uid="uid://dalmqfud1eo2d" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/scenes/props.tscn" id="2"]
+[ext_resource type="VoxelGIData" uid="uid://bw86lhn5p1ovp" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/giprobe_data.res" id="5"]
+[ext_resource type="PackedScene" uid="uid://r1cqo6r1pc2d" path="res://scenes/level/maps/tps_demo_level_assets/level/forklift/flying_forklift.tscn" id="12"]
+[ext_resource type="PackedScene" uid="uid://dwevb37jfjvun" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/scenes/lights.tscn" id="13"]
+[ext_resource type="PackedScene" uid="uid://4vko2b5knslk" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/scenes/core.tscn" id="14"]
+[ext_resource type="PackedScene" uid="uid://vuih0yatnk3j" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/scenes/structure.tscn" id="15"]
+[ext_resource type="Environment" uid="uid://cnn46umvf55rs" path="res://scenes/level/maps/tps_demo_level_assets/level/geometry/environment.tres" id="16"]
+
+[sub_resource type="Animation" id="2"]
+resource_name = "mawaru"
+length = 30.0
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:rotation_degrees")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 30),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0, -360, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_35gwb"]
+_data = {
+&"mawaru": SubResource("2")
+}
+
+[node name="Level" type="Node3D" unique_id=582382165]
+
+[node name="Core" parent="." unique_id=1759440346 instance=ExtResource("14")]
+
+[node name="Structure" parent="." unique_id=819648165 instance=ExtResource("15")]
+
+[node name="Props" parent="." unique_id=1513435934 instance=ExtResource("2")]
+
+[node name="Lights" parent="." unique_id=1164105369 instance=ExtResource("13")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=308861474]
+environment = ExtResource("16")
+
+[node name="VoxelGI" type="VoxelGI" parent="." unique_id=770254677]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.09263, 1.28266, 2.88598)
+subdiv = 2
+size = Vector3(227.892, 97.6096, 234.056)
+data = ExtResource("5")
+
+[node name="ReflectionProbes" type="Node3D" parent="." unique_id=748727148]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0316315, 0.30191, -0.240242)
+visible = false
+
+[node name="ReflectionProbe1" type="ReflectionProbe" parent="ReflectionProbes" unique_id=175449729]
+transform = Transform3D(0.494055, 0, -0.869431, 0, 1, 0, 0.869431, 0, 0.494055, 28.1433, -18.8082, 71.0693)
+size = Vector3(74.7112, 100, 166.087)
+box_projection = true
+
+[node name="ReflectionProbe2" type="ReflectionProbe" parent="ReflectionProbes" unique_id=1319607448]
+transform = Transform3D(0.999799, 0, -0.0200534, 0, 1, 0, 0.0200534, 0, 0.999799, 73.9972, 0, -12.2086)
+size = Vector3(71.6338, 100, 129.154)
+box_projection = true
+
+[node name="ReflectionProbe3" type="ReflectionProbe" parent="ReflectionProbes" unique_id=1463292881]
+transform = Transform3D(0.999799, 0, -0.0200534, 0, 1, 0, 0.0200534, 0, 0.999799, -0.204299, -8.98325, 0.0613261)
+size = Vector3(77.8268, 100, 74.2464)
+
+[node name="FlyingForklifts" type="Node3D" parent="." unique_id=1842245275]
+
+[node name="FlyingForklift1" parent="FlyingForklifts" unique_id=1343846984 instance=ExtResource("12")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 67.8049, 2.27771, 0)
+
+[node name="FlyingForklift2" parent="FlyingForklifts" unique_id=1439918675 instance=ExtResource("12")]
+transform = Transform3D(-1, 0, -1.50996e-07, 0, 1, 0, 1.50996e-07, 0, -1, -68.2496, 2.27771, 0)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="FlyingForklifts" unique_id=338359251]
+libraries/ = SubResource("AnimationLibrary_35gwb")
+autoplay = &"mawaru"
+
+[node name="LightmapProbes" type="Node3D" parent="." unique_id=408245618]
+
+[node name="LightmapProbe" type="LightmapProbe" parent="LightmapProbes" unique_id=2060890183]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.5296, 0.471584, 76.5951)
+
+[node name="LightmapProbe2" type="LightmapProbe" parent="LightmapProbes" unique_id=1837073993]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.6524, 0.471584, 80.586)
+
+[node name="LightmapProbe3" type="LightmapProbe" parent="LightmapProbes" unique_id=65154750]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 47.0721, 0.471585, 85.3028)
+
+[node name="LightmapProbe4" type="LightmapProbe" parent="LightmapProbes" unique_id=77355266]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.7611, 0.471585, 91.5065)
+
+[node name="LightmapProbe5" type="LightmapProbe" parent="LightmapProbes" unique_id=948763225]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.126, -1.71989, 93.7102)
+
+[node name="LightmapProbe6" type="LightmapProbe" parent="LightmapProbes" unique_id=1273376074]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.779, -3.99063, 81.5517)
+
+[node name="LightmapProbe7" type="LightmapProbe" parent="LightmapProbes" unique_id=1975447034]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.303036, -3.99063, 88.031)
+
+[node name="LightmapProbe8" type="LightmapProbe" parent="LightmapProbes" unique_id=1188987601]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.3425, -3.99063, 75.6498)
+
+[node name="LightmapProbe9" type="LightmapProbe" parent="LightmapProbes" unique_id=1648337784]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 46.6425, -3.99063, 69.996)
+
+[node name="LightmapProbe10" type="LightmapProbe" parent="LightmapProbes" unique_id=1591746245]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.3363, -3.98122, 64.9444)
+
+[node name="LightmapProbe11" type="LightmapProbe" parent="LightmapProbes" unique_id=898275742]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.4825, -3.98122, 61.0453)
+
+[node name="LightmapProbe12" type="LightmapProbe" parent="LightmapProbes" unique_id=611240894]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 66.5419, -3.98122, 55.1641)
+
+[node name="LightmapProbe13" type="LightmapProbe" parent="LightmapProbes" unique_id=636487565]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71.0176, -3.98122, 49.0469)
+
+[node name="LightmapProbe14" type="LightmapProbe" parent="LightmapProbes" unique_id=1056665415]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 74.8073, -3.98122, 42.6597)
+
+[node name="LightmapProbe15" type="LightmapProbe" parent="LightmapProbes" unique_id=429613605]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 79.8779, -3.98122, 33.9284)
+
+[node name="LightmapProbe16" type="LightmapProbe" parent="LightmapProbes" unique_id=1037292901]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82.797, -3.98122, 27.6531)
+
+[node name="LightmapProbe17" type="LightmapProbe" parent="LightmapProbes" unique_id=1694960865]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 86.1797, -3.98122, 16.2241)
+
+[node name="LightmapProbe18" type="LightmapProbe" parent="LightmapProbes" unique_id=1879168802]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75.3273, -3.98122, 23.7394)
+
+[node name="LightmapProbe19" type="LightmapProbe" parent="LightmapProbes" unique_id=1382933072]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 67.785, -3.98122, 21.009)
+
+[node name="LightmapProbe20" type="LightmapProbe" parent="LightmapProbes" unique_id=835252259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.8539, -3.98122, 18.9289)
+
+[node name="LightmapProbe21" type="LightmapProbe" parent="LightmapProbes" unique_id=366640678]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.1967, -3.98122, 16.3164)
+
+[node name="LightmapProbe22" type="LightmapProbe" parent="LightmapProbes" unique_id=973227323]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.6893, -3.98122, 13.8627)
+
+[node name="LightmapProbe23" type="LightmapProbe" parent="LightmapProbes" unique_id=1233267207]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 36.0421, -3.98122, 11.062)
+
+[node name="LightmapProbe24" type="LightmapProbe" parent="LightmapProbes" unique_id=1141072434]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.1032, -3.98122, 8.37205)
+
+[node name="LightmapProbe25" type="LightmapProbe" parent="LightmapProbes" unique_id=1148460456]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.4103, -3.98122, 6.86614)
+
+[node name="LightmapProbe26" type="LightmapProbe" parent="LightmapProbes" unique_id=940065582]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0878527, -2.106, -0.0146277)
+
+[node name="LightmapProbe27" type="LightmapProbe" parent="LightmapProbes" unique_id=456591925]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.557192, -10.2858, 20.5457)
+
+[node name="LightmapProbe28" type="LightmapProbe" parent="LightmapProbes" unique_id=1970455366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.0311, -10.2858, 15.1947)
+
+[node name="LightmapProbe29" type="LightmapProbe" parent="LightmapProbes" unique_id=565594930]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.4293, -10.2858, -8.03601)
+
+[node name="LightmapProbe30" type="LightmapProbe" parent="LightmapProbes" unique_id=1269965219]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.47386, -10.2858, -19.8213)
+
+[node name="LightmapProbe31" type="LightmapProbe" parent="LightmapProbes" unique_id=1489076310]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.6666, -10.2858, -15.6046)
+
+[node name="LightmapProbe32" type="LightmapProbe" parent="LightmapProbes" unique_id=757274081]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -19.3694, -10.2858, 7.23363)
+
+[node name="GPUParticlesCollisionSDF3D" type="GPUParticlesCollisionSDF3D" parent="." unique_id=107426045]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.1415, 0, 31.955)
+size = Vector3(140, 40, 140)
+resolution = 4

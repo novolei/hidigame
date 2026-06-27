@@ -67,6 +67,7 @@ func _process(delta: float) -> void:
 		_resolve_root()
 	if _root == null:
 		return
+	_refresh_root_interpolation_mode()
 	if multiplayer.multiplayer_peer == null:
 		return
 	if _is_owner_authority():
@@ -81,6 +82,7 @@ func _after_network_tick(_delta: float, tick: int) -> void:
 		_resolve_root()
 	if _root == null:
 		return
+	_refresh_root_interpolation_mode()
 	if multiplayer.multiplayer_peer == null:
 		return
 	if not _is_owner_authority():
@@ -95,8 +97,18 @@ func _resolve_root() -> void:
 	var node: Node = get_node_or_null(root_path)
 	if node is CharacterBody3D:
 		_root = node as CharacterBody3D
+		_refresh_root_interpolation_mode()
 	else:
 		_root = null
+
+
+func _refresh_root_interpolation_mode() -> void:
+	if _root == null or not is_instance_valid(_root):
+		return
+	if _is_owner_authority():
+		_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT
+	else:
+		_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 
 func _is_owner_authority() -> bool:

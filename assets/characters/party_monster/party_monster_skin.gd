@@ -141,6 +141,7 @@ const ACTION_CLIPS := {
 	"defense_hit": ["defense_hit"],
 	"die": ["die_01", "die_02"],
 	"die_recover": ["die_01_recover"],
+	"trip": ["trip_01", "trip_02"],
 	"dance": ["dance_01", "dance_02"],
 	"victory": ["victory_01", "victory_02"],
 	"grab": ["grab"],
@@ -164,9 +165,9 @@ const LOOPING_CLIPS := [
 ]
 const LOCOMOTION_ACTIONS := ["idle", "walk", "run", "move", "jump", "fall", "land"]
 const PERFORMANCE_ACTIONS := ["dance", "victory"]
-const LOCKED_REACTION_ACTIONS := ["attack", "attack_drill", "attack_saw", "attack_shark", "get_hit", "hit", "defense", "defense_hit", "die", "die_recover", "dance", "victory", "grab", "push", "slide", "throw"]
+const LOCKED_REACTION_ACTIONS := ["attack", "attack_drill", "attack_saw", "attack_shark", "get_hit", "hit", "defense", "defense_hit", "die", "die_recover", "trip", "dance", "victory", "grab", "push", "slide", "throw"]
 const LONG_IDLE_SECONDS := 8.0
-const COMPATIBLE_ACTIONS := ["idle", "move", "walk", "run", "jump", "fall", "land", "attack", "attack_drill", "attack_saw", "attack_shark", "get_hit", "hit", "defense", "defense_hit", "die", "die_recover", "dance", "dizzy", "long_idle", "victory", "grab", "grab_idle", "push", "slide", "throw", "animation_layer_run", "root_motion_run", "root_motion_walk", "root_motion_slide"]
+const COMPATIBLE_ACTIONS := ["idle", "move", "walk", "run", "jump", "fall", "land", "attack", "attack_drill", "attack_saw", "attack_shark", "get_hit", "hit", "defense", "defense_hit", "die", "die_recover", "trip", "dance", "dizzy", "long_idle", "victory", "grab", "grab_idle", "push", "slide", "throw", "animation_layer_run", "root_motion_run", "root_motion_walk", "root_motion_slide"]
 const VISIBLE_PREFIXES := [
 	"MainBody",
 	"Bodypart",
@@ -279,6 +280,10 @@ func die() -> void:
 	_play_action("die", true)
 
 
+func trip() -> void:
+	_play_action("trip", true)
+
+
 func dance() -> void:
 	_play_action("dance", true)
 
@@ -317,6 +322,7 @@ func play_action(action_name: String) -> bool:
 
 func play_clip(clip_name: String) -> bool:
 	return _play_clip(clip_name, _normalize_action(clip_name), 0.12, true)
+
 
 
 func set_animation_paused(paused: bool) -> void:
@@ -799,9 +805,39 @@ func _import_animation_sources() -> void:
 			var animation := _load_first_animation(source_path)
 			if animation:
 				_shared_animation_library.add_animation(str(target_name), animation)
+	_ensure_trip_animation_clips(_shared_animation_library)
 	if _animation_player.has_animation_library(""):
 		_animation_player.remove_animation_library("")
 	_animation_player.add_animation_library("", _shared_animation_library)
+
+
+func _ensure_trip_animation_clips(library: AnimationLibrary) -> void:
+	if library == null:
+		return
+	var trip_sources := {
+		"trip_01": "die_01",
+		"trip_02": "die_02",
+	}
+	for trip_name in trip_sources.keys():
+		if library.has_animation(str(trip_name)):
+			continue
+		var source_name := str(trip_sources[trip_name])
+		if not library.has_animation(source_name):
+			continue
+		var trip_animation := (library.get_animation(source_name) as Animation).duplicate(true) as Animation
+		_make_trip_animation_camera_safe(trip_animation)
+		library.add_animation(str(trip_name), trip_animation)
+
+
+func _make_trip_animation_camera_safe(animation: Animation) -> void:
+	if animation == null:
+		return
+	for track_index in range(animation.get_track_count() - 1, -1, -1):
+		if animation.track_get_type(track_index) != Animation.TYPE_POSITION_3D:
+			continue
+		var track_path := str(animation.track_get_path(track_index)).to_lower()
+		if track_path == "skeleton3d:root" or track_path.ends_with(":root"):
+			animation.remove_track(track_index)
 
 
 func _load_first_animation(path: String) -> Animation:

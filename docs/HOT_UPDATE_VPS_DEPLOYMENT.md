@@ -2,40 +2,86 @@
 
 Updated: 2026-06-27
 
-This is the first deployment contract for serving Monster & Hunter incremental update manifests and PCK packages from a VPS. The server can be a static HTTPS origin; no game-specific backend is required for the first version.
+This is the deployment contract for serving Monster & Hunter incremental update manifests and PCK packages from static HTTPS origins. Use TX as the primary distribution VPS and AL as the auxiliary distribution VPS. No game-specific backend is required for this version.
 
 ## Directory Layout
 
-Recommended VPS path:
+Recommended path on both TX and AL:
 
 ```text
 /var/www/maomao-updates/
-  dev/
-    manifest.json
-    packages/
-      core_patch_0.4.5.pck
-      characters_party_monster_0.4.5.pck
-      maps_warehouse_0.4.5.pck
-  live/
-    manifest.json
-    packages/
+  maomao/
+    dev/
+      manifest.json
+      packages/
+        core_patch_0.4.5.pck
+        characters_party_monster_0.4.5.pck
+        maps_warehouse_0.4.5.pck
+    live/
+      manifest.json
+      packages/
 ```
 
 Client manifest URL examples:
 
 ```text
-https://updates.example.com/maomao/dev/manifest.json
-https://updates.example.com/maomao/live/manifest.json
+https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/dev/manifest.json
+https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/live/manifest.json
 ```
 
-Set the client with either `hot_update/manifest_url` in `project.godot` or the `MAOMAO_UPDATE_MANIFEST_URL` environment variable.
+Set the client primary manifest URL with either `hot_update/manifest_url` in `project.godot` or the `MAOMAO_UPDATE_MANIFEST_URL` environment variable. Set auxiliary manifest URLs with `hot_update/manifest_mirror_urls` or `MAOMAO_UPDATE_MANIFEST_MIRROR_URLS`.
+
+For the current TX/AL topology:
+
+```powershell
+$env:MAOMAO_UPDATE_MANIFEST_URL = "https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/dev/manifest.json"
+$env:MAOMAO_UPDATE_MANIFEST_MIRROR_URLS = "https://<AL_PUBLIC_IP_OR_DOMAIN>/maomao/dev/manifest.json"
+```
+
+The manifest itself should use TX as `base_url` and AL in top-level `mirrors`. The client tries package downloads from TX first and automatically retries AL if TX fails, returns a bad file, or returns bytes that fail SHA-256 verification.
+
+Current direct-IP development values:
+
+```text
+TX base URL: http://1.13.175.170/maomao/dev
+AL base URL: http://8.153.148.157/maomao/dev
+TX manifest: http://1.13.175.170/maomao/dev/manifest.json
+AL manifest: http://8.153.148.157/maomao/dev/manifest.json
+```
+
+Direct IP over HTTP is acceptable for the first connectivity test, because HTTPS direct-IP URLs usually fail certificate hostname validation unless a matching certificate is installed. For public release, prefer DNS names with valid TLS certificates.
 
 ## Nginx Example
+
+For a direct-IP smoke test, start with HTTP:
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    root /var/www/maomao-updates;
+
+    location ~ /manifest\.json$ {
+        default_type application/json;
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    location ~ \.pck$ {
+        default_type application/octet-stream;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+}
+```
+
+For domain-backed production, use HTTPS:
 
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name updates.example.com;
+    server_name <TX_OR_AL_PUBLIC_DOMAIN>;
 
     root /var/www/maomao-updates;
 
@@ -66,7 +112,8 @@ python tools/hot_update/build_release_packages.py `
   --version 0.4.5 `
   --content-version 2026.06.27.1 `
   --min-app-version 0.4.4 `
-  --base-url https://updates.example.com/maomao/dev `
+  --base-url https://<TX_PUBLIC_IP_OR_DOMAIN>/maomao/dev `
+  --mirror-base-url AL=https://<AL_PUBLIC_IP_OR_DOMAIN>/maomao/dev `
   --run-export
 ```
 
@@ -80,7 +127,14 @@ manifest.json
 packages/*.pck
 ```
 
-Publish package files first, then publish `manifest.json` last. This prevents a client from seeing a manifest that references a package that is not uploaded yet.
+Publish package files first, then publish `manifest.json` last. With TX/AL, use this exact order:
+
+1. Upload `packages/*.pck` to AL.
+2. Upload `packages/*.pck` to TX.
+3. Upload `manifest.json` to AL.
+4. Upload `manifest.json` to TX last.
+
+Publishing TX's manifest last makes TX the release switch. Clients that receive the new TX manifest can still download from AL if TX package transfer fails.
 
 ## Pre-Publish Validation
 
@@ -89,6 +143,14 @@ Before uploading the release directory, verify the generated manifest and PCKs l
 ```powershell
 python tests/hot_update_release_pack_load_test.py
 python tests/hot_update_release_manifest_install_test.py
+```
+
+Also verify package-source fallback before publishing:
+
+```powershell
+$env:MAOMAO_TEST_FORCE_PACKAGE_PRIMARY_404 = "1"
+python tests/hot_update_release_manifest_install_test.py
+Remove-Item Env:\MAOMAO_TEST_FORCE_PACKAGE_PRIMARY_404
 ```
 
 `hot_update_release_pack_load_test.py` verifies every generated PCK from `builds/hot_update/dev/0.4.5/manifest.json` by size, SHA-256, and `ProjectSettings.load_resource_pack()`.

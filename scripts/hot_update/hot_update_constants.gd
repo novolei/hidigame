@@ -10,6 +10,7 @@ const TEMP_DIR := "tmp"
 const INSTALLED_MANIFEST_FILE := "installed_manifest.json"
 const ENV_ENABLED := "MAOMAO_UPDATE_ENABLED"
 const ENV_MANIFEST_URL := "MAOMAO_UPDATE_MANIFEST_URL"
+const ENV_MANIFEST_MIRROR_URLS := "MAOMAO_UPDATE_MANIFEST_MIRROR_URLS"
 
 const SETTING_ENABLED := "hot_update/enabled"
 const SETTING_SERVER_ENABLED := "hot_update/server_enabled"
@@ -17,6 +18,7 @@ const SETTING_AUTO_CHECK_ON_BOOT := "hot_update/auto_check_on_boot"
 const SETTING_LOAD_INSTALLED_ON_BOOT := "hot_update/load_installed_packs_on_boot"
 const SETTING_SHOW_STATUS_OVERLAY := "hot_update/show_status_overlay"
 const SETTING_MANIFEST_URL := "hot_update/manifest_url"
+const SETTING_MANIFEST_MIRROR_URLS := "hot_update/manifest_mirror_urls"
 const SETTING_CHANNEL := "hot_update/channel"
 const SETTING_PROTOCOL_VERSION := "hot_update/protocol_version"
 const SETTING_HTTP_TIMEOUT_SEC := "hot_update/http_timeout_sec"
@@ -57,6 +59,26 @@ static func manifest_url() -> String:
 	return _setting_string(SETTING_MANIFEST_URL, "")
 
 
+static func manifest_urls() -> Array[String]:
+	var result: Array[String] = []
+	_append_unique_string(result, manifest_url())
+	for mirror_url in manifest_mirror_urls():
+		_append_unique_string(result, mirror_url)
+	return result
+
+
+static func manifest_mirror_urls() -> Array[String]:
+	var result: Array[String] = []
+	var env_urls := OS.get_environment(ENV_MANIFEST_MIRROR_URLS).strip_edges()
+	if not env_urls.is_empty():
+		for value in _split_url_list(env_urls):
+			_append_unique_string(result, value)
+	var setting_value: Variant = ProjectSettings.get_setting(SETTING_MANIFEST_MIRROR_URLS, [])
+	for value in _variant_to_string_array(setting_value):
+		_append_unique_string(result, value)
+	return result
+
+
 static func is_enabled() -> bool:
 	return _environment_bool(ENV_ENABLED, _setting_bool(SETTING_ENABLED, true))
 
@@ -66,7 +88,8 @@ static func should_auto_check_on_boot() -> bool:
 
 
 static func should_load_installed_on_boot() -> bool:
-	return _setting_bool(SETTING_LOAD_INSTALLED_ON_BOOT, true)
+	var default_value := not OS.has_feature("editor")
+	return _setting_bool(SETTING_LOAD_INSTALLED_ON_BOOT, default_value)
 
 
 static func should_show_status_overlay() -> bool:
@@ -121,17 +144,23 @@ static func _setting_bool(key: String, fallback: bool) -> bool:
 
 
 static func _setting_int(key: String, fallback: int) -> int:
-	var value := str(ProjectSettings.get_setting(key, fallback)).strip_edges()
-	return int(value) if value.is_valid_int() else fallback
+	var value: Variant = ProjectSettings.get_setting(key, fallback)
+	if value is int:
+		return int(value)
+	var text := str(value)
+	return text.to_int() if text.is_valid_int() else fallback
 
 
 static func _setting_float(key: String, fallback: float) -> float:
-	var value := str(ProjectSettings.get_setting(key, fallback)).strip_edges()
-	return float(value) if value.is_valid_float() else fallback
+	var value: Variant = ProjectSettings.get_setting(key, fallback)
+	if value is float or value is int:
+		return float(value)
+	var parsed := str(value).to_float()
+	return parsed if parsed > 0.0 else fallback
 
 
-static func _environment_bool(env_name: String, fallback: bool) -> bool:
-	var value := OS.get_environment(env_name).strip_edges()
+static func _environment_bool(key: String, fallback: bool) -> bool:
+	var value := OS.get_environment(key).strip_edges()
 	if value.is_empty():
 		return fallback
 	return _parse_bool(value, fallback)
@@ -144,3 +173,33 @@ static func _parse_bool(value: String, fallback: bool) -> bool:
 	if normalized in ["0", "false", "no", "off", "disabled"]:
 		return false
 	return fallback
+
+
+static func _variant_to_string_array(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if value is PackedStringArray:
+		for item in value as PackedStringArray:
+			_append_unique_string(result, str(item))
+	elif value is Array:
+		for item in value as Array:
+			_append_unique_string(result, str(item))
+	else:
+		for item in _split_url_list(str(value)):
+			_append_unique_string(result, item)
+	return result
+
+
+static func _split_url_list(value: String) -> Array[String]:
+	var result: Array[String] = []
+	for item in value.replace(";", ",").split(",", false):
+		var clean := str(item).strip_edges()
+		if not clean.is_empty():
+			result.append(clean)
+	return result
+
+
+static func _append_unique_string(target: Array[String], value: String) -> void:
+	var clean := value.strip_edges()
+	if clean.is_empty() or target.has(clean):
+		return
+	target.append(clean)

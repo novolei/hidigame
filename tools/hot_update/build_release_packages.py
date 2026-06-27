@@ -26,6 +26,7 @@ class ReleaseOptions:
     content_version: str
     min_app_version: str
     base_url: str
+    mirror_base_urls: tuple[dict[str, str], ...]
     channel: str
     protocol_version: int
     godot_bin: str
@@ -102,6 +103,8 @@ def build_release_plan(partitions: dict[str, Any], options: ReleaseOptions) -> t
         "schema_version": int(partitions.get("schema_version", 1)),
         "version": options.version,
     }
+    if options.mirror_base_urls:
+        package_plan["mirrors"] = [dict(mirror) for mirror in options.mirror_base_urls]
     export_plan: dict[str, Any] = {
         "schema_version": int(partitions.get("schema_version", 1)),
         "project_root": options.project_root.as_posix(),
@@ -258,6 +261,10 @@ def write_export_commands(path: Path, options: ReleaseOptions) -> None:
         options.min_app_version,
         "--base-url",
         options.base_url,
+    ]
+    for mirror in options.mirror_base_urls:
+        command.extend(["--mirror-base-url", f"{mirror['id']}={mirror['base_url']}"])
+    command.extend([
         "--channel",
         options.channel,
         "--protocol-version",
@@ -267,7 +274,7 @@ def write_export_commands(path: Path, options: ReleaseOptions) -> None:
         "--template-preset",
         options.template_preset,
         "--run-export",
-    ]
+    ])
     if options.patches:
         command.extend(["--patches", options.patches])
     quoted = " ".join("'" + part.replace("'", "''") + "'" for part in command)
@@ -288,6 +295,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--content-version", required=True)
     parser.add_argument("--min-app-version", required=True)
     parser.add_argument("--base-url", required=True)
+    parser.add_argument(
+        "--mirror-base-url",
+        action="append",
+        default=[],
+        help="Auxiliary package base URL, optionally ID=URL. Repeatable or comma-separated.",
+    )
     parser.add_argument("--channel", default="dev")
     parser.add_argument("--protocol-version", type=int, default=1)
     parser.add_argument("--godot-bin", default=os.environ.get("GODOT_BIN", "godot"))
@@ -296,6 +309,28 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--run-export", action="store_true", help="Run Godot exports after writing the plans.")
     parser.add_argument("--skip-manifest", action="store_true", help="Do not generate manifest.json after exports.")
     return parser.parse_args(argv)
+
+
+def parse_mirror_base_urls(values: list[str]) -> tuple[dict[str, str], ...]:
+    result: list[dict[str, str]] = []
+    next_index = 1
+    for raw_value in values:
+        for item_value in str(raw_value).split(","):
+            item = item_value.strip()
+            if not item:
+                continue
+            if "=" in item:
+                mirror_id, url = item.split("=", 1)
+                mirror_id = mirror_id.strip() or f"mirror_{next_index}"
+            else:
+                mirror_id = f"mirror_{next_index}"
+                url = item
+            clean_url = url.strip().rstrip("/")
+            if not clean_url:
+                continue
+            result.append({"id": mirror_id, "base_url": clean_url})
+            next_index += 1
+    return tuple(result)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -311,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         content_version=args.content_version,
         min_app_version=args.min_app_version,
         base_url=args.base_url.rstrip("/"),
+        mirror_base_urls=parse_mirror_base_urls(args.mirror_base_url),
         channel=args.channel,
         protocol_version=args.protocol_version,
         godot_bin=args.godot_bin,
