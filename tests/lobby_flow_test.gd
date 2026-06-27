@@ -13,8 +13,10 @@ func _run() -> void:
 	_test_lobby_id_password()
 	_test_host_room_metadata()
 	_test_public_room_server_uses_empty_lobby_id()
+	_test_public_room_lifecycle_logging()
 	_test_public_room_detached_launch_helpers()
 	_test_performance_telemetry_event_window()
+	_test_network_diagnostic_console_commands()
 	_test_public_server_fallback_endpoints()
 	_test_public_room_redirect_waits_for_room_sync()
 	_test_host_port_fallback_when_default_is_busy()
@@ -58,6 +60,7 @@ func _reset_network_state() -> void:
 	Network.set("_card_draft_active", false)
 	Network.set("_card_timer_sync_remaining", 0.0)
 	Network.set("_redirecting_to_public_room", false)
+	Network.set("_public_room_status_dir", "")
 	Network.lobby_config = {
 		"max_players": 24,
 		"lobby_id": "",
@@ -141,6 +144,33 @@ func _test_public_room_server_uses_empty_lobby_id() -> void:
 	Network.server_port = Network.SERVER_PORT
 
 
+func _test_public_room_lifecycle_logging() -> void:
+	_reset_network_state()
+	var status_dir: String = OS.get_cache_dir().path_join("maomao_lifecycle_" + str(Time.get_ticks_usec()))
+	DirAccess.make_dir_recursive_absolute(status_dir)
+	Network.set("_public_room_status_dir", status_dir)
+	var host_error: int = Network.start_public_room_server("Lifecycle Room", "secret", 19110, "lifecycle-room")
+	_expect(host_error == OK, "Public room lifecycle test server should start")
+	if host_error == OK:
+		Network.mark_public_room_runtime_ready()
+		Network._server_prepare_public_room_host(2, _player("Owner", Network.Role.HUNTER))
+		Network._delete_public_room_status_file("test_cleanup")
+	var lifecycle_log_path: String = Network._public_room_lifecycle_log_path()
+	var events: Array[Dictionary] = _read_jsonl_events(lifecycle_log_path)
+	_expect(_jsonl_events_contain(events, "room_server_started"), "Lifecycle log should record room server startup")
+	_expect(_jsonl_events_contain(events, "room_runtime_ready"), "Lifecycle log should record runtime ready")
+	_expect(_jsonl_events_contain(events, "room_host_assigned"), "Lifecycle log should record host assignment")
+	_expect(_jsonl_events_contain(events, "room_status_deleted"), "Lifecycle log should record status deletion")
+	var raw_log: String = FileAccess.get_file_as_string(lifecycle_log_path)
+	_expect(not raw_log.contains("SECRET"), "Lifecycle log should not persist normalized room passwords")
+	_expect(not raw_log.contains("secret"), "Lifecycle log should not persist raw room passwords")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	Network.set("_public_room_status_dir", "")
+
+
 func _test_public_room_detached_launch_helpers() -> void:
 	_reset_network_state()
 	var previous_launch_mode := OS.get_environment(Network.PUBLIC_ROOM_LAUNCH_MODE_ENV)
@@ -188,6 +218,38 @@ func _test_performance_telemetry_event_window() -> void:
 		OS.unset_environment("MAOMAO_PERF_LOG")
 	else:
 		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
+
+
+func _test_network_diagnostic_console_commands() -> void:
+	_reset_network_state()
+	var snapshot: Dictionary = Network.get_diagnostic_snapshot()
+	_expect(str(snapshot.get("mode", "")) == "offline", "Diagnostic snapshot should report offline mode without an active peer")
+	_expect(snapshot.has("netfox"), "Diagnostic snapshot should include NetFox counters")
+	_expect(snapshot.has("noray"), "Diagnostic snapshot should include Noray state")
+	_expect(snapshot.has("sync_budget"), "Diagnostic snapshot should include sync budget state")
+	_expect(NetworkDiagnosticConsole.execute("help").contains("net.sync_budget"), "Diagnostic console help should list sync budget command")
+	_expect(NetworkDiagnosticConsole.execute("net.mode").contains("mode=offline"), "Diagnostic console should format connection mode")
+	_expect(NetworkDiagnosticConsole.execute("net.peers").contains("players=0"), "Diagnostic console should format peer and player counts")
+	_expect(NetworkDiagnosticConsole.execute("net.rtt").contains("no-enet-peer-stats"), "Diagnostic console should handle missing ENet peer stats")
+	_expect(NetworkDiagnosticConsole.execute("net.noray").contains("host=8.153.148.157:8890"), "Diagnostic console should expose the configured private Noray server")
+	_expect(NetworkDiagnosticConsole.execute("net.room").contains("private="), "Diagnostic console should expose room connection metadata")
+	var previous_perf_log := OS.get_environment("MAOMAO_PERF_LOG")
+	OS.set_environment("MAOMAO_PERF_LOG", "1")
+	Network._reset_performance_telemetry_window()
+	Network.record_perf_event("player_transform.remote_sample_extrapolate", 2, 0)
+	_expect(NetworkDiagnosticConsole.execute("net.sync_budget").contains("player_transform.remote_sample_extrapolate"), "Diagnostic console should expose performance event summaries")
+	if previous_perf_log.is_empty():
+		OS.unset_environment("MAOMAO_PERF_LOG")
+	else:
+		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
+	var previous_sim_enabled: bool = NetworkSimulator.enabled
+	var previous_sim_latency: int = NetworkSimulator.latency_ms
+	var previous_sim_loss: float = NetworkSimulator.packet_loss_percent
+	var sim_result: String = NetworkDiagnosticConsole.execute("net.simulator on 25 1.5")
+	_expect(sim_result.contains("NetworkSimulator on"), "Diagnostic console should toggle simulator diagnostics on")
+	_expect(NetworkSimulator.enabled and NetworkSimulator.latency_ms == 25 and is_equal_approx(NetworkSimulator.packet_loss_percent, 1.5), "Simulator command should update live diagnostic settings")
+	Network.set_network_simulator_diagnostics_enabled(previous_sim_enabled, previous_sim_latency, previous_sim_loss)
+	Network._reset_performance_telemetry_window()
 
 
 func _test_public_server_fallback_endpoints() -> void:
@@ -1027,6 +1089,28 @@ func _game_chat_contains(chat: MultiplayerChatUI, nick: String, text: String) ->
 	var messages: Array = chat.get("_messages")
 	for item in messages:
 		if str(item.get("nick", "")) == nick and str(item.get("text", "")) == text:
+			return true
+	return false
+
+
+func _read_jsonl_events(path: String) -> Array[Dictionary]:
+	var events: Array[Dictionary] = []
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return events
+	while not file.eof_reached():
+		var line: String = file.get_line().strip_edges()
+		if line.is_empty():
+			continue
+		var parsed: Variant = JSON.parse_string(line)
+		if parsed is Dictionary:
+			events.append(parsed as Dictionary)
+	return events
+
+
+func _jsonl_events_contain(events: Array[Dictionary], event_name: String) -> bool:
+	for event: Dictionary in events:
+		if str(event.get("event", "")) == event_name:
 			return true
 	return false
 

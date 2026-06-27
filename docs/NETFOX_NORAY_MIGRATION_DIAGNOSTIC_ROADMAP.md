@@ -29,6 +29,8 @@ This document is the working contract for improving Monster & Hunter multiplayer
 - `project.godot` has NetFox autoloads enabled: `NetworkTime`, `NetworkTimeSynchronizer`, `NetworkRollback`, `NetworkEvents`, `NetworkPerformance`, `NetworkSimulator`, plus Noray's `Noray` and `PacketHandshake`.
 - `res://scenes/level/player.tscn` uses `NetfoxTransformSync` instead of the old `MultiplayerSynchronizer` node for player transform sync.
 - `res://scripts/network/netfox_player_transform_sync.gd` sends owner transform snapshots on NetFox ticks. The server validates and forwards them, while remote clients interpolate and briefly extrapolate.
+- NetFox transform sync has an idle-send budget and a forced-refresh window, so unchanged owner snapshots no longer consume a full 30Hz path while moving players can still submit every NetFox tick.
+- `MAOMAO_PERF_LOG` now includes transform sync diagnostics for owner idle skips, stale/rejected snapshots, queue overflow, and remote interpolation / extrapolation / clamped extrapolation samples.
 - Public server room flow is still based on VPS-hosted ENet rooms and must remain direct IP based.
 - Private server flow now routes the main "Create Private Server" and `noray:<OpenID>` join path through Noray. Direct IP remains available for LAN / forwarded-port / Tailscale fallback.
 
@@ -122,6 +124,7 @@ Notes:
 - Add diagnostic assertions in tests so regressions are caught.
 
 Status: Implemented for player scene safety rails. The old player `MultiplayerSynchronizer` has been removed, `NetfoxTransformSync` is covered by scene tests, and transform snapshot bounds / telemetry byte estimates are asserted.
+The safety rail now also asserts idle transform throttling and remote sample telemetry, which keeps the current owner-submit / server-forward / remote-render bridge observable while Phase 2 prediction work is staged.
 
 ### Phase 1: Direct Noray Private Server
 
@@ -140,6 +143,8 @@ Status: Implemented for first end-to-end game client path. AL Noray server is de
 - Introduce rollback/predictive synchronizers only after the ownership contract is explicit.
 - Keep visual-only systems off headless server paths.
 - Add 2 / 4 / 8 / 16 bot smoke scripts for remote motion smoothness and CPU/network budget.
+
+Status: Implemented for the selected bridge architecture. Player movement is currently on the explicit owner-submit / server-forward / remote-render NetFox snapshot path with idle throttling, bounded interpolation/extrapolation, queue overflow telemetry, and byte-budget telemetry. True client-side prediction / rollback remains a later design upgrade rather than a blocker for this migration pass. `res://tests/character_skin_runtime_test.tscn` now includes a synthetic 2 / 4 / 8 / 16 remote-bot smoke that verifies bounded queues, interpolation, clamped extrapolation, and snapshot-overflow telemetry without requiring 24 real players.
 
 ### Phase 3: High-Impact Gameplay RPC Cleanup
 
@@ -165,6 +170,10 @@ Focus areas:
 - Surface NetFox logger levels and NetworkPerformance counters.
 - Add a diagnostic overlay for test builds only.
 - Persist server-side room lifecycle logs for VPS diagnosis.
+
+Status: Runtime console foundation is implemented. Press the backquote / tilde key in the level to open a lightweight network console and run `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, or `net.simulator`. `Network.get_diagnostic_snapshot()` is the shared source for console output and automated tests, exposing ENet RTT / packet loss, Noray route state, NetFox tick and `NetworkPerformance` counters, sync-budget telemetry, room metadata, and simulator settings.
+
+Status: Public room lifecycle persistence is implemented. Public lobby and room servers append JSONL events to `logs/room_lifecycle.jsonl` under the room status directory, or to `MAOMAO_ROOM_LIFECYCLE_LOG` when set. Events cover lobby start failure/success, room create rejection, room subprocess spawn, ready timeout, creator/joiner redirect, status-file discovery, stale cleanup, room server startup, runtime-ready, host assignment/transfer/clear, peer join/leave/reject, and status deletion. Password values are filtered from lifecycle entries; only `locked` state and rejection reasons are persisted.
 
 ## Validation Checklist
 

@@ -24,6 +24,7 @@ const PUBLIC_ROOM_READY_TIMEOUT_SEC := 30.0
 const PUBLIC_ROOM_START_GRACE_SECONDS := 45.0
 const PUBLIC_ROOM_EMPTY_TTL_SECONDS := 30.0
 const PUBLIC_ROOM_LAUNCH_MODE_ENV := "MAOMAO_ROOM_LAUNCH_MODE"
+const PUBLIC_ROOM_LIFECYCLE_LOG_ENV: String = "MAOMAO_ROOM_LIFECYCLE_LOG"
 const PUBLIC_ROOM_LAUNCH_MODE_CHILD := "child"
 const PUBLIC_ROOM_LAUNCH_MODE_DETACHED := "detached"
 const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
@@ -799,6 +800,141 @@ func private_noray_server_label() -> String:
 	return "%s:%d" % [transport.noray_host, transport.noray_port]
 
 
+func get_diagnostic_snapshot() -> Dictionary:
+	var has_peer: bool = multiplayer.multiplayer_peer != null
+	var peer_ids: Array[int] = []
+	if has_peer:
+		for peer_id: int in multiplayer.get_peers():
+			peer_ids.append(peer_id)
+	return {
+		"mode": _diagnostic_connection_mode(),
+		"role": _performance_telemetry_role(),
+		"local_peer_id": local_peer_id(),
+		"peer_assigned": has_peer,
+		"is_server": multiplayer.is_server() if has_peer else false,
+		"connection_status": multiplayer.multiplayer_peer.get_connection_status() if has_peer else MultiplayerPeer.CONNECTION_DISCONNECTED,
+		"peers": peer_ids,
+		"peer_count": peer_ids.size(),
+		"players": players.size(),
+		"server_port": server_port,
+		"room": {
+			"name": str(lobby_config.get("room_name", "")),
+			"public_server": bool(lobby_config.get("public_server", false)),
+			"public_lobby": bool(lobby_config.get("public_lobby", false)),
+			"public_room_id": str(lobby_config.get("public_room_id", active_public_room_id)),
+			"public_address": str(lobby_config.get("public_address", "")),
+			"public_server_code": str(lobby_config.get("public_server_code", "")),
+			"private_connection_mode": str(lobby_config.get("private_connection_mode", "direct")),
+			"private_connection_code": str(lobby_config.get("private_connection_code", "")),
+			"private_connection_server": str(lobby_config.get("private_connection_server", "")),
+		},
+		"noray": _diagnostic_noray_snapshot(),
+		"rtt": _diagnostic_peer_stats(peer_ids),
+		"netfox": _diagnostic_netfox_snapshot(),
+		"simulator": _diagnostic_simulator_snapshot(),
+		"sync_budget": _diagnostic_sync_budget_snapshot(),
+	}
+
+
+func _diagnostic_connection_mode() -> String:
+	if is_public_lobby_server():
+		return "public_lobby_server"
+	if is_public_room_server():
+		return "public_room_server"
+	if bool(lobby_config.get("public_lobby", false)):
+		return "public_lobby_client"
+	if bool(lobby_config.get("public_server", false)):
+		return "public_room_client"
+	var private_mode: String = str(lobby_config.get("private_connection_mode", "direct"))
+	if private_mode == "noray":
+		return "private_noray"
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		return "private_direct_host"
+	if multiplayer.multiplayer_peer != null:
+		return "private_direct_client"
+	return "offline"
+
+
+func _diagnostic_noray_snapshot() -> Dictionary:
+	var transport: NorayPrivateTransport = _ensure_noray_private_transport()
+	return transport.get_diagnostic_snapshot()
+
+
+func _diagnostic_peer_stats(peer_ids: Array[int]) -> Dictionary:
+	var result: Dictionary = {}
+	var enet_peer: ENetMultiplayerPeer = multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if enet_peer == null:
+		return result
+	var ids_to_check: Array[int] = peer_ids.duplicate()
+	if ids_to_check.is_empty() and not multiplayer.is_server():
+		ids_to_check.append(1)
+	for peer_id: int in ids_to_check:
+		var packet_peer: ENetPacketPeer = enet_peer.get_peer(peer_id)
+		if packet_peer == null or not packet_peer.is_active():
+			continue
+		result[str(peer_id)] = {
+			"state": packet_peer.get_state(),
+			"remote": "%s:%d" % [packet_peer.get_remote_address(), packet_peer.get_remote_port()],
+			"rtt_ms": packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME),
+			"last_rtt_ms": packet_peer.get_statistic(ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME),
+			"packet_loss": packet_peer.get_statistic(ENetPacketPeer.PEER_PACKET_LOSS) / float(ENetPacketPeer.PACKET_LOSS_SCALE),
+			"throttle": packet_peer.get_statistic(ENetPacketPeer.PEER_PACKET_THROTTLE) / float(ENetPacketPeer.PACKET_THROTTLE_SCALE),
+		}
+	return result
+
+
+func _diagnostic_netfox_snapshot() -> Dictionary:
+	return {
+		"tick": NetworkTime.tick,
+		"tick_factor": NetworkTime.tick_factor,
+		"ticktime": NetworkTime.ticktime,
+		"tickrate_setting": int(ProjectSettings.get_setting(&"netfox/time/tickrate", 30)),
+		"network_loop_ms": NetworkPerformance.get_network_loop_duration_ms(),
+		"network_ticks": NetworkPerformance.get_network_ticks(),
+		"rollback_loop_ms": NetworkPerformance.get_rollback_loop_duration_ms(),
+		"rollback_ticks": NetworkPerformance.get_rollback_ticks(),
+		"rollback_nodes": NetworkPerformance.get_rollback_nodes_simulated(),
+		"full_state_props": NetworkPerformance.get_full_state_props_count(),
+		"sent_state_props": NetworkPerformance.get_sent_state_props_count(),
+		"sent_state_ratio": NetworkPerformance.get_sent_state_props_ratio(),
+	}
+
+
+func _diagnostic_simulator_snapshot() -> Dictionary:
+	return {
+		"enabled": NetworkSimulator.enabled,
+		"host": NetworkSimulator.hostname,
+		"port": NetworkSimulator.server_port,
+		"latency_ms": NetworkSimulator.latency_ms,
+		"packet_loss_percent": NetworkSimulator.packet_loss_percent,
+		"compression": NetworkSimulator.use_compression,
+	}
+
+
+func _diagnostic_sync_budget_snapshot() -> Dictionary:
+	return {
+		"perf_enabled": is_performance_telemetry_enabled(),
+		"event_summary": _format_performance_telemetry_events(),
+		"event_kb": float(_performance_telemetry_total_event_bytes()) / 1024.0,
+		"slow_frames": _perf_telemetry_slow_frames,
+		"frames": _perf_telemetry_frames,
+		"avg_ms": (_perf_telemetry_accumulated_delta / float(maxi(_perf_telemetry_frames, 1))) * 1000.0,
+		"worst_ms": _perf_telemetry_worst_delta * 1000.0,
+	}
+
+
+func set_network_simulator_diagnostics_enabled(enabled: bool, latency_ms: int = -1, packet_loss_percent: float = -1.0) -> String:
+	NetworkSimulator.enabled = enabled
+	ProjectSettings.set_setting(&"netfox/autoconnect/enabled", enabled)
+	if latency_ms >= 0:
+		NetworkSimulator.latency_ms = latency_ms
+		ProjectSettings.set_setting(&"netfox/autoconnect/simulated_latency_ms", latency_ms)
+	if packet_loss_percent >= 0.0:
+		NetworkSimulator.packet_loss_percent = packet_loss_percent
+		ProjectSettings.set_setting(&"netfox/autoconnect/simulated_packet_loss_chance", packet_loss_percent)
+	return "NetworkSimulator %s latency=%dms loss=%.2f%% (applies to new autoconnect sessions)" % ["on" if enabled else "off", NetworkSimulator.latency_ms, NetworkSimulator.packet_loss_percent]
+
+
 # =============================================================================
 # 连接管理
 # =============================================================================
@@ -924,6 +1060,10 @@ func start_public_lobby_server(public_address: String = "") -> int:
 	server_port = _env_int("MAOMAO_PUBLIC_PORT", SERVER_PORT)
 	var error := peer.create_server(server_port, PUBLIC_SERVER_MAX_CLIENTS)
 	if error != OK:
+		_public_room_lifecycle_log("lobby_server_start_failed", "", {
+			"port": server_port,
+			"error": error,
+		})
 		return error
 	multiplayer.multiplayer_peer = peer
 
@@ -941,6 +1081,11 @@ func start_public_lobby_server(public_address: String = "") -> int:
 	lobby_config["host_peer_id"] = 0
 	lobby_config["host_peer_name"] = ""
 	_public_lobby_refresh_room_files()
+	_public_room_lifecycle_log("lobby_server_started", "", {
+		"port": server_port,
+		"address": str(lobby_config["public_address"]),
+		"server_code": str(lobby_config["public_server_code"]),
+	})
 	_runtime_debug_log("[Network] Public lobby server listening on UDP ", server_port, " address=", lobby_config["public_address"])
 	return OK
 
@@ -973,6 +1118,11 @@ func start_public_room_server(room_name: String, lobby_password: String, port: i
 	server_port = port if port > 0 else PUBLIC_ROOM_PORT_START
 	var error := peer.create_server(server_port, MAX_PLAYERS)
 	if error != OK:
+		_public_room_lifecycle_log("room_server_start_failed", active_public_room_id, {
+			"port": server_port,
+			"error": error,
+			"room_name": room_name.strip_edges(),
+		})
 		return error
 	multiplayer.multiplayer_peer = peer
 
@@ -991,6 +1141,11 @@ func start_public_room_server(room_name: String, lobby_password: String, port: i
 	lobby_config["host_peer_id"] = 0
 	lobby_config["host_peer_name"] = ""
 	_write_public_room_status()
+	_public_room_lifecycle_log("room_server_started", active_public_room_id, {
+		"room_name": normalized_room_name,
+		"port": server_port,
+		"locked": not str(lobby_config["lobby_id"]).is_empty(),
+	})
 	_runtime_debug_log("[Network] Public room server listening on UDP ", server_port, " room=", normalized_room_name, " locked=", not str(lobby_config["lobby_id"]).is_empty())
 	return OK
 
@@ -1001,6 +1156,10 @@ func mark_public_room_runtime_ready() -> void:
 	_public_room_runtime_ready = true
 	_public_room_status_elapsed = 0.0
 	_write_public_room_status()
+	_public_room_lifecycle_log("room_runtime_ready", active_public_room_id, {
+		"room_name": str(lobby_config.get("room_name", "Public Room")),
+		"port": int(lobby_config.get("host_port", server_port)),
+	})
 
 
 func is_public_lobby_server() -> bool:
@@ -1185,22 +1344,49 @@ func _request_create_public_room_rpc(room_name: String, lobby_id: String) -> voi
 	var requester_name: String = str(requester.get("nick", "Host"))
 	var requested_room_name: String = room_name.strip_edges().substr(0, 32)
 	if requested_room_name.is_empty():
+		_public_room_lifecycle_log("create_rejected", "", {
+			"peer_id": peer_id,
+			"requester": requester_name,
+			"reason": "room_name_required",
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "public_lobby.room_name_required", false)
 		_public_lobby_send_snapshot(peer_id)
 		return
 	var room_id: String = _public_room_key(requested_room_name)
 	var requested_lobby_id: String = _normalize_lobby_password(lobby_id)
+	_public_room_lifecycle_log("create_requested", room_id, {
+		"peer_id": peer_id,
+		"requester": requester_name,
+		"room_name": requested_room_name,
+		"locked": not requested_lobby_id.is_empty(),
+	})
 	_public_lobby_refresh_room_files()
 	if public_rooms.has(room_id):
+		_public_room_lifecycle_log("create_rejected", room_id, {
+			"peer_id": peer_id,
+			"requester": requester_name,
+			"reason": "room_exists",
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_exists", false)
 		_public_lobby_send_snapshot(peer_id)
 		return
 	var port := _public_lobby_allocate_room_port()
 	if port <= 0:
+		_public_room_lifecycle_log("create_rejected", room_id, {
+			"peer_id": peer_id,
+			"requester": requester_name,
+			"reason": "no_public_room_ports",
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.no_public_room_ports", false)
 		return
 	var pid := _public_lobby_spawn_room_process(room_id, requested_room_name, requested_lobby_id, port)
 	if pid < 0:
+		_public_room_lifecycle_log("create_rejected", room_id, {
+			"peer_id": peer_id,
+			"requester": requester_name,
+			"reason": "public_room_spawn_failed",
+			"port": port,
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_spawn_failed", false)
 		return
 	var now := Time.get_unix_time_from_system()
@@ -1218,16 +1404,37 @@ func _request_create_public_room_rpc(room_name: String, lobby_id: String) -> voi
 		"last_seen_unix": now,
 		"ready": false,
 	}
+	_public_room_lifecycle_log("room_process_spawned", room_id, {
+		"peer_id": peer_id,
+		"requester": requester_name,
+		"room_name": requested_room_name,
+		"port": port,
+		"pid": pid,
+		"locked": not requested_lobby_id.is_empty(),
+	})
 	_runtime_debug_log("[Network] Public room created: ", requested_room_name, " port=", port, " pid=", pid)
 	_public_lobby_mark_snapshot_dirty()
 	_public_lobby_send_snapshot()
 	if not await _public_lobby_wait_for_room_ready(room_id):
+		_public_room_lifecycle_log("room_ready_timeout", room_id, {
+			"peer_id": peer_id,
+			"requester": requester_name,
+			"room_name": requested_room_name,
+			"port": port,
+			"pid": pid,
+		})
 		public_rooms.erase(room_id)
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_ready", false)
 		_public_lobby_mark_snapshot_dirty()
 		_public_lobby_send_snapshot()
 		return
 	var ready_room: Dictionary = public_rooms.get(room_id, {})
+	_public_room_lifecycle_log("creator_redirected", room_id, {
+		"peer_id": peer_id,
+		"requester": requester_name,
+		"room_name": str(ready_room.get("room_name", requested_room_name)),
+		"port": int(ready_room.get("port", port)),
+	})
 	_public_room_redirect_rpc.rpc_id(peer_id, _public_server_external_address(), int(ready_room.get("port", port)), str(ready_room.get("room_name", requested_room_name)), requested_lobby_id)
 
 
@@ -1235,23 +1442,45 @@ func _request_create_public_room_rpc(room_name: String, lobby_id: String) -> voi
 func _request_join_public_room_rpc(room_id: String, lobby_password: String) -> void:
 	if not is_public_lobby_server():
 		return
-	var peer_id := multiplayer.get_remote_sender_id()
+	var peer_id: int = multiplayer.get_remote_sender_id()
 	_public_lobby_refresh_room_files()
-	var normalized_room_id := room_id.strip_edges().to_lower()
+	var normalized_room_id: String = room_id.strip_edges().to_lower()
+	_public_room_lifecycle_log("join_requested", normalized_room_id, {
+		"peer_id": peer_id,
+	})
 	if not public_rooms.has(normalized_room_id):
+		_public_room_lifecycle_log("join_rejected", normalized_room_id, {
+			"peer_id": peer_id,
+			"reason": "public_room_not_found",
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_found", false)
 		_public_lobby_send_snapshot(peer_id)
 		return
 	var room: Dictionary = public_rooms.get(normalized_room_id, {})
-	var expected_lobby_id := str(room.get("lobby_id", ""))
+	var expected_lobby_id: String = str(room.get("lobby_id", ""))
 	if not expected_lobby_id.is_empty() and _normalize_lobby_password(lobby_password) != expected_lobby_id:
+		_public_room_lifecycle_log("join_rejected", normalized_room_id, {
+			"peer_id": peer_id,
+			"reason": "wrong_password",
+			"locked": true,
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.wrong_password", false)
 		return
 	if not await _public_lobby_wait_for_room_ready(normalized_room_id):
+		_public_room_lifecycle_log("join_rejected", normalized_room_id, {
+			"peer_id": peer_id,
+			"reason": "public_room_not_ready",
+			"port": int(room.get("port", PUBLIC_ROOM_PORT_START)),
+		})
 		_public_room_join_failed_rpc.rpc_id(peer_id, "join_status.public_room_not_ready", false)
 		_public_lobby_send_snapshot(peer_id)
 		return
 	var ready_room: Dictionary = public_rooms.get(normalized_room_id, room)
+	_public_room_lifecycle_log("joiner_redirected", normalized_room_id, {
+		"peer_id": peer_id,
+		"room_name": str(ready_room.get("room_name", normalized_room_id)),
+		"port": int(ready_room.get("port", PUBLIC_ROOM_PORT_START)),
+	})
 	_public_room_redirect_rpc.rpc_id(peer_id, _public_server_external_address(), int(ready_room.get("port", PUBLIC_ROOM_PORT_START)), str(ready_room.get("room_name", normalized_room_id)), expected_lobby_id)
 
 
@@ -1421,7 +1650,7 @@ func _public_room_process_heartbeat(delta: float) -> void:
 		_write_public_room_status()
 	if _public_room_empty_elapsed >= PUBLIC_ROOM_EMPTY_TTL_SECONDS:
 		_runtime_debug_log("[Network] Public room empty; shutting down room=", active_public_room_id)
-		_delete_public_room_status_file()
+		_delete_public_room_status_file("empty_ttl")
 		get_tree().quit(0)
 
 
@@ -1443,12 +1672,36 @@ func _public_lobby_refresh_room_files() -> void:
 			var room_id := str(room.get("room_id", "")).strip_edges().to_lower()
 			if room_id.is_empty():
 				continue
-			var last_seen := float(room.get("last_seen_unix", now))
+			var last_seen: float = float(room.get("last_seen_unix", now))
 			if now - last_seen > PUBLIC_ROOM_STALE_SECONDS:
-				DirAccess.remove_absolute(path)
+				var stale_removed: bool = DirAccess.remove_absolute(path) == OK
+				_public_room_lifecycle_log("room_status_stale_file_removed", room_id, {
+					"path": path,
+					"removed": stale_removed,
+					"last_seen_age_sec": now - last_seen,
+				})
 				continue
 			seen_room_ids.append(room_id)
-			var sanitized_room := _public_lobby_sanitize_room_record(room)
+			var sanitized_room: Dictionary = _public_lobby_sanitize_room_record(room)
+			var previous_room: Dictionary = public_rooms.get(room_id, {})
+			if previous_room.is_empty():
+				_public_room_lifecycle_log("room_status_seen", room_id, {
+					"room_name": str(sanitized_room.get("room_name", room_id)),
+					"port": int(sanitized_room.get("port", PUBLIC_ROOM_PORT_START)),
+					"pid": int(sanitized_room.get("process_id", -1)),
+					"ready": bool(sanitized_room.get("ready", false)),
+				})
+			elif bool(previous_room.get("ready", false)) != bool(sanitized_room.get("ready", false)):
+				_public_room_lifecycle_log("room_status_ready_changed", room_id, {
+					"room_name": str(sanitized_room.get("room_name", room_id)),
+					"port": int(sanitized_room.get("port", PUBLIC_ROOM_PORT_START)),
+					"ready": bool(sanitized_room.get("ready", false)),
+				})
+			elif int(previous_room.get("player_count", 0)) != int(sanitized_room.get("player_count", 0)):
+				_public_room_lifecycle_log("room_status_players_changed", room_id, {
+					"room_name": str(sanitized_room.get("room_name", room_id)),
+					"player_count": int(sanitized_room.get("player_count", 0)),
+				})
 			if not public_rooms.has(room_id) or public_rooms.get(room_id, {}) != sanitized_room:
 				_public_lobby_mark_snapshot_dirty()
 			public_rooms[room_id] = sanitized_room
@@ -1458,8 +1711,13 @@ func _public_lobby_refresh_room_files() -> void:
 		if seen_room_ids.has(room_id):
 			continue
 		var room: Dictionary = public_rooms.get(room_id, {})
-		var last_seen := float(room.get("last_seen_unix", now))
+		var last_seen: float = float(room.get("last_seen_unix", now))
 		if now - last_seen > PUBLIC_ROOM_STALE_SECONDS:
+			_public_room_lifecycle_log("room_status_stale_cache_removed", room_id, {
+				"room_name": str(room.get("room_name", room_id)),
+				"port": int(room.get("port", PUBLIC_ROOM_PORT_START)),
+				"last_seen_age_sec": now - last_seen,
+			})
 			public_rooms.erase(room_id)
 			changed = true
 	if changed:
@@ -1538,17 +1796,28 @@ func _write_public_room_status() -> void:
 		"last_seen_unix": Time.get_unix_time_from_system(),
 		"ready": _public_room_runtime_ready,
 	}
-	var file := FileAccess.open(_public_room_status_path(active_public_room_id), FileAccess.WRITE)
+	var status_path: String = _public_room_status_path(active_public_room_id)
+	var file: FileAccess = FileAccess.open(status_path, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(status))
+	else:
+		_public_room_lifecycle_log("room_status_write_failed", active_public_room_id, {
+			"path": status_path,
+		})
 
 
-func _delete_public_room_status_file() -> void:
+func _delete_public_room_status_file(reason: String = "cleanup") -> void:
 	if active_public_room_id.is_empty():
 		return
-	var path := _public_room_status_path(active_public_room_id)
+	var path: String = _public_room_status_path(active_public_room_id)
+	var removed: bool = false
 	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+		removed = DirAccess.remove_absolute(path) == OK
+	_public_room_lifecycle_log("room_status_deleted", active_public_room_id, {
+		"reason": reason,
+		"path": path,
+		"removed": removed,
+	})
 
 
 func _public_room_status_directory() -> String:
@@ -1568,6 +1837,48 @@ func _public_room_status_path(room_id: String) -> String:
 	return _public_room_status_directory().path_join(safe_id + ".json")
 
 
+func _public_room_lifecycle_log_path() -> String:
+	var override_path: String = OS.get_environment(PUBLIC_ROOM_LIFECYCLE_LOG_ENV).strip_edges()
+	if not override_path.is_empty():
+		return override_path
+	return _public_room_status_directory().path_join("logs").path_join("room_lifecycle.jsonl")
+
+
+func _public_room_lifecycle_log(event_name: String, room_id: String = "", details: Dictionary = {}) -> void:
+	var normalized_room_id: String = room_id.strip_edges().to_lower()
+	if normalized_room_id.is_empty():
+		normalized_room_id = active_public_room_id.strip_edges().to_lower()
+	var entry: Dictionary = {
+		"ts_unix": Time.get_unix_time_from_system(),
+		"event": event_name,
+		"room_id": normalized_room_id,
+		"mode": _diagnostic_connection_mode(),
+		"public_address": str(lobby_config.get("public_address", "")),
+		"public_server_code": str(lobby_config.get("public_server_code", "")),
+		"server_port": server_port,
+		"players": players.size(),
+		"rooms": public_rooms.size(),
+		"ready": _public_room_runtime_ready,
+	}
+	for raw_key in details.keys():
+		var key: String = str(raw_key)
+		if key == "lobby_id" or key == "password" or key == "lobby_password":
+			continue
+		entry[key] = details[raw_key]
+	var log_path: String = _public_room_lifecycle_log_path()
+	var log_dir: String = log_path.get_base_dir()
+	if not log_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(log_dir)
+	var file: FileAccess = FileAccess.open(log_path, FileAccess.READ_WRITE)
+	if file == null:
+		file = FileAccess.open(log_path, FileAccess.WRITE)
+	if file == null:
+		push_warning("Unable to write public room lifecycle log: " + log_path)
+		return
+	file.seek_end()
+	file.store_line(JSON.stringify(entry))
+
+
 func _server_prepare_public_room_host(peer_id: int, info: Dictionary) -> void:
 	if not is_public_room_server():
 		return
@@ -1575,6 +1886,10 @@ func _server_prepare_public_room_host(peer_id: int, info: Dictionary) -> void:
 		return
 	lobby_config["host_peer_id"] = peer_id
 	lobby_config["host_peer_name"] = str(info.get("nick", "Host"))
+	_public_room_lifecycle_log("room_host_assigned", active_public_room_id, {
+		"peer_id": peer_id,
+		"host_peer_name": str(lobby_config["host_peer_name"]),
+	})
 	_runtime_debug_log("[Network] Public room host assigned: peer=", peer_id, " name=", lobby_config["host_peer_name"])
 	_write_public_room_status()
 
@@ -1591,11 +1906,18 @@ func _server_assign_public_room_host_if_needed() -> void:
 		lobby_config["host_peer_id"] = 0
 		lobby_config["host_peer_name"] = ""
 		lobby_config["role_locked"] = false
+		_public_room_lifecycle_log("room_host_cleared", active_public_room_id, {
+			"reason": "no_players",
+		})
 		_write_public_room_status()
 		return
 	var next_host := int(ids[0])
 	lobby_config["host_peer_id"] = next_host
 	lobby_config["host_peer_name"] = str(players[next_host].get("nick", "Host"))
+	_public_room_lifecycle_log("room_host_transferred", active_public_room_id, {
+		"peer_id": next_host,
+		"host_peer_name": str(lobby_config["host_peer_name"]),
+	})
 	_runtime_debug_log("[Network] Public room host transferred: peer=", next_host, " name=", lobby_config["host_peer_name"])
 	_write_public_room_status()
 
@@ -2177,11 +2499,22 @@ func _register_player(new_player_info):
 			return
 		var provided_id = str(new_player_info.get("join_lobby_id", "")).to_upper()
 		if not is_lobby_id_valid(provided_id):
+			if is_public_room_server():
+				_public_room_lifecycle_log("room_peer_rejected", active_public_room_id, {
+					"peer_id": int(new_player_id),
+					"reason": "wrong_lobby_id",
+				})
 			push_warning("Peer " + str(new_player_id) + " joined with wrong lobby id")
 			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
 			return
 		var provided_room_name = str(new_player_info.get("join_room_name", ""))
 		if not is_room_name_valid(provided_room_name):
+			if is_public_room_server():
+				_public_room_lifecycle_log("room_peer_rejected", active_public_room_id, {
+					"peer_id": int(new_player_id),
+					"reason": "wrong_room_name",
+					"provided_room_name": provided_room_name,
+				})
 			push_warning("Peer " + str(new_player_id) + " joined with wrong room name")
 			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
 			return
@@ -2194,6 +2527,11 @@ func _register_player(new_player_info):
 	player_connected.emit(new_player_id, players[new_player_id])
 	if multiplayer.is_server():
 		if is_public_room_server():
+			_public_room_lifecycle_log("room_peer_joined", active_public_room_id, {
+				"peer_id": new_player_id,
+				"peer_name": str(players[new_player_id].get("nick", "")),
+				"role": int(players[new_player_id].get("role", Role.NONE)),
+			})
 			_write_public_room_status()
 		_broadcast_full_sync.rpc(players, lobby_config)
 
@@ -2259,12 +2597,18 @@ func _broadcast_player_life_state(peer_id: int, alive: bool) -> void:
 
 
 func _on_player_disconnected(id):
+	var disconnected_player: Dictionary = players.get(id, {})
 	players.erase(id)
 	player_disconnected.emit(id)
 	if multiplayer.is_server():
 		if is_public_lobby_server():
 			_public_lobby_mark_snapshot_dirty()
 			return
+		if is_public_room_server():
+			_public_room_lifecycle_log("room_peer_disconnected", active_public_room_id, {
+				"peer_id": int(id),
+				"peer_name": str(disconnected_player.get("nick", "")),
+			})
 		_server_assign_public_room_host_if_needed()
 		if is_public_room_server():
 			_write_public_room_status()

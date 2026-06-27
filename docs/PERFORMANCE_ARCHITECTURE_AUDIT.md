@@ -30,6 +30,9 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Public-room clients can leave an active match through the ESC panel and return to the public server lobby without exiting the app.
 - Public room redirects now keep the "joining room" state until the room server sends authoritative full sync. Late disconnect events from the previous public lobby connection no longer cancel the new room connection.
 - Player replication now uses NetFox tick snapshots with a public-internet interpolation buffer, bounded extrapolation, and render smoothing. Nickname remains spawn-only state, and remote animation/facing is still inferred locally from motion instead of synchronizing cosmetic animation and model rotation every network frame.
+- NetFox player transform sync now suppresses unchanged idle owner snapshots, keeps a bounded forced refresh, and records remote interpolation/extrapolation sample modes so `MAOMAO_PERF_LOG` can reveal whether visible stutter comes from stale snapshots, queue overflow, or clamped extrapolation.
+- `character_skin_runtime_test` now includes a synthetic 2 / 4 / 8 / 16 remote-bot NetFox motion smoke that exercises bounded snapshot queues, interpolation, clamped extrapolation, and snapshot-overflow telemetry without requiring a 24-person manual test.
+- A runtime network console now exposes `net.mode`, `net.peers`, `net.rtt`, `net.noray`, `net.room`, `net.sync_budget`, and `net.simulator` from a shared diagnostic snapshot so field tests can capture ENet RTT / packet loss, Noray phase, NetFox counters, and sync-budget telemetry without adding ad hoc logs.
 - Chameleon sculpt remains lazy-initialized: non-Chameleon players cannot create it, and Chameleon players create/apply it only on the first valid sculpt batch.
 - Hunter flashlight pose updates now run on a budgeted roughly 8Hz path with movement/angle thresholds and a forced refresh window instead of pushing active pose state every frame-like tick.
 - Hunter flashlight pose updates now use `NetworkInterest` segment relevance for targeted fan-out. Toggle/cooldown state remains reliable room-wide sync, while continuous pose updates record actual recipients and skip peers far from the flashlight beam.
@@ -46,6 +49,7 @@ Scope: multiplayer performance, skill execution ownership, server/client CPU and
 - Public room subprocess args now pass `--main-pack` from `MAOMAO_PCK`, from a command-line pack hint, or from the Linux production fallback `/opt/maomao/maomao_server.pck`; the export smoke test also sets `MAOMAO_PCK`.
 - Public-room lobby UI now shows the connected public server identity after room entry. Primary server `1.13.175.170` is labeled `TX`; backup server `8.153.148.157` is labeled `AL`.
 - Public room process startup is now split into argument construction, launch-mode selection, shell quoting, detached PID parsing, and direct child fallback. This makes the room lifecycle path testable and reduces the risk of zombie room children after repeated create/quit cycles.
+- Public lobby and room servers now persist room lifecycle JSONL under the room status `logs` directory, with create/join failures, process spawn, ready timeout, redirect, status discovery, stale cleanup, room ready, host assignment, peer join/leave, and status deletion events. This gives VPS field tests a concrete evidence trail without exposing room passwords.
 - Map prop impact requests now have a server-side per-player/per-prop throttle. Normal client-cooldown impacts still pass, while duplicate bursts are dropped and counted as `map_prop.impact_throttled`.
 - `level.gd`, `player.gd`, and `network.gd` now route local peer-id reads and server checks through runtime-peer helpers. Headless/offline tests no longer spam Godot's `No multiplayer peer is assigned` error while preserving real multiplayer server semantics when an ENet peer is present.
 - NetFox player transform snapshots now record owner-submit and server-forward counts/approximate bytes through the existing `MAOMAO_PERF_LOG` telemetry window.
@@ -120,6 +124,8 @@ The detailed implementation contract now lives in `docs/RUNTIME_AUTHORITY_CONTRA
 - `res://tests/lobby_flow_test.tscn`: CLI PASS, including public room redirect state regression coverage.
 - `res://tests/lobby_flow_test.tscn`: CLI PASS after replacing direct `multiplayer.is_server()` checks in `level.gd` and `player.gd`; the previous no-peer error from `player.gd:342` is gone.
 - `res://tests/lobby_flow_test.tscn` and `res://tests/character_skin_runtime_test.tscn`: CLI PASS after adding NetFox transform snapshot budget assertions.
+- `res://tests/character_skin_runtime_test.tscn`: CLI PASS after adding NetFox idle transform budget and remote sample telemetry coverage.
+- `res://tests/lobby_flow_test.tscn`: CLI PASS after adding network diagnostic console command coverage.
 - `res://tests/escape_quit_confirm_test.gd`: CLI PASS.
 - `res://tests/lobby_flow_test.tscn`, `res://tests/escape_quit_confirm_test.gd`, `res://tests/party_monster_accessory_system_test.tscn`, `res://tests/hunter_prop_sense_test.tscn`, and `res://tests/hunter_auto_turret_test.tscn`: CLI PASS after broad runtime log gating.
 - `res://tests/character_skin_runtime_test.tscn`: CLI PASS.

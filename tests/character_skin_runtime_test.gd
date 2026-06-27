@@ -15,6 +15,7 @@ func _run() -> void:
 	await _test_remote_custom_skin_animates_from_network_motion()
 	await _test_public_server_skips_remote_skin_animation()
 	await _test_player_position_sync_budget()
+	_test_netfox_remote_motion_bot_smoke()
 
 	if failures.is_empty():
 		print("[CharacterSkinRuntimeTest] PASS")
@@ -151,14 +152,68 @@ func _test_player_position_sync_budget() -> void:
 	var transform_sync := player.get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
 	_expect(transform_sync != null, "Player scene should use NetfoxTransformSync for network tick snapshots")
 	if transform_sync:
-		_expect(transform_sync.send_every_ticks == 1, "Player transform snapshots should run every network tick")
+		_expect(transform_sync.send_every_ticks == 1, "Moving player transform snapshots should still be allowed every network tick")
+		_expect(transform_sync.idle_send_every_ticks > transform_sync.send_every_ticks, "Idle player transform snapshots should use a lower-rate budget")
+		_expect(transform_sync.force_send_every_ticks >= transform_sync.idle_send_every_ticks, "Idle player transform snapshots should keep a bounded forced refresh")
+		_expect(transform_sync.min_position_delta > 0.0, "Transform sync should suppress tiny idle position jitter")
+		_expect(transform_sync.min_velocity_delta > 0.0, "Transform sync should suppress tiny idle velocity jitter")
 		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote transform sync should keep a public-internet interpolation buffer")
 		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote transform sync should cap short extrapolation")
 		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote transform sync should smooth render samples")
 		_expect(transform_sync.max_velocity_mps <= 80.0, "Remote transform sync should clamp extreme velocities")
 		_expect(NetfoxPlayerTransformSync.TRANSFORM_SNAPSHOT_APPROX_BYTES > 0, "Transform sync should expose a telemetry byte budget")
+		_expect(bool(transform_sync.call("_should_submit_current_transform", 0)), "Transform sync should always submit its first owner snapshot")
+		transform_sync.set("_last_sent_tick", 0)
+		transform_sync.set("_has_last_submitted_transform", true)
+		transform_sync.set("_last_submitted_position", player.global_position)
+		transform_sync.set("_last_submitted_velocity", Vector3.ZERO)
+		player.velocity = Vector3.ZERO
+		_expect(not bool(transform_sync.call("_should_submit_current_transform", 1)), "Idle transform sync should skip the next unchanged tick")
+		_expect(bool(transform_sync.call("_should_submit_current_transform", transform_sync.force_send_every_ticks)), "Idle transform sync should force a bounded refresh")
+		var transform_sync_source := FileAccess.get_file_as_string("res://scripts/network/netfox_player_transform_sync.gd")
+		_expect(transform_sync_source.contains("player_transform.owner_idle_skip"), "Transform sync telemetry should record idle-owner skipped snapshots")
+		_expect(transform_sync_source.contains("player_transform.remote_sample_"), "Transform sync telemetry should record remote interpolation sample modes")
+		_expect(transform_sync_source.contains("extrapolate_clamped"), "Transform sync telemetry should expose clamped extrapolation as a stutter signal")
 	player.queue_free()
 	await get_tree().process_frame
+
+
+func _test_netfox_remote_motion_bot_smoke() -> void:
+	var previous_perf_log: String = OS.get_environment("MAOMAO_PERF_LOG")
+	OS.set_environment("MAOMAO_PERF_LOG", "1")
+	Network._reset_performance_telemetry_window()
+	var bot_counts: Array[int] = [2, 4, 8, 16]
+	for bot_count: int in bot_counts:
+		var roots: Array[CharacterBody3D] = []
+		for index: int in range(bot_count):
+			var root: CharacterBody3D = CharacterBody3D.new()
+			root.name = "SyntheticRemote" + str(bot_count) + "_" + str(index)
+			root.set_multiplayer_authority(100 + index)
+			add_child(root)
+			var transform_sync: NetfoxPlayerTransformSync = NetfoxPlayerTransformSync.new()
+			transform_sync.name = "NetfoxTransformSync"
+			root.add_child(transform_sync)
+			transform_sync.call("_resolve_root")
+			for sample_index: int in range(24):
+				var sample_position: Vector3 = Vector3(float(index), 0.0, float(sample_index) * 0.2)
+				var sample_velocity: Vector3 = Vector3(0.0, 0.0, 2.0)
+				transform_sync.call("_record_snapshot", sample_index, sample_position, sample_velocity)
+			var snapshots: Array = transform_sync.get("_snapshots") as Array
+			_expect(snapshots.size() <= transform_sync.max_snapshots, "Synthetic remote bot snapshots should stay bounded for " + str(bot_count) + " bots")
+			var interpolated: Dictionary = transform_sync.call("_sample_state", 10.5) as Dictionary
+			_expect(str(interpolated.get("mode", "")) == "interpolate", "Synthetic remote bot should interpolate mid-buffer samples for " + str(bot_count) + " bots")
+			var extrapolated: Dictionary = transform_sync.call("_sample_state", 99.0) as Dictionary
+			_expect(str(extrapolated.get("mode", "")) == "extrapolate_clamped", "Synthetic remote bot should clamp stale extrapolation for " + str(bot_count) + " bots")
+			roots.append(root)
+		for root: CharacterBody3D in roots:
+			root.free()
+	var summary: String = Network._format_performance_telemetry_events()
+	_expect(summary.contains("player_transform.snapshot_overflow"), "Synthetic 2/4/8/16 remote bot smoke should record snapshot overflow telemetry")
+	Network._reset_performance_telemetry_window()
+	if previous_perf_log.is_empty():
+		OS.unset_environment("MAOMAO_PERF_LOG")
+	else:
+		OS.set_environment("MAOMAO_PERF_LOG", previous_perf_log)
 
 
 func _spawn_player(peer_id: String) -> Node:

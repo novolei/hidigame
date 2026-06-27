@@ -285,6 +285,24 @@ func _configure_noray_endpoint() -> void:
 	noray_port = int(env_port) if env_port.is_valid_int() else DEFAULT_NORAY_PORT
 
 
+func get_diagnostic_snapshot() -> Dictionary:
+	return {
+		"active_mode": active_mode,
+		"share_code": share_code,
+		"noray_host": noray_host,
+		"noray_port": noray_port,
+		"local_port": local_port,
+		"connected_to_host": Noray.is_connected_to_host(),
+		"oid_ready": _id_wait_oid_received,
+		"pid_ready": _id_wait_pid_received,
+		"client_attempt_mode": _client_attempt_mode,
+		"client_attempt_done": _client_attempt_done,
+		"client_attempt_error": _client_attempt_error,
+		"client_attempt_address": _client_attempt_address,
+		"client_attempt_port": _client_attempt_port,
+	}
+
+
 func _error_result(error: int) -> Dictionary:
 	return {
 		"error": error,
