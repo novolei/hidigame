@@ -3,6 +3,7 @@ extends Control
 class_name StartupSplash
 
 const NEXT_SCENE_PATH := "res://scenes/ui/intro_video.tscn"
+const DEDICATED_SERVER_SCENE_PATH := "res://scenes/level/level.tscn"
 const APP_NAME := "Monster & Hunter"
 const BASE_VIEWPORT := Vector2(1920.0, 1080.0)
 const MIN_DISPLAY_SECONDS := 4.2
@@ -158,6 +159,10 @@ var _whoosh_player: AudioStreamPlayer
 
 
 func _ready() -> void:
+	if _should_bypass_for_dedicated_server():
+		call_deferred("_change_to_dedicated_server_scene")
+		return
+
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	RenderingServer.set_default_clear_color(BACKGROUND_TOP_COLOR)
@@ -194,6 +199,32 @@ func _process(delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_layout_screen()
+
+
+func _should_bypass_for_dedicated_server() -> bool:
+	if Engine.is_editor_hint() or DisplayServer.get_name() != "headless":
+		return false
+	return _startup_cmd_arg_has("--maomao-public-server") \
+		or _startup_cmd_arg_has("--public-server") \
+		or _startup_cmd_arg_has("--maomao-room-server") \
+		or OS.get_environment("MAOMAO_PUBLIC_SERVER") == "1" \
+		or OS.get_environment("MAOMAO_ROOM_SERVER") == "1"
+
+
+func _change_to_dedicated_server_scene() -> void:
+	var error := get_tree().change_scene_to_file(DEDICATED_SERVER_SCENE_PATH)
+	if error != OK:
+		push_error("StartupSplash: dedicated server scene load failed: %s" % error_string(error))
+
+
+func _startup_cmd_arg_has(arg_name: String) -> bool:
+	var args := PackedStringArray()
+	args.append_array(OS.get_cmdline_args())
+	args.append_array(OS.get_cmdline_user_args())
+	for arg in args:
+		if str(arg) == arg_name:
+			return true
+	return false
 
 
 func _build_screen() -> void:

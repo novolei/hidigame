@@ -44,7 +44,7 @@ _subresources={
 "light_shafts": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/light_shafts.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/light_shafts.tres"
+"use_external/path": "uid://cy81c3bjseh85"
 }
 }
 }

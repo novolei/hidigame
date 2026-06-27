@@ -55,9 +55,51 @@ function Invoke-External {
 
     Write-Host ("$FilePath " + ($ArgumentList -join " "))
     & $FilePath @ArgumentList
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath"
+    $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+    if ($exitCode -ne 0) {
+        throw "Command failed with exit code ${exitCode}: $FilePath"
     }
+}
+
+function Clear-ExportOutput {
+    if (Test-Path -LiteralPath $outputAbs) {
+        Remove-Item -LiteralPath $outputAbs -Force
+    }
+
+    $outputName = Split-Path -Leaf $outputAbs
+    Get-ChildItem -LiteralPath $outputDir -Filter "${outputName}*.tmp" -File -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
+function Wait-ExportOutput {
+    param(
+        [string]$Path,
+        [int]$TimeoutSeconds = 900,
+        [int]$StableChecks = 3
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastLength = -1
+    $stableCount = 0
+    while ((Get-Date) -lt $deadline) {
+        $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+        if ($file -and $file.Length -gt 0) {
+            if ($file.Length -eq $lastLength) {
+                $stableCount += 1
+            } else {
+                $lastLength = $file.Length
+                $stableCount = 0
+            }
+
+            if ($stableCount -ge $StableChecks) {
+                return
+            }
+        }
+
+        Start-Sleep -Seconds 1
+    }
+
+    throw "Export did not create a stable pack: $Path"
 }
 
 function Read-TextFile {
@@ -334,6 +376,7 @@ if (!$SmokeOnly) {
             Write-Warning "Extension list not found: $extensionListFile"
         }
 
+        Clear-ExportOutput
         Invoke-External $GodotExe @(
             "--headless",
             "--recovery-mode",
@@ -343,6 +386,7 @@ if (!$SmokeOnly) {
             $Preset,
             $outputAbs
         )
+        Wait-ExportOutput -Path $outputAbs
     } finally {
         Copy-Item -LiteralPath $backupFile -Destination $projectFile -Force
         Remove-Item -LiteralPath $backupFile -Force -ErrorAction SilentlyContinue

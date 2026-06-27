@@ -44,12 +44,12 @@ _subresources={
 "flying_forklift": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/forklift/flying_forklift.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/forklift/flying_forklift.tres"
+"use_external/path": "uid://cbl4s5v0xmdbx"
 },
 "mid_cargo_box": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/forklift/mid_cargo_box.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/forklift/mid_cargo_box.tres"
+"use_external/path": "uid://bnrrmcq24o40o"
 }
 }
 }

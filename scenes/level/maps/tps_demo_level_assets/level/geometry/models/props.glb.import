@@ -44,67 +44,67 @@ _subresources={
 "container2": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container2.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container2.tres"
+"use_external/path": "uid://b7pqgbokgvx5c"
 },
 "container3": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container3.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container3.tres"
+"use_external/path": "uid://hul8bo85eqmi"
 },
 "container4": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container4.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/container4.tres"
+"use_external/path": "uid://dekpksajn8lhg"
 },
 "cycles_glow_orange": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/cycles_glow_orange.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/cycles_glow_orange.tres"
+"use_external/path": "uid://d18a3hvcw1v36"
 },
 "flat_emitter_blue": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_blue.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_blue.tres"
+"use_external/path": "uid://blssjorkb5n2u"
 },
 "flat_emitter_orange": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_orange.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_orange.tres"
+"use_external/path": "uid://ck1vbeywduubt"
 },
 "flat_emitter_powerful_white": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_powerful_white.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_powerful_white.tres"
+"use_external/path": "uid://bx5gxvkduhxm4"
 },
 "flat_emitter_white": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_white.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/flat_emitter_white.tres"
+"use_external/path": "uid://betl1kr2s43pv"
 },
 "floor_grate_wholes": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/floor_grate_wholes.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/floor_grate_wholes.tres"
+"use_external/path": "uid://c70e6i7q6tk4c"
 },
 "mid_cargo_box": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/mid_cargo_box.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/mid_cargo_box.tres"
+"use_external/path": "uid://cembigw8fg5ry"
 },
 "reactor_cylinder": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_cylinder.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_cylinder.tres"
+"use_external/path": "uid://dtcx1u5llhco5"
 },
 "reactor_emitter": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_emitter.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/reactor_emitter.tres"
+"use_external/path": "uid://divqgi5ftci6o"
 },
 "scifi_car": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/scifi_car.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/scifi_car.tres"
+"use_external/path": "uid://pyn21qe1l6ku"
 },
 "scifi_car_glass": {
 "use_external/enabled": true,
@@ -119,12 +119,12 @@ _subresources={
 "tile_default_metal": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_default_metal.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_default_metal.tres"
+"use_external/path": "uid://yb5wbxsl40p4"
 },
 "tile_painted_gun_metal": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_painted_gun_metal.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/tile_painted_gun_metal.tres"
+"use_external/path": "uid://c6aj4oditevvo"
 },
 "tile_silver_metal": {
 "use_external/enabled": true,
@@ -144,7 +144,7 @@ _subresources={
 "train_texture": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/train_texture.tres",
-"use_external/path": "res://scenes/level/maps/tps_demo_level_assets/level/geometry/models/train_texture.tres"
+"use_external/path": "uid://dkg5x6t0boetq"
 }
 }
 }
