@@ -48,6 +48,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Monster & Hunter"
 config/description="This is a foundational template for a 3D multiplayer game, developed in Godot Engine."
+config/version="0.4.4"
 config/tags=PackedStringArray("3d", "network")
 run/main_scene="res://scenes/ui/intro_video.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
@@ -71,6 +72,7 @@ boot_splash+/logo/show_fallback_logo=false
 
 [autoload]
 
+HotUpdate="*res://scripts/hot_update/hot_update_manager.gd"
 Network="*res://scripts/network.gd"
 ItemDatabase="*res://scripts/item_database.gd"
 I18n="*res://scripts/i18n.gd"
@@ -102,6 +104,20 @@ window/stretch/aspect="expand"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/GMPShared/menu/plugin.cfg", "res://addons/ambientcg/plugin.cfg", "res://addons/asset_placer/plugin.cfg", "res://addons/boot_splash_plus/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/godotsteam/plugin.cfg", "res://addons/godotsteam_server/plugin.cfg", "res://addons/gpu_texture_painter/plugin.cfg", "res://addons/meshy-godot-plugin/plugin.cfg", "res://addons/netfox.extras/plugin.cfg", "res://addons/netfox.internals/plugin.cfg", "res://addons/netfox.noray/plugin.cfg", "res://addons/netfox/plugin.cfg", "res://addons/proton_scatter/plugin.cfg", "res://addons/simplegrasstextured/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/vfx_animaiton_player/plugin.cfg")
+
+[hot_update]
+
+enabled=true
+server_enabled=false
+auto_check_on_boot=false
+load_installed_packs_on_boot=true
+show_status_overlay=true
+manifest_url=""
+channel="dev"
+protocol_version=1
+http_timeout_sec=30.0
+package_timeout_sec=0.0
+download_chunk_size_bytes=1048576
 
 [input]
 
