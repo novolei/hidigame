@@ -20,6 +20,11 @@ GODOT_BIN="${GODOT_BIN:-C:/Users/aresr/Desktop/Godot_v4.7-stable_win64.exe}"
 REMOTE="${REMOTE:-ubuntu@1.13.175.170}"
 WEB_ROOT="${WEB_ROOT:-/var/www/maomao-updates/maomao/dev}"
 BASE_URL="${BASE_URL:-http://1.13.175.170/maomao/dev}"
+# Optional: advertise the latest FULL client so clients too old to patch (below
+# min_app_version) are told where to download a fresh full install. Host the zip on TX
+# (e.g. /var/www/maomao-updates/maomao/full/) and point FULL_CLIENT_URL at it.
+FULL_CLIENT_URL="${FULL_CLIENT_URL:-}"
+FULL_CLIENT_VERSION="${FULL_CLIENT_VERSION:-}"
 SSH_OPTS="-o BatchMode=yes"
 
 read -r VERSION BUILD_ID CONTENT_VERSION < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'],d['content_version'])" | tr -d '\r')
@@ -43,6 +48,8 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     --content-version "$CONTENT_VERSION" \
     --min-app-version "$MIN_APP_VERSION" \
     --base-url "$BASE_URL" \
+    --full-client-url "$FULL_CLIENT_URL" \
+    --full-client-version "$FULL_CLIENT_VERSION" \
     --channel dev --protocol-version 1 \
     --godot-bin "$GODOT_BIN" --template-preset "Windows Desktop" \
     --run-export >/dev/null

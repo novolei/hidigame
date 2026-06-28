@@ -57,6 +57,35 @@ silently rejects it with "Using bundled local content". `release_hotpatch.sh` de
 from `project.godot` automatically — do not hardcode it above the shipped baseline's
 `config/version`.
 
+## 2b. Client upgrade matrix & adapting to old clients
+
+How a player gets current depends on the **bootstrap** their client shipped with — a hot
+patch can only carry `scripts/**` + UI, never `project.godot` or `scripts/hot_update/**`.
+
+| Client in the wild | Bootstrap state | How it upgrades |
+| --- | --- | --- |
+| 0.4.4 baseline | **broken updater** (`load_installed_packs_on_boot=false`) | Cannot self-update — downloads packs but never mounts them. **Must manually re-download a full client.** No server-side change can fix it. |
+| 0.4.5 baseline (or newer) | fixed updater, `config/version=0.4.4` | Auto-applies hot patches (0.4.6, 0.4.7, …) on boot. |
+| any client below a patch's `min_app_version` | — | Rejected by the compat check; gets the **full-client call-to-action** (see below) if the manifest advertises one. |
+
+**The unavoidable part:** a player who skipped the 0.4.5 baseline and is still on the broken
+0.4.4 cannot be auto-upgraded by any amount of hot patching — the bug is in its bootstrap.
+Hand those testers the latest full-client zip once; from a fixed baseline on, patches flow.
+
+**Version policy (do this every release so the matrix stays clean):**
+- **Full baseline:** bump `application/config/version` to the release version (so baselines are
+  distinguishable and `min_app_version` can gate them). Distribute the full zip. Host it so the
+  manifest can point at it (`/var/www/maomao-updates/maomao/full/...`).
+- **Hot patch:** keep `config/version`; bump `build_info.json` content_version. Set
+  `min_app_version` ≤ the lowest *fixed* baseline's `config/version` (`release_hotpatch.sh` derives
+  it from `project.godot`).
+- **Advertise the full client:** run `release_hotpatch.sh` with `FULL_CLIENT_URL=...`
+  (and optional `FULL_CLIENT_VERSION=...`). The manifest then carries a `full_client` block;
+  any client too old to patch shows **"Full client update required — download: <url>"** on the
+  startup screen (via the `full_client_required` signal) instead of silently using stale content.
+  Note: this self-healing prompt is itself bootstrap, so it only helps clients from the baseline
+  that first shipped it onward (it cannot rescue the already-broken 0.4.4).
+
 ## 3. Client release — full baseline (rare)
 
 Cut a new full baseline only when bootstrap changes (project.godot, the updater, engine/

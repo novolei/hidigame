@@ -5,6 +5,9 @@ signal status_changed(message: String)
 signal manifest_ready(manifest: Dictionary, pending_packages: Array)
 signal update_failed(message: String)
 signal update_installed(restart_required: bool)
+# Emitted when the client is too old to be brought current by patches (e.g. below the
+# manifest min_app_version) but the manifest advertises a newer full client to download.
+signal full_client_required(version: String, url: String, reason: String)
 
 const Constants := preload("res://scripts/hot_update/hot_update_constants.gd")
 const Manifest := preload("res://scripts/hot_update/hot_update_manifest.gd")
@@ -17,6 +20,7 @@ var pending_packages: Array[Dictionary] = []
 var installed_packages: Array[Dictionary] = []
 var last_error := ""
 var loaded_local_packages: Array[String] = []
+var full_client_info: Dictionary = {}
 
 var _downloader: HotUpdateDownloader
 var _manifest_url := ""
@@ -136,12 +140,19 @@ func _on_manifest_downloaded(_url: String, result: Dictionary) -> void:
 		update_failed.emit(last_error)
 		return
 	var manifest: Dictionary = parsed.get("manifest", {}) as Dictionary
+	var advertised_full_client: Variant = manifest.get("full_client", {})
+	full_client_info = advertised_full_client if advertised_full_client is Dictionary else {}
 	var compatibility := Manifest.compatibility_errors(manifest, Constants.app_version(), Constants.protocol_version())
 	if not compatibility.is_empty():
 		var compatibility_error := str(compatibility)
 		if _try_next_manifest_url(compatibility_error):
 			return
 		last_error = compatibility_error
+		# Too old to patch: point the player at a full re-download when the manifest offers one,
+		# instead of silently continuing on stale bundled content.
+		var full_url := str(full_client_info.get("url", "")).strip_edges()
+		if not full_url.is_empty():
+			full_client_required.emit(str(full_client_info.get("version", "")), full_url, compatibility_error)
 		update_failed.emit(last_error)
 		return
 	remote_manifest = manifest

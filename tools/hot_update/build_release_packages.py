@@ -32,6 +32,8 @@ class ReleaseOptions:
     godot_bin: str
     template_preset: str
     patches: str
+    full_client_url: str
+    full_client_version: str
 
 
 def godot_string(value: str) -> str:
@@ -105,6 +107,14 @@ def build_release_plan(partitions: dict[str, Any], options: ReleaseOptions) -> t
     }
     if options.mirror_base_urls:
         package_plan["mirrors"] = [dict(mirror) for mirror in options.mirror_base_urls]
+    # Latest FULL client download, so a client too old to patch (below min_app_version, or
+    # a baseline with a broken updater) can be told where to grab a fresh full install
+    # instead of silently staying on stale bundled content.
+    if options.full_client_url:
+        package_plan["full_client"] = {
+            "version": options.full_client_version or options.version,
+            "url": options.full_client_url,
+        }
     export_plan: dict[str, Any] = {
         "schema_version": int(partitions.get("schema_version", 1)),
         "project_root": options.project_root.as_posix(),
@@ -306,6 +316,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--godot-bin", default=os.environ.get("GODOT_BIN", "godot"))
     parser.add_argument("--template-preset", default="Windows Desktop")
     parser.add_argument("--patches", default="", help="Comma-separated previous pack paths for Godot --export-patch.")
+    parser.add_argument("--full-client-url", default="", help="URL of the latest full client download (for clients too old to patch).")
+    parser.add_argument("--full-client-version", default="", help="Version label of the latest full client.")
     parser.add_argument("--run-export", action="store_true", help="Run Godot exports after writing the plans.")
     parser.add_argument("--skip-manifest", action="store_true", help="Do not generate manifest.json after exports.")
     return parser.parse_args(argv)
@@ -352,6 +364,8 @@ def main(argv: list[str] | None = None) -> int:
         godot_bin=args.godot_bin,
         template_preset=args.template_preset,
         patches=args.patches,
+        full_client_url=args.full_client_url.strip(),
+        full_client_version=args.full_client_version.strip(),
     )
 
     partitions = load_partitions(options.partitions_path)

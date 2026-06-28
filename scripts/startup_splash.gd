@@ -45,6 +45,7 @@ const STARTUP_TEXT := {
 		"update_ready": "Hot-update package ready",
 		"update_current": "Local content is up to date",
 		"update_local": "Using bundled local content",
+		"update_full_required": "Full client update required — download:",
 		"update_manifest": "Reading hot-update manifest",
 		"update_intro": "Entering startup animation",
 		"perf_latency": "Latency N/A",
@@ -62,6 +63,7 @@ const STARTUP_TEXT := {
 		"update_ready": "热更新分包已就绪",
 		"update_current": "本地内容已是最新",
 		"update_local": "使用本地客户端内容",
+		"update_full_required": "需要下载全量客户端 — 地址:",
 		"update_manifest": "读取热更新清单",
 		"update_intro": "进入启动动画",
 		"perf_latency": "延迟 N/A",
@@ -109,6 +111,7 @@ var _flow_finished := false
 var _update_complete := false
 var _update_failed := false
 var _installing_update := false
+var _full_client_required := false
 var _restart_required := false
 var _startup_elapsed := 0.0
 var _manager: Node = null
@@ -788,6 +791,7 @@ func _bind_hot_update_manager() -> void:
 	_connect_manager_signal("manifest_ready", Callable(self, "_on_hot_update_manifest_ready"))
 	_connect_manager_signal("update_failed", Callable(self, "_on_hot_update_failed"))
 	_connect_manager_signal("update_installed", Callable(self, "_on_hot_update_installed"))
+	_connect_manager_signal("full_client_required", Callable(self, "_on_hot_update_full_client_required"))
 	_set_update_state("CHECKING CONTENT", "Contacting TX primary manifest.", 0.09)
 	if _manager.has_method("check_for_updates"):
 		var ok := bool(_manager.call("check_for_updates"))
@@ -840,7 +844,23 @@ func _on_hot_update_manifest_ready(_manifest: Dictionary, pending_packages: Arra
 func _on_hot_update_failed(message: String) -> void:
 	_update_failed = true
 	_update_complete = true
+	# Keep the "full client required" call-to-action if it was already raised this check
+	# (full_client_required fires just before update_failed for the too-old case).
+	if _full_client_required:
+		return
 	_set_update_state("LOCAL CLIENT READY", "Update failed: %s" % message, 1.0)
+
+
+func _on_hot_update_full_client_required(version: String, url: String, _reason: String) -> void:
+	_full_client_required = true
+	_update_failed = true
+	_update_complete = true
+	var prefix := _startup_text("update_full_required")
+	var trimmed_version := version.strip_edges()
+	if not trimmed_version.is_empty():
+		prefix = "%s (%s)" % [prefix, trimmed_version]
+	_set_update_state("FULL UPDATE REQUIRED", "%s %s" % [prefix, url.strip_edges()], 1.0)
+	push_warning("[HotUpdate] Build too old to patch; download the full client: %s" % url)
 
 
 func _on_hot_update_installed(restart_required: bool) -> void:
@@ -994,6 +1014,8 @@ func _localized_update_status(title: String, detail: String) -> String:
 			return _startup_text("update_manifest")
 		"LOADING INTRO":
 			return _startup_text("update_intro")
+		"FULL UPDATE REQUIRED":
+			return detail
 		_:
 			if detail.begins_with("Contacting") or detail.contains("manifest"):
 				return _startup_text("update_checking")
