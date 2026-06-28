@@ -522,7 +522,12 @@ func _apply_root_state(position: Vector3, velocity: Vector3, smooth_render: bool
 		_has_remote_state = true
 		return
 	if smooth_render:
-		var blend: float = clampf(1.0 - exp(-render_lerp_speed * maxf(delta, 0.0)), 0.0, 1.0)
+		# Latency-adaptive: near real-time on a fast link (no sluggish trailing / slow-looking
+		# landings), softer only when RTT/jitter actually warrant it. Industry entity-interpolation
+		# practice — the visual follows replicated state, tightened to the real network conditions.
+		var lerp_speed: float = RemoteVisualPolicy.position_lerp_speed(
+			NetworkTime.remote_rtt, NetworkTimeSynchronizer.rtt_jitter)
+		var blend: float = clampf(1.0 - exp(-lerp_speed * maxf(delta, 0.0)), 0.0, 1.0)
 		_root.global_position = _root.global_position.lerp(position, blend)
 	else:
 		_root.global_position = position

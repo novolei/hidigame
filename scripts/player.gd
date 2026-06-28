@@ -7428,7 +7428,9 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	# Low-pass the noisy per-sample network velocity so the action thresholds below
 	# (jump / fall / run / walk / idle) stop flickering, which reads as choppy animation.
 	var raw_visual_velocity: Vector3 = sample.get("velocity", Vector3.ZERO)
-	_remote_visual_velocity_smoothed = _remote_visual_velocity_smoothed.lerp(raw_visual_velocity, clampf(delta * REMOTE_VISUAL_VELOCITY_SMOOTH_RATE, 0.0, 1.0))
+	var velocity_smooth_rate: float = RemoteVisualPolicy.velocity_smooth_rate(
+		NetworkTime.remote_rtt, NetworkTimeSynchronizer.rtt_jitter)
+	_remote_visual_velocity_smoothed = _remote_visual_velocity_smoothed.lerp(raw_visual_velocity, clampf(delta * velocity_smooth_rate, 0.0, 1.0))
 	var visual_velocity: Vector3 = _remote_visual_velocity_smoothed
 	var horizontal_velocity := Vector3(visual_velocity.x, 0.0, visual_velocity.z)
 	var horizontal_speed := horizontal_velocity.length()
@@ -7437,7 +7439,8 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	elif visual_velocity.y < -REMOTE_VERTICAL_ACTION_SPEED:
 		_play_skin_action("fall")
 	elif horizontal_speed > REMOTE_MOVE_SPEED_THRESHOLD:
-		_remote_visual_move_hold = REMOTE_MOVE_HOLD_SECONDS
+		_remote_visual_move_hold = RemoteVisualPolicy.move_hold_sec(
+			NetworkTime.remote_rtt, NetworkTimeSynchronizer.rtt_jitter)
 		_current_speed = horizontal_speed
 		_apply_body_rotation(horizontal_velocity)
 		if horizontal_speed >= REMOTE_RUN_SPEED_THRESHOLD:
