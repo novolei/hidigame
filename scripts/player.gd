@@ -218,6 +218,9 @@ var role: int = Network.Role.NONE
 # 鍑嗗闃舵閿佸畾鐘舵€?server 鎺у埗)
 var prep_phase_locked: bool = false
 var match_intro_locked: bool = false
+# Set by the debug console while it owns the keyboard. Pure input gate (no camera
+# / skin side effects) so toggling the console restores control cleanly.
+var console_input_locked: bool = false
 
 @onready var nickname: Label3D = $PlayerNick/Nickname
 
@@ -287,7 +290,17 @@ var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravi
 
 var can_double_jump: bool = true
 var has_double_jumped: bool = false
-var health: float = 100.0
+# Role-based hitpoints. Hunters are tankier than props per GDD (HP balance).
+# Props (Chameleon / Stalker) share the same pool. max_health is derived from
+# role via _max_health_for_role() and resynced whenever the role changes.
+const HUNTER_MAX_HEALTH := 250.0
+const PROP_MAX_HEALTH := 200.0
+const DEFAULT_MAX_HEALTH := 200.0
+# Fraction of max restored by the prop emergency-conceal / revival cards. Ported
+# from the legacy flat 65-on-100 value so card balance scales with the new pools.
+const CARD_RESCUE_HEALTH_RATIO := 0.65
+var max_health: float = DEFAULT_MAX_HEALTH
+var health: float = DEFAULT_MAX_HEALTH
 var _card_effect_controller: PlayerCardEffectController = null
 var _card_effect_timers: Dictionary = {}
 var _card_speed_multiplier: float = 1.0
@@ -358,6 +371,10 @@ var _skin_performance_previous_current_camera: Camera3D = null
 var _skin_performance_camera_token := 0
 var _skin_performance_camera_action := ""
 var _skin_performance_input_block_remaining := 0.0
+# Server-authoritative count of livestream performances used this match. The
+# first is free; further uses cost escalating HP (2nd -40%, 3rd fatal) to deter
+# players spamming the camera-hijacking emote to grief others.
+var _skin_performance_use_count: int = 0
 var _skin_performance_wheel_dance_charge := 0.0
 var _skin_performance_wheel_victory_charge := 0.0
 var _skin_performance_wheel_bar_idle_remaining := 0.0
@@ -369,6 +386,7 @@ var _skin_performance_effect_tween: Tween = null
 var _skin_performance_music_player: AudioStreamPlayer = null
 
 signal health_changed(value: float)
+signal max_health_changed(value: float)
 
 
 func _has_runtime_multiplayer_peer() -> bool:
@@ -1000,6 +1018,11 @@ func _update_stalker_nickname_visibility(shadow_alpha: float) -> void:
 func _refresh_nickname_visibility(stalker_shadow_alpha: float = -1.0) -> void:
 	if not nickname:
 		return
+	# When the screen-space WorldNameplateHUD owns overhead text, keep the
+	# world Label3D hidden so names aren't drawn twice.
+	if _screen_nameplate_active:
+		nickname.visible = false
+		return
 	nickname.visible = _should_show_nickname_for_local_viewer(stalker_shadow_alpha)
 
 
@@ -1488,13 +1511,16 @@ func _handle_chameleon_input(event: InputEvent) -> void:
 			shape_system.try_replicate_nearby_prop()
 			return
 		var wheel = _get_shape_wheel()
-		if wheel:
-			if wheel.visible:
-				wheel.hide_wheel()
-			else:
-				wheel.show_wheel(shape_system)
-				# 閿佷綇瑙掕壊绉诲姩
-				shape_system.open_wheel()
+		if wheel and not wheel.visible:
+			wheel.show_wheel(shape_system)
+			# Lock movement while the wheel is up.
+			shape_system.open_wheel()
+		return
+	if event.is_action_released("shape_shift") and shape_system:
+		var wheel = _get_shape_wheel()
+		if wheel and wheel.visible:
+			wheel.release_select()
+		return
 
 
 func _handle_stalker_input(event: InputEvent) -> void:
@@ -1861,6 +1887,7 @@ func _sync_role_from_network() -> void:
 		role = Network.players[my_id].get("role", Network.Role.NONE)
 	else:
 		role = Network.Role.NONE
+	_apply_role_max_health()
 
 
 func _sync_character_model_from_network() -> void:
@@ -1887,6 +1914,7 @@ func _on_party_monster_accessories_changed(peer_id: int, loadout: Dictionary) ->
 func _on_role_changed(peer_id: int, new_role: int) -> void:
 	if peer_id == str(name).to_int():
 		role = new_role
+		_apply_role_max_health()
 		_sync_character_model_from_network()
 		_sync_party_monster_accessories_from_network()
 		if _should_log_runtime_debug():
@@ -2897,7 +2925,7 @@ func _get_card_effect_controller() -> PlayerCardEffectController:
 
 
 func _card_apply_emergency_conceal(duration: float) -> void:
-	health = maxf(health, 65.0)
+	health = maxf(health, max_health * CARD_RESCUE_HEALTH_RATIO)
 	_sync_health.rpc(health)
 	_card_apply_status("damage_immunity", maxf(duration, 5.0))
 	_card_apply_stasis(maxf(duration, 5.0))
@@ -5728,17 +5756,10 @@ func _ensure_party_monster_bounty_visuals() -> void:
 		add_child(_party_monster_bounty_glow_light)
 	_party_monster_bounty_glow_light.visible = true
 	_party_monster_bounty_glow_light.light_energy = 2.9
-	if not _party_monster_bounty_marker_label or not is_instance_valid(_party_monster_bounty_marker_label):
-		_party_monster_bounty_marker_label = Label3D.new()
-		_party_monster_bounty_marker_label.name = "PartyMonsterBountyMarker"
-		_party_monster_bounty_marker_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_party_monster_bounty_marker_label.modulate = Color(1.0, 0.92, 0.24, 1.0)
-		_party_monster_bounty_marker_label.outline_modulate = Color(0.55, 0.0, 0.42, 1.0)
-		_party_monster_bounty_marker_label.font_size = 34
-		_party_monster_bounty_marker_label.top_level = true
-		add_child(_party_monster_bounty_marker_label)
-	_party_monster_bounty_marker_label.visible = true
-	_party_monster_bounty_marker_label.text = "BOUNTY" if _party_monster_bounty_label.is_empty() else "BOUNTY: " + _party_monster_bounty_label
+	# The "BOUNTY: ..." Label3D is superseded by the bounty icon on the
+	# screen-space WorldNameplateHUD; keep only the glow as world feedback.
+	if _party_monster_bounty_marker_label and is_instance_valid(_party_monster_bounty_marker_label):
+		_party_monster_bounty_marker_label.visible = false
 
 
 func _refresh_party_monster_bounty_visuals() -> void:
@@ -6731,6 +6752,7 @@ func _submit_skin_performance_action(action: String) -> void:
 	if not _has_active_skin_performance_peer():
 		return
 	elif _is_runtime_multiplayer_server():
+		_server_apply_skin_performance_cost()
 		_apply_skin_performance_action_rpc.rpc(normalized)
 	else:
 		_request_skin_performance_action_rpc.rpc_id(1, normalized)
@@ -6749,7 +6771,31 @@ func _request_skin_performance_action_rpc(action: String) -> void:
 		return
 	if _is_dead or _is_prop_disguised:
 		return
+	_server_apply_skin_performance_cost()
 	_apply_skin_performance_action_rpc.rpc(normalized)
+
+
+# Server-authoritative escalating cost for repeat livestream performances in one
+# match: 1st free, 2nd costs 40% max HP, 3rd+ is fatal. Bypasses damage immunity
+# and reactive rescue cards on purpose — this is a self-inflicted griefing
+# deterrent, not combat damage.
+func _server_apply_skin_performance_cost() -> void:
+	if not _is_runtime_multiplayer_server() or _is_dead:
+		return
+	_skin_performance_use_count += 1
+	if _skin_performance_use_count <= 1:
+		return
+	if _skin_performance_use_count >= 3:
+		_card_feedback_to_owner("PERFORMANCE OVERUSE — FATAL", Color(1.0, 0.26, 0.2, 1.0), 1.6)
+		_server_die(int(str(name)))
+		return
+	# Second use this match: drain 40% of max HP.
+	health = maxf(0.0, health - max_health * 0.40)
+	_card_feedback_to_owner("PERFORMANCE COST  -40% HP", Color(1.0, 0.55, 0.2, 1.0), 1.4)
+	if health <= 0.0:
+		_server_die(int(str(name)))
+	else:
+		_sync_health.rpc(health)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -7716,6 +7762,144 @@ func get_health() -> float:
 	return health
 
 
+func get_max_health() -> float:
+	return max_health
+
+
+# Display name shown on the overhead Label3D; used by the bottom-left health HUD.
+func get_display_name() -> String:
+	if nickname and is_instance_valid(nickname) and not nickname.text.is_empty():
+		return nickname.text
+	return str(name)
+
+
+# =============================================================================
+# Screen-space overhead nameplate (WorldNameplateHUD) hooks
+# =============================================================================
+var _screen_nameplate_active := false
+
+
+# Toggle whether the world Label3D name is suppressed in favour of the 2D HUD.
+func set_screen_nameplate_active(active: bool) -> void:
+	if _screen_nameplate_active == active:
+		return
+	_screen_nameplate_active = active
+	_refresh_nickname_visibility()
+
+
+# World-space anchor the 2D nameplate projects from (sits above the head).
+func get_overhead_anchor_position() -> Vector3:
+	if nickname and is_instance_valid(nickname):
+		return nickname.global_position
+	return global_position + Vector3(0.0, 2.4, 0.0)
+
+
+# Reuse the existing team / stalker-stealth / bounty visibility rules so the 2D
+# nameplate hides exactly what the world Label3D used to.
+func nameplate_should_show_for_local_viewer() -> bool:
+	return _should_show_nickname_for_local_viewer()
+
+
+# Same side as the local viewer? Hunters team vs props (Chameleon + Stalker).
+func is_ally_of_local_viewer() -> bool:
+	var viewer_role := _get_local_viewer_role()
+	var viewer_hunter := viewer_role == Network.Role.HUNTER
+	var self_hunter := role == Network.Role.HUNTER
+	var viewer_prop := viewer_role == Network.Role.CHAMELEON or viewer_role == Network.Role.STALKER
+	var self_prop := role == Network.Role.CHAMELEON or role == Network.Role.STALKER
+	return (viewer_hunter and self_hunter) or (viewer_prop and self_prop)
+
+
+# Server-only: tell the attacker's client to briefly reveal this victim's HP bar
+# (enemy bars are normally hidden). Skips self-damage and non-peer sources.
+func _server_report_damage_to_attacker(attacker_id: int) -> void:
+	if attacker_id <= 1:
+		return
+	if attacker_id == int(str(name)):
+		return
+	_reveal_damaged_enemy_bar.rpc_id(attacker_id, int(str(name)), health, max_health)
+
+
+@rpc("any_peer", "reliable")
+func _reveal_damaged_enemy_bar(victim_peer: int, victim_health: float, victim_max: float) -> void:
+	# Only trust the server; this is a UI-only hint on the attacker's client.
+	if multiplayer.get_remote_sender_id() != 1:
+		return
+	var ratio := victim_health / maxf(victim_max, 1.0)
+	get_tree().call_group("world_nameplate_hud", "register_enemy_reveal", victim_peer, ratio)
+
+
+# =============================================================================
+# Debug console hooks (DebugConsole). Gated to debug builds so exported release
+# clients can't be poked by these RPCs.
+# =============================================================================
+func debug_tools_enabled() -> bool:
+	return OS.is_debug_build()
+
+
+# Set health to a fraction (0..1) of max — used by heal / sethp / kill. Routed
+# to the authoritative server like real damage so the HUD path stays identical.
+@rpc("any_peer", "call_local", "reliable")
+func debug_set_health_fraction(fraction: float) -> void:
+	# Apply only on the authoritative side (the server, or an offline session
+	# where there is no peer). Intentionally NOT gated to debug builds so it also
+	# works against a release dedicated server while testing — the DebugConsole
+	# is the access gate.
+	if multiplayer.has_multiplayer_peer() and not _is_runtime_multiplayer_server():
+		return
+	var target := clampf(fraction, 0.0, 1.0) * max_health
+	if target <= 0.0:
+		_is_dead = false
+		take_damage(max_health + 1.0, 0)
+		return
+	if _is_dead:
+		apply_network_alive_state(true)
+	health = target
+	if multiplayer.has_multiplayer_peer():
+		_sync_health.rpc(health)
+	else:
+		health_changed.emit(health)
+
+
+# Toggle the bounty marker across all peers so the nameplate bounty icon can be
+# verified without the full bounty minigame.
+@rpc("any_peer", "call_local", "reliable")
+func debug_set_bounty(marked: bool) -> void:
+	set_party_monster_bounty_marked(marked)
+
+
+# Role drives the hitpoint pool: Hunter is tankier than the props it chases.
+func _max_health_for_role() -> float:
+	match role:
+		Network.Role.HUNTER:
+			return HUNTER_MAX_HEALTH
+		Network.Role.CHAMELEON, Network.Role.STALKER:
+			return PROP_MAX_HEALTH
+		_:
+			return DEFAULT_MAX_HEALTH
+
+
+# Recompute max_health after a role assignment. The authoritative server refills
+# to the new max (role is assigned at match start / draft) and broadcasts it;
+# remote peers only adopt the new ceiling and wait for the server's _sync_health.
+func _apply_role_max_health() -> void:
+	# Role is (re)assigned at match start — reset the per-match performance budget.
+	_skin_performance_use_count = 0
+	var previous_max := max_health
+	max_health = _max_health_for_role()
+	if max_health == previous_max:
+		max_health_changed.emit(max_health)
+		return
+	if _is_runtime_multiplayer_server():
+		health = max_health
+		_sync_health.rpc(health)
+	elif health <= 0.0 or health > max_health or is_equal_approx(health, previous_max):
+		# Keep the local HUD coherent until the server's authoritative value lands.
+		health = max_health
+		health_changed.emit(health)
+	max_health_changed.emit(max_health)
+
+
 func is_dead() -> bool:
 	return _is_dead
 
@@ -7750,7 +7934,7 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 	var player_id := int(name)
 	var projected_health := health - amount
 	if _is_prop_role() and projected_health <= 5.0 and Network.server_try_consume_reactive_card(player_id, "prop_emergency_conceal"):
-		health = maxf(health, 65.0)
+		health = maxf(health, max_health * CARD_RESCUE_HEALTH_RATIO)
 		_sync_health.rpc(health)
 		return
 
@@ -7759,6 +7943,7 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 			attacker_id, " (headshot=", is_headshot, ")")
 
 	health = max(0.0, health - amount)
+	_server_report_damage_to_attacker(attacker_id)
 
 	if health <= 0.0:
 		_server_die(attacker_id)
@@ -7803,7 +7988,7 @@ func _server_revive_from_card_after_delay() -> void:
 	_prop_death_visual_hidden = false
 	_clear_death_dissolve_visual()
 	_exit_dead_free_spectator()
-	health = 65.0
+	health = max_health * CARD_RESCUE_HEALTH_RATIO
 	set_global_position_immediate(_card_find_respawn_outside_hunter_view())
 	velocity = Vector3.ZERO
 	_set_character_visual_visible(true)
@@ -7901,7 +8086,7 @@ func apply_network_alive_state(alive: bool) -> void:
 		_clear_death_dissolve_visual()
 		_exit_dead_free_spectator()
 		if health <= 0.0:
-			health = 100.0
+			health = max_health
 			health_changed.emit(health)
 		if not _is_prop_disguised:
 			_set_character_visual_visible(true)

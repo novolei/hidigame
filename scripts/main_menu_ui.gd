@@ -1270,6 +1270,7 @@ func _build_settings_render_page(content: VBoxContainer) -> void:
 func _build_settings_gameplay_page(content: VBoxContainer) -> void:
 	content.add_child(_settings_section_label(I18n.t("settings.section.gameplay")))
 	_add_settings_fov_row(content)
+	_add_settings_nameplate_row(content)
 
 
 func _settings_tab(text: String, tab_id: String) -> Button:
@@ -1353,6 +1354,23 @@ func _add_settings_language_row(content: VBoxContainer) -> void:
 	var option := _settings_language_option()
 	option.size_flags_horizontal = Control.SIZE_SHRINK_END
 	layout.add_child(option)
+	content.add_child(row)
+
+
+func _add_settings_nameplate_row(content: VBoxContainer) -> void:
+	var row := _settings_row_container("NameplateSettingRow")
+	var layout := _settings_row_layout(row)
+	layout.add_child(_settings_row_label("Player Nameplates"))
+	var toggle := CheckButton.new()
+	toggle.name = "NameplateToggle"
+	toggle.button_pressed = GameSettings.get_show_player_nameplates()
+	toggle.focus_mode = Control.FOCUS_NONE
+	toggle.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
+	toggle.toggled.connect(func(pressed: bool) -> void:
+		_play_ui_select_sound()
+		GameSettings.set_show_player_nameplates(pressed))
+	layout.add_child(toggle)
 	content.add_child(row)
 
 

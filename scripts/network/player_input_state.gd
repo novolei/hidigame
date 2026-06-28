@@ -193,7 +193,13 @@ func _should_capture_input() -> bool:
 	if player == null:
 		return true
 	if player.has_method("_is_local_authority"):
-		return bool(player.call("_is_local_authority"))
+		if not bool(player.call("_is_local_authority")):
+			return false
+		# Don't sample input (incl. buffered jump) while the player is input-locked
+		# — match intro, or the debug console owning the keyboard.
+		if bool(player.get("match_intro_locked")) or bool(player.get("console_input_locked")):
+			return false
+		return true
 	if not multiplayer.has_multiplayer_peer():
 		return true
 	if player.has_method("get_multiplayer_authority"):

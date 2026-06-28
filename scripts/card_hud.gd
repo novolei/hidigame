@@ -15,6 +15,10 @@ const DRAFT_GAP := 34.0
 const SLOT_GAP := 5.0
 const SLOT_STEP_Y := 14.0
 const MARGIN := Vector2(28.0, 28.0)
+# Vertical band reserved below the loadout slots for the PlayerHealthHUD bar
+# (number label + slanted segment strip). Keeps the HP bar from overlapping the
+# E/R cards in the bottom-left corner. Design pixels, scaled with the slots.
+const HEALTH_BAR_RESERVE := 80.0
 const UI_CONFIRM_SOUND_PATH := "res://assets/audio/ui/ui_confirm_click.mp3"
 
 var _draft_state: Dictionary = {}
@@ -556,7 +560,9 @@ func _get_slot_rect(index: int) -> Rect2:
 	var step_y := SLOT_STEP_Y * scale_value
 	var margin := MARGIN * scale_value
 	var x := margin.x + float(index) * (card_size.x + gap)
-	var y := viewport_size.y - margin.y - card_size.y - float(index) * step_y
+	# Lift the loadout column above the reserved HP-bar band so PlayerHealthHUD
+	# renders directly beneath it in the bottom-left corner.
+	var y := viewport_size.y - margin.y - HEALTH_BAR_RESERVE * scale_value - card_size.y - float(index) * step_y
 	return Rect2(Vector2(x, y), card_size)
 
 

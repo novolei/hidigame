@@ -10,6 +10,7 @@ const STATE_CLOUD_PENDING := "cloud_pending"
 
 const PREVIEW_SECONDS := 4.0
 const WHEEL_RADIUS := 190.0
+const RadialWheelMenuScript := preload("res://scripts/radial_wheel_menu.gd")
 
 var camouflage_owner: CharacterBody3D = null
 var camera: Camera3D = null
@@ -23,6 +24,7 @@ var _selected_preset: Dictionary = {}
 var _preview_node: Node3D = null
 var _preview_generation := 0
 var _wheel_layer: CanvasLayer = null
+var _radial_wheel: Node = null
 var _capture_layer: CanvasLayer = null
 var _cloud_service: Hunyuan3DService = null
 var _white_material: StandardMaterial3D = null
@@ -163,7 +165,17 @@ func notify_paint_session_expired() -> void:
 
 
 func _handle_wheel_input(event: InputEvent) -> bool:
-	if event.is_action_pressed("camouflage_absorb") or _is_escape(event):
+	if _is_escape(event):
+		deactivate()
+		return true
+	# Hold-to-show / release-to-pick: releasing C selects the aimed wedge.
+	if event.is_action_released("camouflage_absorb"):
+		if _radial_wheel and is_instance_valid(_radial_wheel):
+			_radial_wheel.select_hovered()
+		else:
+			deactivate()
+		return true
+	if event.is_action_pressed("camouflage_absorb"):
 		deactivate()
 		return true
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -505,40 +517,31 @@ func _show_wheel() -> void:
 	_wheel_layer.name = "EnvironmentBlendWheelLayer"
 	_wheel_layer.layer = 65
 	add_child(_wheel_layer)
-	var root := Control.new()
-	root.name = "WheelRoot"
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_wheel_layer.add_child(root)
-	var scrim := ColorRect.new()
-	scrim.color = Color(0.02, 0.025, 0.03, 0.42)
-	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(scrim)
-	var center := viewport.get_visible_rect().size * 0.5
+	# Apex-style radial selector (shared RadialWheelMenu). Mouse handles hover +
+	# click; number keys / C / Esc stay handled by _handle_wheel_input, so keys
+	# are disabled on the wheel to avoid double selection.
+	var wheel := RadialWheelMenuScript.new()
+	wheel.name = "RadialWheel"
+	_wheel_layer.add_child(wheel)
+	_radial_wheel = wheel
+	var options: Array = []
 	for i in range(_options.size()):
 		var option := _options[i] as Dictionary
-		var angle := -PI * 0.5 + TAU * float(i) / maxf(float(_options.size()), 1.0)
-		var button := Button.new()
-		button.text = "%d %s" % [i + 1, str(option.get("name", "Option"))]
-		button.tooltip_text = str(option.get("name", "Option"))
-		button.custom_minimum_size = Vector2(132, 46)
-		button.position = center + Vector2(cos(angle), sin(angle)) * WHEEL_RADIUS - button.custom_minimum_size * 0.5
-		var captured_index := i
-		button.pressed.connect(func():
-			select_option(captured_index)
-		)
-		root.add_child(button)
-	var hint := Label.new()
-	hint.text = "C / Esc"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.position = center + Vector2(-80, -18)
-	hint.size = Vector2(160, 36)
-	root.add_child(hint)
+		options.append({"label": str(option.get("name", "Option")), "enabled": true})
+	wheel.option_chosen.connect(func(index: int) -> void:
+		select_option(index)
+	)
+	wheel.cancelled.connect(func() -> void:
+		deactivate()
+	)
+	wheel.open(options, "CAMOUFLAGE", -1, false)
 
 
 func _hide_wheel() -> void:
 	if _wheel_layer and is_instance_valid(_wheel_layer):
 		_wheel_layer.queue_free()
 	_wheel_layer = null
+	_radial_wheel = null
 
 
 func _show_capture_overlay(message: String = "Left click to capture") -> void:

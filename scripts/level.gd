@@ -102,6 +102,8 @@ var status_label: Label = null
 var combat_feedback_label: Label = null
 var skill_hud = null
 var card_hud = null
+var health_hud = null
+var world_nameplate_hud = null
 var match_status_hud = null
 var party_monster_hunt_hud = null
 var debug_overlay: DebugOverlay = null
@@ -171,6 +173,11 @@ var network_console_panel: PanelContainer = null
 var network_console_output: RichTextLabel = null
 var network_console_input: LineEdit = null
 var _network_console_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
+var _console_drawer_height: float = 320.0
+var _console_drawer_width: float = 600.0
+var _console_player_locked: bool = false
+var _console_history: PackedStringArray = PackedStringArray()
+var _console_history_index: int = 0
 var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
 var _hologram_flag_intent_sequence: int = 0
@@ -426,6 +433,8 @@ func _ready():
 	_ensure_status_hud()
 	_ensure_skill_hud()
 	_ensure_card_hud()
+	_ensure_health_hud()
+	_ensure_world_nameplate_hud()
 	_ensure_party_monster_hunt_hud()
 	_ensure_match_intro_overlay()
 	_ensure_character_setup_overlay()
@@ -1613,6 +1622,7 @@ func _process(delta):
 	if _is_dedicated_public_server_runtime():
 		return
 	_process_client_hud_refresh(delta)
+	_update_world_nameplates()
 	_update_mouse_capture()
 
 
@@ -1624,6 +1634,7 @@ func _process_client_hud_refresh(delta: float) -> void:
 	_update_status_hud()
 	_update_party_monster_hunt_hud()
 	_update_skill_hud()
+	_update_health_hud()
 
 
 func _is_dedicated_public_server_runtime() -> bool:
@@ -1992,6 +2003,10 @@ func _reset_local_state_for_public_lobby() -> void:
 		skill_hud.clear_skills()
 	if card_hud:
 		card_hud.clear_cards()
+	if health_hud:
+		health_hud.clear()
+	if world_nameplate_hud:
+		world_nameplate_hud.clear()
 	if match_status_hud:
 		match_status_hud.clear()
 	if party_monster_hunt_hud:
@@ -4490,6 +4505,33 @@ func _ensure_card_hud() -> void:
 	_update_card_hud()
 
 
+func _ensure_health_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	health_hud = hud.get_node_or_null("PlayerHealthHUD")
+	if not health_hud:
+		health_hud = preload("res://scripts/player_health_hud.gd").new()
+		health_hud.name = "PlayerHealthHUD"
+		hud.add_child(health_hud)
+	_update_health_hud()
+
+
+func _ensure_world_nameplate_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	world_nameplate_hud = hud.get_node_or_null("WorldNameplateHUD")
+	if not world_nameplate_hud:
+		world_nameplate_hud = preload("res://scripts/world_nameplate_hud.gd").new()
+		world_nameplate_hud.name = "WorldNameplateHUD"
+		hud.add_child(world_nameplate_hud)
+
+
 func _ensure_party_monster_hunt_hud() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
@@ -4715,6 +4757,13 @@ func _set_hud_visible(visible_value: bool) -> void:
 		skill_hud.visible = visible_value and not main_menu.is_menu_visible()
 	if card_hud:
 		card_hud.visible = visible_value and not main_menu.is_menu_visible()
+	if health_hud:
+		if visible_value and not main_menu.is_menu_visible():
+			_update_health_hud()
+		else:
+			health_hud.visible = false
+	if world_nameplate_hud and not (visible_value and not main_menu.is_menu_visible()):
+		world_nameplate_hud.clear()
 	if match_status_hud:
 		match_status_hud.visible = visible_value and (game_state == GameState.PREP or game_state == GameState.PLAY) and not main_menu.is_menu_visible()
 	if party_monster_hunt_hud and not visible_value:
@@ -4841,6 +4890,84 @@ func _update_card_hud() -> void:
 	card_hud.set_loadout(Network.get_my_card_loadout())
 	if main_menu and main_menu.is_menu_visible():
 		card_hud.visible = false
+
+
+func _update_health_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not health_hud:
+		_ensure_health_hud()
+	if not health_hud:
+		return
+	# Only show the bar during active combat phases for a living combat role.
+	if game_state == GameState.LOBBY or game_state == GameState.END or game_state == GameState.CARD_DRAFT:
+		health_hud.clear()
+		return
+	if main_menu and main_menu.is_menu_visible():
+		health_hud.visible = false
+		return
+	var local_player = _get_local_player()
+	if not local_player:
+		health_hud.clear()
+		return
+	if local_player.has_method("is_dead") and local_player.is_dead():
+		health_hud.clear()
+		return
+	var maximum := 0.0
+	if local_player.has_method("get_max_health"):
+		maximum = local_player.get_max_health()
+	var current := 0.0
+	if local_player.has_method("get_health"):
+		current = local_player.get_health()
+	if local_player.has_method("get_display_name"):
+		health_hud.set_player_name(local_player.get_display_name())
+	health_hud.set_health(current, maximum)
+
+
+# Builds the per-player snapshot the screen-space nameplate HUD renders each
+# frame, then hands it the active camera for projection. Self is excluded (the
+# bottom-left bar already shows the local player's own state).
+func _update_world_nameplates() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not world_nameplate_hud:
+		return
+	var hide_all := game_state == GameState.LOBBY or game_state == GameState.END or game_state == GameState.CARD_DRAFT
+	if hide_all or (main_menu and main_menu.is_menu_visible()):
+		world_nameplate_hud.render([], null)
+		return
+	var camera := get_viewport().get_camera_3d()
+	if not camera or not players_container:
+		world_nameplate_hud.render([], null)
+		return
+	var local_id := _local_peer_id()
+	var entries: Array = []
+	for child in players_container.get_children():
+		var p := child as Character
+		if not p or not is_instance_valid(p):
+			continue
+		# Hand overhead text ownership to the 2D HUD (hides the world Label3D).
+		if p.has_method("set_screen_nameplate_active"):
+			p.set_screen_nameplate_active(true)
+		var peer := int(str(p.name))
+		if p.has_method("is_dead") and p.is_dead():
+			continue
+		var maximum := p.get_max_health() if p.has_method("get_max_health") else 0.0
+		var ratio := (p.get_health() / maximum) if maximum > 0.0 else 0.0
+		# Self is included so the local player can see their own bounty / low-health
+		# icons above their head in third person (and to make console debugging
+		# observable). Self never gets the enemy-damage reveal bar.
+		entries.append({
+			"peer": peer,
+			"pos": p.get_overhead_anchor_position(),
+			"name": p.get_display_name(),
+			"name_visible": p.nameplate_should_show_for_local_viewer(),
+			"is_self": peer == local_id,
+			"is_ally": p.is_ally_of_local_viewer(),
+			"bountied": p.is_party_monster_bounty_marked() if p.has_method("is_party_monster_bounty_marked") else false,
+			"ratio": ratio,
+		})
+	world_nameplate_hud.render(entries, camera)
 
 
 func _on_card_draft_updated(peer_id: int, _draft_state: Dictionary) -> void:
@@ -5059,6 +5186,10 @@ func _localized_role(role: int) -> String:
 func _should_capture_mouse() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
+	if _is_network_console_visible():
+		return false
+	if get_tree().get_node_count_in_group("active_radial_wheel") > 0:
+		return false
 	if _is_quit_confirm_visible():
 		return false
 	if main_menu and main_menu.is_menu_visible():
@@ -5124,6 +5255,11 @@ func _input(event):
 		if _handle_network_console_key(key_event):
 			get_viewport().set_input_as_handled()
 			return
+		if _is_network_console_visible():
+			# Console open: let the focused LineEdit consume typing (do NOT mark
+			# the event handled, or the GUI text input is swallowed too) while
+			# preventing game hotkeys below from firing as you type.
+			return
 		if key_event.keycode == KEY_ESCAPE and _handle_escape_pressed():
 			get_viewport().set_input_as_handled()
 			return
@@ -5159,7 +5295,25 @@ func _handle_network_console_key(event: InputEventKey) -> bool:
 	if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 		_submit_network_console_command()
 		return true
+	if event.keycode == KEY_UP:
+		_console_history_navigate(-1)
+		return true
+	if event.keycode == KEY_DOWN:
+		_console_history_navigate(1)
+		return true
 	return false
+
+
+# Recall previously entered commands with Up / Down (CS-style).
+func _console_history_navigate(direction: int) -> void:
+	if _console_history.is_empty() or not network_console_input:
+		return
+	_console_history_index = clampi(_console_history_index + direction, 0, _console_history.size())
+	if _console_history_index >= _console_history.size():
+		network_console_input.text = ""
+	else:
+		network_console_input.text = _console_history[_console_history_index]
+	network_console_input.caret_column = network_console_input.text.length()
 
 
 func _is_network_console_toggle_key(event: InputEventKey) -> bool:
@@ -5173,16 +5327,67 @@ func _is_network_console_visible() -> bool:
 func _set_network_console_visible(desired_visible: bool) -> void:
 	if desired_visible:
 		_ensure_network_console_ui()
+		_layout_console_drawer()
 		_network_console_previous_mouse_mode = Input.mouse_mode
 		network_console_layer.visible = true
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_console_player_locked(true)
+		_animate_console_drawer(true)
 		if network_console_input:
 			network_console_input.grab_focus()
 	else:
-		if network_console_layer and is_instance_valid(network_console_layer):
-			network_console_layer.visible = false
+		_set_console_player_locked(false)
+		_animate_console_drawer(false)
 		Input.mouse_mode = _network_console_previous_mouse_mode as Input.MouseMode
 		_update_mouse_capture()
+
+
+# Slides the drawer down on open / up on close, hiding the layer when closed.
+func _animate_console_drawer(opening: bool) -> void:
+	if not network_console_panel or not is_instance_valid(network_console_panel):
+		return
+	var height := _console_drawer_height
+	var from_y := -height if opening else 0.0
+	var to_y := 0.0 if opening else -height
+	_set_console_drawer_y(from_y)
+	var tween := create_tween()
+	tween.tween_method(_set_console_drawer_y, from_y, to_y, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if not opening:
+		tween.tween_callback(func() -> void:
+			if network_console_layer and is_instance_valid(network_console_layer):
+				network_console_layer.visible = false)
+
+
+func _set_console_drawer_y(y: float) -> void:
+	if not network_console_panel or not is_instance_valid(network_console_panel):
+		return
+	network_console_panel.offset_top = y
+	network_console_panel.offset_bottom = y + _console_drawer_height
+
+
+func _layout_console_drawer() -> void:
+	if not network_console_panel or not is_instance_valid(network_console_panel):
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	_console_drawer_width = maxf(360.0, viewport_size.x * 0.35)
+	_console_drawer_height = maxf(220.0, viewport_size.y * 0.46)
+	network_console_panel.offset_left = 0.0
+	network_console_panel.offset_right = _console_drawer_width
+
+
+# Freeze the local player's movement/camera while typing (reuses the match-intro
+# lock so no new input gate is needed). Restores on close.
+func _set_console_player_locked(locked: bool) -> void:
+	if locked == _console_player_locked:
+		return
+	_console_player_locked = locked
+	# Apply to every local-authority player so control is reliably restored on
+	# close (pure input gate, no match-intro side effects).
+	if not players_container:
+		return
+	for child in players_container.get_children():
+		if child is Character:
+			child.console_input_locked = locked
 
 
 func _ensure_network_console_ui() -> void:
@@ -5194,41 +5399,51 @@ func _ensure_network_console_ui() -> void:
 	network_console_layer.visible = false
 	add_child(network_console_layer)
 
+	# Full-width top drawer (CS-style): dark translucent, slides down from the top.
 	network_console_panel = PanelContainer.new()
-	network_console_panel.name = "NetworkDiagnosticConsolePanel"
+	network_console_panel.name = "ConsoleDrawer"
 	network_console_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	network_console_panel.position = Vector2(28.0, 28.0)
-	network_console_panel.custom_minimum_size = Vector2(860.0, 320.0)
+	network_console_panel.offset_left = 0.0
+	network_console_panel.offset_right = _console_drawer_width
+	network_console_panel.offset_top = -_console_drawer_height
+	network_console_panel.offset_bottom = 0.0
 	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.02, 0.025, 0.035, 0.86)
-	panel_style.border_color = Color(0.55, 0.76, 1.0, 0.95)
-	panel_style.border_width_left = 2
-	panel_style.border_width_top = 2
-	panel_style.border_width_right = 2
-	panel_style.border_width_bottom = 2
-	panel_style.corner_radius_top_left = 6
-	panel_style.corner_radius_top_right = 6
-	panel_style.corner_radius_bottom_left = 6
-	panel_style.corner_radius_bottom_right = 6
+	panel_style.bg_color = Color(0.015, 0.02, 0.028, 0.94)
+	panel_style.border_color = Color(0.40, 0.58, 0.85, 0.85)
+	panel_style.border_width_bottom = 3
+	panel_style.content_margin_left = 20.0
+	panel_style.content_margin_right = 20.0
+	panel_style.content_margin_top = 12.0
+	panel_style.content_margin_bottom = 12.0
 	network_console_panel.add_theme_stylebox_override("panel", panel_style)
 	network_console_layer.add_child(network_console_panel)
 
 	var layout: VBoxContainer = VBoxContainer.new()
 	layout.name = "ConsoleLayout"
-	layout.add_theme_constant_override("separation", 8)
+	layout.add_theme_constant_override("separation", 6)
 	network_console_panel.add_child(layout)
+
+	var title := Label.new()
+	title.name = "ConsoleTitle"
+	title.text = "MONSTER & HUNTER CONSOLE   ·   ~ toggle   ·   type 'help'"
+	title.add_theme_color_override("font_color", Color(0.55, 0.74, 1.0, 0.82))
+	layout.add_child(title)
 
 	network_console_output = RichTextLabel.new()
 	network_console_output.name = "ConsoleOutput"
-	network_console_output.custom_minimum_size = Vector2(820.0, 230.0)
-	network_console_output.bbcode_enabled = false
+	network_console_output.bbcode_enabled = true
 	network_console_output.scroll_following = true
-	network_console_output.text = "Monster & Hunter Network Console\n> help"
+	network_console_output.selection_enabled = true
+	network_console_output.focus_mode = Control.FOCUS_NONE
+	network_console_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	network_console_output.add_theme_color_override("default_color", Color(0.82, 0.86, 0.92, 0.96))
+	network_console_output.text = "[color=#7fb0ff]Monster & Hunter console ready.[/color]  type [b]help[/b]"
 	layout.add_child(network_console_output)
 
 	network_console_input = LineEdit.new()
 	network_console_input.name = "ConsoleInput"
-	network_console_input.placeholder_text = "net.mode / net.peers / net.rtt / net.noray / net.room / net.sync_budget / net.simulator"
+	network_console_input.placeholder_text = "take_damage 0.1   ·   heal   ·   bounty on   ·   players   ·   net.peers"
+	network_console_input.caret_blink = true
 	network_console_input.text_submitted.connect(_on_network_console_text_submitted)
 	layout.add_child(network_console_input)
 
@@ -5243,13 +5458,180 @@ func _submit_network_console_command() -> void:
 	var command: String = network_console_input.text.strip_edges()
 	if command.is_empty():
 		return
-	var result: String = NetworkDiagnosticConsoleScript.execute(command)
-	if network_console_output and is_instance_valid(network_console_output):
-		network_console_output.text += "\n> " + command
+	if _console_history.is_empty() or _console_history[_console_history.size() - 1] != command:
+		_console_history.append(command)
+	_console_history_index = _console_history.size()
+	_console_print("[color=#9fd0ff]> %s[/color]" % command)
+	# Gameplay verbs are handled here (they need Level/player context); anything
+	# else falls through to the existing network diagnostics console.
+	var gameplay: Dictionary = _run_gameplay_console_command(command)
+	if bool(gameplay.get("handled", false)):
+		var out: String = String(gameplay.get("output", ""))
+		if not out.is_empty():
+			_console_print(out)
+	else:
+		var result: String = NetworkDiagnosticConsoleScript.execute(command)
 		if not result.is_empty():
-			network_console_output.text += "\n" + result
+			_console_print(result)
 	network_console_input.text = ""
 	network_console_input.grab_focus()
+
+
+# Append a (bbcode) line and keep the view pinned to the newest output.
+func _console_print(line: String) -> void:
+	if not network_console_output or not is_instance_valid(network_console_output):
+		return
+	if not network_console_output.text.is_empty():
+		network_console_output.append_text("\n")
+	network_console_output.append_text(line)
+	network_console_output.scroll_to_line(maxi(network_console_output.get_line_count() - 1, 0))
+
+
+# Returns {handled: bool, output: String}. handled=false means "not a gameplay
+# command" so the caller delegates to the network console.
+func _run_gameplay_console_command(command: String) -> Dictionary:
+	var parts: PackedStringArray = command.split(" ", false)
+	if parts.is_empty():
+		return {"handled": false}
+	var cmd: String = String(parts[0]).to_lower()
+	match cmd:
+		"help":
+			return {"handled": true, "output": _gameplay_console_help()}
+		"clear", "cls":
+			if network_console_output and is_instance_valid(network_console_output):
+				network_console_output.text = ""
+			return {"handled": true, "output": ""}
+		"players", "list":
+			return {"handled": true, "output": _gameplay_console_players()}
+		"take_damage", "damage", "hurt":
+			return {"handled": true, "output": _console_cmd_take_damage(parts)}
+		"heal":
+			return {"handled": true, "output": _console_cmd_set_hp(parts, 1, 1.0)}
+		"sethp", "set_health":
+			return {"handled": true, "output": _console_cmd_set_hp(parts, 2, -1.0)}
+		"kill":
+			return {"handled": true, "output": _console_cmd_fixed_hp(parts, 0.0)}
+		"revive":
+			return {"handled": true, "output": _console_cmd_fixed_hp(parts, 1.0)}
+		"bounty":
+			return {"handled": true, "output": _console_cmd_bounty(parts)}
+	return {"handled": false}
+
+
+# token: "" / "self" / "me" -> local player; "all" / "*" -> everyone; else peer id.
+func _console_resolve_targets(token: String) -> Array:
+	var result: Array = []
+	var key := token.strip_edges().to_lower()
+	if key == "" or key == "self" or key == "me":
+		var lp = _get_local_player()
+		if lp:
+			result.append(lp)
+	elif key == "all" or key == "*":
+		if players_container:
+			for child in players_container.get_children():
+				if child is Character:
+					result.append(child)
+	elif players_container and players_container.has_node(token):
+		var node = players_container.get_node(token)
+		if node is Character:
+			result.append(node)
+	return result
+
+
+func _console_cmd_take_damage(parts: PackedStringArray) -> String:
+	if parts.size() < 2:
+		return "[color=#ffd27f]usage: take_damage <0-1 fraction | amount> [self|all|<peerId>][/color]"
+	var value := String(parts[1]).to_float()
+	var targets := _console_resolve_targets(String(parts[2]) if parts.size() > 2 else "self")
+	if targets.is_empty():
+		return "[color=#ff8080]no matching target[/color]"
+	var lines: Array[String] = []
+	for t in targets:
+		var character := t as Character
+		if not character:
+			continue
+		var max_hp: float = character.get_max_health() if character.has_method("get_max_health") else 100.0
+		var amount: float = value if value > 1.0 else value * max_hp
+		if amount <= 0.0:
+			continue
+		character.take_damage.rpc_id(1, amount, 0)
+		lines.append("  %s  [color=#ff9a9a]-%.0f HP[/color]" % [character.get_display_name(), amount])
+	return "\n".join(lines) if not lines.is_empty() else "[color=#ffd27f]nothing applied[/color]"
+
+
+# value_index: where the fraction arg is (heal: none -> default; sethp: parts[1]).
+func _console_cmd_set_hp(parts: PackedStringArray, target_index: int, default_fraction: float) -> String:
+	var fraction := default_fraction
+	if default_fraction < 0.0:
+		if parts.size() < 2:
+			return "[color=#ffd27f]usage: sethp <0-1> [self|all|<peerId>][/color]"
+		fraction = clampf(String(parts[1]).to_float(), 0.0, 1.0)
+	var targets := _console_resolve_targets(String(parts[target_index]) if parts.size() > target_index else "self")
+	return _apply_health_fraction(targets, fraction)
+
+
+func _console_cmd_fixed_hp(parts: PackedStringArray, fraction: float) -> String:
+	var targets := _console_resolve_targets(String(parts[1]) if parts.size() > 1 else "self")
+	return _apply_health_fraction(targets, fraction)
+
+
+func _apply_health_fraction(targets: Array, fraction: float) -> String:
+	if targets.is_empty():
+		return "[color=#ff8080]no matching target[/color]"
+	var lines: Array[String] = []
+	for t in targets:
+		var character := t as Character
+		if not character or not character.has_method("debug_set_health_fraction"):
+			continue
+		character.debug_set_health_fraction.rpc(fraction)
+		lines.append("  %s  HP -> %d%%" % [character.get_display_name(), int(round(fraction * 100.0))])
+	return "\n".join(lines) if not lines.is_empty() else "[color=#ffd27f]nothing applied (debug build only)[/color]"
+
+
+func _console_cmd_bounty(parts: PackedStringArray) -> String:
+	if parts.size() < 2:
+		return "[color=#ffd27f]usage: bounty <on|off> [self|all|<peerId>][/color]"
+	var on := String(parts[1]).to_lower() in ["on", "1", "true", "yes"]
+	var targets := _console_resolve_targets(String(parts[2]) if parts.size() > 2 else "self")
+	if targets.is_empty():
+		return "[color=#ff8080]no matching target[/color]"
+	var lines: Array[String] = []
+	for t in targets:
+		var character := t as Character
+		if not character or not character.has_method("debug_set_bounty"):
+			continue
+		character.debug_set_bounty.rpc(on)
+		lines.append("  %s  bounty %s" % [character.get_display_name(), "ON" if on else "off"])
+	return "\n".join(lines) if not lines.is_empty() else "[color=#ffd27f]nothing applied (debug build only)[/color]"
+
+
+func _gameplay_console_players() -> String:
+	if not players_container:
+		return "[color=#ffd27f]no players[/color]"
+	var lines: Array[String] = ["[b]peer        name              role        hp[/b]"]
+	for child in players_container.get_children():
+		var character := child as Character
+		if not character:
+			continue
+		var role_text := Network.role_to_string(character.role) if Network.has_method("role_to_string") else str(character.role)
+		var hp := int(round(character.get_health())) if character.has_method("get_health") else 0
+		var max_hp := int(round(character.get_max_health())) if character.has_method("get_max_health") else 0
+		lines.append("%-10s  %-16s  %-9s  %d/%d" % [str(character.name), character.get_display_name(), role_text, hp, max_hp])
+	return "\n".join(lines)
+
+
+func _gameplay_console_help() -> String:
+	return "\n".join([
+		"[b][color=#9fd0ff]Gameplay[/color][/b]",
+		"  take_damage <0-1|amt> [self|all|id]   deal damage (0.1 = 10% of max)",
+		"  heal [target]                         restore to full",
+		"  sethp <0-1> [target]                  set HP to a fraction",
+		"  kill [target]   ·   revive [target]",
+		"  bounty <on|off> [target]              toggle bounty marker",
+		"  players   ·   clear",
+		"[b][color=#9fd0ff]Network[/color][/b]  net.mode · net.peers · net.rtt · net.room · net.noray",
+		"[color=#8a96a8]target defaults to self; use a peer id (see 'players') or 'all'[/color]",
+	])
 
 
 func _handle_escape_pressed() -> bool:

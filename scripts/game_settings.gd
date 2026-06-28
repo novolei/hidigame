@@ -3,6 +3,7 @@ extends Node
 signal fov_changed(value: float)
 signal graphics_changed(settings: Dictionary)
 signal player_name_changed(player_name: String)
+signal show_player_nameplates_changed(enabled: bool)
 
 const MAX_PLAYER_NAME_LENGTH := 18
 
@@ -49,6 +50,8 @@ var bloom_enabled := DEFAULT_BLOOM
 var volumetric_fog_enabled := DEFAULT_VOLUMETRIC_FOG
 var gi_quality: int = DEFAULT_GI_QUALITY
 var player_name := ""
+# HUD: show other players' overhead names + bounty/low-health icons. Player-toggleable.
+var show_player_nameplates := true
 
 
 func _ready() -> void:
@@ -59,6 +62,18 @@ func _ready() -> void:
 
 func get_player_name() -> String:
 	return player_name
+
+
+func get_show_player_nameplates() -> bool:
+	return show_player_nameplates
+
+
+func set_show_player_nameplates(value: bool) -> void:
+	if value == show_player_nameplates:
+		return
+	show_player_nameplates = value
+	_save_settings()
+	show_player_nameplates_changed.emit(show_player_nameplates)
 
 
 func has_player_name() -> bool:
@@ -104,6 +119,7 @@ func load_settings() -> void:
 	volumetric_fog_enabled = bool(config.get_value("rendering", "volumetric_fog", DEFAULT_VOLUMETRIC_FOG))
 	gi_quality = _normalize_gi_quality(config.get_value("rendering", "gi_quality", DEFAULT_GI_QUALITY))
 	player_name = sanitize_player_name(str(config.get_value("profile", "player_name", "")))
+	show_player_nameplates = bool(config.get_value("hud", "show_player_nameplates", true))
 
 
 func set_camera_fov(value: float) -> void:
@@ -326,4 +342,5 @@ func _save_settings() -> void:
 	config.set_value("rendering", "volumetric_fog", volumetric_fog_enabled)
 	config.set_value("rendering", "gi_quality", gi_quality)
 	config.set_value("profile", "player_name", player_name)
+	config.set_value("hud", "show_player_nameplates", show_player_nameplates)
 	config.save(CONFIG_PATH)
