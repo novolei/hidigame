@@ -46,6 +46,24 @@ static func load_installed_packs(root_path: String = "") -> Dictionary:
 	var installed_manifest := load_installed_manifest(root_path)
 	var loaded: Array[String] = []
 	var failed: Array[String] = []
+	# Read the bundled build identity BEFORE mounting any pack: this pins BuildInfo's lazy cache to
+	# the bundled baseline (so a mounted pack can't overwrite the reported version) and lets us
+	# compare it against the installed packs below.
+	var bundled_version := BuildInfo.content_version()
+	var installed_version := str(installed_manifest.get("content_version", ""))
+	# Baseline invalidation: a full client baseline ships its own bundled content. When the bundled
+	# build is newer-or-equal to what the installed hot-patch packs target, those packs are stale —
+	# mounting a leftover 0.4.14 core_patch onto a fresh 0.4.15 baseline would downgrade scripts and
+	# build_info. Skip them; check_for_updates() reconciles installed state against the manifest.
+	if not installed_version.is_empty() and Manifest.compare_versions(bundled_version, installed_version) >= 0:
+		var skipped: Array[String] = []
+		for package in Manifest.sorted_packages(installed_manifest):
+			skipped.append(str(package.get("id", "")))
+		return {
+			"loaded": loaded,
+			"failed": failed,
+			"skipped": skipped,
+		}
 	for package in Manifest.sorted_packages(installed_manifest):
 		var local_path := package_local_path(package, root_path)
 		if not verify_package_file(package, local_path):
