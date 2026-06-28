@@ -109,7 +109,11 @@ func _process(delta: float) -> void:
 		return
 	if _is_owner_authority():
 		return
-	if _is_runtime_multiplayer_server():
+	# A headless dedicated server has nothing to render and keeps the exact authoritative
+	# position. A listen-server host, however, still watches the other players, so it must
+	# interpolate remote players too (with the stop-settle) or it sees them slide. Only the
+	# headless server skips render interpolation.
+	if _is_runtime_multiplayer_server() and RuntimeMode.is_headless():
 		return
 	_process_remote_render_interpolation(delta)
 
