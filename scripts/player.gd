@@ -2081,6 +2081,11 @@ func _process(delta: float) -> void:
 	if not is_local_player:
 		if _is_dedicated_public_server_runtime():
 			return
+		# Drive the remote skin animation EVERY frame so it is as smooth as the
+		# netfox-interpolated position. Previously animation only advanced on the
+		# 30Hz throttled tick, so it stuttered while movement stayed smooth.
+		_animate_remote_skin_from_network_motion(delta)
+		# Throttle only the heavier per-remote bookkeeping (cards / feedback / GPU).
 		_remote_visual_process_elapsed += maxf(delta, 0.0)
 		if _remote_visual_process_elapsed < REMOTE_VISUAL_PROCESS_INTERVAL:
 			return
@@ -2101,11 +2106,12 @@ func _process(delta: float) -> void:
 	_process_prop_disguise_height(delta)
 
 func _process_remote_visual_frame(delta: float) -> void:
+	# Animation is now driven every frame in _process; this throttled path only
+	# handles the heavier per-remote bookkeeping.
 	_process_card_effects(delta)
 	if not _camouflage_gpu_stroke_queue.is_empty() or _camouflage_gpu_draw_timer > 0.0:
 		_clear_camouflage_gpu_runtime_work()
 	_process_shared_visual_feedback_frame(delta, false)
-	_animate_remote_skin_from_network_motion(delta)
 
 
 func _process_shared_visual_feedback_frame(delta: float, is_local_player: bool) -> void:
