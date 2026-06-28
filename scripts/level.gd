@@ -4187,10 +4187,23 @@ func _on_prep_phase_ended() -> void:
 	# 闅愯棌鍊掕鏃?HUD
 	if prep_timer_label:
 		prep_timer_label.visible = false
-	for pid in Network.get_hunters():
+	var hunter_ids: Array = Network.get_hunters()
+	hunter_ids.sort()
+	for release_index in range(hunter_ids.size()):
+		var pid: int = int(hunter_ids[release_index])
 		var player_node = players_container.get_node_or_null(str(pid))
-		if player_node and player_node.has_method("set_prep_locked"):
+		if player_node == null:
+			continue
+		if player_node.has_method("set_prep_locked"):
 			player_node.set_prep_locked(false)
+		# The Hunter is owned + client-predicted; the server-side release teleport alone
+		# fights the owner's local prediction (still simulating from the prep room) and
+		# produces the stuck-jitter / endless-jump desync. Re-anchor the LOCALLY-OWNED
+		# Hunter's own predicted state to the same deterministic release point the server
+		# uses (sorted hunter ids + index), so owner and server agree on the spawn.
+		if player_node.has_method("_is_local_authority") and player_node.call("_is_local_authority") \
+				and player_node.has_method("set_global_position_immediate"):
+			player_node.call("set_global_position_immediate", get_grounded_spawn_position(LevelLayout.hunter_release_point(release_index, hunter_ids.size())))
 
 
 func _on_match_started() -> void:

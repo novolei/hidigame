@@ -504,6 +504,11 @@ func set_global_position_immediate(next_position: Vector3) -> void:
 	var movement_motor: PlayerMovementMotor = _resolve_player_movement_motor()
 	if movement_motor != null:
 		movement_motor.teleport_to(next_position)
+	# Tell the netfox interpolator to snap to the new state instead of smoothly gliding
+	# the visual from the old (prep-room) position across the map to the teleport target.
+	var tick_interpolator: Node = get_node_or_null("MovementTickInterpolator")
+	if tick_interpolator != null and tick_interpolator.has_method("teleport"):
+		tick_interpolator.call("teleport")
 
 
 func _check_role_after_assignment() -> void:
