@@ -83,6 +83,10 @@ var peer_rooms: Dictionary = {}
 var active_public_room_id := ""
 var _public_server_base_config: Dictionary = {}
 var _has_received_full_sync := false
+# Set once per connection when the server's handshake (server_info) has been
+# validated, so plain 2-arg full-sync broadcasts cannot be mistaken for a stale
+# server and falsely kick the client.
+var _server_protocol_validated := false
 var _redirecting_to_public_room := false
 var _public_room_status_elapsed := 0.0
 var _public_lobby_poll_elapsed := 0.0
@@ -2538,6 +2542,9 @@ func _broadcast_lobby_config(config: Dictionary):
 
 func _on_connected_ok():
 	_clear_public_lobby_failover()
+	# Re-arm server-protocol validation for this fresh connection (also covers the
+	# public lobby -> room redirect, which connects a second time).
+	_server_protocol_validated = false
 	var peer_id = local_peer_id()
 	if not players.has(peer_id):
 		players[peer_id] = player_info.duplicate()
@@ -2643,10 +2650,13 @@ func _request_full_sync():
 
 @rpc("authority", "call_remote", "reliable")
 func _broadcast_full_sync(all_players: Dictionary, config: Dictionary, server_info: Dictionary = {}):
-	# On the FIRST full sync, validate the server's protocol. An older server that
-	# predates the handshake sends no server_info, so the protocol reads as -1 and
-	# is correctly treated as incompatible (the new-client / stale-server case).
-	if multiplayer.has_multiplayer_peer() and not _has_received_full_sync and not multiplayer.is_server():
+	# Validate the server's protocol on the FIRST sync that actually carries the
+	# server handshake (server_info). Plain 2-arg broadcasts (config / player-list
+	# updates from _register_player etc.) routinely race ahead of this client's own
+	# _request_full_sync response, so a missing server_info must NOT be treated as a
+	# stale server — only a populated-but-incompatible server_info is a real mismatch.
+	if not _server_protocol_validated and not server_info.is_empty() and multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		_server_protocol_validated = true
 		var server_protocol := int(server_info.get("protocol_version", -1))
 		if not BuildInfo.is_compatible(server_protocol):
 			var server_build := str(server_info.get("build_id", "?"))
