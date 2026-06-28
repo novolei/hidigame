@@ -24,6 +24,11 @@ const VISUAL_SAMPLE_DEFAULT_MAX_AGE_MSEC: int = 250
 const HERMITE_MIN_DEVIATION_GUARD_METERS: float = 0.35
 const HERMITE_SEGMENT_DEVIATION_RATIO: float = 0.75
 const HERMITE_SNAP_DISTANCE_RATIO: float = 0.5
+# Below this authoritative speed the player is (nearly) stopped, so settle the rendered
+# position to the target very fast — otherwise the interpolation lag reads as the body
+# gliding to a stop after the owner already released input and the idle animation plays.
+const STOP_SETTLE_VELOCITY: float = 0.6
+const STOP_SETTLE_LERP_SPEED: float = 240.0
 
 var _root: CharacterBody3D = null
 var _last_sent_tick: int = -1000000
@@ -527,6 +532,10 @@ func _apply_root_state(position: Vector3, velocity: Vector3, smooth_render: bool
 		# practice — the visual follows replicated state, tightened to the real network conditions.
 		var lerp_speed: float = RemoteVisualPolicy.position_lerp_speed(
 			NetworkTime.remote_rtt, NetworkTimeSynchronizer.rtt_jitter)
+		# Stopped/stopping: settle to the authoritative position fast so the body lands with the
+		# idle animation instead of gliding the last stretch in (interpolation lag catch-up).
+		if velocity.length_squared() < STOP_SETTLE_VELOCITY * STOP_SETTLE_VELOCITY:
+			lerp_speed = maxf(lerp_speed, STOP_SETTLE_LERP_SPEED)
 		var blend: float = clampf(1.0 - exp(-lerp_speed * maxf(delta, 0.0)), 0.0, 1.0)
 		_root.global_position = _root.global_position.lerp(position, blend)
 	else:
