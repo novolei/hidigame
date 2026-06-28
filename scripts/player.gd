@@ -108,6 +108,12 @@ const REMOTE_MOVE_HOLD_SECONDS := 0.18
 # Low-pass rate for the velocity that drives the remote animation FALLBACK path; damps
 # per-sample network noise so the action (idle/walk/run/jump/fall) does not flicker.
 const REMOTE_VISUAL_VELOCITY_SMOOTH_RATE := 16.0
+# After an authoritative teleport (e.g. prep-room release), drive movement directly for a
+# short window instead of via netfox rollback. The rollback history still holds the stale
+# pre-teleport position; re-simulating from it fights the teleport and the player jitters /
+# loops a jump for peers. During this window legacy movement settles the body and the motor
+# keeps re-capturing the settled position into the rollback history, so prediction resumes clean.
+const ROLLBACK_TELEPORT_SETTLE_SECONDS := 0.4
 const REMOTE_VISUAL_PROCESS_INTERVAL := 1.0 / 30.0
 const REMOTE_WALK_BLEND := 0.25
 const REMOTE_RUN_BLEND := 1.0
@@ -326,6 +332,7 @@ var _player_action_bus: PlayerActionBus = null
 var _player_movement_motor: PlayerMovementMotor = null
 var _rollback_movement_jump_sequence: int = -1
 var _rollback_movement_previous_grounded: bool = true
+var _rollback_teleport_settle_remaining: float = 0.0
 var _skin_performance_camera_active := false
 var _skin_performance_camera_state: Dictionary = {}
 var _skin_performance_previous_current_camera: Camera3D = null
@@ -503,6 +510,9 @@ func set_global_position_immediate(next_position: Vector3) -> void:
 	_remote_visual_position_initialized = true
 	_remote_motion_sampler.reset(next_position, true)
 	_remote_visual_velocity_smoothed = Vector3.ZERO
+	# Briefly drive movement directly (not via rollback) so the body settles at the teleport
+	# target without the stale rollback history snapping it back. See the const comment.
+	_rollback_teleport_settle_remaining = ROLLBACK_TELEPORT_SETTLE_SECONDS
 	# Re-anchor the rollback movement simulation to the teleport target so the next
 	# rollback tick does not overwrite the new position with the stale prep-room
 	# simulated_position (which causes the released Hunter to jitter / jump forever).
@@ -1652,6 +1662,8 @@ func get_rollback_movement_config() -> Dictionary:
 func allows_rollback_movement_drive() -> bool:
 	if not _is_local_authority():
 		return false
+	if _rollback_teleport_settle_remaining > 0.0:
+		return false
 	if _is_dead or match_intro_locked:
 		return false
 	if _card_stasis_remaining > 0.0:
@@ -1992,6 +2004,9 @@ func _physics_process_rollback_movement(delta: float) -> void:
 
 func _physics_process(delta):
 	if not _is_local_authority(): return
+
+	if _rollback_teleport_settle_remaining > 0.0:
+		_rollback_teleport_settle_remaining = maxf(0.0, _rollback_teleport_settle_remaining - delta)
 
 	if _is_rollback_movement_active():
 		_physics_process_rollback_movement(delta)
