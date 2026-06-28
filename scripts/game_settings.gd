@@ -2,6 +2,9 @@ extends Node
 
 signal fov_changed(value: float)
 signal graphics_changed(settings: Dictionary)
+signal player_name_changed(player_name: String)
+
+const MAX_PLAYER_NAME_LENGTH := 18
 
 enum GIQuality {
 	DISABLED = 0,
@@ -45,10 +48,41 @@ var ssil_quality: int = DEFAULT_SSIL_QUALITY
 var bloom_enabled := DEFAULT_BLOOM
 var volumetric_fog_enabled := DEFAULT_VOLUMETRIC_FOG
 var gi_quality: int = DEFAULT_GI_QUALITY
+var player_name := ""
 
 
 func _ready() -> void:
 	load_settings()
+
+
+# -- Player profile name (persisted) ------------------------------------------
+
+func get_player_name() -> String:
+	return player_name
+
+
+func has_player_name() -> bool:
+	return not player_name.strip_edges().is_empty()
+
+
+func set_player_name(value: String) -> void:
+	var sanitized := sanitize_player_name(value)
+	if sanitized == player_name:
+		return
+	player_name = sanitized
+	_save_settings()
+	player_name_changed.emit(player_name)
+
+
+func sanitize_player_name(value: String) -> String:
+	var cleaned := String(value).strip_edges()
+	# Collapse internal whitespace and cap length so names stay tidy in lobby/HUD.
+	cleaned = cleaned.replace("\n", " ").replace("\t", " ")
+	while cleaned.contains("  "):
+		cleaned = cleaned.replace("  ", " ")
+	if cleaned.length() > MAX_PLAYER_NAME_LENGTH:
+		cleaned = cleaned.substr(0, MAX_PLAYER_NAME_LENGTH).strip_edges()
+	return cleaned
 
 
 func load_settings() -> void:
@@ -69,6 +103,7 @@ func load_settings() -> void:
 	bloom_enabled = bool(config.get_value("rendering", "bloom", DEFAULT_BLOOM))
 	volumetric_fog_enabled = bool(config.get_value("rendering", "volumetric_fog", DEFAULT_VOLUMETRIC_FOG))
 	gi_quality = _normalize_gi_quality(config.get_value("rendering", "gi_quality", DEFAULT_GI_QUALITY))
+	player_name = sanitize_player_name(str(config.get_value("profile", "player_name", "")))
 
 
 func set_camera_fov(value: float) -> void:
@@ -290,4 +325,5 @@ func _save_settings() -> void:
 	config.set_value("rendering", "bloom", bloom_enabled)
 	config.set_value("rendering", "volumetric_fog", volumetric_fog_enabled)
 	config.set_value("rendering", "gi_quality", gi_quality)
+	config.set_value("profile", "player_name", player_name)
 	config.save(CONFIG_PATH)

@@ -231,7 +231,7 @@ func _test_network_diagnostic_console_commands() -> void:
 	_expect(NetworkDiagnosticConsole.execute("net.mode").contains("mode=offline"), "Diagnostic console should format connection mode")
 	_expect(NetworkDiagnosticConsole.execute("net.peers").contains("players=0"), "Diagnostic console should format peer and player counts")
 	_expect(NetworkDiagnosticConsole.execute("net.rtt").contains("no-enet-peer-stats"), "Diagnostic console should handle missing ENet peer stats")
-	_expect(NetworkDiagnosticConsole.execute("net.noray").contains("host=8.153.148.157:8890"), "Diagnostic console should expose the configured private Noray server")
+	_expect(NetworkDiagnosticConsole.execute("net.noray").contains("host=1.13.175.170:8890"), "Diagnostic console should expose the configured private Noray server")
 	_expect(NetworkDiagnosticConsole.execute("net.room").contains("private="), "Diagnostic console should expose room connection metadata")
 	var previous_perf_log := OS.get_environment("MAOMAO_PERF_LOG")
 	OS.set_environment("MAOMAO_PERF_LOG", "1")

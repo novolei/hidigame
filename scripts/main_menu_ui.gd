@@ -72,6 +72,11 @@ var lobby_chat_messages: Array[Dictionary] = []
 var nick_input: LineEdit
 var skin_input: LineEdit
 var character_option: OptionButton
+
+# Player-name profile panel (define on first run / change anytime via the chip).
+var _name_panel_open := false
+var _name_panel_prompted := false
+var _name_panel_input: LineEdit = null
 var room_name_input: LineEdit
 var address_input: LineEdit
 var join_lobby_input: LineEdit
@@ -499,7 +504,8 @@ func get_host_config() -> Dictionary:
 
 
 func get_nickname() -> String:
-	return nick_input.text.strip_edges() if nick_input else ""
+	var typed := nick_input.text.strip_edges() if nick_input else ""
+	return typed if not typed.is_empty() else GameSettings.get_player_name()
 
 
 func get_skin() -> String:
@@ -700,6 +706,14 @@ func _build_ui() -> void:
 	if public_lobby_visible:
 		_build_public_lobby_loading_overlay()
 		_build_public_lobby_alert_overlay()
+	# Player-name chip on the landing page, plus a one-time prompt on first run.
+	if not lobby_visible and not public_lobby_visible and not settings_visible:
+		if not _name_panel_open and not _name_panel_prompted and not GameSettings.has_player_name():
+			_name_panel_open = true
+			_name_panel_prompted = true
+		_build_player_name_chip()
+	if _name_panel_open:
+		_build_player_name_overlay()
 	_connect_button_click_audio(self)
 
 
@@ -841,6 +855,117 @@ func _build_public_lobby_alert_overlay() -> void:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
+
+
+func _build_player_name_chip() -> void:
+	var current_name := GameSettings.get_player_name()
+	var chip := _button("", false)
+	chip.name = "PlayerNameChip"
+	chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	chip.offset_left = -_s(238)
+	chip.offset_top = _s(52)
+	chip.offset_right = -_s(20)
+	chip.offset_bottom = _s(88)
+	chip.add_theme_stylebox_override("normal", _style(Color(0.10, 0.11, 0.15, 0.92), Color(0.62, 0.80, 1.0, 0.85), 2, 8))
+	chip.add_theme_stylebox_override("hover", _style(Color(0.16, 0.18, 0.24, 0.97), Color(0.84, 0.92, 1.0, 1.0), 2, 8))
+	chip.add_theme_font_size_override("font_size", _s(15))
+	chip.text = current_name if not current_name.is_empty() else I18n.t("name_chip.unnamed")
+	chip.tooltip_text = I18n.t("name_chip.edit")
+	chip.pressed.connect(_open_name_panel)
+	add_child(chip)
+
+
+func _build_player_name_overlay() -> void:
+	var scrim := ColorRect.new()
+	scrim.name = "PlayerNameScrim"
+	scrim.color = Color(0.03, 0.035, 0.05, 0.72)
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(scrim)
+
+	var center := CenterContainer.new()
+	center.name = "PlayerNameCenter"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.name = "PlayerNamePanel"
+	panel.custom_minimum_size = _sv(440, 0)
+	panel.add_theme_stylebox_override("panel", _style(Color(0.090, 0.085, 0.110, 0.99), Color(0.62, 0.80, 1.0, 1), 2, 12))
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, _s(22))
+	panel.add_child(margin)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", _s(14))
+	margin.add_child(col)
+
+	var has_name := GameSettings.has_player_name()
+	col.add_child(_label(I18n.t("name_panel.title_change" if has_name else "name_panel.title_define"), 26, true))
+	col.add_child(_muted_label(I18n.t("name_panel.hint"), 15))
+
+	var input_row := HBoxContainer.new()
+	input_row.add_theme_constant_override("separation", _s(8))
+	col.add_child(input_row)
+	_name_panel_input = _line_edit(I18n.t("name_panel.placeholder"))
+	_name_panel_input.text = GameSettings.get_player_name()
+	_name_panel_input.max_length = GameSettings.MAX_PLAYER_NAME_LENGTH
+	_name_panel_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_name_panel_input.text_submitted.connect(func(_submitted: String) -> void: _on_name_confirm_pressed())
+	input_row.add_child(_name_panel_input)
+	var dice := _button("🎲", false)
+	dice.custom_minimum_size = _sv(50, 40)
+	dice.tooltip_text = I18n.t("name_panel.dice")
+	dice.pressed.connect(_on_name_dice_pressed)
+	input_row.add_child(dice)
+
+	var button_row := HBoxContainer.new()
+	button_row.alignment = BoxContainer.ALIGNMENT_END
+	button_row.add_theme_constant_override("separation", _s(10))
+	col.add_child(button_row)
+	if has_name:
+		var cancel := _button(I18n.t("name_panel.cancel"), false)
+		cancel.pressed.connect(_close_name_panel)
+		button_row.add_child(cancel)
+	var confirm := _button(I18n.t("name_panel.confirm"), true)
+	confirm.pressed.connect(_on_name_confirm_pressed)
+	button_row.add_child(confirm)
+	_name_panel_input.call_deferred("grab_focus")
+
+
+func _open_name_panel() -> void:
+	_name_panel_open = true
+	_build_ui()
+
+
+func _close_name_panel() -> void:
+	_name_panel_open = false
+	_name_panel_input = null
+	_build_ui()
+
+
+func _on_name_dice_pressed() -> void:
+	if _name_panel_input == null or not is_instance_valid(_name_panel_input):
+		return
+	_name_panel_input.text = PlayerNameGenerator.random_name(I18n.current_locale == "zh")
+	_name_panel_input.caret_column = _name_panel_input.text.length()
+
+
+func _on_name_confirm_pressed() -> void:
+	var entered := ""
+	if _name_panel_input != null and is_instance_valid(_name_panel_input):
+		entered = _name_panel_input.text
+	var sanitized := GameSettings.sanitize_player_name(entered)
+	if sanitized.is_empty():
+		# Never let the player leave without a name — roll one in the active language.
+		sanitized = PlayerNameGenerator.random_name(I18n.current_locale == "zh")
+	GameSettings.set_player_name(sanitized)
+	if nick_input != null and is_instance_valid(nick_input):
+		nick_input.text = sanitized
+	_close_name_panel()
 
 
 func _build_stage_background() -> void:
@@ -1361,6 +1486,7 @@ func _build_landing_ui() -> void:
 
 func _prepare_landing_inputs(show_private_join_panel: bool) -> void:
 	nick_input = _line_edit(I18n.t("placeholder.nick"))
+	nick_input.text = GameSettings.get_player_name()
 	skin_input = _line_edit(I18n.t("placeholder.skin"))
 	character_option = _character_option()
 	room_name_input = _line_edit(I18n.t("placeholder.room_name"))
