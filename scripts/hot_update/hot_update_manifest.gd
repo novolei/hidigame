@@ -97,7 +97,7 @@ static func compatibility_errors(manifest: Dictionary, app_version: String, prot
 	return errors
 
 
-static func required_packages(remote_manifest: Dictionary, installed_manifest: Dictionary, include_optional: bool = false) -> Array[Dictionary]:
+static func required_packages(remote_manifest: Dictionary, installed_manifest: Dictionary, include_optional: bool = false, bundled_version: String = "") -> Array[Dictionary]:
 	var pending: Array[Dictionary] = []
 	var installed_map := installed_package_map(installed_manifest)
 	for package in sorted_packages(remote_manifest):
@@ -106,11 +106,18 @@ static func required_packages(remote_manifest: Dictionary, installed_manifest: D
 			continue
 		if not include_optional and not bool(package.get("required", true)):
 			continue
+		var remote_version := str(package.get("version", ""))
+		# A full client baseline supersedes any pack at-or-below its bundled version. Skip such a
+		# pack: pulling it is a pointless download + restart that HotUpdateStore.load_installed_packs()
+		# would skip at mount anyway. Empty bundled_version disables the gate (used by unit tests);
+		# real newer hotpatches (version > bundled) still pass through.
+		if not bundled_version.is_empty() and not remote_version.is_empty() \
+				and compare_versions(bundled_version, remote_version) >= 0:
+			continue
 		var id := str(package.get("id", ""))
 		var installed_package: Dictionary = installed_map.get(id, {})
 		var remote_sha := str(package.get("sha256", "")).to_lower()
 		var installed_sha := str(installed_package.get("sha256", "")).to_lower()
-		var remote_version := str(package.get("version", ""))
 		var installed_version := str(installed_package.get("version", ""))
 		if installed_sha != remote_sha or installed_version != remote_version:
 			pending.append(package.duplicate(true))

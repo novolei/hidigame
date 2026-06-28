@@ -157,7 +157,9 @@ func _on_manifest_downloaded(_url: String, result: Dictionary) -> void:
 		return
 	remote_manifest = manifest
 	var installed_manifest := Store.load_installed_manifest()
-	pending_packages = Manifest.required_packages(remote_manifest, installed_manifest, _include_optional_packages)
+	# Pass the bundled baseline version so packs at-or-below it are never pulled (a fresh full
+	# baseline must not download an older core_patch it would only skip at mount).
+	pending_packages = Manifest.required_packages(remote_manifest, installed_manifest, _include_optional_packages, BuildInfo.content_version())
 	status_changed.emit("Update manifest checked: %d pending package(s)." % pending_packages.size())
 	manifest_ready.emit(remote_manifest.duplicate(true), pending_packages.duplicate(true))
 

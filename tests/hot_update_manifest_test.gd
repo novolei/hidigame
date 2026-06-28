@@ -48,6 +48,12 @@ func _test_manifest_validation_and_pending_packages() -> void:
 	var pending_with_optional := Manifest.required_packages(remote, installed, true)
 	_expect(pending_with_optional.size() == 3, "Optional package should be pending only when include_optional is true")
 	_expect(str(pending_with_optional[1].get("id", "")) == "characters_party_monster", "Optional package should keep load_order when included")
+	# Baseline gate: a bundled version at-or-above a pack's version makes that pack non-pending,
+	# so a fresh full baseline never pulls a pack it would only skip at mount. Empty = gate off.
+	var pending_superseded := Manifest.required_packages(remote, installed, true, "9.9.9")
+	_expect(pending_superseded.is_empty(), "Packs at-or-below the bundled baseline must not be pending")
+	var pending_below_bundle := Manifest.required_packages(remote, installed, true, "0.0.1")
+	_expect(pending_below_bundle.size() == 3, "Packs newer than the bundled baseline stay pending")
 	var invalid := remote.duplicate(true)
 	invalid["packages"] = [{"id": "bad", "version": "1", "sha256": "not-a-sha"}]
 	_expect(not Manifest.validate(invalid).is_empty(), "Invalid package SHA should fail validation")
