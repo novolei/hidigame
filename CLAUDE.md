@@ -40,6 +40,7 @@ godot --headless tests/escape_quit_confirm_test.gd
 - Windows client build: export via the `Windows Desktop` preset in `export_presets.cfg` (outputs `newrelease/`, embeds PCK).
 - Dedicated server pack: `tools/export_public_server_pack.ps1`.
 - Hot-update release packaging: `tools/hot_update/build_release_packages.py` + `build_manifest.py`.
+- **Release/hot-update/server-upgrade runbook: [docs/RELEASE_AND_HOTUPDATE_OPERATIONS.md](docs/RELEASE_AND_HOTUPDATE_OPERATIONS.md)** — one-click `tools/release_hotpatch.sh` (incremental client update) and `tools/release_server.sh` (incremental server deploy via zstd `--patch-from`, a few MB instead of 1.8 GB), the baseline-vs-hotpatch model + `load_installed_packs_on_boot` bootstrap gotcha, and how to read a live server's version (`journalctl … DEDICATED-SERVER-VERSION`).
 
 ## Architecture
 
