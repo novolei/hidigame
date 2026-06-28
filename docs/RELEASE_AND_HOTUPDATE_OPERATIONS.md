@@ -49,6 +49,14 @@ application (clients downloaded packs but never mounted them). Fixing a bootstra
 like this requires shipping a **new full baseline** — it can't be hot-patched. This is why
 0.4.5 was redistributed as a full baseline.
 
+**`min_app_version` is compared against the bootstrap `application/config/version`, NOT the
+content_version.** That bootstrap version is baked into the baseline and only changes with a
+new full baseline (e.g. the 0.4.5 baseline still reports `config/version=0.4.4`). So a hot
+patch's `min_app_version` must be **≤ the baseline's `config/version`**, or every baseline
+silently rejects it with "Using bundled local content". `release_hotpatch.sh` derives it
+from `project.godot` automatically — do not hardcode it above the shipped baseline's
+`config/version`.
+
 ## 3. Client release — full baseline (rare)
 
 Cut a new full baseline only when bootstrap changes (project.godot, the updater, engine/

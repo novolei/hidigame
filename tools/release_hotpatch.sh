@@ -23,8 +23,15 @@ BASE_URL="${BASE_URL:-http://1.13.175.170/maomao/dev}"
 SSH_OPTS="-o BatchMode=yes"
 
 read -r VERSION BUILD_ID CONTENT_VERSION < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'],d['content_version'])" | tr -d '\r')
+# min_app_version gates which BASELINE can apply this patch, and the client compares it
+# against application/config/version (the bootstrap version baked into the baseline) — NOT
+# the content_version. That bootstrap version only changes when a new full baseline ships,
+# so derive it from project.godot instead of hardcoding, or baselines silently reject the
+# patch ("Using bundled local content").
+MIN_APP_VERSION="${MIN_APP_VERSION:-$(grep -E '^config/version=' project.godot | head -1 | sed -E 's/^config\/version="?([^"]*)"?.*/\1/' | tr -d '\r')}"
+[ -n "$MIN_APP_VERSION" ] || MIN_APP_VERSION="$VERSION"
 REL_DIR="builds/releases/${VERSION}_${BUILD_ID}"
-echo "[hotpatch] version=$VERSION build=$BUILD_ID content_version=$CONTENT_VERSION"
+echo "[hotpatch] version=$VERSION build=$BUILD_ID content_version=$CONTENT_VERSION min_app_version=$MIN_APP_VERSION"
 echo "[hotpatch] release dir: $REL_DIR"
 
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
@@ -34,7 +41,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
     --release-dir "$REL_DIR" \
     --version "$VERSION" \
     --content-version "$CONTENT_VERSION" \
-    --min-app-version "0.4.5" \
+    --min-app-version "$MIN_APP_VERSION" \
     --base-url "$BASE_URL" \
     --channel dev --protocol-version 1 \
     --godot-bin "$GODOT_BIN" --template-preset "Windows Desktop" \
