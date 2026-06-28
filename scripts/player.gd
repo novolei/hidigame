@@ -15,6 +15,9 @@ const RUN_SPEED = 11.0
 const NORMAL_SPEED = WALK_SPEED
 const SPRINT_SPEED = RUN_SPEED
 const JUMP_VELOCITY = 8.2
+# Asymmetric gravity: fall faster than you rise so the jump feels snappy instead of a floaty
+# "balloon" descent, without changing jump height or the rise. Applied when velocity.y < 0.
+const FALL_GRAVITY_MULTIPLIER := 1.9
 const GROUND_ACCELERATION := 20.0
 const GROUND_DECELERATION := 24.0
 const AIR_ACCELERATION := 7.0
@@ -1663,6 +1666,7 @@ func get_rollback_movement_config() -> Dictionary:
 		"air_acceleration": AIR_ACCELERATION,
 		"air_deceleration": AIR_DECELERATION,
 		"speed_multiplier": _card_speed_multiplier,
+		"fall_gravity_multiplier": FALL_GRAVITY_MULTIPLIER,
 	}
 
 
@@ -2116,7 +2120,7 @@ func _physics_process(delta):
 			can_double_jump = false
 			_play_body_jump("Jump2")
 
-	velocity.y -= gravity * delta
+	velocity.y -= gravity * (FALL_GRAVITY_MULTIPLIER if velocity.y < 0.0 else 1.0) * delta
 
 	_move(delta)
 	var impact_velocity := velocity

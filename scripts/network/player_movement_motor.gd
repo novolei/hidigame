@@ -163,7 +163,11 @@ func _rollback_tick(delta: float, tick: int, is_fresh: bool) -> void:
 		simulated_can_double_jump = false
 		jump_type = "Jump2"
 	else:
-		simulated_velocity.y -= float(config.get("gravity", gravity)) * delta
+		# Asymmetric gravity: heavier while descending so the fall is snappy, not floaty.
+		var fall_gravity: float = float(config.get("gravity", gravity))
+		if simulated_velocity.y < 0.0:
+			fall_gravity *= maxf(float(config.get("fall_gravity_multiplier", 1.0)), 1.0)
+		simulated_velocity.y -= fall_gravity * delta
 
 	if apply_simulation_to_player_root:
 		_apply_to_player_root(player, delta)
