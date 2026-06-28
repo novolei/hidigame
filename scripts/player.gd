@@ -123,6 +123,13 @@ const NETWORK_VISUAL_ACTION_MAX_LENGTH := 32
 const NETWORK_VISUAL_LOCOMOTION_ACTIONS := ["idle", "long_idle", "move", "walk", "run", "jump", "fall", "land"]
 const NETWORK_VISUAL_RECOVERY_ACTIONS := ["idle", "move", "walk", "run"]
 const NETWORK_VISUAL_INTERRUPTABLE_ACTIONS := ["jump", "fall", "land", "trip", "get_hit", "hit", "die_recover"]
+# Discrete transitions that MUST reach every peer even if the throttled/unreliable visual
+# state stream drops a packet — also published over the reliable action bus (deduped on apply),
+# so falling/landing/dizzy/trip/getup are never lost to throttling.
+const NETWORK_VISUAL_RELIABLE_ACTIONS := ["fall", "land", "trip", "dizzy", "long_idle", "get_hit", "hit", "getup", "die"]
+# Idle variants (the long-idle "dizzy" pose) read as locomotion but must still be exported and
+# played on peers — they were being collapsed to plain idle so others never saw the dizzy anim.
+const NETWORK_VISUAL_IDLE_VARIANT_ACTIONS := ["long_idle", "dizzy"]
 const DEATH_DISSOLVE_SHADER := preload("res://shaders/death_dissolve.gdshader")
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
 const PlayerCardEffectControllerScript := preload("res://scripts/player_card_effect_controller.gd")
@@ -1722,8 +1729,29 @@ func apply_network_action_event(event: Dictionary) -> void:
 			_apply_network_party_monster_trip_action(payload)
 		"flashlight_exposure":
 			_apply_network_flashlight_exposure_action(payload)
+		"visual_action":
+			_apply_network_visual_action_event(payload)
 		_:
 			pass
+
+
+func _apply_network_visual_action_event(payload: Dictionary) -> void:
+	# Reliable mirror of an important visual action (fall/land/dizzy/trip/getup). Apply only
+	# when newer than what we have shown so a late reliable packet can't replay a stale action.
+	if _is_local_authority():
+		return
+	var action: String = _normalize_network_visual_action(str(payload.get("action", "")))
+	if action.is_empty():
+		return
+	var seq: int = int(payload.get("seq", 0))
+	if seq > 0 and seq <= _network_visual_applied_action_sequence:
+		return
+	_network_visual_action = action
+	if seq > 0:
+		_network_visual_action_sequence = seq
+		_network_visual_applied_action_sequence = -1
+	_network_visual_state_msec = Time.get_ticks_msec()
+	_play_synced_network_visual_action(action)
 
 
 func _apply_network_jump_action(payload: Dictionary) -> void:
@@ -7055,6 +7083,10 @@ func _update_network_visual_action_export(action: String) -> void:
 	_network_visual_export_action = normalized
 	_network_visual_action_sequence = _next_network_visual_action_sequence(_network_visual_action_sequence)
 	_network_visual_action_tick = get_network_input_tick()
+	# Mirror important transitions onto the reliable action bus so a dropped/throttled visual
+	# state packet can never make peers miss a fall / land / dizzy / trip / getup.
+	if _is_local_authority() and NETWORK_VISUAL_RELIABLE_ACTIONS.has(normalized):
+		publish_network_action("visual_action", {"action": normalized, "seq": _network_visual_action_sequence})
 
 
 func _next_network_visual_action_sequence(current_sequence: int) -> int:
@@ -7122,8 +7154,13 @@ func _current_network_visual_action() -> String:
 	var locomotion_action: String = _derive_network_locomotion_action()
 	if _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.has_method("get_current_animation_action"):
 		var skin_action: String = _normalize_network_visual_action(str(_active_skin_node.call("get_current_animation_action")))
-		if not skin_action.is_empty() and not NETWORK_VISUAL_LOCOMOTION_ACTIONS.has(skin_action):
-			return skin_action
+		if not skin_action.is_empty():
+			# Export the long-idle "dizzy" pose even though it reads as a locomotion action,
+			# otherwise peers only ever see plain idle.
+			if NETWORK_VISUAL_IDLE_VARIANT_ACTIONS.has(skin_action):
+				return skin_action
+			if not NETWORK_VISUAL_LOCOMOTION_ACTIONS.has(skin_action):
+				return skin_action
 	return locomotion_action
 
 
@@ -7197,8 +7234,6 @@ func _apply_network_visual_yaw(target_yaw: float, delta: float) -> void:
 func _play_synced_network_visual_action(action: String) -> void:
 	var normalized: String = _normalize_network_visual_action(action)
 	if normalized.is_empty():
-		normalized = "idle"
-	if normalized == "long_idle":
 		normalized = "idle"
 	var sequence_pending: bool = _network_visual_action_sequence != _network_visual_applied_action_sequence
 	if _should_force_network_visual_locomotion_recovery(normalized, sequence_pending):
