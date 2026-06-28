@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "app_id": "monster_hunter",
+  "notes": [
+    "Core-patch-only partition set for code/config/UI hot updates over an existing baseline.",
+    "Ships ONLY core_patch (scripts + build_info.json + UI scenes). Asset packs are unchanged,",
+    "so the baseline full client keeps its embedded assets and only downloads the small core_patch."
+  ],
+  "partitions": [
+    {
+      "id": "core_patch",
+      "ship_as_manifest_package": true,
+      "strategy": "godot_export_pack",
+      "description": "Code/config/UI changes only; no map or character assets.",
+      "include_filters": [
+        "build_info.json",
+        "scripts/**",
+        "shaders/*.gdshader",
+        "scenes/ui/**",
+        "resources/**"
+      ],
+      "exclude_filters": [
+        "scripts/hot_update/**",
+        "tests/**",
+        "assets/**",
+        "Models/**",
+        "imported_models/**",
+        "addons/**"
+      ],
+      "load_order": 10,
+      "restart_required": true,
+      "required": true
+    }
+  ]
+}
