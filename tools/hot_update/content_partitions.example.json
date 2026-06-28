@@ -42,6 +42,7 @@
       "strategy": "godot_export_patch",
       "description": "Small gameplay/config/UI changes that should not force players to download map or character assets.",
       "include_filters": [
+        "build_info.json",
         "scripts/**",
         "shaders/*.gdshader",
         "scenes/ui/**",

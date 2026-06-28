@@ -595,13 +595,19 @@ func _current_manifest_version() -> String:
 
 
 func _manifest_version_from_dict(manifest: Dictionary) -> String:
-	var version := str(manifest.get("version", "")).strip_edges()
-	if not version.is_empty():
-		return version
-	return str(manifest.get("content_version", "")).strip_edges()
+	# Prefer content_version (carries version + date + commit) over the bare version.
+	var content_version := str(manifest.get("content_version", "")).strip_edges()
+	if not content_version.is_empty():
+		return content_version
+	return str(manifest.get("version", "")).strip_edges()
 
 
 func _app_version() -> String:
+	# build_info.json ships in the core_patch hot-update pack, so this reflects the
+	# applied update + restart instead of the frozen bootstrap config/version.
+	var stamped := BuildInfo.content_version().strip_edges()
+	if not stamped.is_empty() and stamped != "0.0.0":
+		return stamped
 	var value := str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
 	return value if not value.is_empty() else "dev"
 

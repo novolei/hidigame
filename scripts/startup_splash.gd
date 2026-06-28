@@ -1101,6 +1101,12 @@ func _load_font(path: String) -> Font:
 
 
 func _app_version() -> String:
+	# Prefer the running build's stamped version. build_info.json ships inside the
+	# core_patch hot-update pack, so this label updates after an incremental update
+	# (+ restart) instead of being frozen at the bootstrap's config/version.
+	var stamped := BuildInfo.content_version().strip_edges()
+	if not stamped.is_empty() and stamped != "0.0.0":
+		return stamped
 	var value := str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
 	return value if not value.is_empty() else "dev"
 
