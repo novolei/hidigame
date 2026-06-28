@@ -9,7 +9,9 @@ const MODE_HOST: String = "host"
 const MODE_CLIENT: String = "client"
 const JOIN_PREFIX: String = "noray:"
 const JOIN_URL_PREFIX: String = "noray://"
-const DEFAULT_NORAY_HOST: String = "8.153.148.157"
+# Noray (private-host NAT punchthrough) runs on the primary TX VPS. Overridable
+# at runtime via MAOMAO_NORAY_HOST / MAOMAO_NORAY_PORT.
+const DEFAULT_NORAY_HOST: String = "1.13.175.170"
 const DEFAULT_NORAY_PORT: int = 8890
 const CONNECT_TIMEOUT_SEC: float = 10.0
 const ID_TIMEOUT_SEC: float = 8.0
