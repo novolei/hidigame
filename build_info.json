@@ -1,10 +1,10 @@
 {
-  "build_id": "dad5ad43",
-  "content_version": "0.4.15+20260629.dad5ad43",
+  "build_id": "b2758815",
+  "content_version": "0.4.15+20260629.b2758815",
   "version": "0.4.15",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "dad5ad43bd731c935db4831122d3ce5102c32e62",
-  "built_at": "2026-06-29T01:42:13+08:00",
+  "git_commit": "b2758815501b2a15ee3a7a9dcf96d38f02c2ae0a",
+  "built_at": "2026-06-29T02:18:00+08:00",
   "role": "baseline"
 }
