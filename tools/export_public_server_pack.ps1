@@ -1,7 +1,7 @@
 param(
     [string]$GodotExe = "godot",
     [string]$Preset = "Windows Desktop",
-    [string]$OutputPath = "newrelease\maomao_server.pck",
+    [string]$OutputPath = "builds\server\maomao_server.pck",
     [int]$SmokePort = 18080,
     [int]$SmokeSeconds = 14,
     [switch]$SkipSmokeTest,
@@ -19,8 +19,8 @@ $extensionListFile = Join-Path $repo ".godot\extension_list.cfg"
 $extensionListBackup = Join-Path $repo (".godot\extension_list.cfg.server-export-backup-{0}" -f (Get-Date -Format "yyyyMMddHHmmssfff"))
 $outputAbs = Join-Path $repo $OutputPath
 $outputDir = Split-Path -Parent $outputAbs
-$smokeLog = Join-Path $repo "newrelease\maomao_server_smoke.log"
-$smokeErr = Join-Path $repo "newrelease\maomao_server_smoke.err.log"
+$smokeLog = Join-Path $repo "builds\server\maomao_server_smoke.log"
+$smokeErr = Join-Path $repo "builds\server\maomao_server_smoke.err.log"
 
 $serverExcludedAutoloads = @(
     "SimpleGrass",
