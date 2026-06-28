@@ -292,6 +292,17 @@ func trip() -> void:
 	_play_action("trip", true)
 
 
+# Play a specific knockdown pose by index (0 -> trip_01, 1 -> trip_02). The action is still
+# registered as "trip" so the facade's hold/recover/visual-state logic is unchanged; only the
+# clip is pinned, so a server-broadcast index makes every peer show the same pose.
+func trip_variant(variant_index: int) -> bool:
+	var clips: Array = ACTION_CLIPS.get("trip", []) as Array
+	if clips.is_empty():
+		return _play_action("trip", true)
+	var clip_index: int = clampi(variant_index, 0, clips.size() - 1)
+	return _play_clip(str(clips[clip_index]), "trip", 0.12, true)
+
+
 func dance() -> void:
 	_play_action("dance", true)
 
@@ -974,7 +985,10 @@ func _on_animation_finished(_animation_name: StringName) -> void:
 	var finished_action := _current_action
 	var finished_clip := _current_clip
 	action_finished.emit(finished_action, finished_clip)
-	if finished_action == "die":
+	# "die" and "trip" are knockdown poses: hold the final (downed) frame instead of snapping
+	# back to idle. The body stays down until an explicit recovery clip (die_recover) is played,
+	# so peers keep seeing the knocked-down pose rather than a player popping upright on clip end.
+	if finished_action == "die" or finished_action == "trip":
 		return
 	if LOCKED_REACTION_ACTIONS.has(finished_action) or finished_action == "long_idle":
 		idle()

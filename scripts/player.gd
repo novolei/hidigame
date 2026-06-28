@@ -98,6 +98,10 @@ const PARTY_MONSTER_TRIP_GROUND_CONTACT_HEIGHT := 2.25
 const PARTY_MONSTER_TRIP_SENSOR_FORWARD_OFFSET := 0.48
 const PARTY_MONSTER_TRIP_SENSOR_DISTANCE := 1.25
 const PARTY_MONSTER_TRIP_REWIND_RADIUS := 2.4
+# Number of distinct knockdown poses (trip_01 face-down / trip_02 on-back). The server picks one
+# and broadcasts the index so every peer plays the SAME pose; without this each side randomizes
+# independently and the downed player and observers can see different poses.
+const PARTY_MONSTER_TRIP_VARIANT_COUNT := 2
 const DEAD_FREE_CAM_NORMAL_SPEED := 8.0
 const DEAD_FREE_CAM_SPRINT_SPEED := 18.0
 const DEAD_FREE_CAM_ACCELERATION := 32.0
@@ -2600,7 +2604,7 @@ func _submit_party_monster_trip_reaction(world_direction: Vector3, contact_point
 	if not _has_active_skin_visual_peer():
 		return
 	elif _is_runtime_multiplayer_server():
-		_apply_party_monster_trip_reaction_rpc.rpc(clean_direction)
+		_apply_party_monster_trip_reaction_rpc.rpc(clean_direction, _pick_party_monster_trip_variant())
 	else:
 		_request_party_monster_trip_reaction_rpc.rpc_id(1, clean_direction, clean_contact_point, clean_query_tick)
 
@@ -2626,7 +2630,7 @@ func _request_party_monster_trip_reaction_rpc(world_direction: Vector3, contact_
 		return
 	if sender != 0 and not _server_party_monster_trip_contact_is_valid(sender, contact_point, query_tick):
 		return
-	_apply_party_monster_trip_reaction_rpc.rpc(_sanitize_party_monster_trip_direction(world_direction))
+	_apply_party_monster_trip_reaction_rpc.rpc(_sanitize_party_monster_trip_direction(world_direction), _pick_party_monster_trip_variant())
 
 
 func _server_party_monster_trip_contact_is_valid(sender_id: int, contact_point: Vector3, query_tick: int) -> bool:
@@ -2638,22 +2642,32 @@ func _server_party_monster_trip_contact_is_valid(sender_id: int, contact_point: 
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _apply_party_monster_trip_reaction_rpc(world_direction: Vector3) -> void:
+func _apply_party_monster_trip_reaction_rpc(world_direction: Vector3, trip_variant: int = 0) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
 		return
 	if _party_monster_trip_action_locked:
 		return
-	_play_party_monster_trip_reaction(world_direction)
+	_play_party_monster_trip_reaction(world_direction, trip_variant)
 
 
-func _play_party_monster_trip_reaction(_world_direction: Vector3) -> void:
+# Server-authoritative knockdown pose pick. Broadcast in the trip RPC so every peer (and the
+# owner) plays the SAME trip clip; the skin would otherwise randomize the clip on each side.
+func _pick_party_monster_trip_variant() -> int:
+	return randi() % PARTY_MONSTER_TRIP_VARIANT_COUNT
+
+
+func _play_party_monster_trip_reaction(_world_direction: Vector3, trip_variant: int = 0) -> void:
 	if _is_dead or _is_prop_disguised or not CharacterSkinCatalog.is_party_monster(character_model_id):
 		return
 	if not _active_skin_node or not is_instance_valid(_active_skin_node):
 		return
 	var did_play := false
-	if _active_skin_node.has_method("trip"):
+	# Prefer the explicit-variant entry so the broadcast pose index is honoured identically on
+	# every peer. Fall back to the legacy random trip() only if the skin predates trip_variant().
+	if _active_skin_node.has_method("trip_variant"):
+		did_play = bool(_active_skin_node.call("trip_variant", trip_variant))
+	elif _active_skin_node.has_method("trip"):
 		_active_skin_node.call("trip")
 		did_play = true
 	elif _active_skin_node.has_method("play_action"):
@@ -6875,7 +6889,11 @@ func _should_hold_party_monster_trip_action(action: String) -> bool:
 	# every character uses the party_monster skin.
 	if not _party_monster_trip_action_locked:
 		return false
-	return action == "idle" or action == "move" or action == "walk" or action == "run" or action == "jump" or action == "fall" or action == "land"
+	# "trip" is held too: the knockdown clip is issued exactly once (the trip RPC calls the skin
+	# directly), so any per-frame re-issue from the synced visual state must be swallowed — otherwise
+	# the skin restarts/alternates trip_01<->trip_02 from frame 0 every frame, which on peers reads
+	# as the downed player standing upright and jittering instead of holding the lying pose.
+	return action == "idle" or action == "move" or action == "walk" or action == "run" or action == "jump" or action == "fall" or action == "land" or action == "trip"
 
 
 func _play_skin_action(action: String) -> void:
@@ -6976,7 +6994,11 @@ func _get_active_skin_current_animation_length() -> float:
 
 func _on_active_skin_action_finished(action_name: String, _clip_name: String) -> void:
 	if action_name == "trip":
-		_finish_party_monster_trip_lock()
+		# The trip clip played out but the knockdown HOLDS: stay locked and start awaiting the
+		# stand-up (owner presses jump; peers wait for the broadcast stand_up event). Never
+		# auto-recover here, or the player would pop upright the instant the clip ends.
+		if _party_monster_trip_action_locked:
+			_stand_up_system.begin()
 	if not _skin_performance_camera_active:
 		return
 	if action_name != _skin_performance_camera_action:
@@ -7347,7 +7369,9 @@ func _should_force_network_visual_locomotion_recovery(action: String, sequence_p
 	if not NETWORK_VISUAL_RECOVERY_ACTIONS.has(action):
 		return false
 	if _party_monster_trip_action_locked:
-		return true
+		# Hold the knockdown on peers: only the explicit stand_up event recovers it. A stray
+		# locomotion visual-state sample must NOT pop the downed body back upright early.
+		return false
 	var current_action: String = _active_network_skin_action()
 	if not NETWORK_VISUAL_INTERRUPTABLE_ACTIONS.has(current_action):
 		return false

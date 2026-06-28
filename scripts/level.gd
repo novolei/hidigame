@@ -1744,12 +1744,18 @@ func _on_host_pressed(nickname: String, skin: String, role: int, room_name: Stri
 	pending_direct_join_waiting_for_sync = false
 	pending_direct_join_lobby_id = ""
 	if main_menu:
+		# Immediate click feedback + block a duplicate attempt during the ~8s Noray handshake.
+		main_menu.set_private_host_connecting(true)
 		main_menu.show_join_status(I18n.t("join_status.creating_private"), false)
 	var error: int = await Network.start_private_host(nickname, skin, role, room_name, lobby_password, character_model)
+	if main_menu:
+		main_menu.set_private_host_connecting(false)
 	if error != OK:
 		push_warning("Could not host lobby through Noray. ENet error: " + str(error))
 		if main_menu:
-			main_menu.show_join_status(I18n.t("join_status.failed"), true)
+			# Human, actionable failure (the relay/Noray was unreachable) — the button is now
+			# re-enabled so the player can simply retry.
+			main_menu.show_join_status(I18n.t("join_status.failed_private"), true)
 		return
 	if SteamBridge.is_available():
 		SteamBridge.create_lobby(

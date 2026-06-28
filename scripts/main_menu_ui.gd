@@ -2594,6 +2594,19 @@ func show_join_status(text: String, is_error: bool = false) -> void:
 	_set_join_status(text, is_error)
 
 
+# Drive the create-private-server button's "connecting" state. Gives an immediate, obvious
+# response to the click (the ~8s Noray attempt otherwise looked like nothing happened, which
+# read as "the button does nothing") and blocks a duplicate attempt from a second click. The
+# host flow re-enables it on success or failure.
+func set_private_host_connecting(connecting: bool) -> void:
+	if not host_button or not is_instance_valid(host_button):
+		return
+	host_button.disabled = connecting
+	var key: String = "menu.creating_private_server" if connecting else "menu.create_private_server"
+	host_button.text = I18n.t(key).to_upper()
+	host_button.add_theme_color_override("font_disabled_color", Color(1.0, 0.860, 0.230, 0.55))
+
+
 func _set_join_status(text: String, is_error: bool = false) -> void:
 	if not join_status_label:
 		return
