@@ -18,6 +18,7 @@ const JUMP_VELOCITY = 8.2
 # Asymmetric gravity: fall faster than you rise so the jump feels snappy instead of a floaty
 # "balloon" descent, without changing jump height or the rise. Applied when velocity.y < 0.
 const FALL_GRAVITY_MULTIPLIER := 1.9
+const PlayerStandUpSystem := preload("res://scripts/player/player_stand_up_system.gd")
 const GROUND_ACCELERATION := 20.0
 const GROUND_DECELERATION := 24.0
 const AIR_ACCELERATION := 7.0
@@ -254,6 +255,7 @@ var _death_dissolve_material: ShaderMaterial = null
 var _party_monster_trip_cooldown := 0.0
 var _party_monster_trip_reaction_lock_remaining := 0.0
 var _party_monster_trip_action_locked := false
+var _stand_up_system := PlayerStandUpSystem.new()
 var _dead_weapon_visual_hidden := false
 var _jump_audio: AudioStreamPlayer3D = null
 var _land_audio: AudioStreamPlayer3D = null
@@ -1736,6 +1738,8 @@ func apply_network_action_event(event: Dictionary) -> void:
 			_apply_network_flashlight_exposure_action(payload)
 		"visual_action":
 			_apply_network_visual_action_event(payload)
+		"stand_up":
+			_apply_network_stand_up_action()
 		_:
 			pass
 
@@ -1756,6 +1760,10 @@ func _apply_network_visual_action_event(payload: Dictionary) -> void:
 		_network_visual_action_sequence = seq
 		_network_visual_applied_action_sequence = -1
 	_network_visual_state_msec = Time.get_ticks_msec()
+	# A knockdown must HOLD on peers: lock so the velocity-fallback locomotion (driven by the
+	# trip's knockback motion) can't override the trip pose before the owner stands up.
+	if action == "trip" and not _party_monster_trip_action_locked:
+		_begin_party_monster_trip_lock()
 	_play_synced_network_visual_action(action)
 
 
@@ -2065,6 +2073,10 @@ func _physics_process(delta):
 		return
 
 	if _party_monster_trip_action_locked:
+		# While down, the jump key stands the player up (it does NOT jump). Movement stays
+		# locked until then via this branch.
+		if _stand_up_system.is_awaiting() and _input_action_just_pressed("jump") and _stand_up_system.consume():
+			_perform_stand_up()
 		var trip_was_on_floor := is_on_floor()
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -2180,7 +2192,12 @@ func _process_shared_visual_feedback_frame(delta: float, is_local_player: bool) 
 	if _party_monster_trip_reaction_lock_remaining > 0.0:
 		_party_monster_trip_reaction_lock_remaining = maxf(0.0, _party_monster_trip_reaction_lock_remaining - delta)
 		if _party_monster_trip_action_locked and _party_monster_trip_reaction_lock_remaining <= 0.0:
-			_finish_party_monster_trip_lock()
+			# Trip animation finished: stay down and wait for the player to stand up (press jump)
+			# instead of auto-recovering. Movement stays locked while _party_monster_trip_action_locked.
+			_stand_up_system.begin()
+	# Safety: the owner auto-stands after a long hold so a missed input can never strand them.
+	if _stand_up_system.tick(delta, _is_local_authority()):
+		_perform_stand_up()
 	if is_stalker():
 		if is_local_player:
 			_refresh_stalker_visibility_view(false)
@@ -2655,6 +2672,23 @@ func _finish_party_monster_trip_lock() -> void:
 	velocity.x = 0.0
 	velocity.z = 0.0
 	_current_speed = 0.0
+
+
+# Stand the player up from a knockdown: unlock movement, play a recovery animation, and (on the
+# owner) broadcast it so peers recover in step. See PlayerStandUpSystem.
+func _perform_stand_up() -> void:
+	_stand_up_system.cancel()
+	_finish_party_monster_trip_lock()
+	_play_skin_action("die_recover")
+	if _is_local_authority():
+		publish_network_action("stand_up", {})
+
+
+func _apply_network_stand_up_action() -> void:
+	_stand_up_system.cancel()
+	if _party_monster_trip_action_locked:
+		_finish_party_monster_trip_lock()
+	_play_skin_action("die_recover")
 
 
 func _apply_nearby_prop_impacts(impact_velocity: Vector3, impacted: Dictionary) -> bool:
@@ -6827,9 +6861,10 @@ func _play_skin_reaction(action: String) -> void:
 
 
 func _should_hold_party_monster_trip_action(action: String) -> bool:
+	# While the knockdown lock is active, suppress locomotion/air actions so the trip pose holds
+	# (on peers too). The lock itself marks the knockdown — no per-model gate needed now that
+	# every character uses the party_monster skin.
 	if not _party_monster_trip_action_locked:
-		return false
-	if not CharacterSkinCatalog.is_party_monster(character_model_id):
 		return false
 	return action == "idle" or action == "move" or action == "walk" or action == "run" or action == "jump" or action == "fall" or action == "land"
 
