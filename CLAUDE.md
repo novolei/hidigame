@@ -69,6 +69,8 @@ Incremental content delivery: a small `bootstrap` build + ordered content PCK pa
 
 ## Coding conventions (from docs/GDSCRIPT_MODULE_STANDARDS.md)
 
+> Binding constraint: [docs/CODE_ORGANIZATION_STANDARDS.md](docs/CODE_ORGANIZATION_STANDARDS.md) — naming, script order, one-file-one-concept (>~600 lines = "full"), signals-up/calls-down coupling, the target `scripts/<feature>/` folder tree, and the plan to break up the oversized facades. Follow it for new and refactored code.
+
 - Group new systems under `scripts/<feature>/`. Test entrypoints under `tests/`. Editor/build/ops helpers go in `tools/` — keep runtime code out of `tools/`, and keep one-off authoring/scene-edit scripts out of `scripts/`.
 - Use `class_name` for reusable modules; `RefCounted` for pure data/validation; `Node` only when tree/signals/timers/HTTP/lifecycle are needed. Keep autoloads thin.
 - **Explicit static types** on params, returns, and non-obvious locals. Validate/normalize loose JSON/manifest data at the boundary.
