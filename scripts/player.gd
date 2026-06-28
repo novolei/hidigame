@@ -492,11 +492,18 @@ func _ready():
 
 func set_global_position_immediate(next_position: Vector3) -> void:
 	global_position = next_position
+	velocity = Vector3.ZERO
 	if is_inside_tree():
 		reset_physics_interpolation()
 	_remote_visual_position = next_position
 	_remote_visual_position_initialized = true
 	_remote_motion_sampler.reset(next_position, true)
+	# Re-anchor the rollback movement simulation to the teleport target so the next
+	# rollback tick does not overwrite the new position with the stale prep-room
+	# simulated_position (which causes the released Hunter to jitter / jump forever).
+	var movement_motor: PlayerMovementMotor = _resolve_player_movement_motor()
+	if movement_motor != null:
+		movement_motor.teleport_to(next_position)
 
 
 func _check_role_after_assignment() -> void:

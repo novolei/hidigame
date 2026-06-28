@@ -99,6 +99,24 @@ func capture_from_player() -> void:
 	_has_simulated_state = true
 
 
+# Hard-anchor the rolled-back simulation state to a teleport target. Without this,
+# an authoritative teleport (e.g. releasing a Hunter from the prep room into the map)
+# only moves player.global_position, and the very next _rollback_tick overwrites it
+# with the stale simulated_position, snapping the player back and producing the
+# "stuck jitter / endless jump" desync seen across peers.
+func teleport_to(target_position: Vector3) -> void:
+	simulated_position = target_position
+	simulated_velocity = Vector3.ZERO
+	simulated_current_speed = 0.0
+	simulated_has_double_jumped = false
+	simulated_can_double_jump = true
+	_has_simulated_state = true
+	var player: CharacterBody3D = _resolve_player()
+	if player != null and is_instance_valid(player):
+		simulated_grounded = player.is_on_floor()
+		simulated_yaw = _player_visual_yaw(player)
+
+
 func _rollback_tick(delta: float, tick: int, is_fresh: bool) -> void:
 	var player: CharacterBody3D = _resolve_player()
 	if player == null or not is_instance_valid(player):
