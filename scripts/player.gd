@@ -105,6 +105,9 @@ const REMOTE_MOVE_SPEED_THRESHOLD := 0.45
 const REMOTE_RUN_SPEED_THRESHOLD := RUN_SPEED * 0.55
 const REMOTE_VERTICAL_ACTION_SPEED := 0.75
 const REMOTE_MOVE_HOLD_SECONDS := 0.18
+# Low-pass rate for the velocity that drives the remote animation FALLBACK path; damps
+# per-sample network noise so the action (idle/walk/run/jump/fall) does not flicker.
+const REMOTE_VISUAL_VELOCITY_SMOOTH_RATE := 16.0
 const REMOTE_VISUAL_PROCESS_INTERVAL := 1.0 / 30.0
 const REMOTE_WALK_BLEND := 0.25
 const REMOTE_RUN_BLEND := 1.0
@@ -304,6 +307,7 @@ var _last_sculpt_batch_msec := 0
 var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
+var _remote_visual_velocity_smoothed := Vector3.ZERO
 var _network_visual_action := "idle"
 var _network_visual_yaw := 0.0
 var _network_visual_grounded := true
@@ -498,6 +502,7 @@ func set_global_position_immediate(next_position: Vector3) -> void:
 	_remote_visual_position = next_position
 	_remote_visual_position_initialized = true
 	_remote_motion_sampler.reset(next_position, true)
+	_remote_visual_velocity_smoothed = Vector3.ZERO
 	# Re-anchor the rollback movement simulation to the teleport target so the next
 	# rollback tick does not overwrite the new position with the stale prep-room
 	# simulated_position (which causes the released Hunter to jitter / jump forever).
@@ -7370,7 +7375,11 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	var sample: Dictionary = _remote_motion_velocity_sample(delta)
 	if not bool(sample.get("ready", false)):
 		return
-	var visual_velocity: Vector3 = sample.get("velocity", Vector3.ZERO)
+	# Low-pass the noisy per-sample network velocity so the action thresholds below
+	# (jump / fall / run / walk / idle) stop flickering, which reads as choppy animation.
+	var raw_visual_velocity: Vector3 = sample.get("velocity", Vector3.ZERO)
+	_remote_visual_velocity_smoothed = _remote_visual_velocity_smoothed.lerp(raw_visual_velocity, clampf(delta * REMOTE_VISUAL_VELOCITY_SMOOTH_RATE, 0.0, 1.0))
+	var visual_velocity: Vector3 = _remote_visual_velocity_smoothed
 	var horizontal_velocity := Vector3(visual_velocity.x, 0.0, visual_velocity.z)
 	var horizontal_speed := horizontal_velocity.length()
 	if visual_velocity.y > REMOTE_VERTICAL_ACTION_SPEED:
