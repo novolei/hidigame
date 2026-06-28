@@ -18,6 +18,7 @@ const JUMP_VELOCITY = 8.2
 # Asymmetric gravity: fall faster than you rise so the jump feels snappy instead of a floaty
 # "balloon" descent, without changing jump height or the rise. Applied when velocity.y < 0.
 const FALL_GRAVITY_MULTIPLIER := 1.9
+const JUMP_SUPPRESS_AFTER_STAND_UP_SECONDS := 0.35
 const PlayerStandUpSystem := preload("res://scripts/player/player_stand_up_system.gd")
 const GROUND_ACCELERATION := 20.0
 const GROUND_DECELERATION := 24.0
@@ -256,6 +257,7 @@ var _party_monster_trip_cooldown := 0.0
 var _party_monster_trip_reaction_lock_remaining := 0.0
 var _party_monster_trip_action_locked := false
 var _stand_up_system := PlayerStandUpSystem.new()
+var _jump_suppress_remaining := 0.0
 var _dead_weapon_visual_hidden := false
 var _jump_audio: AudioStreamPlayer3D = null
 var _land_audio: AudioStreamPlayer3D = null
@@ -1670,6 +1672,7 @@ func get_rollback_movement_config() -> Dictionary:
 		"air_deceleration": AIR_DECELERATION,
 		"speed_multiplier": _card_speed_multiplier,
 		"fall_gravity_multiplier": FALL_GRAVITY_MULTIPLIER,
+		"jump_locked": _jump_suppress_remaining > 0.0,
 	}
 
 
@@ -2048,6 +2051,27 @@ func _physics_process(delta):
 
 	if _rollback_teleport_settle_remaining > 0.0:
 		_rollback_teleport_settle_remaining = maxf(0.0, _rollback_teleport_settle_remaining - delta)
+	if _jump_suppress_remaining > 0.0:
+		_jump_suppress_remaining = maxf(0.0, _jump_suppress_remaining - delta)
+
+	# Knockdown hard-locks movement (and handles the stand-up key) BEFORE any movement path runs,
+	# so a downed player can never move via the rollback motor or the legacy fall-through.
+	if _party_monster_trip_action_locked:
+		if not (_stand_up_system.is_awaiting() and _input_action_just_pressed("jump") and _stand_up_system.consume()):
+			var trip_was_on_floor := is_on_floor()
+			velocity.x = 0.0
+			velocity.z = 0.0
+			if not is_on_floor():
+				velocity.y -= gravity * delta
+			else:
+				velocity.y = minf(velocity.y, 0.0)
+			_current_speed = 0.0
+			_animate_body(Vector3.ZERO)
+			move_and_slide()
+			_update_safe_ground_position()
+			_update_movement_audio(delta, trip_was_on_floor)
+			return
+		_perform_stand_up()
 
 	if _is_rollback_movement_active():
 		_physics_process_rollback_movement(delta)
@@ -2070,25 +2094,6 @@ func _physics_process(delta):
 		_current_speed = 0.0
 		_animate_body(Vector3.ZERO)
 		move_and_slide()
-		return
-
-	if _party_monster_trip_action_locked:
-		# While down, the jump key stands the player up (it does NOT jump). Movement stays
-		# locked until then via this branch.
-		if _stand_up_system.is_awaiting() and _input_action_just_pressed("jump") and _stand_up_system.consume():
-			_perform_stand_up()
-		var trip_was_on_floor := is_on_floor()
-		velocity.x = 0.0
-		velocity.z = 0.0
-		if not is_on_floor():
-			velocity.y -= gravity * delta
-		else:
-			velocity.y = minf(velocity.y, 0.0)
-		_current_speed = 0.0
-		_animate_body(Vector3.ZERO)
-		move_and_slide()
-		_update_safe_ground_position()
-		_update_movement_audio(delta, trip_was_on_floor)
 		return
 
 	if _camouflage_brush_locked and _chameleon_sculpt_shell_active:
@@ -2118,16 +2123,17 @@ func _physics_process(delta):
 			return
 
 	var was_on_floor := is_on_floor()
+	var jump_allowed := _jump_suppress_remaining <= 0.0
 	if is_on_floor():
 		can_double_jump = true
 		has_double_jumped = false
 
-		if _input_action_just_pressed("jump"):
+		if jump_allowed and _input_action_just_pressed("jump"):
 			velocity.y = JUMP_VELOCITY
 			can_double_jump = true
 			_play_body_jump("Jump")
 	else:
-		if can_double_jump and not has_double_jumped and _input_action_just_pressed("jump"):
+		if jump_allowed and can_double_jump and not has_double_jumped and _input_action_just_pressed("jump"):
 			velocity.y = JUMP_VELOCITY
 			has_double_jumped = true
 			can_double_jump = false
@@ -2679,6 +2685,9 @@ func _finish_party_monster_trip_lock() -> void:
 func _perform_stand_up() -> void:
 	_stand_up_system.cancel()
 	_finish_party_monster_trip_lock()
+	# Swallow the jump for a moment so the same key press that stood the player up does not also
+	# fire a jump the instant the movement lock clears.
+	_jump_suppress_remaining = JUMP_SUPPRESS_AFTER_STAND_UP_SECONDS
 	_play_skin_action("die_recover")
 	if _is_local_authority():
 		publish_network_action("stand_up", {})

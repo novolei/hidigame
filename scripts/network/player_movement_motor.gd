@@ -135,6 +135,9 @@ func _rollback_tick(delta: float, tick: int, is_fresh: bool) -> void:
 	last_input_sequence = input_state.sequence if input_state != null else last_input_sequence
 
 	var config: Dictionary = _player_movement_config(player)
+	# Swallow jump briefly after standing up so the stand-up key press doesn't also jump.
+	if bool(config.get("jump_locked", false)):
+		jump_pressed = false
 	var move_direction: Vector3 = _world_move_direction(player, move_axis)
 	var has_move_input: bool = move_direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE
 	var speed_multiplier: float = maxf(float(config.get("speed_multiplier", 1.0)), 0.0)
