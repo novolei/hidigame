@@ -324,6 +324,7 @@ var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
 var _remote_visual_velocity_smoothed := Vector3.ZERO
+var _remote_locomotion_action_key := ""
 var _network_visual_action := "idle"
 var _network_visual_yaw := 0.0
 var _network_visual_grounded := true
@@ -6838,6 +6839,10 @@ func _play_skin_action(action: String) -> void:
 		return
 
 	var normalized := action.strip_edges().to_lower()
+	# A non-locomotion action interrupts locomotion, so clear the locomotion guard key — the
+	# next run/walk/move must re-issue to the skin instead of being skipped as "unchanged".
+	if normalized != "run" and normalized != "walk" and normalized != "move":
+		_remote_locomotion_action_key = ""
 	if _should_hold_party_monster_trip_action(normalized):
 		return
 	if _skin_performance_camera_active and not SKIN_PERFORMANCE_ACTIONS.has(normalized) and normalized != "idle":
@@ -7393,6 +7398,12 @@ func _play_remote_skin_locomotion(action: String, blend: float) -> void:
 	if _active_skin_node.has_method("set_walk_run_blending"):
 		_active_skin_node.call("set_walk_run_blending", blend)
 	var directional_action: String = _network_visual_directional_locomotion_action(normalized)
+	# Only (re)issue the skin locomotion when it actually changes. Re-issuing every frame makes
+	# the skin re-roll a different run/walk clip variant and restart it, so peers see the legs
+	# and arms rapidly cycle. The walk/run blend above still updates every frame.
+	if directional_action == _remote_locomotion_action_key:
+		return
+	_remote_locomotion_action_key = directional_action
 	if directional_action != normalized and _active_skin_node.has_method("play_action") and bool(_active_skin_node.call("play_action", directional_action)):
 		return
 	if normalized == "run" and _active_skin_node.has_method("run"):
