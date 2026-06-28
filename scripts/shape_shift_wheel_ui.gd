@@ -17,6 +17,9 @@ signal wheel_closed_confirmed()
 var shape_system: ShapeShiftSystem = null
 var selected_index: int = -1
 var _wheel: RadialWheelMenu = null
+# Maps a radial option index back to its preset index (wheel-hidden presets such
+# as the internal "解除伪装" revert state are skipped, so they differ).
+var _option_to_preset: Array[int] = []
 
 
 func _ready() -> void:
@@ -41,11 +44,18 @@ func show_wheel(system: ShapeShiftSystem) -> void:
 	shape_system = system
 	visible = true
 	var options: Array = []
+	_option_to_preset.clear()
+	var preselect := -1
 	for i in range(shape_system.get_preset_count()):
 		var preset = shape_system.get_preset(i)
+		if bool(preset.get("wheel_hidden", false)):
+			continue
+		if i == shape_system.current_preset_index:
+			preselect = options.size()
 		options.append({"label": str(preset.get("name", "Form %d" % (i + 1))), "enabled": true})
+		_option_to_preset.append(i)
 	selected_index = shape_system.current_preset_index
-	_wheel.open(options, "SHAPE SHIFT", selected_index)
+	_wheel.open(options, "SHAPE SHIFT", preselect)
 
 
 func hide_wheel() -> void:
@@ -68,10 +78,11 @@ func release_select() -> void:
 
 
 func _on_option_chosen(index: int) -> void:
-	selected_index = index
+	var preset_index := _option_to_preset[index] if index >= 0 and index < _option_to_preset.size() else index
+	selected_index = preset_index
 	if shape_system:
-		shape_system.try_shift(index)
-		preset_selected.emit(index)
+		shape_system.try_shift(preset_index)
+		preset_selected.emit(preset_index)
 	hide_wheel()
 
 

@@ -6750,9 +6750,10 @@ func _submit_skin_performance_action(action: String) -> void:
 	_apply_skin_performance_action_rpc(normalized)
 	publish_network_action("skin_performance", {"action": normalized})
 	if not _has_active_skin_performance_peer():
+		_apply_skin_performance_cost()
 		return
 	elif _is_runtime_multiplayer_server():
-		_server_apply_skin_performance_cost()
+		_apply_skin_performance_cost()
 		_apply_skin_performance_action_rpc.rpc(normalized)
 	else:
 		_request_skin_performance_action_rpc.rpc_id(1, normalized)
@@ -6771,7 +6772,7 @@ func _request_skin_performance_action_rpc(action: String) -> void:
 		return
 	if _is_dead or _is_prop_disguised:
 		return
-	_server_apply_skin_performance_cost()
+	_apply_skin_performance_cost()
 	_apply_skin_performance_action_rpc.rpc(normalized)
 
 
@@ -6779,23 +6780,37 @@ func _request_skin_performance_action_rpc(action: String) -> void:
 # match: 1st free, 2nd costs 40% max HP, 3rd+ is fatal. Bypasses damage immunity
 # and reactive rescue cards on purpose — this is a self-inflicted griefing
 # deterrent, not combat damage.
-func _server_apply_skin_performance_cost() -> void:
-	if not _is_runtime_multiplayer_server() or _is_dead:
+func _apply_skin_performance_cost() -> void:
+	# Authoritative side only: the server in multiplayer, or ourselves when
+	# offline (no peer) so single-instance testing still shows the cost. NOTE:
+	# against a live server the cost runs THERE — the server build must include
+	# this logic for HP to actually change on connected clients.
+	if multiplayer.has_multiplayer_peer() and not _is_runtime_multiplayer_server():
 		return
+	if _is_dead:
+		return
+	var has_peer := multiplayer.has_multiplayer_peer()
 	_skin_performance_use_count += 1
 	if _skin_performance_use_count <= 1:
 		return
 	if _skin_performance_use_count >= 3:
-		_card_feedback_to_owner("PERFORMANCE OVERUSE — FATAL", Color(1.0, 0.26, 0.2, 1.0), 1.6)
-		_server_die(int(str(name)))
+		if has_peer:
+			_card_feedback_to_owner("PERFORMANCE OVERUSE — FATAL", Color(1.0, 0.26, 0.2, 1.0), 1.6)
+			_server_die(int(str(name)))
+		else:
+			health = 0.0
+			health_changed.emit(health)
 		return
 	# Second use this match: drain 40% of max HP.
 	health = maxf(0.0, health - max_health * 0.40)
-	_card_feedback_to_owner("PERFORMANCE COST  -40% HP", Color(1.0, 0.55, 0.2, 1.0), 1.4)
-	if health <= 0.0:
-		_server_die(int(str(name)))
+	if has_peer:
+		_card_feedback_to_owner("PERFORMANCE COST  -40% HP", Color(1.0, 0.55, 0.2, 1.0), 1.4)
+		if health <= 0.0:
+			_server_die(int(str(name)))
+		else:
+			_sync_health.rpc(health)
 	else:
-		_sync_health.rpc(health)
+		health_changed.emit(health)
 
 
 @rpc("any_peer", "call_local", "reliable")

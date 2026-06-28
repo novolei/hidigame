@@ -66,6 +66,15 @@ const PRESET_LIBRARY := [
 		"tags": ["#low", "#wide"],
 	},
 	{
+		"id": "pumpkin",
+		"name": "南瓜",
+		"mesh": "sphere",
+		"size": Vector3(1.12, 0.92, 1.12),
+		"offset": Vector3(0.0, 0.50, 0.0),
+		"color": Color(0.86, 0.42, 0.12, 1.0),
+		"tags": ["#round", "#festive"],
+	},
+	{
 		"id": "human",
 		"name": "解除伪装",
 		"mesh": "none",
@@ -73,6 +82,8 @@ const PRESET_LIBRARY := [
 		"offset": Vector3.ZERO,
 		"color": Color.WHITE,
 		"tags": ["#reset"],
+		# Internal revert state — used for auto-uncloak, hidden from the Q wheel.
+		"wheel_hidden": true,
 	},
 ]
 

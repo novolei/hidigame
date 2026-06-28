@@ -110,10 +110,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		var button_event := event as InputEventMouseButton
 		if not button_event.pressed:
 			return
+		# Plain wheel drives the livestream performance; Shift+wheel zooms the
+		# camera (FOV) — the performance took over the bare wheel, so FOV moved
+		# onto Shift+wheel.
 		if button_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_request_owner_skin_performance_action("dance")
+			if button_event.shift_pressed:
+				zoom_camera(1.0)
+			else:
+				_request_owner_skin_performance_action("dance")
 		elif button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_request_owner_skin_performance_action("victory")
+			if button_event.shift_pressed:
+				zoom_camera(-1.0)
+			else:
+				_request_owner_skin_performance_action("victory")
 
 
 func _request_owner_skin_performance_action(action: String) -> bool:
