@@ -1,7 +1,7 @@
 param(
     [string]$GodotExe = "godot",
     [string]$Preset = "Windows Desktop",
-    [string]$OutputPath = "builds\server\maomao_server.pck",
+    [string]$OutputPath = "",
     [int]$SmokePort = 18080,
     [int]$SmokeSeconds = 14,
     [switch]$SkipSmokeTest,
@@ -11,6 +11,20 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+
+# When no explicit OutputPath is given, name the server pack like the client artifacts:
+# game name + version + build commit (e.g. MonsterHunter_Server_v0.4.5_28ef6a52.pck).
+# On the VPS the deploy still installs it to the canonical /opt/maomao/maomao_server.pck.
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $biPath = Join-Path $repo "build_info.json"
+    if (Test-Path -LiteralPath $biPath) {
+        $bi = Get-Content -LiteralPath $biPath -Raw | ConvertFrom-Json
+        $OutputPath = "builds\server\MonsterHunter_Server_v$($bi.version)_$($bi.build_id).pck"
+    } else {
+        $OutputPath = "builds\server\maomao_server.pck"
+    }
+}
+
 $projectFile = Join-Path $repo "project.godot"
 $backupFile = Join-Path $repo ("project.godot.server-export-backup-{0}" -f (Get-Date -Format "yyyyMMddHHmmssfff"))
 $exportPresetsFile = Join-Path $repo "export_presets.cfg"
