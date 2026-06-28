@@ -13,7 +13,7 @@ GODOT_BIN="${GODOT_BIN:-C:/Users/aresr/Desktop/Godot_v4.7-stable_win64.exe}"
 
 # Server pack name follows the client convention (game + version + build commit),
 # derived from build_info.json — the same name export_public_server_pack.ps1 produces.
-read -r VERSION BUILD_ID < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'])")
+read -r VERSION BUILD_ID < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'])" | tr -d '\r')
 NEW_PCK="builds/server/MonsterHunter_Server_v${VERSION}_${BUILD_ID}.pck"
 echo "[release-server] target: $NEW_PCK (version $VERSION, build $BUILD_ID)"
 

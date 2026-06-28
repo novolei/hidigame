@@ -22,7 +22,7 @@ WEB_ROOT="${WEB_ROOT:-/var/www/maomao-updates/maomao/dev}"
 BASE_URL="${BASE_URL:-http://1.13.175.170/maomao/dev}"
 SSH_OPTS="-o BatchMode=yes"
 
-read -r VERSION BUILD_ID CONTENT_VERSION < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'],d['content_version'])")
+read -r VERSION BUILD_ID CONTENT_VERSION < <(python -c "import json;d=json.load(open('build_info.json'));print(d['version'],d['build_id'],d['content_version'])" | tr -d '\r')
 REL_DIR="builds/releases/${VERSION}_${BUILD_ID}"
 echo "[hotpatch] version=$VERSION build=$BUILD_ID content_version=$CONTENT_VERSION"
 echo "[hotpatch] release dir: $REL_DIR"
