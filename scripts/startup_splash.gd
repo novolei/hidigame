@@ -212,6 +212,11 @@ func _should_bypass_for_dedicated_server() -> bool:
 
 
 func _change_to_dedicated_server_scene() -> void:
+	# Stamp the running build into stdout so ops can confirm which version a live headless
+	# server is on: journalctl -u maomao-public.service | grep DEDICATED-SERVER-VERSION
+	print("[MaoMao] DEDICATED-SERVER-VERSION content_version=%s build_id=%s protocol=%d" % [
+		BuildInfo.content_version(), BuildInfo.build_id(), BuildInfo.protocol_version(),
+	])
 	var error := get_tree().change_scene_to_file(DEDICATED_SERVER_SCENE_PATH)
 	if error != OK:
 		push_error("StartupSplash: dedicated server scene load failed: %s" % error_string(error))
