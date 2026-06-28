@@ -917,9 +917,18 @@ func _build_player_name_overlay() -> void:
 	_name_panel_input.text_submitted.connect(func(_submitted: String) -> void: _on_name_confirm_pressed())
 	input_row.add_child(_name_panel_input)
 	var dice := _button("🎲", false)
-	dice.custom_minimum_size = _sv(50, 40)
+	dice.name = "NameDiceButton"
+	dice.custom_minimum_size = _sv(46, 40)
 	dice.tooltip_text = I18n.t("name_panel.dice")
-	dice.pressed.connect(_on_name_dice_pressed)
+	dice.focus_mode = Control.FOCUS_NONE
+	# Soft rounded styling (reuse the field styleboxes) so the die blends with the input.
+	dice.add_theme_stylebox_override("normal", _styles["field"])
+	dice.add_theme_stylebox_override("hover", _styles["field_hover"])
+	dice.add_theme_stylebox_override("pressed", _styles["field_focus"])
+	dice.add_theme_stylebox_override("focus", _styles["field"])
+	dice.add_theme_font_size_override("font_size", _s(20))
+	dice.add_theme_color_override("font_color", Color(0.92, 0.94, 0.99, 1))
+	dice.pressed.connect(_roll_dice.bind(dice))
 	input_row.add_child(dice)
 
 	var button_row := HBoxContainer.new()
@@ -952,6 +961,21 @@ func _on_name_dice_pressed() -> void:
 		return
 	_name_panel_input.text = PlayerNameGenerator.random_name(I18n.current_locale == "zh")
 	_name_panel_input.caret_column = _name_panel_input.text.length()
+
+
+# Roll a fresh name and play a quick spin + squash bounce on the die button.
+func _roll_dice(button: Button) -> void:
+	_on_name_dice_pressed()
+	if button == null or not is_instance_valid(button):
+		return
+	button.pivot_offset = button.size * 0.5
+	button.rotation = 0.0
+	button.scale = Vector2.ONE
+	var spin := create_tween()
+	spin.tween_property(button, "rotation", TAU, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var bounce := create_tween()
+	bounce.tween_property(button, "scale", Vector2(1.16, 1.16), 0.10).set_trans(Tween.TRANS_SINE)
+	bounce.tween_property(button, "scale", Vector2.ONE, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _on_name_confirm_pressed() -> void:
@@ -2758,8 +2782,13 @@ func _line_edit(placeholder: String) -> LineEdit:
 	field.custom_minimum_size = _sv(0, 38)
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	field.add_theme_stylebox_override("normal", _styles["field"])
+	# Override the focus + read-only styleboxes too, otherwise Godot draws its default
+	# square focus outline outside our rounded box when the field is focused.
+	field.add_theme_stylebox_override("focus", _styles["field_focus"])
+	field.add_theme_stylebox_override("read_only", _styles["field"])
 	field.add_theme_font_size_override("font_size", _s(17))
 	field.add_theme_color_override("font_color", Color.WHITE)
+	field.add_theme_color_override("caret_color", Color(0.78, 0.88, 1.0, 1))
 	field.add_theme_color_override("font_placeholder_color", Color(0.72, 0.72, 0.76, 1))
 	if _use_brand_font() and _font_body:
 		field.add_theme_font_override("font", _font_body)
