@@ -109,11 +109,10 @@ enabled=PackedStringArray("res://addons/GMPShared/menu/plugin.cfg", "res://addon
 [hot_update]
 
 manifest_url="http://1.13.175.170/maomao/dev/manifest.json"
-manifest_mirror_urls=["http://8.153.148.157/maomao/dev/manifest.json"]
+manifest_mirror_urls="[]"
 auto_check_on_boot=false
 enabled=true
 server_enabled=false
-load_installed_packs_on_boot=false
 show_status_overlay=false
 channel="dev"
 protocol_version=1

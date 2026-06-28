@@ -6,5 +6,5 @@
   "channel": "dev",
   "git_commit": "ffe26ad9667d229f9e3a8d5975a449775f6cbaf3",
   "built_at": "2026-06-28T16:40:00+08:00",
-  "role": "hotpatch"
+  "role": "baseline"
 }
