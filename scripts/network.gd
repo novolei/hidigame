@@ -2584,15 +2584,13 @@ func _register_player(new_player_info):
 	if not new_player_info.has("alive"):
 		new_player_info["alive"] = true
 	if multiplayer.is_server():
-		# Version gate: reject clients whose network protocol does not match this
-		# server BEFORE adding them or running any gameplay path. This is what turns
-		# a stale-build mismatch into a clean refusal instead of a later RPC crash.
+		# Version handshake is ADVISORY ONLY: log a protocol mismatch but never
+		# disconnect. A gate that hard-kicks players (especially clients that simply
+		# predate the handshake and send no protocol) is worse than the rare mismatch
+		# it guards against; matched baseline deploys keep client/server in sync.
 		var client_protocol := int(new_player_info.get("protocol_version", -1))
 		if not BuildInfo.is_compatible(client_protocol):
-			push_warning("Peer %d rejected: client protocol v%d != server v%d (client build %s)." % [int(new_player_id), client_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, str(new_player_info.get("build_id", "?"))])
-			_rpc_reject_protocol.rpc_id(new_player_id, BuildInfo.NETWORK_PROTOCOL_VERSION, client_protocol, BuildInfo.build_id())
-			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
-			return
+			push_warning("Peer %d protocol v%d != server v%d (client build %s) — allowed (advisory handshake)." % [int(new_player_id), client_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, str(new_player_info.get("build_id", "?"))])
 		# Handshake fields are transient; keep them out of the synced player record.
 		new_player_info.erase("protocol_version")
 		new_player_info.erase("build_id")
@@ -2660,10 +2658,8 @@ func _broadcast_full_sync(all_players: Dictionary, config: Dictionary, server_in
 		var server_protocol := int(server_info.get("protocol_version", -1))
 		if not BuildInfo.is_compatible(server_protocol):
 			var server_build := str(server_info.get("build_id", "?"))
-			push_warning("Server protocol v%d != client v%d; refusing to join (server build %s)." % [server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, server_build])
+			push_warning("Server protocol v%d != client v%d (server build %s) — proceeding (advisory handshake)." % [server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, server_build])
 			version_mismatch.emit(server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, server_build)
-			_leave_after_version_mismatch("版本不匹配 / Version mismatch: server protocol v%d, this client v%d. Please update before joining." % [server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION])
-			return
 	var previous_players := players.duplicate(true)
 	var should_emit_diffs := _has_received_full_sync
 	players = all_players

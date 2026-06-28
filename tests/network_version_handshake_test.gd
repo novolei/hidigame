@@ -52,8 +52,8 @@ func _test_network_handshake_contract() -> void:
 		"client must send handshake-tagged info to the server on connect")
 	_expect(src.contains("BuildInfo.is_compatible(client_protocol)"),
 		"server must gate the client's protocol on registration")
-	_expect(src.contains("_rpc_reject_protocol.rpc_id"),
-		"server must notify rejected clients with a reject RPC")
+	_expect(src.contains("advisory handshake"),
+		"version gate must be advisory (warn on mismatch, never hard-kick the player)")
 	_expect(src.contains("_broadcast_full_sync.rpc_id(sender_id, players, lobby_config, BuildInfo.handshake_payload())"),
 		"server must include its handshake in the first full sync")
 	_expect(src.contains("BuildInfo.is_compatible(server_protocol)"),
