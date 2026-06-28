@@ -57,7 +57,9 @@ fi
 
 MANIFEST="$REL_DIR/manifest.json"
 [ -f "$MANIFEST" ] || { echo "ERROR: manifest not built: $MANIFEST"; exit 1; }
-echo "[hotpatch] publishing to $REMOTE:$WEB_ROOT ..."
+# Filenames the new manifest references; everything else under packages/ gets pruned.
+KEEP_PCKS=$(python -c "import json,os;m=json.load(open('$MANIFEST'));print(' '.join(os.path.basename(str(p.get('url',''))) for p in m.get('packages',[])))" | tr -d '\r')
+echo "[hotpatch] publishing to $REMOTE:$WEB_ROOT (keeping: ${KEEP_PCKS:-<none>}) ..."
 ssh $SSH_OPTS "$REMOTE" "rm -rf /tmp/mh-hp && mkdir -p /tmp/mh-hp/packages"
 scp $SSH_OPTS "$MANIFEST" "$REMOTE:/tmp/mh-hp/manifest.json"
 scp $SSH_OPTS "$REL_DIR"/packages/*.pck "$REMOTE:/tmp/mh-hp/packages/" 2>/dev/null || echo "[hotpatch] (no package files — baseline-style manifest)"
@@ -66,6 +68,16 @@ sudo mkdir -p '$WEB_ROOT/packages'
 if ls /tmp/mh-hp/packages/*.pck >/dev/null 2>&1; then sudo cp -f /tmp/mh-hp/packages/*.pck '$WEB_ROOT/packages/'; fi
 sudo cp -f /tmp/mh-hp/manifest.json '$WEB_ROOT/manifest.json'
 sudo chmod 0644 '$WEB_ROOT/manifest.json' '$WEB_ROOT'/packages/*.pck 2>/dev/null || true
+# Prune any pack the new manifest does not reference. core_patch is a complete snapshot,
+# so old packs are never needed for catch-up; keep only the current set.
+keep_pcks='$KEEP_PCKS'
+for f in '$WEB_ROOT'/packages/*.pck; do
+  [ -e \"\$f\" ] || continue
+  base=\$(basename \"\$f\")
+  keep=no
+  for k in \$keep_pcks; do [ \"\$base\" = \"\$k\" ] && keep=yes && break; done
+  if [ \"\$keep\" = no ]; then sudo rm -f \"\$f\"; echo \"pruned stale \$base\"; fi
+done
 rm -rf /tmp/mh-hp
 echo '--- published ---'; ls -lh '$WEB_ROOT/manifest.json' '$WEB_ROOT'/packages/ 2>/dev/null"
 
