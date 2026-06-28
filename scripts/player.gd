@@ -5420,6 +5420,21 @@ func is_disguised() -> bool:
 	return _is_prop_disguised
 
 
+# Revert ANY active Chameleon disguise (Q prop, committed C prop, or an in-progress
+# C env-blend / paint session) back to the real model. Used to auto-uncloak before
+# starting a new disguise action (Q wheel apply / C activate) or picking up a scene
+# decoration with F, so the player never stacks disguises.
+func auto_uncloak_disguise() -> void:
+	if chameleon_environment_blend_system and is_instance_valid(chameleon_environment_blend_system) \
+			and chameleon_environment_blend_system.has_method("is_active") \
+			and bool(chameleon_environment_blend_system.call("is_active")):
+		chameleon_environment_blend_system.call("deactivate")
+	if is_disguised():
+		clear_prop_disguise()
+	if shape_system and shape_system.has_method("reset_to_revert_state"):
+		shape_system.reset_to_revert_state()
+
+
 func get_disguise_name() -> String:
 	return _current_disguise_name
 

@@ -85,6 +85,10 @@ func toggle_wheel() -> bool:
 func open_wheel() -> void:
 	if not camouflage_owner:
 		return
+	# Auto-uncloak any current disguise (Q prop, or a previously committed C prop)
+	# before choosing a new one, so the player reverts to the real model first.
+	if camouflage_owner.has_method("auto_uncloak_disguise"):
+		camouflage_owner.call("auto_uncloak_disguise")
 	_set_state(STATE_WHEEL)
 	_refresh_options()
 	_set_owner_locked(true)

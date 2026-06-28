@@ -150,6 +150,16 @@ func get_preset(index: int) -> Dictionary:
 	return PRESET_LIBRARY[index]
 
 
+# Reset the tracked preset back to the hidden "解除伪装" revert state without
+# re-applying visuals (the caller already cleared the disguise). Keeps the wheel
+# pre-selection / cooldown bookkeeping coherent after an auto-uncloak.
+func reset_to_revert_state() -> void:
+	for i in range(PRESET_LIBRARY.size()):
+		if str(PRESET_LIBRARY[i].get("id", "")) == "human":
+			current_preset_index = i
+			return
+
+
 func get_preset_count() -> int:
 	return PRESET_LIBRARY.size()
 
@@ -166,6 +176,11 @@ func try_shift(preset_index: int) -> bool:
 	if preset_index < 0 or preset_index >= PRESET_LIBRARY.size():
 		shift_failed.emit("invalid_preset")
 		return false
+
+	# Auto-uncloak any current disguise (e.g. an active/committed C env-blend prop)
+	# before applying the new Q form, so disguises never stack.
+	if shift_owner and shift_owner.has_method("auto_uncloak_disguise"):
+		shift_owner.call("auto_uncloak_disguise")
 
 	var preset = PRESET_LIBRARY[preset_index]
 	current_preset_index = preset_index

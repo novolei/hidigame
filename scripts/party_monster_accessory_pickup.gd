@@ -229,6 +229,11 @@ func request_pickup_for_player(peer_id: int) -> void:
 	if not match_active or not is_available:
 		return
 	var player_node: Node3D = _find_player_node(peer_id)
+	# A disguised Chameleon that grabs a scene decoration auto-reverts to its real
+	# model (the old disguise is dropped) so it can wear the accessory.
+	if player_node and player_node.has_method("is_disguised") and bool(player_node.call("is_disguised")):
+		if player_node.has_method("auto_uncloak_disguise"):
+			player_node.call("auto_uncloak_disguise")
 	var query_tick: int = _pickup_query_tick_for_player(player_node)
 	if _is_runtime_server():
 		_server_try_pickup_by_id(peer_id, query_tick)
