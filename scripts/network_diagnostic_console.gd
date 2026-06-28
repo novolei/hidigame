@@ -44,7 +44,7 @@ static func execute(command_line: String) -> String:
 
 static func _format_mode(snapshot: Dictionary) -> String:
 	var netfox: Dictionary = snapshot.get("netfox", {})
-	return "mode=%s role=%s local=%s server=%s peer=%s tick=%s tickrate=%s" % [
+	return "mode=%s role=%s local=%s server=%s peer=%s tick=%s tickrate=%s max_ticks=%s phys_tps=%s interp=%s rtt=%.1fms jitter=%.1fms" % [
 		str(snapshot.get("mode", "offline")),
 		str(snapshot.get("role", "client")),
 		str(snapshot.get("local_peer_id", 1)),
@@ -52,6 +52,11 @@ static func _format_mode(snapshot: Dictionary) -> String:
 		str(snapshot.get("peer_assigned", false)),
 		str(netfox.get("tick", 0)),
 		str(netfox.get("tickrate_setting", 0)),
+		str(netfox.get("max_ticks_per_frame", 0)),
+		str(netfox.get("physics_tps", 0)),
+		str(netfox.get("physics_interpolation", false)),
+		float(netfox.get("remote_rtt_ms", 0.0)),
+		float(netfox.get("remote_rtt_jitter_ms", 0.0)),
 	]
 
 
@@ -114,7 +119,7 @@ static func _format_room(snapshot: Dictionary) -> String:
 static func _format_sync_budget(snapshot: Dictionary) -> String:
 	var budget: Dictionary = snapshot.get("sync_budget", {})
 	var netfox: Dictionary = snapshot.get("netfox", {})
-	return "perf=%s events=%s event_kb=%.1f frames=%d slow=%d avg=%.2fms worst=%.2fms netfox_loop=%.2fms rollback=%.2fms props=%s/%s ratio=%.3f" % [
+	return "perf=%s events=%s event_kb=%.1f frames=%d slow=%d avg=%.2fms worst=%.2fms netfox_loop=%.2fms net_ticks=%d rollback=%.2fms roll_ticks=%d props=%s/%s ratio=%.3f" % [
 		str(budget.get("perf_enabled", false)),
 		str(budget.get("event_summary", "-")),
 		float(budget.get("event_kb", 0.0)),
@@ -123,7 +128,9 @@ static func _format_sync_budget(snapshot: Dictionary) -> String:
 		float(budget.get("avg_ms", 0.0)),
 		float(budget.get("worst_ms", 0.0)),
 		float(netfox.get("network_loop_ms", 0.0)),
+		int(netfox.get("network_ticks", 0)),
 		float(netfox.get("rollback_loop_ms", 0.0)),
+		int(netfox.get("rollback_ticks", 0)),
 		str(netfox.get("sent_state_props", 0)),
 		str(netfox.get("full_state_props", 0)),
 		float(netfox.get("sent_state_ratio", 0.0)),

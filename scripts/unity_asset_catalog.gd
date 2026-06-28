@@ -24,6 +24,12 @@ const DECORATIONS := [
 	{"id": "tanks_light_tank", "name": "Light Tank", "scene": "res://assets/unity_migrated/tanks_complete/Art/Models/Tanks/Tank_Light_Model.glb", "material": "res://Materials/M_unity_tanks_red.tres", "scale": Vector3.ONE, "force_material": true},
 ]
 
+const ACTIVE_PLAY_EXCLUDED_DECOR_IDS := {
+	"tanks_light_tank": true,
+	"synty_car_small": true,
+	"tanks_busted_tank": true,
+}
+
 const WEAPONS := {
 	"ak74": {"id": "ak74", "name": "AK74", "scene": "res://assets/unity_migrated/low_poly_weapons_vol1/Models/AK74.glb", "material": "res://Materials/M_unity_weapon.tres"},
 	"m4": {"id": "m4", "name": "M4", "scene": "res://assets/unity_migrated/low_poly_weapons_vol1/Models/M4_8.glb", "material": "res://Materials/M_unity_weapon.tres"},
@@ -38,8 +44,25 @@ static func decorations() -> Array:
 	return DECORATIONS
 
 
+static func active_play_decorations() -> Array:
+	var result: Array = []
+	for decoration: Dictionary in DECORATIONS:
+		var decor_id: String = str(decoration.get("id", ""))
+		if ACTIVE_PLAY_EXCLUDED_DECOR_IDS.has(decor_id):
+			continue
+		result.append(decoration)
+	return result
+
+
 static func random_decoration(rng: RandomNumberGenerator) -> Dictionary:
 	return DECORATIONS[rng.randi_range(0, DECORATIONS.size() - 1)]
+
+
+static func random_active_play_decoration(rng: RandomNumberGenerator) -> Dictionary:
+	var pool: Array = active_play_decorations()
+	if pool.is_empty():
+		return random_decoration(rng)
+	return pool[rng.randi_range(0, pool.size() - 1)]
 
 
 static func weapon_by_id(weapon_id: String) -> Dictionary:

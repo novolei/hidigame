@@ -11,6 +11,7 @@
 [ext_resource type="Shader" uid="uid://cdlt3ujrpad32" path="res://level/sky_with_stars.tres" id="9_starsky"]
 [ext_resource type="Texture2D" uid="uid://ca3jtautvrj1u" path="res://level/moon.png" id="10_moon"]
 [ext_resource type="PackedScene" uid="uid://dy7febh6yyvxa" path="res://scenes/level/hunter_turret_training_dummy.tscn" id="11_pe1ox"]
+[ext_resource type="Script" uid="uid://jf3ogi76han8" path="res://scripts/network/network_rewind_history.gd" id="12_m0bv2"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_r5xs5"]
 size = Vector2(90, 90)
@@ -163,3 +164,6 @@ visible = false
 [node name="HunterTurretTrainingDummy" parent="TrainingTargets" unique_id=284828100 instance=ExtResource("11_pe1ox")]
 transform = Transform3D(-1, 0, -1.509958e-07, 0, 1, 0, 1.509958e-07, 0, -1, -32, 0, 8)
 collision_mask = 0
+
+[node name="NetworkRewindHistory" type="Node" parent="." unique_id=343995882]
+script = ExtResource("12_m0bv2")

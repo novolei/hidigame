@@ -43,14 +43,16 @@ func _run() -> void:
 
 	if turret:
 		_expect(is_equal_approx(turret.get_fire_interval(), 0.5), "Auto turret should fire at 120 rounds per minute")
-		_expect(turret.get_target_scan_interval_for_test() >= 0.10 and turret.get_target_scan_interval_for_test() <= 0.13, "Auto turret target scans should stay budgeted near 8Hz instead of running every frame")
+		_expect(turret.get_target_scan_interval_for_test() >= 0.20 and turret.get_target_scan_interval_for_test() <= 0.24, "Auto turret target scans should stay PLAY-budgeted near 4.5Hz instead of running every frame")
+		_expect(turret.get_locked_target_scan_interval_for_test() > turret.get_target_scan_interval_for_test(), "Auto turret should rescan slower while a cached target remains trackable")
 		_expect(is_equal_approx(turret.get_damage_per_bullet(), 10.0), "Auto turret should deal 10 damage so 10 hits kill a prop")
 		_expect(is_equal_approx(turret.get_vision_half_angle_degrees(), 50.0), "Auto turret should scan 50 degrees left and right")
 		_expect(turret.get_spread_degrees() > 1.0 and turret.get_spread_degrees() <= 2.5, "Auto turret should use a tighter spread so sustained fire can reliably threaten visible props")
 		_expect(turret.get_target_range() >= 30.0, "Auto turret should have enough range to guard the Hunter shoulder")
 		_expect(turret.get_model_scale() >= 0.45, "Combat drone model should be enlarged to at least 2.5x the previous shoulder size")
-		_expect(turret.get_visual_mesh_count_for_test() > 0, "Combat drone visual should contain imported mesh nodes")
+		_expect(turret.get_visual_mesh_count_for_test() > 0, "Combat drone visual should contain lightweight mesh nodes")
 		_expect(turret.get_textured_visual_mesh_count_for_test() > 0, "Combat drone visual should preserve or restore textured materials")
+		_expect(not turret.uses_high_poly_visual_for_test(), "Auto turret should default to the lightweight runtime visual instead of instancing the 441k-triangle FBX per player")
 		_expect(turret.get_shoulder_local_offset().x > 0.4 and turret.get_shoulder_local_offset().y > 1.2 and turret.get_shoulder_local_offset().y < 1.7, "Combat drone should hover near the Hunter's right shoulder instead of nameplate height")
 		turret._process(0.0)
 		_expect(turret.get_hover_anchor_position_for_test().y < hunter.global_position.y + 1.7, "Combat drone hover anchor should be below the Hunter nameplate height")

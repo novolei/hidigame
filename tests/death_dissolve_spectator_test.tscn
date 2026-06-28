@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cad854de21lj"]
+
+[ext_resource type="Script" uid="uid://blc6ctgyvha6j" path="res://tests/death_dissolve_spectator_test.gd" id="1_4b2u3"]
+
+[node name="DeathDissolveSpectatorTest" type="Node3D" unique_id=1632768584]
+script = ExtResource("1_4b2u3")

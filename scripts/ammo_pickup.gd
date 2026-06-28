@@ -93,7 +93,8 @@ func _runtime_debug_log(
 # 状态
 # -----------------------------------------------------------------------------
 @export var ammo_type: AmmoType = AmmoType.SMALL
-var is_available: bool = true  # 是否可被拾取
+var is_available: bool = true
+var match_active: bool = true  # Match-phase gate for prep-time pre-spawned pickups.
 var respawn_timer: float = 0.0
 
 # 视觉节点
@@ -128,10 +129,41 @@ func _ready() -> void:
 	add_to_group("ammo_pickups")
 	_apply_visual()
 	body_entered.connect(_on_body_entered)
+	_apply_match_active_state()
+
+
+func set_match_active(active: bool) -> void:
+	match_active = active
+	_apply_match_active_state()
+
+
+func _is_runtime_server() -> bool:
+	if not multiplayer.has_multiplayer_peer():
+		return true
+	return multiplayer.is_server()
+
+
+func _remote_sender_id() -> int:
+	if not multiplayer.has_multiplayer_peer():
+		return 1
+	return multiplayer.get_remote_sender_id()
+
+
+func _apply_match_active_state() -> void:
+	var pickup_active: bool = match_active and is_available
+	visible = pickup_active
+	set_process(match_active and _is_runtime_server() and not is_available)
+	set_deferred("monitoring", pickup_active)
+	set_deferred("monitorable", pickup_active)
+	_set_collision_shapes_enabled(pickup_active)
 
 
 func _process(delta: float) -> void:
-	if not multiplayer.is_server():
+	if not match_active:
+		set_process(false)
+		return
+	if not _is_runtime_server():
+		set_process(false)
 		return
 	if not is_available:
 		respawn_timer -= delta
@@ -162,38 +194,69 @@ func _apply_visual() -> void:
 # =============================================================================
 
 func _on_body_entered(body: Node) -> void:
-	if not is_available:
+	if not match_active or not is_available:
 		return
 	if not body.is_in_group("players"):
 		return
 
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		# 客户端触发,转发给服务器
-		_request_pickup_rpc.rpc_id(1)
+		_request_pickup_rpc.rpc_id(1, _pickup_query_tick_for_body(body))
 		return
 
 	if body.has_method("get_multiplayer_authority"):
 		var pid = body.get_multiplayer_authority()
-		_server_try_pickup_by_id(pid)
+		_server_try_pickup_by_id(pid, _pickup_query_tick_for_body(body))
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_pickup_rpc():
-	if not multiplayer.is_server():
+func _request_pickup_rpc(query_tick: int = -1):
+	if not _is_runtime_server():
 		return
-	var sender_id = multiplayer.get_remote_sender_id()
-	_server_try_pickup_by_id(sender_id)
+	var sender_id: int = _remote_sender_id()
+	_server_try_pickup_by_id(sender_id, query_tick)
+
+
+func _pickup_query_tick_for_body(body: Node) -> int:
+	if body and body.has_method("get_network_input_tick"):
+		return int(body.call("get_network_input_tick"))
+	return NetworkTime.tick
+
+
+func _server_player_node_for_id(pid: int) -> Node:
+	var tree: SceneTree = get_tree()
+	if not tree:
+		return null
+	var level: Node = tree.get_current_scene() if tree.get_current_scene() else null
+	if not level:
+		return null
+	var players_container: Node = level.get_node_or_null("PlayersContainer")
+	if not players_container:
+		return null
+	return players_container.get_node_or_null(str(pid))
+
+
+func _server_player_was_in_pickup_range(pid: int, query_tick: int) -> bool:
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree())
+	if history != null and query_tick >= 0:
+		return history.player_was_in_radius(pid, global_position, PICKUP_RANGE, query_tick)
+	var player_node: Node = _server_player_node_for_id(pid)
+	if not player_node or not player_node is Node3D:
+		return false
+	return (player_node as Node3D).global_position.distance_to(global_position) <= PICKUP_RANGE
 
 
 func _server_try_pickup(body: Node) -> void:
 	# body 可能是玩家节点
 	if body and body.has_method("get_multiplayer_authority"):
 		var pid = body.get_multiplayer_authority()
-		_server_try_pickup_by_id(pid)
+		_server_try_pickup_by_id(pid, _pickup_query_tick_for_body(body))
 
 
-func _server_try_pickup_by_id(pid: int) -> void:
+func _server_try_pickup_by_id(pid: int, query_tick: int = -1) -> void:
 	# v0.3.3 默认:Prop 不可拾取
+	if not match_active or not is_available:
+		return
 	if not Network.players.has(pid):
 		return
 	var info = Network.players[pid]
@@ -201,20 +264,10 @@ func _server_try_pickup_by_id(pid: int) -> void:
 	if role != Network.Role.HUNTER:
 		# Chameleon / Stalker 不能拾取弹药
 		return
-
-	# 找到 Hunter 的 WeaponSystem — 用全局 scene tree
-	var tree = get_tree()
-	if not tree:
-		return
-	var level = tree.get_current_scene() if tree.get_current_scene() else null
-	if not level:
+	if not _server_player_was_in_pickup_range(pid, query_tick):
 		return
 
-	var players_container = level.get_node_or_null("PlayersContainer")
-	if not players_container:
-		return
-
-	var player_node = players_container.get_node_or_null(str(pid))
+	var player_node: Node = _server_player_node_for_id(pid)
 	if not player_node or not player_node.has_node("WeaponSystem"):
 		return
 	var weapon: WeaponSystem = player_node.get_node("WeaponSystem")
@@ -239,13 +292,13 @@ func _server_try_pickup_by_id(pid: int) -> void:
 
 
 func _consume() -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		return
 	_set_available.rpc(false, RESPAWN_TIME)
 
 
 func _respawn() -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		return
 	_set_available.rpc(true, 0.0)
 	_runtime_debug_log("[Ammo] ", ammo_type, " respawned at ", global_position)
@@ -255,10 +308,7 @@ func _respawn() -> void:
 func _set_available(available: bool, timer_value: float) -> void:
 	is_available = available
 	respawn_timer = timer_value
-	visible = available
-	set_deferred("monitoring", available)
-	set_deferred("monitorable", available)
-	_set_collision_shapes_enabled(available)
+	_apply_match_active_state()
 
 
 func _set_collision_shapes_enabled(enabled: bool) -> void:

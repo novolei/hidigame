@@ -44,6 +44,10 @@ const PROP_COLLISION_MIN_HEIGHT := 0.42
 const PROP_COLLISION_MAX_HEIGHT := 3.20
 const PROP_PUSH_CONTACT_PADDING := 0.24
 const PROP_PUSH_FORWARD_REACH := 0.34
+const PROP_PUSH_QUERY_MAX_RESULTS := 8
+const PROP_PUSH_QUERY_RADIUS_PADDING := 0.08
+const PROP_PUSH_QUERY_INTERVAL_MSEC := 50
+const PROP_PUSH_ASSIST_MIN_SPEED := 2.6
 const WORLD_COLLISION_MASK := 2
 const HOLOGRAM_FLAG_ACTION := "place_hologram_flag"
 const HOLOGRAM_FLAG_PLACEMENT_RANGE := 14.0
@@ -74,6 +78,8 @@ const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hu
 const DEATH_DISSOLVE_SECONDS := 2.4
 const DEATH_DISSOLVE_NOISE_SCALE := 1.65
 const DEATH_DISSOLVE_EDGE_WIDTH := 0.055
+const DEATH_DISSOLVE_VISUAL_CULL_RANGE := 42.0
+const DEATH_DISSOLVE_VISUAL_CULL_MARGIN := 6.0
 const PARTY_MONSTER_TRIP_MIN_SPEED := RUN_SPEED * 0.55
 const PARTY_MONSTER_TRIP_COOLDOWN_SECONDS := 2.6
 const PARTY_MONSTER_TRIP_REACTION_LOCK_SECONDS := 0.95
@@ -86,6 +92,7 @@ const PARTY_MONSTER_TRIP_MIN_COLLISION_OPPOSITION := 0.20
 const PARTY_MONSTER_TRIP_GROUND_CONTACT_HEIGHT := 2.25
 const PARTY_MONSTER_TRIP_SENSOR_FORWARD_OFFSET := 0.48
 const PARTY_MONSTER_TRIP_SENSOR_DISTANCE := 1.25
+const PARTY_MONSTER_TRIP_REWIND_RADIUS := 2.4
 const DEAD_FREE_CAM_NORMAL_SPEED := 8.0
 const DEAD_FREE_CAM_SPRINT_SPEED := 18.0
 const DEAD_FREE_CAM_ACCELERATION := 32.0
@@ -93,10 +100,26 @@ const DEAD_FREE_CAM_DECELERATION := 42.0
 const DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR := 0.78
 const DEAD_FREE_CAM_SPRING_LENGTH := 0.25
 const DEAD_FREE_CAM_FOV := 72.0
+const REMOTE_VISUAL_SAMPLE_MAX_AGE_MSEC := 260
+const REMOTE_MOVE_SPEED_THRESHOLD := 0.45
+const REMOTE_RUN_SPEED_THRESHOLD := RUN_SPEED * 0.55
+const REMOTE_VERTICAL_ACTION_SPEED := 0.75
+const REMOTE_MOVE_HOLD_SECONDS := 0.18
+const REMOTE_VISUAL_PROCESS_INTERVAL := 1.0 / 30.0
+const REMOTE_WALK_BLEND := 0.25
+const REMOTE_RUN_BLEND := 1.0
+const NETWORK_VISUAL_STATE_MAX_AGE_MSEC := 360
+const NETWORK_VISUAL_YAW_LERP_SPEED := 36.0
+const NETWORK_VISUAL_ACTION_MAX_LENGTH := 32
+const NETWORK_VISUAL_LOCOMOTION_ACTIONS := ["idle", "long_idle", "move", "walk", "run", "jump", "fall", "land"]
+const NETWORK_VISUAL_RECOVERY_ACTIONS := ["idle", "move", "walk", "run"]
+const NETWORK_VISUAL_INTERRUPTABLE_ACTIONS := ["jump", "fall", "land", "trip", "get_hit", "hit", "die_recover"]
 const DEATH_DISSOLVE_SHADER := preload("res://shaders/death_dissolve.gdshader")
 const CardDecoyTargetScript := preload("res://scripts/card_decoy_target.gd")
 const PlayerCardEffectControllerScript := preload("res://scripts/player_card_effect_controller.gd")
 const RemoteMotionSamplerScript := preload("res://scripts/remote_motion_sampler.gd")
+const PlayerInputStateScript := preload("res://scripts/network/player_input_state.gd")
+const PlayerActionBusScript := preload("res://scripts/network/player_action_bus.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
@@ -113,6 +136,8 @@ const CAMOUFLAGE_PAINT_RPC_BYTES_PER_STAMP := 28
 const CAMOUFLAGE_PAINT_RPC_BYTES_PER_WORLD_POSITION := 24
 const CAMOUFLAGE_PAINT_RPC_BYTES_PER_CLIP_UV := 8
 const CAMOUFLAGE_PAINT_RPC_BYTES_PER_FOOTPRINT_VALUE := 4
+const CAMOUFLAGE_PAINT_APPLIED_EVENT_LIMIT := 256
+const CAMOUFLAGE_PAINT_EVENT_LOG_LIMIT := 384
 const STALKER_VISIBILITY_SYNC_MIN_DELTA := 0.015
 const ENVIRONMENT_PROP_PAINT_SYNC_SIZE := 512
 const ENVIRONMENT_PROP_PAINT_MAX_SURFACES := 16
@@ -192,6 +217,7 @@ var player_inventory: PlayerInventory
 var character_model_id := CharacterSkinCatalog.DEFAULT_ID
 var _active_skin_node: Node3D = null
 var _robot_visual_root: Node3D = null
+var _robot_animation_player: AnimationPlayer = null
 var _prop_disguise_node: Node3D = null
 var _prop_disguise_tween: Tween = null
 var _is_prop_disguised := false
@@ -219,11 +245,17 @@ var _footstep_timer: float = 0.0
 var _last_footstep_sprinting: bool = false
 var _default_collision_shape: Shape3D = null
 var _default_collision_transform: Transform3D = Transform3D.IDENTITY
+var _remote_visual_process_elapsed: float = 0.0
+var _rollback_sync_state_properties_cache: Array[String] = []
+var _rollback_sync_input_properties_cache: Array[String] = []
+var _rollback_sync_policy_cached: bool = false
+var _rollback_sync_runtime_enabled: bool = true
 
 var _current_speed: float
 var _respawn_point: Vector3 = Vector3(0, 5, 0)
 var _last_safe_ground_position: Vector3 = Vector3.ZERO
 var _last_safe_ground_valid: bool = false
+var _next_prop_push_query_msec: int = 0
 var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 
 var can_double_jump: bool = true
@@ -257,6 +289,10 @@ var _camouflage_paint_metallic := 0.0
 var _camouflage_paint_specular := 0.5
 var _camouflage_paint_normal_texture: Texture2D = null
 var _camouflage_paint_normal_scale := 1.0
+var _camouflage_paint_sequence := 0
+var _applied_camouflage_paint_event_keys: Array[String] = []
+var _camouflage_paint_event_log: Array[Dictionary] = []
+var _camouflage_replaying_paint_events := false
 var _camouflage_gpu_atlas_manager: Node3D = null
 var _camouflage_gpu_camera_brush: Node3D = null
 var _camouflage_gpu_stroke_queue: Array[Dictionary] = []
@@ -268,7 +304,24 @@ var _last_sculpt_batch_msec := 0
 var _remote_visual_position := Vector3.ZERO
 var _remote_visual_position_initialized := false
 var _remote_visual_move_hold := 0.0
+var _network_visual_action := "idle"
+var _network_visual_yaw := 0.0
+var _network_visual_grounded := true
+var _network_visual_move_speed := 0.0
+var _network_visual_move_intent := Vector3.ZERO
+var _network_visual_sprinting := false
+var _network_visual_state_msec := 0
+var _network_visual_action_sequence := 0
+var _network_visual_action_tick := 0
+var _network_visual_export_action := "idle"
+var _network_visual_applied_action_sequence := -1
 var _remote_motion_sampler: RemoteMotionSampler = RemoteMotionSamplerScript.new()
+var _netfox_transform_sync: NetfoxPlayerTransformSync = null
+var _player_input_state: PlayerInputState = null
+var _player_action_bus: PlayerActionBus = null
+var _player_movement_motor: PlayerMovementMotor = null
+var _rollback_movement_jump_sequence: int = -1
+var _rollback_movement_previous_grounded: bool = true
 var _skin_performance_camera_active := false
 var _skin_performance_camera_state: Dictionary = {}
 var _skin_performance_previous_current_camera: Camera3D = null
@@ -302,11 +355,11 @@ func _local_peer_id() -> int:
 
 
 func _is_local_authority() -> bool:
-	if _has_runtime_multiplayer_peer():
-		return is_multiplayer_authority()
 	var authority: int = get_multiplayer_authority()
 	if authority <= 0:
 		return true
+	if _has_runtime_multiplayer_peer():
+		return authority == multiplayer.get_unique_id()
 	if Network.players.has(1):
 		return authority == 1
 	return true
@@ -316,16 +369,87 @@ func _is_runtime_multiplayer_server() -> bool:
 	return RuntimeMode.is_multiplayer_server(multiplayer)
 
 
+func _refresh_runtime_process_policy() -> void:
+	var is_local_player: bool = _is_local_authority()
+	var should_process_visuals: bool = is_local_player or not _is_dedicated_public_server_runtime()
+	set_process(should_process_visuals)
+	set_physics_process(is_local_player)
+	call_deferred("_refresh_runtime_netfox_policy")
+
+
+func _refresh_runtime_netfox_policy() -> void:
+	if Engine.is_editor_hint() or not is_inside_tree():
+		return
+	var use_local_rollback: bool = _is_local_authority()
+	var rollback_sync: Node = get_node_or_null("RollbackSynchronizer")
+	if rollback_sync != null:
+		_configure_rollback_synchronizer_runtime_policy(rollback_sync, use_local_rollback)
+	var tick_interpolator: Node = get_node_or_null("MovementTickInterpolator")
+	if tick_interpolator != null:
+		tick_interpolator.set("enabled", use_local_rollback)
+		tick_interpolator.set_process(use_local_rollback)
+
+
+func _configure_rollback_synchronizer_runtime_policy(rollback_sync: Node, use_local_rollback: bool) -> void:
+	if not _rollback_sync_policy_cached:
+		var state_value: Variant = rollback_sync.get("state_properties")
+		if state_value is Array:
+			_rollback_sync_state_properties_cache.clear()
+			for property_path: Variant in state_value as Array:
+				_rollback_sync_state_properties_cache.append(str(property_path))
+		var input_value: Variant = rollback_sync.get("input_properties")
+		if input_value is Array:
+			_rollback_sync_input_properties_cache.clear()
+			for property_path: Variant in input_value as Array:
+				_rollback_sync_input_properties_cache.append(str(property_path))
+		_rollback_sync_policy_cached = true
+	if _rollback_sync_runtime_enabled == use_local_rollback and _rollback_sync_policy_matches(rollback_sync, use_local_rollback):
+		return
+	_rollback_sync_runtime_enabled = use_local_rollback
+	rollback_sync.set("enable_prediction", use_local_rollback)
+	if use_local_rollback:
+		rollback_sync.set("state_properties", _rollback_sync_state_properties_cache.duplicate())
+		rollback_sync.set("input_properties", _rollback_sync_input_properties_cache.duplicate())
+	else:
+		var empty_state_properties: Array[String] = []
+		var empty_input_properties: Array[String] = []
+		rollback_sync.set("state_properties", empty_state_properties)
+		rollback_sync.set("input_properties", empty_input_properties)
+		if rollback_sync.has_method("_disconnect_signals"):
+			rollback_sync.call("_disconnect_signals")
+			rollback_sync.call_deferred("_disconnect_signals")
+	if rollback_sync.has_method("process_settings") and _has_runtime_multiplayer_peer():
+		rollback_sync.call_deferred("process_settings")
+
+
+func _rollback_sync_policy_matches(rollback_sync: Node, use_local_rollback: bool) -> bool:
+	var state_value: Variant = rollback_sync.get("state_properties")
+	var input_value: Variant = rollback_sync.get("input_properties")
+	var state_size: int = (state_value as Array).size() if state_value is Array else 0
+	var input_size: int = (input_value as Array).size() if input_value is Array else 0
+	if use_local_rollback:
+		return state_size == _rollback_sync_state_properties_cache.size() and input_size == _rollback_sync_input_properties_cache.size()
+	return state_size == 0 and input_size == 0
+
+
 func _enter_tree():
 	set_multiplayer_authority(str(name).to_int())
 	$SpringArmOffset/SpringArm3D/Camera3D.current = _is_local_authority()
 	add_to_group("players")
+	_refresh_runtime_process_policy()
 
 func _ready():
 	var is_local_player: bool = _is_local_authority()
+	_refresh_runtime_process_policy()
 	var local_client_id: int = _local_peer_id()
 	_robot_visual_root = get_node_or_null("3DGodotRobot/RobotArmature")
+	_robot_animation_player = get_node_or_null("3DGodotRobot/AnimationPlayer") as AnimationPlayer
+	_netfox_transform_sync = get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
+	_player_input_state = get_node_or_null("PlayerInputState") as PlayerInputState
+	_player_action_bus = get_node_or_null("PlayerActionBus") as PlayerActionBus
+	_player_movement_motor = get_node_or_null("MovementMotor") as PlayerMovementMotor
 	_apply_remote_visual_performance_policy(_robot_visual_root)
+	_sync_character_visual_animation_activity()
 	_cache_default_collision_shape()
 	_setup_player_audio()
 
@@ -1197,6 +1321,9 @@ func _teardown_hunter_prop_sense() -> void:
 func _setup_hunter_auto_turret() -> void:
 	if not is_hunter():
 		return
+	if not bool(Network.lobby_config.get("hunter_auto_turret_enabled", false)):
+		_teardown_hunter_auto_turret()
+		return
 	if not has_node("HunterAutoTurretSystem"):
 		var turret := preload("res://scripts/hunter_auto_turret_system.gd").new()
 		turret.name = "HunterAutoTurretSystem"
@@ -1348,7 +1475,9 @@ func _request_hologram_flag_placement() -> bool:
 		character_model_id,
 		accessories,
 		_get_hologram_skin_color(),
-		_get_hologram_player_height()
+		_get_hologram_player_height(),
+		get_network_input_tick(),
+		allocate_network_intent_sequence()
 	)
 	return true
 
@@ -1424,6 +1553,195 @@ func _get_hologram_player_height() -> float:
 	return 2.0
 
 
+func _resolve_player_input_state() -> PlayerInputState:
+	if _player_input_state and is_instance_valid(_player_input_state):
+		return _player_input_state
+	_player_input_state = get_node_or_null("PlayerInputState") as PlayerInputState
+	return _player_input_state
+
+
+func _has_fresh_player_input_state(max_age_ticks: int = -1) -> bool:
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	return input_state != null and input_state.has_fresh_sample(max_age_ticks)
+
+
+func _movement_input_vector() -> Vector2:
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	if input_state != null and input_state.has_fresh_sample():
+		return input_state.move_axis
+	return Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+
+
+func _input_action_just_pressed(action: String) -> bool:
+	if not _is_local_authority():
+		return false
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	if input_state != null and input_state.has_fresh_sample():
+		return input_state.is_action_just_pressed(action)
+	return InputMap.has_action(action) and Input.is_action_just_pressed(action)
+
+
+func _input_action_held(action: String) -> bool:
+	if not _is_local_authority():
+		return false
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	if input_state != null and input_state.has_fresh_sample():
+		return input_state.is_action_held(action)
+	return InputMap.has_action(action) and Input.is_action_pressed(action)
+
+
+func get_network_input_tick() -> int:
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	if input_state != null and input_state.tick >= 0:
+		return input_state.tick
+	return NetworkTime.tick
+
+
+func allocate_network_intent_sequence() -> int:
+	var input_state: PlayerInputState = _resolve_player_input_state()
+	if input_state != null:
+		return input_state.allocate_intent_sequence()
+	return int(Time.get_ticks_msec() & 0x7fffffff)
+
+
+func _resolve_player_action_bus() -> PlayerActionBus:
+	if _player_action_bus and is_instance_valid(_player_action_bus):
+		return _player_action_bus
+	_player_action_bus = get_node_or_null("PlayerActionBus") as PlayerActionBus
+	return _player_action_bus
+
+
+func _resolve_player_movement_motor() -> PlayerMovementMotor:
+	if _player_movement_motor and is_instance_valid(_player_movement_motor):
+		return _player_movement_motor
+	_player_movement_motor = get_node_or_null("MovementMotor") as PlayerMovementMotor
+	return _player_movement_motor
+
+
+func get_rollback_movement_config() -> Dictionary:
+	return {
+		"walk_speed": NORMAL_SPEED,
+		"run_speed": SPRINT_SPEED,
+		"jump_velocity": JUMP_VELOCITY,
+		"gravity": gravity,
+		"ground_acceleration": GROUND_ACCELERATION,
+		"ground_deceleration": GROUND_DECELERATION,
+		"air_acceleration": AIR_ACCELERATION,
+		"air_deceleration": AIR_DECELERATION,
+		"speed_multiplier": _card_speed_multiplier,
+	}
+
+
+func allows_rollback_movement_drive() -> bool:
+	if not _is_local_authority():
+		return false
+	if _is_dead or match_intro_locked:
+		return false
+	if _card_stasis_remaining > 0.0:
+		return false
+	if _party_monster_trip_action_locked:
+		return false
+	if _camouflage_brush_locked:
+		return false
+	var current_scene: Node = get_tree().get_current_scene()
+	if current_scene and is_on_floor():
+		if current_scene.has_method("is_chat_visible") and current_scene.is_chat_visible():
+			return false
+		if current_scene.has_method("is_inventory_visible") and current_scene.is_inventory_visible():
+			return false
+	return true
+
+
+func _is_rollback_movement_active() -> bool:
+	var movement_motor: PlayerMovementMotor = _resolve_player_movement_motor()
+	return movement_motor != null and movement_motor.apply_simulation_to_player_root and allows_rollback_movement_drive()
+
+
+func _on_rollback_movement_jump(jump_type: String, input_sequence: int, _tick: int) -> void:
+	if not _is_local_authority():
+		return
+	if input_sequence <= 0 or input_sequence == _rollback_movement_jump_sequence:
+		return
+	_rollback_movement_jump_sequence = input_sequence
+	_play_body_jump(jump_type)
+
+
+func publish_network_action(action_name: String, payload: Dictionary = {}) -> Dictionary:
+	if not _is_local_authority():
+		return {}
+	var action_bus: PlayerActionBus = _resolve_player_action_bus()
+	if action_bus == null:
+		return {}
+	return action_bus.publish_action(action_name, payload)
+
+
+func apply_network_action_event(event: Dictionary) -> void:
+	if int(event.get("source_peer_id", 0)) == _local_peer_id():
+		return
+	var raw_payload: Variant = event.get("payload", {})
+	var payload: Dictionary = {}
+	if raw_payload is Dictionary:
+		payload = raw_payload
+	match str(event.get("action", "")):
+		"jump":
+			_apply_network_jump_action(payload)
+		"land":
+			_apply_network_land_action()
+		"skin_performance":
+			_apply_network_skin_performance_action(payload)
+		"party_monster_trip":
+			_apply_network_party_monster_trip_action(payload)
+		"flashlight_exposure":
+			_apply_network_flashlight_exposure_action(payload)
+		_:
+			pass
+
+
+func _apply_network_jump_action(payload: Dictionary) -> void:
+	var jump_type: String = str(payload.get("jump_type", "Jump"))
+	_play_audio(_jump_audio)
+	if _active_skin_node:
+		_play_skin_action("jump")
+	elif _body and _body.has_method("play_jump_animation"):
+		_body.play_jump_animation(jump_type)
+
+
+func _apply_network_land_action() -> void:
+	_play_audio(_land_audio)
+	if _active_skin_node:
+		_play_skin_action("land")
+
+
+func _apply_network_skin_performance_action(payload: Dictionary) -> void:
+	var action: String = _normalize_skin_performance_action(str(payload.get("action", "")))
+	if action.is_empty():
+		return
+	if _skin_performance_camera_active and _skin_performance_camera_action == action:
+		return
+	_apply_skin_performance_action_rpc(action)
+
+
+func _apply_network_party_monster_trip_action(payload: Dictionary) -> void:
+	var direction: Vector3 = Vector3.ZERO
+	var raw_direction: Variant = payload.get("direction", Vector3.ZERO)
+	if raw_direction is Vector3:
+		direction = raw_direction
+	if _party_monster_trip_action_locked:
+		return
+	_play_party_monster_trip_reaction(_sanitize_party_monster_trip_direction(direction))
+
+
+func _apply_network_flashlight_exposure_action(payload: Dictionary) -> void:
+	if not is_stalker():
+		return
+	var sample_seconds: float = clampf(float(payload.get("sample_seconds", 0.0)), 0.0, 0.5)
+	if sample_seconds <= 0.0:
+		return
+	if shadow_visibility and is_instance_valid(shadow_visibility) and shadow_visibility.has_method("apply_hunter_flashlight_rewind_exposure"):
+		shadow_visibility.call("apply_hunter_flashlight_rewind_exposure", sample_seconds)
+		_refresh_stalker_visibility_view(true)
+
+
 func _process_input_held():
 	# 鍦?_process 涓寔缁娴?shoot / paint 鎸変綇鐘舵€?
 	if not _is_local_authority():
@@ -1440,7 +1758,7 @@ func _process_input_held():
 		if prep_phase_locked:
 			return
 		var weapon = get_node_or_null("WeaponSystem")
-		if weapon and Input.is_action_pressed("shoot"):
+		if weapon and _input_action_held("shoot"):
 			weapon.request_fire()
 
 	# Chameleon 鎸佺画鍠锋秱
@@ -1633,8 +1951,34 @@ func _force_skeleton_update_recursive(node: Node) -> void:
 	for child in node.get_children():
 		_force_skeleton_update_recursive(child)
 
+func _physics_process_rollback_movement(delta: float) -> void:
+	var movement_motor: PlayerMovementMotor = _resolve_player_movement_motor()
+	var was_on_floor: bool = _rollback_movement_previous_grounded
+	if movement_motor != null:
+		can_double_jump = movement_motor.simulated_can_double_jump
+		has_double_jumped = movement_motor.simulated_has_double_jumped
+		_current_speed = movement_motor.simulated_current_speed
+	else:
+		_current_speed = Vector2(velocity.x, velocity.z).length()
+	var impact_velocity: Vector3 = velocity
+	if not _try_party_monster_trip_from_slide_collisions(impact_velocity, was_on_floor):
+		_try_party_monster_trip_from_forward_sensor(impact_velocity, was_on_floor)
+	if _apply_prop_collision_impacts(impact_velocity) and impact_velocity.y <= 0.1:
+		velocity.y = minf(velocity.y, 0.0)
+		if movement_motor != null:
+			movement_motor.simulated_velocity = velocity
+	_update_safe_ground_position()
+	_animate_body(velocity)
+	_update_movement_audio(delta, was_on_floor)
+	_rollback_movement_previous_grounded = is_on_floor()
+
+
 func _physics_process(delta):
 	if not _is_local_authority(): return
+
+	if _is_rollback_movement_active():
+		_physics_process_rollback_movement(delta)
+		return
 
 	if _is_dead:
 		_process_dead_free_camera(delta)
@@ -1701,12 +2045,12 @@ func _physics_process(delta):
 		can_double_jump = true
 		has_double_jumped = false
 
-		if Input.is_action_just_pressed("jump"):
+		if _input_action_just_pressed("jump"):
 			velocity.y = JUMP_VELOCITY
 			can_double_jump = true
 			_play_body_jump("Jump")
 	else:
-		if can_double_jump and not has_double_jumped and Input.is_action_just_pressed("jump"):
+		if can_double_jump and not has_double_jumped and _input_action_just_pressed("jump"):
 			velocity.y = JUMP_VELOCITY
 			has_double_jumped = true
 			can_double_jump = false
@@ -1725,12 +2069,39 @@ func _physics_process(delta):
 	_animate_body(velocity)
 	_update_movement_audio(delta, was_on_floor)
 
-func _process(delta):
+func _process(delta: float) -> void:
+	var is_local_player: bool = _is_local_authority()
+	if not is_local_player:
+		if _is_dedicated_public_server_runtime():
+			return
+		_remote_visual_process_elapsed += maxf(delta, 0.0)
+		if _remote_visual_process_elapsed < REMOTE_VISUAL_PROCESS_INTERVAL:
+			return
+		var remote_visual_delta: float = _remote_visual_process_elapsed
+		_remote_visual_process_elapsed = 0.0
+		_process_remote_visual_frame(remote_visual_delta)
+		return
 	_process_card_effects(delta)
 	if _should_run_camouflage_gpu_painter():
 		_process_camouflage_gpu_painter(delta)
 	else:
 		_clear_camouflage_gpu_runtime_work()
+	_process_shared_visual_feedback_frame(delta, true)
+	_process_skin_performance_wheel_bar(delta)
+	_check_fall_and_respawn()
+	# Hunter 鎸佺画寮€鐏娴?
+	_process_input_held()
+	_process_prop_disguise_height(delta)
+
+func _process_remote_visual_frame(delta: float) -> void:
+	_process_card_effects(delta)
+	if not _camouflage_gpu_stroke_queue.is_empty() or _camouflage_gpu_draw_timer > 0.0:
+		_clear_camouflage_gpu_runtime_work()
+	_process_shared_visual_feedback_frame(delta, false)
+	_animate_remote_skin_from_network_motion(delta)
+
+
+func _process_shared_visual_feedback_frame(delta: float, is_local_player: bool) -> void:
 	if _skin_performance_input_block_remaining > 0.0:
 		_skin_performance_input_block_remaining = maxf(0.0, _skin_performance_input_block_remaining - delta)
 	if _party_monster_trip_cooldown > 0.0:
@@ -1739,7 +2110,6 @@ func _process(delta):
 		_party_monster_trip_reaction_lock_remaining = maxf(0.0, _party_monster_trip_reaction_lock_remaining - delta)
 		if _party_monster_trip_action_locked and _party_monster_trip_reaction_lock_remaining <= 0.0:
 			_finish_party_monster_trip_lock()
-	var is_local_player: bool = _is_local_authority()
 	if is_stalker():
 		if is_local_player:
 			_refresh_stalker_visibility_view(false)
@@ -1749,15 +2119,7 @@ func _process(delta):
 		_refresh_nickname_visibility()
 	_process_party_monster_bounty_feedback(delta)
 	_process_hunter_prop_sense_feedback(delta)
-	if not is_local_player:
-		if not _is_dedicated_public_server_runtime():
-			_animate_remote_skin_from_network_motion(delta)
-		return
-	_process_skin_performance_wheel_bar(delta)
-	_check_fall_and_respawn()
-	# Hunter 鎸佺画寮€鐏娴?
-	_process_input_held()
-	_process_prop_disguise_height(delta)
+
 
 func freeze():
 	velocity.x = 0
@@ -1766,12 +2128,7 @@ func freeze():
 	_animate_body(Vector3.ZERO)
 
 func _move(delta: float) -> void:
-	var _input_direction: Vector2 = Vector2.ZERO
-	if _is_local_authority():
-		_input_direction = Input.get_vector(
-			"move_left", "move_right",
-			"move_forward", "move_backward"
-			)
+	var _input_direction: Vector2 = _movement_input_vector() if _is_local_authority() else Vector2.ZERO
 
 	var camera_basis := _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
 	var camera_forward := -camera_basis.z
@@ -1804,21 +2161,18 @@ func _move(delta: float) -> void:
 
 
 func _process_sculpt_free_fly(delta: float) -> void:
-	var input_direction := Input.get_vector(
-		"move_left", "move_right",
-		"move_forward", "move_backward"
-	)
+	var input_direction: Vector2 = _movement_input_vector()
 	var camera_basis := _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
 	var forward := -camera_basis.z.normalized()
 	var right := camera_basis.x.normalized()
 	var direction := right * input_direction.x + forward * -input_direction.y
-	if Input.is_action_pressed("jump"):
+	if _input_action_held("jump"):
 		direction += Vector3.UP * SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR
 	if Input.is_physical_key_pressed(KEY_CTRL):
 		direction -= Vector3.UP * SCULPT_FREE_FLY_VERTICAL_SPEED_FACTOR
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
-	var speed := SPRINT_SPEED if Input.is_action_pressed("shift") else NORMAL_SPEED
+	var speed := SPRINT_SPEED if _input_action_held("shift") else NORMAL_SPEED
 	var target_velocity := direction * speed
 	var acceleration := SCULPT_FREE_FLY_ACCELERATION if direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE else SCULPT_FREE_FLY_DECELERATION
 	velocity = velocity.move_toward(target_velocity, acceleration * delta)
@@ -1827,21 +2181,18 @@ func _process_sculpt_free_fly(delta: float) -> void:
 
 func _process_dead_free_camera(delta: float) -> void:
 	_ensure_dead_free_spectator()
-	var input_direction: Vector2 = Input.get_vector(
-		"move_left", "move_right",
-		"move_forward", "move_backward"
-	)
+	var input_direction: Vector2 = _movement_input_vector()
 	var camera_basis: Basis = _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
 	var forward: Vector3 = -camera_basis.z.normalized()
 	var right: Vector3 = camera_basis.x.normalized()
 	var direction: Vector3 = right * input_direction.x + forward * -input_direction.y
-	if Input.is_action_pressed("jump"):
+	if _input_action_held("jump"):
 		direction += Vector3.UP * DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR
 	if Input.is_physical_key_pressed(KEY_CTRL):
 		direction -= Vector3.UP * DEAD_FREE_CAM_VERTICAL_SPEED_FACTOR
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
-	var speed: float = DEAD_FREE_CAM_SPRINT_SPEED if Input.is_action_pressed("shift") else DEAD_FREE_CAM_NORMAL_SPEED
+	var speed: float = DEAD_FREE_CAM_SPRINT_SPEED if _input_action_held("shift") else DEAD_FREE_CAM_NORMAL_SPEED
 	var target_velocity: Vector3 = direction * speed
 	var has_input: bool = direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE
 	var acceleration: float = DEAD_FREE_CAM_ACCELERATION if has_input else DEAD_FREE_CAM_DECELERATION
@@ -1930,7 +2281,7 @@ func _apply_prop_collision_impacts(impact_velocity: Vector3) -> bool:
 		if impacted.has(collider_id):
 			continue
 		impacted[collider_id] = true
-		collider.apply_player_impact(impact_velocity, collision.get_position(), collision.get_normal(), _is_prop_disguised)
+		collider.apply_player_impact(impact_velocity, collision.get_position(), collision.get_normal(), _is_prop_disguised, get_network_input_tick())
 		did_impact = true
 	did_impact = _apply_nearby_prop_impacts(impact_velocity, impacted) or did_impact
 	return did_impact
@@ -1951,7 +2302,7 @@ func _try_party_monster_trip_from_collision(impact_velocity: Vector3, collision:
 		return false
 	var collision_normal: Vector3 = collision.get_normal()
 	var trip_direction := _sanitize_party_monster_trip_direction(collision_normal, impact_velocity)
-	_submit_party_monster_trip_reaction(trip_direction)
+	_submit_party_monster_trip_reaction(trip_direction, collision.get_position(), get_network_input_tick())
 	return true
 
 
@@ -1980,8 +2331,9 @@ func _try_party_monster_trip_from_forward_sensor(impact_velocity: Vector3, was_o
 	if not _can_party_monster_trip_from_sensor_hit(hit, sensor_direction):
 		return false
 	var hit_normal: Vector3 = hit.get("normal", -sensor_direction)
+	var hit_position: Vector3 = hit.get("position", global_position + sensor_direction * PARTY_MONSTER_TRIP_SENSOR_DISTANCE)
 	var trip_direction := _sanitize_party_monster_trip_direction(hit_normal, horizontal_velocity)
-	_submit_party_monster_trip_reaction(trip_direction)
+	_submit_party_monster_trip_reaction(trip_direction, hit_position, get_network_input_tick())
 	return true
 
 
@@ -2003,7 +2355,7 @@ func _is_party_monster_running_for_trip(impact_velocity: Vector3) -> bool:
 	var horizontal_speed: float = _best_party_monster_trip_horizontal_velocity(impact_velocity).length()
 	if horizontal_speed < PARTY_MONSTER_TRIP_MIN_SPEED:
 		return false
-	return Input.is_action_pressed("shift") or horizontal_speed >= RUN_SPEED * 0.75
+	return _input_action_held("shift") or horizontal_speed >= RUN_SPEED * 0.75
 
 
 func _best_party_monster_trip_horizontal_velocity(impact_velocity: Vector3) -> Vector3:
@@ -2140,15 +2492,23 @@ func _sanitize_party_monster_trip_direction(world_direction: Vector3, fallback_v
 	return direction.normalized()
 
 
-func _submit_party_monster_trip_reaction(world_direction: Vector3) -> void:
+func _submit_party_monster_trip_reaction(world_direction: Vector3, contact_point: Vector3 = Vector3.ZERO, query_tick: int = -1) -> void:
 	var clean_direction := _sanitize_party_monster_trip_direction(world_direction)
+	var clean_contact_point: Vector3 = contact_point if contact_point != Vector3.ZERO else global_position
+	var clean_query_tick: int = query_tick if query_tick >= 0 else get_network_input_tick()
 	_party_monster_trip_cooldown = PARTY_MONSTER_TRIP_COOLDOWN_SECONDS
+	_play_party_monster_trip_reaction(clean_direction)
+	publish_network_action("party_monster_trip", {
+		"direction": clean_direction,
+		"contact_point": clean_contact_point,
+		"query_tick": clean_query_tick,
+	})
 	if not _has_active_skin_visual_peer():
-		_apply_party_monster_trip_reaction_rpc(clean_direction)
+		return
 	elif _is_runtime_multiplayer_server():
 		_apply_party_monster_trip_reaction_rpc.rpc(clean_direction)
 	else:
-		_request_party_monster_trip_reaction_rpc.rpc_id(1, clean_direction)
+		_request_party_monster_trip_reaction_rpc.rpc_id(1, clean_direction, clean_contact_point, clean_query_tick)
 
 
 func _has_active_skin_visual_peer() -> bool:
@@ -2161,22 +2521,34 @@ func _has_active_skin_visual_peer() -> bool:
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_party_monster_trip_reaction_rpc(world_direction: Vector3) -> void:
+func _request_party_monster_trip_reaction_rpc(world_direction: Vector3, contact_point: Vector3 = Vector3.ZERO, query_tick: int = -1) -> void:
 	if not _is_runtime_multiplayer_server():
 		return
-	var sender := multiplayer.get_remote_sender_id()
+	var sender: int = multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		push_warning("Client " + str(sender) + " tried to trip player " + str(get_multiplayer_authority()))
 		return
 	if _is_dead or _is_prop_disguised or not CharacterSkinCatalog.is_party_monster(character_model_id):
 		return
+	if sender != 0 and not _server_party_monster_trip_contact_is_valid(sender, contact_point, query_tick):
+		return
 	_apply_party_monster_trip_reaction_rpc.rpc(_sanitize_party_monster_trip_direction(world_direction))
+
+
+func _server_party_monster_trip_contact_is_valid(sender_id: int, contact_point: Vector3, query_tick: int) -> bool:
+	var check_position: Vector3 = contact_point if contact_point != Vector3.ZERO else global_position
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree()) if is_inside_tree() else null
+	if history != null and query_tick >= 0:
+		return history.player_was_in_radius(sender_id, check_position, PARTY_MONSTER_TRIP_REWIND_RADIUS, query_tick)
+	return global_position.distance_to(check_position) <= PARTY_MONSTER_TRIP_REWIND_RADIUS
 
 
 @rpc("any_peer", "call_local", "reliable")
 func _apply_party_monster_trip_reaction_rpc(world_direction: Vector3) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
+		return
+	if _party_monster_trip_action_locked:
 		return
 	_play_party_monster_trip_reaction(world_direction)
 
@@ -2218,25 +2590,47 @@ func _apply_nearby_prop_impacts(impact_velocity: Vector3, impacted: Dictionary) 
 	if not is_inside_tree():
 		return false
 	var horizontal_velocity := Vector3(impact_velocity.x, 0.0, impact_velocity.z)
-	if horizontal_velocity.length_squared() < 0.01:
+	if horizontal_velocity.length() < PROP_PUSH_ASSIST_MIN_SPEED:
+		return false
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec < _next_prop_push_query_msec:
+		return false
+	_next_prop_push_query_msec = now_msec + PROP_PUSH_QUERY_INTERVAL_MSEC
+	var world: World3D = get_world_3d()
+	if world == null:
+		return false
+	var space_state: PhysicsDirectSpaceState3D = world.direct_space_state
+	if space_state == null:
 		return false
 	var move_direction := horizontal_velocity.normalized()
 	var player_radius := _get_active_collision_radius()
+	var query_shape := SphereShape3D.new()
+	query_shape.radius = player_radius + PROP_COLLISION_MAX_RADIUS + PROP_PUSH_CONTACT_PADDING + PROP_PUSH_FORWARD_REACH + PROP_PUSH_QUERY_RADIUS_PADDING
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = query_shape
+	query.transform = Transform3D(Basis.IDENTITY, global_position + move_direction * (PROP_PUSH_FORWARD_REACH * 0.5))
+	query.collision_mask = FruitProp.PHYSICS_LAYER_PROP
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	query.exclude = [get_rid()]
+	var results: Array[Dictionary] = space_state.intersect_shape(query, PROP_PUSH_QUERY_MAX_RESULTS)
 	var did_impact := false
-	for node in get_tree().get_nodes_in_group("map_props"):
-		if not node is Node3D:
+	for result: Dictionary in results:
+		var raw_collider: Variant = result.get("collider")
+		if not raw_collider is Node3D:
 			continue
+		var node: Node3D = raw_collider as Node3D
 		if not node.has_method("apply_player_impact"):
 			continue
 		var node_id := node.get_instance_id()
 		if impacted.has(node_id):
 			continue
-		var prop_position := (node as Node3D).global_position
+		var prop_position := node.global_position
 		var to_prop := prop_position - global_position
 		to_prop.y = 0.0
 		var distance := to_prop.length()
 		var prop_radius := 0.45
-		var radius_value = node.get("collision_radius")
+		var radius_value: Variant = node.get("collision_radius")
 		if radius_value != null:
 			prop_radius = float(radius_value)
 		var contact_distance := player_radius + prop_radius + PROP_PUSH_CONTACT_PADDING
@@ -2248,7 +2642,7 @@ func _apply_nearby_prop_impacts(impact_velocity: Vector3, impacted: Dictionary) 
 		var normal := Vector3.ZERO
 		if distance > 0.001:
 			normal = -to_prop.normalized()
-		node.apply_player_impact(impact_velocity, prop_position, normal, _is_prop_disguised)
+		node.apply_player_impact(impact_velocity, prop_position, normal, _is_prop_disguised, get_network_input_tick())
 		impacted[node_id] = true
 		did_impact = true
 	return did_impact
@@ -2270,7 +2664,7 @@ func _get_active_collision_radius() -> float:
 	return 0.42
 
 func is_running() -> bool:
-	if Input.is_action_pressed("shift"):
+	if _input_action_held("shift"):
 		_current_speed = SPRINT_SPEED
 		return true
 	else:
@@ -3306,14 +3700,17 @@ func set_camouflage_paint_material_profile(profile: Dictionary) -> void:
 
 func submit_camouflage_brush_start(base_color: Color) -> void:
 	base_color.a = 1.0
+	var source_peer_id: int = _camouflage_source_peer_id()
+	var paint_sequence: int = _next_camouflage_paint_sequence()
 	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
-		Network.record_rpc_event("chameleon.paint_start", maxi(multiplayer.get_peers().size(), 1), 16)
-		_start_camouflage_brush_visual.rpc(base_color)
+		Network.record_rpc_event("chameleon.paint_start", maxi(multiplayer.get_peers().size(), 1), 24)
+		_start_camouflage_brush_visual.rpc(base_color, source_peer_id, paint_sequence)
 	elif _should_apply_camouflage_brush_without_server_peer():
-		_start_camouflage_brush_visual(base_color)
+		_start_camouflage_brush_visual(base_color, source_peer_id, paint_sequence)
 	else:
-		Network.record_rpc_event("chameleon.paint_start_request", 1, 16)
-		_request_camouflage_brush_start.rpc_id(1, base_color)
+		_start_camouflage_brush_visual(base_color, source_peer_id, paint_sequence)
+		Network.record_rpc_event("chameleon.paint_start_request", 1, 24)
+		_request_camouflage_brush_start.rpc_id(1, base_color, paint_sequence)
 
 
 func submit_camouflage_brush_stroke(
@@ -3333,15 +3730,18 @@ func submit_camouflage_brush_stroke(
 	var clean_uv := Vector2(clampf(uv.x, 0.0, 1.0), clampf(uv.y, 0.0, 1.0))
 	var clean_radius := _sanitize_camouflage_brush_radius(brush_radius)
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
+	var source_peer_id: int = _camouflage_source_peer_id()
+	var paint_sequence: int = _next_camouflage_paint_sequence()
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
 	if _is_runtime_multiplayer_server() and _has_active_camouflage_multiplayer_peer():
-		Network.record_rpc_event("chameleon.paint_stroke", maxi(multiplayer.get_peers().size(), 1), 96)
-		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		Network.record_rpc_event("chameleon.paint_stroke", maxi(multiplayer.get_peers().size(), 1), 104)
+		_apply_camouflage_brush_stroke.rpc(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular, source_peer_id, paint_sequence)
 	elif _should_apply_camouflage_brush_without_server_peer():
-		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular, source_peer_id, paint_sequence)
 	else:
-		Network.record_rpc_event("chameleon.paint_stroke_request", 1, 96)
-		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular)
+		_apply_camouflage_brush_stroke(clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular, source_peer_id, paint_sequence)
+		Network.record_rpc_event("chameleon.paint_stroke_request", 1, 104)
+		_request_camouflage_brush_stroke.rpc_id(1, clean_uv, color, clean_radius, angle, world_position, clean_normal, target_mesh_path, target_surface, _camouflage_paint_roughness, _camouflage_paint_metallic, _camouflage_paint_specular, paint_sequence)
 
 
 func submit_camouflage_brush_stroke_batch(
@@ -3392,7 +3792,10 @@ func submit_camouflage_brush_stroke_batch(
 		_camouflage_paint_roughness,
 		_camouflage_paint_metallic,
 		_camouflage_paint_specular,
-		false
+		false,
+		_camouflage_source_peer_id(),
+		_next_camouflage_paint_sequence(),
+		0
 	)
 
 
@@ -3412,8 +3815,13 @@ func _dispatch_camouflage_brush_stroke_batch(
 	material_roughness: float,
 	material_metallic: float,
 	material_specular: float,
-	server_forward_only: bool = false
+	server_forward_only: bool = false,
+	source_peer_id: int = 0,
+	paint_sequence: int = 0,
+	base_chunk_index: int = 0
 ) -> void:
+	var event_source_peer_id: int = source_peer_id if source_peer_id > 0 else _camouflage_source_peer_id()
+	var event_paint_sequence: int = paint_sequence if paint_sequence > 0 else _next_camouflage_paint_sequence()
 	var chunks: Array[Dictionary] = _make_camouflage_paint_batch_chunks(
 		uvs,
 		world_positions,
@@ -3426,7 +3834,10 @@ func _dispatch_camouflage_brush_stroke_batch(
 		return
 	if chunks.size() > 1:
 		Network.record_perf_event("skill.chameleon.paint_rpc_chunks", chunks.size())
+	var chunk_offset := 0
 	for raw_chunk in chunks:
+		var event_chunk_index := maxi(base_chunk_index + chunk_offset, 0)
+		chunk_offset += 1
 		var chunk: Dictionary = raw_chunk
 		var chunk_uvs: PackedVector2Array = chunk.get("uvs", PackedVector2Array())
 		var chunk_world_positions: PackedVector3Array = chunk.get("world_positions", PackedVector3Array())
@@ -3439,7 +3850,7 @@ func _dispatch_camouflage_brush_stroke_batch(
 			chunk_world_positions.size(),
 			chunk_clip_triangles.size(),
 			chunk_footprint_metrics.size()
-		)
+		) + 12
 		if _is_runtime_multiplayer_server():
 			if _has_active_camouflage_multiplayer_peer():
 				Network.record_rpc_event("chameleon.paint_batch", maxi(multiplayer.get_peers().size(), 1), approx_batch_bytes)
@@ -3458,7 +3869,10 @@ func _dispatch_camouflage_brush_stroke_batch(
 					chunk_footprint_metrics,
 					material_roughness,
 					material_metallic,
-					material_specular
+					material_specular,
+					event_source_peer_id,
+					event_paint_sequence,
+					event_chunk_index
 				)
 			else:
 				_apply_camouflage_brush_stroke_batch(
@@ -3476,7 +3890,10 @@ func _dispatch_camouflage_brush_stroke_batch(
 					chunk_footprint_metrics,
 					material_roughness,
 					material_metallic,
-					material_specular
+					material_specular,
+					event_source_peer_id,
+					event_paint_sequence,
+					event_chunk_index
 				)
 		elif _should_apply_camouflage_brush_without_server_peer():
 			_apply_camouflage_brush_stroke_batch(
@@ -3494,9 +3911,32 @@ func _dispatch_camouflage_brush_stroke_batch(
 				chunk_footprint_metrics,
 				material_roughness,
 				material_metallic,
-				material_specular
+				material_specular,
+				event_source_peer_id,
+				event_paint_sequence,
+				event_chunk_index
 			)
 		elif not server_forward_only:
+			_apply_camouflage_brush_stroke_batch(
+				chunk_uvs,
+				color,
+				brush_radius,
+				angle,
+				chunk_world_positions,
+				world_normal,
+				target_mesh_path,
+				target_surface,
+				chunk_brush_radii,
+				chunk_clip_triangles,
+				chunk_clip_counts,
+				chunk_footprint_metrics,
+				material_roughness,
+				material_metallic,
+				material_specular,
+				event_source_peer_id,
+				event_paint_sequence,
+				event_chunk_index
+			)
 			Network.record_rpc_event("chameleon.paint_batch_request", 1, approx_batch_bytes)
 			_request_camouflage_brush_stroke_batch.rpc_id(
 				1,
@@ -3514,7 +3954,9 @@ func _dispatch_camouflage_brush_stroke_batch(
 				chunk_footprint_metrics,
 				material_roughness,
 				material_metallic,
-				material_specular
+				material_specular,
+				event_paint_sequence,
+				event_chunk_index
 			)
 
 
@@ -3627,6 +4069,127 @@ func _should_apply_camouflage_brush_without_server_peer() -> bool:
 	return not _has_active_camouflage_multiplayer_peer()
 
 
+func _camouflage_source_peer_id() -> int:
+	var authority: int = get_multiplayer_authority()
+	if authority > 0:
+		return authority
+	return _local_peer_id()
+
+
+func _next_camouflage_paint_sequence() -> int:
+	_camouflage_paint_sequence += 1
+	if _camouflage_paint_sequence > 2147480000:
+		_camouflage_paint_sequence = 1
+	return _camouflage_paint_sequence
+
+
+func _camouflage_paint_event_key(source_peer_id: int, paint_sequence: int, chunk_index: int) -> String:
+	if source_peer_id <= 0 or paint_sequence <= 0:
+		return ""
+	return "%d:%d:%d" % [source_peer_id, paint_sequence, chunk_index]
+
+
+func _remember_camouflage_paint_event(source_peer_id: int, paint_sequence: int, chunk_index: int) -> bool:
+	var key: String = _camouflage_paint_event_key(source_peer_id, paint_sequence, chunk_index)
+	if key.is_empty():
+		return false
+	if _applied_camouflage_paint_event_keys.has(key):
+		Network.record_perf_event("skill.chameleon.paint_event_duplicate")
+		return true
+	_applied_camouflage_paint_event_keys.append(key)
+	while _applied_camouflage_paint_event_keys.size() > CAMOUFLAGE_PAINT_APPLIED_EVENT_LIMIT:
+		_applied_camouflage_paint_event_keys.pop_front()
+	return false
+
+
+func _record_camouflage_paint_event(event_type: String, source_peer_id: int, paint_sequence: int, chunk_index: int, payload: Dictionary) -> void:
+	if _camouflage_replaying_paint_events:
+		return
+	var event: Dictionary = {
+		"type": event_type,
+		"source_peer_id": source_peer_id,
+		"paint_sequence": paint_sequence,
+		"chunk_index": chunk_index,
+		"tick": NetworkTime.tick,
+		"payload": payload.duplicate(true),
+	}
+	_camouflage_paint_event_log.append(event)
+	while _camouflage_paint_event_log.size() > CAMOUFLAGE_PAINT_EVENT_LOG_LIMIT:
+		_camouflage_paint_event_log.pop_front()
+
+
+func get_camouflage_paint_event_log() -> Array[Dictionary]:
+	var events: Array[Dictionary] = []
+	for event: Dictionary in _camouflage_paint_event_log:
+		events.append(event.duplicate(true))
+	return events
+
+
+func clear_camouflage_paint_event_log() -> void:
+	_camouflage_paint_event_log.clear()
+
+
+func replay_camouflage_paint_event_log(reset_render_cache: bool = true) -> int:
+	var replayed_count: int = 0
+	if reset_render_cache:
+		_clear_camouflage_paint_render_cache()
+	_camouflage_replaying_paint_events = true
+	for event: Dictionary in _camouflage_paint_event_log:
+		if _replay_camouflage_paint_event(event):
+			replayed_count += 1
+	_camouflage_replaying_paint_events = false
+	return replayed_count
+
+
+func _replay_camouflage_paint_event(event: Dictionary) -> bool:
+	var payload: Dictionary = event.get("payload", {})
+	match str(event.get("type", "")):
+		"start":
+			_start_camouflage_brush_visual(payload.get("base_color", Color.WHITE), 0, 0)
+			return true
+		"stroke":
+			_apply_camouflage_brush_stroke(
+				payload.get("uv", Vector2.ZERO),
+				payload.get("color", Color.WHITE),
+				float(payload.get("brush_radius", 0.0)),
+				float(payload.get("angle", 0.0)),
+				payload.get("world_position", Vector3.ZERO),
+				payload.get("world_normal", Vector3.UP),
+				str(payload.get("target_mesh_path", "")),
+				int(payload.get("target_surface", 0)),
+				float(payload.get("material_roughness", -1.0)),
+				float(payload.get("material_metallic", -1.0)),
+				float(payload.get("material_specular", -1.0)),
+				0,
+				0
+			)
+			return true
+		"stroke_batch":
+			_apply_camouflage_brush_stroke_batch(
+				payload.get("uvs", PackedVector2Array()),
+				payload.get("color", Color.WHITE),
+				float(payload.get("brush_radius", 0.0)),
+				float(payload.get("angle", 0.0)),
+				payload.get("world_positions", PackedVector3Array()),
+				payload.get("world_normal", Vector3.UP),
+				str(payload.get("target_mesh_path", "")),
+				int(payload.get("target_surface", 0)),
+				payload.get("brush_radii", PackedFloat32Array()),
+				payload.get("uv_clip_triangles", PackedVector2Array()),
+				payload.get("uv_clip_triangle_counts", PackedInt32Array()),
+				payload.get("uv_footprint_metrics", PackedFloat32Array()),
+				float(payload.get("material_roughness", -1.0)),
+				float(payload.get("material_metallic", -1.0)),
+				float(payload.get("material_specular", -1.0)),
+				0,
+				0,
+				0
+			)
+			return true
+		_:
+			return false
+
+
 func _has_active_camouflage_multiplayer_peer() -> bool:
 	var peer := multiplayer.multiplayer_peer
 	if peer == null:
@@ -3650,7 +4213,7 @@ func _clear_camouflage_paint_render_cache() -> void:
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_camouflage_brush_start(base_color: Color) -> void:
+func _request_camouflage_brush_start(base_color: Color, paint_sequence: int = 0) -> void:
 	if not _is_runtime_multiplayer_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
@@ -3659,7 +4222,7 @@ func _request_camouflage_brush_start(base_color: Color) -> void:
 	if not is_chameleon():
 		return
 	base_color.a = 1.0
-	_start_camouflage_brush_visual.rpc(base_color)
+	_start_camouflage_brush_visual.rpc(base_color, sender, maxi(paint_sequence, 0))
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
@@ -3674,7 +4237,8 @@ func _request_camouflage_brush_stroke(
 	target_surface: int = 0,
 	material_roughness: float = -1.0,
 	material_metallic: float = -1.0,
-	material_specular: float = -1.0
+	material_specular: float = -1.0,
+	paint_sequence: int = 0
 ) -> void:
 	if not _is_runtime_multiplayer_server():
 		return
@@ -3695,7 +4259,9 @@ func _request_camouflage_brush_stroke(
 		target_surface,
 		_camouflage_paint_roughness,
 		_camouflage_paint_metallic,
-		_camouflage_paint_specular
+		_camouflage_paint_specular,
+		sender,
+		maxi(paint_sequence, 0)
 	)
 
 
@@ -3715,7 +4281,9 @@ func _request_camouflage_brush_stroke_batch(
 	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array(),
 	material_roughness: float = -1.0,
 	material_metallic: float = -1.0,
-	material_specular: float = -1.0
+	material_specular: float = -1.0,
+	paint_sequence: int = 0,
+	chunk_index: int = 0
 ) -> void:
 	if not _is_runtime_multiplayer_server():
 		return
@@ -3748,19 +4316,27 @@ func _request_camouflage_brush_stroke_batch(
 		_camouflage_paint_roughness,
 		_camouflage_paint_metallic,
 		_camouflage_paint_specular,
-		true
+		true,
+		sender,
+		maxi(paint_sequence, 0),
+		maxi(chunk_index, 0)
 	)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _start_camouflage_brush_visual(base_color: Color) -> void:
+func _start_camouflage_brush_visual(base_color: Color, source_peer_id: int = 0, paint_sequence: int = 0) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
+	if _remember_camouflage_paint_event(source_peer_id, paint_sequence, -1):
+		return
+	base_color.a = 1.0
+	_record_camouflage_paint_event("start", source_peer_id, paint_sequence, -1, {
+		"base_color": base_color,
+	})
 	if _should_skip_camouflage_paint_rendering():
 		_clear_camouflage_paint_render_cache()
 		return
-	base_color.a = 1.0
 	_camouflage_brush_base_color = base_color
 	_camouflage_paint_textures.clear()
 	_camouflage_surface_materials.clear()
@@ -3783,16 +4359,33 @@ func _apply_camouflage_brush_stroke(
 	target_surface: int = 0,
 	material_roughness: float = -1.0,
 	material_metallic: float = -1.0,
-	material_specular: float = -1.0
+	material_specular: float = -1.0,
+	source_peer_id: int = 0,
+	paint_sequence: int = 0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
-	if _should_skip_camouflage_paint_rendering():
-		_clear_camouflage_paint_render_cache()
+	if _remember_camouflage_paint_event(source_peer_id, paint_sequence, 0):
 		return
 	color.a = 1.0
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
+	_record_camouflage_paint_event("stroke", source_peer_id, paint_sequence, 0, {
+		"uv": uv,
+		"color": color,
+		"brush_radius": brush_radius,
+		"angle": angle,
+		"world_position": world_position,
+		"world_normal": world_normal,
+		"target_mesh_path": target_mesh_path,
+		"target_surface": target_surface,
+		"material_roughness": _camouflage_paint_roughness,
+		"material_metallic": _camouflage_paint_metallic,
+		"material_specular": _camouflage_paint_specular,
+	})
+	if _should_skip_camouflage_paint_rendering():
+		_clear_camouflage_paint_render_cache()
+		return
 	if not _camouflage_paint_texture:
 		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
 	_queue_camouflage_gpu_brush_stroke(world_position, world_normal, color, brush_radius)
@@ -3828,24 +4421,46 @@ func _apply_camouflage_brush_stroke_batch(
 	uv_footprint_metrics: PackedFloat32Array = PackedFloat32Array(),
 	material_roughness: float = -1.0,
 	material_metallic: float = -1.0,
-	material_specular: float = -1.0
+	material_specular: float = -1.0,
+	source_peer_id: int = 0,
+	paint_sequence: int = 0,
+	chunk_index: int = 0
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and not _is_runtime_multiplayer_server():
 		return
 	if uvs.is_empty():
 		return
-	if _should_skip_camouflage_paint_rendering():
-		_clear_camouflage_paint_render_cache()
+	if _remember_camouflage_paint_event(source_peer_id, paint_sequence, chunk_index):
 		return
 	color.a = 1.0
 	_apply_camouflage_material_scalars(material_roughness, material_metallic, material_specular)
-	if not _camouflage_paint_texture:
-		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
 	var clean_radii := _sanitize_camouflage_brush_radii(brush_radii, uvs.size(), brush_radius)
 	var clean_normal := world_normal.normalized() if world_normal.length_squared() > 0.001 else Vector3.UP
 	var clean_uv_clip := _sanitize_camouflage_uv_clip_data(uv_clip_triangles, uv_clip_triangle_counts, uvs.size())
 	var clean_uv_footprint_metrics := _sanitize_camouflage_uv_footprint_metrics(uv_footprint_metrics, uvs.size())
+	_record_camouflage_paint_event("stroke_batch", source_peer_id, paint_sequence, chunk_index, {
+		"uvs": uvs.duplicate(),
+		"color": color,
+		"brush_radius": brush_radius,
+		"angle": angle,
+		"world_positions": world_positions.duplicate(),
+		"world_normal": clean_normal,
+		"target_mesh_path": target_mesh_path,
+		"target_surface": target_surface,
+		"brush_radii": clean_radii.duplicate(),
+		"uv_clip_triangles": clean_uv_clip.get("triangles", PackedVector2Array()).duplicate(),
+		"uv_clip_triangle_counts": clean_uv_clip.get("counts", PackedInt32Array()).duplicate(),
+		"uv_footprint_metrics": clean_uv_footprint_metrics.duplicate(),
+		"material_roughness": _camouflage_paint_roughness,
+		"material_metallic": _camouflage_paint_metallic,
+		"material_specular": _camouflage_paint_specular,
+	})
+	if _should_skip_camouflage_paint_rendering():
+		_clear_camouflage_paint_render_cache()
+		return
+	if not _camouflage_paint_texture:
+		_camouflage_paint_texture = CamouflageSystem.create_brush_canvas(color.darkened(0.24))
 	if target_mesh_path.is_empty():
 		var global_painted := CamouflageSystem.paint_brush_strokes_on_texture(_camouflage_paint_texture, uvs, color, brush_radius, angle, clean_radii, clean_uv_clip.get("triangles", PackedVector2Array()), clean_uv_clip.get("counts", PackedInt32Array()), clean_uv_footprint_metrics)
 		if global_painted != _camouflage_paint_texture:
@@ -3952,16 +4567,20 @@ func _configure_camouflage_display_material(material: StandardMaterial3D) -> voi
 
 
 func _get_mesh_surface_count(mesh_instance: MeshInstance3D) -> int:
+	if not mesh_instance:
+		return 0
 	var count := mesh_instance.get_surface_override_material_count()
-	if count <= 0 and mesh_instance.mesh:
-		count = mesh_instance.mesh.get_surface_count()
-	return max(1, count)
+	if mesh_instance.mesh:
+		count = maxi(count, mesh_instance.mesh.get_surface_count())
+	return max(0, count)
 
 
 func _get_mesh_surface_material(mesh_instance: MeshInstance3D, surface: int) -> Material:
-	if not mesh_instance:
+	if not mesh_instance or surface < 0:
 		return null
-	var material := mesh_instance.get_surface_override_material(surface)
+	var material: Material = null
+	if surface < mesh_instance.get_surface_override_material_count():
+		material = mesh_instance.get_surface_override_material(surface)
 	if not material:
 		material = mesh_instance.material_override
 	if not material and mesh_instance.mesh and surface < mesh_instance.mesh.get_surface_count():
@@ -4445,6 +5064,7 @@ func set_character_model(model_id: String) -> void:
 		_active_skin_node = null
 		if _robot_visual_root:
 			_robot_visual_root.visible = true
+		_sync_character_visual_animation_activity()
 		if is_stalker():
 			_refresh_stalker_visibility_view(true)
 			call_deferred("_refresh_stalker_visibility_view", true)
@@ -4480,6 +5100,7 @@ func set_character_model(model_id: String) -> void:
 	_refresh_camera_collision_exclusions()
 	_apply_remote_visual_performance_policy(_active_skin_node)
 	_connect_active_skin_animation_signals()
+	_sync_character_visual_animation_activity()
 	_play_skin_action("idle")
 	if is_stalker():
 		_refresh_stalker_visibility_view(true)
@@ -5421,6 +6042,27 @@ func _set_character_visual_visible(visible_value: bool) -> void:
 		_robot_visual_root.visible = visible_value and character_model_id == CharacterSkinCatalog.GODOT_ROBOT_ID
 	if _active_skin_node and is_instance_valid(_active_skin_node):
 		_active_skin_node.visible = visible_value and character_model_id != CharacterSkinCatalog.GODOT_ROBOT_ID
+	_sync_character_visual_animation_activity()
+
+
+func _sync_character_visual_animation_activity() -> void:
+	var robot_visible: bool = _robot_visual_root != null and is_instance_valid(_robot_visual_root) and _robot_visual_root.visible and character_model_id == CharacterSkinCatalog.GODOT_ROBOT_ID
+	_set_visual_animation_players_active(_robot_animation_player, robot_visible)
+	_set_visual_animation_players_active(_robot_visual_root, robot_visible)
+	var skin_visible: bool = _active_skin_node != null and is_instance_valid(_active_skin_node) and _active_skin_node.visible and character_model_id != CharacterSkinCatalog.GODOT_ROBOT_ID
+	if _active_skin_node != null and is_instance_valid(_active_skin_node) and _active_skin_node.has_method("set_idle_variation_process_enabled"):
+		_active_skin_node.call("set_idle_variation_process_enabled", _is_local_authority())
+	_set_visual_animation_players_active(_active_skin_node, skin_visible)
+
+
+func _set_visual_animation_players_active(root: Node, active: bool) -> void:
+	if root == null or not is_instance_valid(root):
+		return
+	if root is AnimationPlayer:
+		var animation_player: AnimationPlayer = root as AnimationPlayer
+		animation_player.active = active
+	for child: Node in root.get_children():
+		_set_visual_animation_players_active(child, active)
 
 
 func _apply_remote_visual_performance_policy(root: Node) -> void:
@@ -5751,6 +6393,7 @@ func _animate_body(move_velocity: Vector3) -> void:
 
 
 func _play_body_jump(jump_type: String = "Jump") -> void:
+	publish_network_action("jump", {"jump_type": jump_type})
 	_play_audio(_jump_audio)
 	if _active_skin_node:
 		_play_skin_action("jump")
@@ -5806,6 +6449,7 @@ func _make_audio_player(node_name: String, stream_path: String, volume_db: float
 
 func _update_movement_audio(delta: float, was_on_floor: bool) -> void:
 	if is_on_floor() and not was_on_floor:
+		publish_network_action("land")
 		_play_audio(_land_audio)
 		_footstep_timer = 0.0
 
@@ -5826,7 +6470,7 @@ func _update_movement_audio(delta: float, was_on_floor: bool) -> void:
 
 
 func _is_sprint_footstep(horizontal_speed: float) -> bool:
-	return Input.is_action_pressed("shift") and horizontal_speed > WALK_SPEED * 0.75
+	return _input_action_held("shift") and horizontal_speed > WALK_SPEED * 0.75
 
 
 func _footstep_interval_for_mode(sprinting: bool) -> float:
@@ -5954,8 +6598,10 @@ func _submit_skin_performance_action(action: String) -> void:
 	var normalized := _normalize_skin_performance_action(action)
 	if normalized.is_empty():
 		return
+	_apply_skin_performance_action_rpc(normalized)
+	publish_network_action("skin_performance", {"action": normalized})
 	if not _has_active_skin_performance_peer():
-		_apply_skin_performance_action_rpc(normalized)
+		return
 	elif _is_runtime_multiplayer_server():
 		_apply_skin_performance_action_rpc.rpc(normalized)
 	else:
@@ -5985,6 +6631,8 @@ func _apply_skin_performance_action_rpc(action: String) -> void:
 		return
 	var normalized := _normalize_skin_performance_action(action)
 	if normalized.is_empty():
+		return
+	if _skin_performance_camera_active and _skin_performance_camera_action == normalized:
 		return
 	if _is_dead or _is_prop_disguised:
 		return
@@ -6128,7 +6776,7 @@ func _play_skin_action(action: String) -> void:
 	match normalized:
 		"move":
 			if _active_skin_node.has_method("set_walk_run_blending"):
-				_active_skin_node.call("set_walk_run_blending", 1.0 if Input.is_action_pressed("shift") else 0.25)
+				_active_skin_node.call("set_walk_run_blending", 1.0 if _input_action_held("shift") else 0.25)
 			if _active_skin_node.has_method("move"):
 				_active_skin_node.call("move")
 				did_play = true
@@ -6343,6 +6991,348 @@ func _clear_skin_performance_effects() -> void:
 	_skin_performance_effect_root = null
 
 
+func get_network_visual_state() -> Dictionary:
+	var action: String = _current_network_visual_action()
+	_update_network_visual_action_export(action)
+	var move_intent: Vector3 = _current_network_visual_move_intent()
+	return {
+		"action": action,
+		"action_seq": _network_visual_action_sequence,
+		"action_tick": _network_visual_action_tick,
+		"yaw": _current_network_visual_yaw(),
+		"grounded": is_on_floor(),
+		"move_speed": Vector2(velocity.x, velocity.z).length(),
+		"move_x": move_intent.x,
+		"move_z": move_intent.z,
+		"sprinting": _input_action_held("shift"),
+	}
+
+
+func _update_network_visual_action_export(action: String) -> void:
+	var normalized: String = _normalize_network_visual_action(action)
+	if normalized.is_empty():
+		normalized = "idle"
+	if normalized == _network_visual_export_action:
+		return
+	_network_visual_export_action = normalized
+	_network_visual_action_sequence = _next_network_visual_action_sequence(_network_visual_action_sequence)
+	_network_visual_action_tick = get_network_input_tick()
+
+
+func _next_network_visual_action_sequence(current_sequence: int) -> int:
+	var next_sequence: int = current_sequence + 1
+	return 1 if next_sequence >= 0x7fffffff else next_sequence
+
+
+func apply_network_visual_state(state: Dictionary) -> void:
+	if state.is_empty():
+		return
+	if _is_local_authority():
+		return
+	var action: String = _normalize_network_visual_action(str(state.get("action", "")))
+	if action.is_empty():
+		action = "idle"
+	var previous_action: String = _network_visual_action
+	var incoming_sequence: int = max(0, int(state.get("action_seq", _network_visual_action_sequence)))
+	if not state.has("action_seq") and action != previous_action:
+		incoming_sequence = _next_network_visual_action_sequence(_network_visual_action_sequence)
+	_network_visual_action = action
+	_network_visual_action_sequence = incoming_sequence
+	_network_visual_action_tick = max(0, int(state.get("action_tick", _network_visual_action_tick)))
+	if action != previous_action:
+		_network_visual_applied_action_sequence = -1
+	_network_visual_yaw = _network_visual_finite_float(state.get("yaw", _network_visual_yaw), _network_visual_yaw)
+	_network_visual_yaw = wrapf(_network_visual_yaw, -PI, PI)
+	_network_visual_grounded = bool(state.get("grounded", _network_visual_grounded))
+	_network_visual_move_speed = clampf(_network_visual_finite_float(state.get("move_speed", 0.0), 0.0), 0.0, RUN_SPEED * 2.0)
+	_network_visual_move_intent = Vector3(
+		_network_visual_finite_float(state.get("move_x", 0.0), 0.0),
+		0.0,
+		_network_visual_finite_float(state.get("move_z", 0.0), 0.0)
+	)
+	if _network_visual_move_intent.length_squared() > 1.0:
+		_network_visual_move_intent = _network_visual_move_intent.normalized()
+	_network_visual_sprinting = bool(state.get("sprinting", _network_visual_sprinting))
+	_network_visual_state_msec = Time.get_ticks_msec()
+
+
+func _current_network_visual_move_intent() -> Vector3:
+	var input_direction: Vector2 = _movement_input_vector() if _is_local_authority() else Vector2.ZERO
+	if input_direction.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE:
+		var camera_basis: Basis = _spring_arm_offset.global_transform.basis if _spring_arm_offset else global_transform.basis
+		var camera_forward: Vector3 = -camera_basis.z
+		camera_forward.y = 0.0
+		camera_forward = camera_forward.normalized()
+		var camera_right: Vector3 = camera_basis.x
+		camera_right.y = 0.0
+		camera_right = camera_right.normalized()
+		var direction: Vector3 = camera_right * input_direction.x + camera_forward * -input_direction.y
+		if direction.length_squared() > 1.0:
+			direction = direction.normalized()
+		return direction
+	var horizontal_velocity: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if horizontal_velocity.length_squared() > REMOTE_MOVE_SPEED_THRESHOLD * REMOTE_MOVE_SPEED_THRESHOLD:
+		return horizontal_velocity.normalized()
+	return Vector3.ZERO
+
+
+func _current_network_visual_action() -> String:
+	if _is_dead:
+		return "die"
+	if _party_monster_trip_action_locked:
+		return "trip"
+	var locomotion_action: String = _derive_network_locomotion_action()
+	if _active_skin_node and is_instance_valid(_active_skin_node) and _active_skin_node.has_method("get_current_animation_action"):
+		var skin_action: String = _normalize_network_visual_action(str(_active_skin_node.call("get_current_animation_action")))
+		if not skin_action.is_empty() and not NETWORK_VISUAL_LOCOMOTION_ACTIONS.has(skin_action):
+			return skin_action
+	return locomotion_action
+
+
+func _derive_network_locomotion_action() -> String:
+	if not is_on_floor():
+		return "fall" if velocity.y < 0.0 else "jump"
+	var move_intent: Vector3 = _current_network_visual_move_intent()
+	if move_intent.length_squared() > TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE:
+		return "run" if _input_action_held("shift") else "move"
+	var horizontal_speed: float = Vector2(velocity.x, velocity.z).length()
+	if horizontal_speed >= REMOTE_RUN_SPEED_THRESHOLD:
+		return "run"
+	if horizontal_speed > REMOTE_MOVE_SPEED_THRESHOLD:
+		return "move"
+	return "idle"
+
+
+func _current_network_visual_yaw() -> float:
+	if _body and is_instance_valid(_body):
+		return wrapf(_body.rotation.y, -PI, PI)
+	if _active_skin_node and is_instance_valid(_active_skin_node):
+		return wrapf(_active_skin_node.rotation.y, -PI, PI)
+	return wrapf(rotation.y, -PI, PI)
+
+
+func _normalize_network_visual_action(action: String) -> String:
+	var normalized: String = action.strip_edges().to_lower().replace("-", "_").replace(" ", "_")
+	if normalized.length() > NETWORK_VISUAL_ACTION_MAX_LENGTH:
+		normalized = normalized.substr(0, NETWORK_VISUAL_ACTION_MAX_LENGTH)
+	return normalized
+
+
+func _network_visual_finite_float(value: Variant, fallback: float = 0.0) -> float:
+	var value_type: int = typeof(value)
+	if value_type != TYPE_FLOAT and value_type != TYPE_INT:
+		return fallback
+	var result: float = float(value)
+	return result if is_finite(result) else fallback
+
+
+func _has_fresh_network_visual_state() -> bool:
+	if _network_visual_state_msec <= 0:
+		return false
+	return Time.get_ticks_msec() - _network_visual_state_msec <= NETWORK_VISUAL_STATE_MAX_AGE_MSEC
+
+
+func _apply_synced_network_visual_state(delta: float) -> bool:
+	if not _has_fresh_network_visual_state():
+		return false
+	_apply_network_visual_yaw(_network_visual_yaw, delta)
+	_play_synced_network_visual_action(_network_visual_action)
+	return true
+
+
+func _apply_network_visual_yaw(target_yaw: float, delta: float) -> void:
+	var visual_root: Node3D = null
+	if _body and is_instance_valid(_body):
+		visual_root = _body
+	elif _active_skin_node and is_instance_valid(_active_skin_node):
+		visual_root = _active_skin_node
+	if visual_root == null:
+		return
+	var clean_yaw: float = wrapf(target_yaw, -PI, PI)
+	if delta <= 0.0:
+		visual_root.rotation.y = clean_yaw
+		return
+	var blend: float = clampf(1.0 - exp(-NETWORK_VISUAL_YAW_LERP_SPEED * delta), 0.0, 1.0)
+	visual_root.rotation.y = lerp_angle(visual_root.rotation.y, clean_yaw, blend)
+
+
+func _play_synced_network_visual_action(action: String) -> void:
+	var normalized: String = _normalize_network_visual_action(action)
+	if normalized.is_empty():
+		normalized = "idle"
+	if normalized == "long_idle":
+		normalized = "idle"
+	var sequence_pending: bool = _network_visual_action_sequence != _network_visual_applied_action_sequence
+	if _should_force_network_visual_locomotion_recovery(normalized, sequence_pending):
+		if _force_network_visual_locomotion_recovery(normalized):
+			_network_visual_applied_action_sequence = _network_visual_action_sequence
+			return
+	if normalized == "run":
+		_play_remote_skin_locomotion("run", REMOTE_RUN_BLEND)
+		_network_visual_applied_action_sequence = _network_visual_action_sequence
+		return
+	if normalized == "walk":
+		_play_remote_skin_locomotion("walk", REMOTE_WALK_BLEND)
+		_network_visual_applied_action_sequence = _network_visual_action_sequence
+		return
+	if normalized == "move":
+		if _network_visual_sprinting or _network_visual_move_speed >= REMOTE_RUN_SPEED_THRESHOLD:
+			_play_remote_skin_locomotion("run", REMOTE_RUN_BLEND)
+		else:
+			_play_remote_skin_locomotion("move", REMOTE_WALK_BLEND)
+		_network_visual_applied_action_sequence = _network_visual_action_sequence
+		return
+	_play_skin_action(normalized)
+	_network_visual_applied_action_sequence = _network_visual_action_sequence
+
+
+func _network_visual_directional_locomotion_action(base_action: String) -> String:
+	var normalized: String = _normalize_network_visual_action(base_action)
+	if normalized == "move":
+		normalized = "run" if _network_visual_sprinting or _network_visual_move_speed >= REMOTE_RUN_SPEED_THRESHOLD else "walk"
+	if normalized != "run" and normalized != "walk":
+		return normalized
+	if not CharacterSkinCatalog.is_party_monster(character_model_id):
+		return normalized
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return normalized
+	if _network_visual_move_intent.length_squared() <= TURN_INPUT_DEADZONE * TURN_INPUT_DEADZONE:
+		return normalized
+	var intent: Vector3 = _network_visual_move_intent.normalized()
+	var yaw: float = wrapf(_network_visual_yaw, -PI, PI)
+	var facing_forward := Vector3(-sin(yaw), 0.0, -cos(yaw)).normalized()
+	var facing_right := Vector3(cos(yaw), 0.0, -sin(yaw)).normalized()
+	var forward_amount: float = intent.dot(facing_forward)
+	var side_amount: float = intent.dot(facing_right)
+	var suffix := "forward"
+	if absf(side_amount) > maxf(absf(forward_amount) * 0.85, 0.35):
+		suffix = "right" if side_amount > 0.0 else "left"
+	elif forward_amount < -0.35:
+		suffix = "backward"
+	var candidate: String = normalized + "_" + suffix
+	if _active_skin_node.has_method("has_action") and bool(_active_skin_node.call("has_action", candidate)):
+		return candidate
+	return normalized
+
+
+func _should_force_network_visual_locomotion_recovery(action: String, sequence_pending: bool) -> bool:
+	if _is_dead:
+		return false
+	if not NETWORK_VISUAL_RECOVERY_ACTIONS.has(action):
+		return false
+	if _party_monster_trip_action_locked:
+		return true
+	var current_action: String = _active_network_skin_action()
+	if not NETWORK_VISUAL_INTERRUPTABLE_ACTIONS.has(current_action):
+		return false
+	if sequence_pending:
+		return true
+	return current_action != action
+
+
+func _active_network_skin_action() -> String:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return ""
+	if _active_skin_node.has_method("get_current_animation_action"):
+		return _normalize_network_visual_action(str(_active_skin_node.call("get_current_animation_action")))
+	return ""
+
+
+func _force_network_visual_locomotion_recovery(action: String) -> bool:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return false
+	if _party_monster_trip_action_locked:
+		_finish_party_monster_trip_lock()
+	if _skin_performance_camera_active and not SKIN_PERFORMANCE_ACTIONS.has(action):
+		_restore_skin_performance_camera_now()
+	var target_action: String = action
+	if action == "move":
+		target_action = "run" if _network_visual_sprinting or _network_visual_move_speed >= REMOTE_RUN_SPEED_THRESHOLD else "walk"
+	if _active_skin_node.has_method("set_walk_run_blending"):
+		var blend: float = REMOTE_RUN_BLEND if target_action == "run" else REMOTE_WALK_BLEND
+		_active_skin_node.call("set_walk_run_blending", blend)
+	target_action = _network_visual_directional_locomotion_action(target_action)
+	if CharacterSkinCatalog.is_party_monster(character_model_id) and _active_skin_node.has_method("play_action"):
+		return bool(_active_skin_node.call("play_action", target_action))
+	if target_action == "run" and _active_skin_node.has_method("run"):
+		_active_skin_node.call("run")
+		return true
+	if target_action == "walk" and _active_skin_node.has_method("walk"):
+		_active_skin_node.call("walk")
+		return true
+	if target_action == "move" and _active_skin_node.has_method("move"):
+		_active_skin_node.call("move")
+		return true
+	if target_action == "idle" and _active_skin_node.has_method("idle"):
+		_active_skin_node.call("idle")
+		return true
+	if _active_skin_node.has_method("play_action"):
+		return bool(_active_skin_node.call("play_action", target_action))
+	return false
+
+
+func _resolve_netfox_transform_sync() -> NetfoxPlayerTransformSync:
+	if _netfox_transform_sync and is_instance_valid(_netfox_transform_sync):
+		return _netfox_transform_sync
+	_netfox_transform_sync = get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
+	return _netfox_transform_sync
+
+
+func _remote_motion_velocity_sample(delta: float) -> Dictionary:
+	var transform_sync := _resolve_netfox_transform_sync()
+	if transform_sync and transform_sync.has_method("has_fresh_remote_visual_sample"):
+		var is_fresh := bool(transform_sync.call("has_fresh_remote_visual_sample", REMOTE_VISUAL_SAMPLE_MAX_AGE_MSEC))
+		if is_fresh and transform_sync.has_method("get_remote_visual_velocity"):
+			var velocity_value: Variant = transform_sync.call("get_remote_visual_velocity", REMOTE_VISUAL_SAMPLE_MAX_AGE_MSEC)
+			var network_velocity := Vector3.ZERO
+			if velocity_value is Vector3:
+				network_velocity = velocity_value
+			var position_value: Variant = global_position
+			if transform_sync.has_method("get_remote_visual_position"):
+				position_value = transform_sync.call("get_remote_visual_position", REMOTE_VISUAL_SAMPLE_MAX_AGE_MSEC)
+			_remote_visual_position = global_position
+			if position_value is Vector3:
+				_remote_visual_position = position_value
+			return {
+				"ready": true,
+				"velocity": network_velocity,
+				"source": "netfox",
+			}
+
+	var sample: Dictionary = _remote_motion_sampler.sample(global_position, delta, _remote_visual_move_hold)
+	if bool(sample.get("ready", false)):
+		_remote_visual_position = sample.get("position", global_position)
+	return sample
+
+
+func _play_remote_skin_locomotion(action: String, blend: float) -> void:
+	if not _active_skin_node or not is_instance_valid(_active_skin_node):
+		return
+	var normalized := action.strip_edges().to_lower()
+	if _should_hold_party_monster_trip_action(normalized):
+		return
+	if _skin_performance_camera_active and not SKIN_PERFORMANCE_ACTIONS.has(normalized) and normalized != "idle":
+		_restore_skin_performance_camera_now()
+	if _active_skin_node.has_method("set_walk_run_blending"):
+		_active_skin_node.call("set_walk_run_blending", blend)
+	var directional_action: String = _network_visual_directional_locomotion_action(normalized)
+	if directional_action != normalized and _active_skin_node.has_method("play_action") and bool(_active_skin_node.call("play_action", directional_action)):
+		return
+	if normalized == "run" and _active_skin_node.has_method("run"):
+		_active_skin_node.call("run")
+		return
+	if normalized == "walk" and _active_skin_node.has_method("walk"):
+		_active_skin_node.call("walk")
+		return
+	if _active_skin_node.has_method("move"):
+		_active_skin_node.call("move")
+		return
+	if _active_skin_node.has_method("play_action") and bool(_active_skin_node.call("play_action", normalized)):
+		return
+	if _active_skin_node.has_method("idle"):
+		_active_skin_node.call("idle")
+
+
 func _animate_remote_skin_from_network_motion(delta: float) -> void:
 	if not _active_skin_node or not is_instance_valid(_active_skin_node):
 		return
@@ -6356,27 +7346,32 @@ func _animate_remote_skin_from_network_motion(delta: float) -> void:
 		_remote_motion_sampler.reset(global_position, true)
 		_play_skin_action("idle")
 		return
+	if _apply_synced_network_visual_state(delta):
+		return
 
-	var sample: Dictionary = _remote_motion_sampler.sample(global_position, delta, _remote_visual_move_hold)
+	var sample: Dictionary = _remote_motion_velocity_sample(delta)
 	if not bool(sample.get("ready", false)):
 		return
 	var visual_velocity: Vector3 = sample.get("velocity", Vector3.ZERO)
-	_remote_visual_position = sample.get("position", global_position)
-	var horizontal_speed_sq := Vector2(visual_velocity.x, visual_velocity.z).length_squared()
-	if visual_velocity.y > 0.75:
+	var horizontal_velocity := Vector3(visual_velocity.x, 0.0, visual_velocity.z)
+	var horizontal_speed := horizontal_velocity.length()
+	if visual_velocity.y > REMOTE_VERTICAL_ACTION_SPEED:
 		_play_skin_action("jump")
-	elif visual_velocity.y < -0.75:
+	elif visual_velocity.y < -REMOTE_VERTICAL_ACTION_SPEED:
 		_play_skin_action("fall")
-	elif horizontal_speed_sq > 0.04:
-		_remote_visual_move_hold = 0.18
-		_apply_body_rotation(Vector3(visual_velocity.x, 0.0, visual_velocity.z))
-		if _active_skin_node.has_method("set_walk_run_blending"):
-			_active_skin_node.call("set_walk_run_blending", 1.0 if horizontal_speed_sq > 36.0 else 0.25)
-		_play_skin_action("move")
+	elif horizontal_speed > REMOTE_MOVE_SPEED_THRESHOLD:
+		_remote_visual_move_hold = REMOTE_MOVE_HOLD_SECONDS
+		_current_speed = horizontal_speed
+		_apply_body_rotation(horizontal_velocity)
+		if horizontal_speed >= REMOTE_RUN_SPEED_THRESHOLD:
+			_play_remote_skin_locomotion("run", REMOTE_RUN_BLEND)
+		else:
+			_play_remote_skin_locomotion("move", REMOTE_WALK_BLEND)
 	elif _remote_visual_move_hold > 0.0:
 		_remote_visual_move_hold = maxf(0.0, _remote_visual_move_hold - delta)
-		_play_skin_action("move")
+		_play_remote_skin_locomotion("move", REMOTE_WALK_BLEND)
 	else:
+		_current_speed = 0.0
 		_play_skin_action("idle")
 
 
@@ -6818,6 +7813,7 @@ func _spawn_death_dissolve_visual() -> void:
 	clone.global_transform = source.global_transform
 	_set_dissolve_visual_runtime_disabled(clone)
 	_set_dissolve_visual_visible(clone)
+	_apply_death_dissolve_visual_render_policy(clone)
 	_disable_prop_collisions(clone)
 	var dissolve_material: ShaderMaterial = _make_death_dissolve_material()
 	var mesh_count: int = _apply_death_dissolve_material(clone, dissolve_material)
@@ -6873,6 +7869,7 @@ func _apply_death_dissolve_material(root: Node3D, material: ShaderMaterial) -> i
 			continue
 		mesh_instance.material_override = material
 		mesh_instance.visible = true
+		_apply_death_dissolve_geometry_policy(mesh_instance)
 	return meshes.size()
 
 
@@ -6881,6 +7878,14 @@ func _set_dissolve_visual_runtime_disabled(node: Node) -> void:
 	node.set_physics_process(false)
 	node.set_process_input(false)
 	node.set_process_unhandled_input(false)
+	if node is AnimationPlayer:
+		(node as AnimationPlayer).active = false
+	elif node is AudioStreamPlayer3D:
+		(node as AudioStreamPlayer3D).stop()
+	elif node is AudioStreamPlayer2D:
+		(node as AudioStreamPlayer2D).stop()
+	elif node is AudioStreamPlayer:
+		(node as AudioStreamPlayer).stop()
 	for child in node.get_children():
 		_set_dissolve_visual_runtime_disabled(child)
 
@@ -6890,6 +7895,23 @@ func _set_dissolve_visual_visible(node: Node) -> void:
 		(node as Node3D).visible = true
 	for child in node.get_children():
 		_set_dissolve_visual_visible(child)
+
+
+func _apply_death_dissolve_visual_render_policy(node: Node) -> void:
+	if node is GeometryInstance3D:
+		_apply_death_dissolve_geometry_policy(node as GeometryInstance3D)
+	for child in node.get_children():
+		_apply_death_dissolve_visual_render_policy(child)
+
+
+func _apply_death_dissolve_geometry_policy(instance: GeometryInstance3D) -> void:
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	instance.visibility_range_end = DEATH_DISSOLVE_VISUAL_CULL_RANGE
+	instance.visibility_range_end_margin = DEATH_DISSOLVE_VISUAL_CULL_MARGIN
+	instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	if instance.lod_bias > RemoteVisualPolicy.DEFAULT_REMOTE_LOD_BIAS:
+		instance.lod_bias = RemoteVisualPolicy.DEFAULT_REMOTE_LOD_BIAS
 
 
 func _set_death_dissolve_threshold(value: float) -> void:

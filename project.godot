@@ -234,14 +234,18 @@ toggle_benchmark_mode={
 
 [netfox]
 
-time/tickrate=30.0
-time/max_ticks_per_frame=8.0
-time/sync_samples=8.0
+time/tickrate=60.0
+time/max_ticks_per_frame=4.0
+time/sync_samples=6.0
 time/tickrate_mismatch_action=1.0
+time/recalibrate_threshold=1.0
+time/sync_interval=0.1
+time/sync_adjust_steps=4.0
+time/sync_to_physics=true
 
 [physics]
 
-common/physics_ticks_per_second=20.0
+common/physics_ticks_per_second=60.0
 common/physics_interpolation=true
 
 [run]

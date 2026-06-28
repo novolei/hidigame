@@ -90,6 +90,7 @@ func _test_prop_death_spawns_dissolve_and_spectator_state() -> void:
 	_expect(dissolve_visual != null, "Prop death should spawn an independent DeathDissolveVisual")
 	if dissolve_visual:
 		_expect(_has_death_dissolve_shader(dissolve_visual), "Death dissolve visual should use the death_dissolve shader on meshes")
+		_expect(_death_dissolve_visual_uses_low_cost_render_policy(dissolve_visual), "Death dissolve visual should disable shadows, GI, and imported animation work")
 		_expect(dissolve_visual.get_parent() != player, "Death dissolve visual should not remain parented to the player body")
 
 	var player_source := FileAccess.get_file_as_string("res://scripts/player.gd")
@@ -132,6 +133,35 @@ func _has_death_dissolve_shader(root: Node) -> bool:
 				return true
 	for child in root.get_children():
 		if _has_death_dissolve_shader(child):
+			return true
+	return false
+
+
+func _death_dissolve_visual_uses_low_cost_render_policy(root: Node) -> bool:
+	var meshes: Array[MeshInstance3D] = []
+	_collect_mesh_instances(root, meshes)
+	if meshes.is_empty():
+		return false
+	for mesh_instance: MeshInstance3D in meshes:
+		if mesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			return false
+		if mesh_instance.gi_mode != GeometryInstance3D.GI_MODE_DISABLED:
+			return false
+	return not _has_active_animation_player(root)
+
+
+func _collect_mesh_instances(root: Node, result: Array[MeshInstance3D]) -> void:
+	if root is MeshInstance3D:
+		result.append(root as MeshInstance3D)
+	for child: Node in root.get_children():
+		_collect_mesh_instances(child, result)
+
+
+func _has_active_animation_player(root: Node) -> bool:
+	if root is AnimationPlayer and (root as AnimationPlayer).active:
+		return true
+	for child: Node in root.get_children():
+		if _has_active_animation_player(child):
 			return true
 	return false
 

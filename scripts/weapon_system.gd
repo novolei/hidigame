@@ -113,13 +113,15 @@ func request_fire() -> void:
 
 	fire_cooldown = FIRE_RATE_INTERVAL
 
-	var aim_dir = _get_aim_direction()
-	var shooter_pos = _get_shooter_position()
+	var aim_dir: Vector3 = _get_aim_direction()
+	var shooter_pos: Vector3 = _get_shooter_position()
+	var fire_tick: int = _get_fire_tick()
+	var fire_sequence: int = _allocate_fire_sequence()
 	if multiplayer.is_server():
-		_server_fire(owner_peer_id, aim_dir, shooter_pos)
+		_server_fire(owner_peer_id, aim_dir, shooter_pos, fire_tick, fire_sequence)
 	else:
-		Network.record_rpc_event("weapon.fire_request", 1, 48)
-		_request_fire_rpc.rpc_id(1, aim_dir, shooter_pos)
+		Network.record_rpc_event("weapon.fire_request", 1, 56)
+		_request_fire_rpc.rpc_id(1, aim_dir, shooter_pos, fire_tick, fire_sequence)
 
 
 # 客户端发起换弹
@@ -171,11 +173,11 @@ func server_add_ammo(amount: int) -> bool:
 # =============================================================================
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_fire_rpc(aim_dir: Vector3, shooter_pos: Vector3):
+func _request_fire_rpc(aim_dir: Vector3, shooter_pos: Vector3, fire_tick: int = -1, fire_sequence: int = 0):
 	if not multiplayer.is_server():
 		return
-	var sender_id = multiplayer.get_remote_sender_id()
-	_server_fire(sender_id, aim_dir, shooter_pos)
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	_server_fire(sender_id, aim_dir, shooter_pos, fire_tick, fire_sequence)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -186,70 +188,94 @@ func _request_scan_rpc():
 	_server_scan(sender_id)
 
 
-func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3) -> void:
+func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3, fire_tick: int = -1, fire_sequence: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
 	if sender_id != owner_peer_id:
 		push_warning("Peer " + str(sender_id) + " tried to fire weapon owned by " + str(owner_peer_id))
 		return
-	# 服务器权威扣弹药(双重校验,防止客户端作弊)
 	if total_ammo <= 0 or current_magazine <= 0:
 		return
 
 	current_magazine -= 1
 	total_ammo -= 1
 
-	# 服务器侧 raycast
-	var space_state = get_world_3d().direct_space_state
-	var query = PhysicsRayQueryParameters3D.create(
+	var clean_aim_dir: Vector3 = aim_dir.normalized() if aim_dir.length_squared() > 0.000001 else Vector3.FORWARD
+	var space_state: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 		shooter_pos,
-		shooter_pos + aim_dir * MAX_RANGE
+		shooter_pos + clean_aim_dir * MAX_RANGE
 	)
 	query.exclude = [shooter_node.get_rid()] if shooter_node else []
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
 
-	var result = space_state.intersect_ray(query)
-	var hit_position = shooter_pos + aim_dir * MAX_RANGE
-	var hit_target = null
-	var is_headshot = false
-	var damage_dealt = DAMAGE_PER_BULLET
-	var feedback_text := "MISS"
-	var feedback_color := Color(0.75, 0.78, 0.86, 1.0)
+	var world_result: Dictionary = space_state.intersect_ray(query)
+	var hit_position: Vector3 = shooter_pos + clean_aim_dir * MAX_RANGE
+	var hit_target: Node = null
+	var hit_normal: Vector3 = -clean_aim_dir
+	var is_headshot: bool = false
+	var damage_dealt: float = DAMAGE_PER_BULLET
+	var feedback_text: String = "MISS"
+	var feedback_color: Color = Color(0.75, 0.78, 0.86, 1.0)
+	var max_compensated_distance: float = MAX_RANGE
+	var world_damageable_distance: float = INF
 
-	if result:
-		hit_position = result.position
-		hit_target = result.collider
+	if not world_result.is_empty():
+		var world_hit_position: Vector3 = world_result.get("position", hit_position)
+		max_compensated_distance = clampf(shooter_pos.distance_to(world_hit_position), 0.0, MAX_RANGE)
+		var raw_world_target: Variant = world_result.get("collider", null)
+		if raw_world_target is Node and _is_damageable_weapon_target(raw_world_target):
+			world_damageable_distance = max_compensated_distance
+
+	var compensated_hit: Dictionary = _find_rewind_player_hit(sender_id, shooter_pos, clean_aim_dir, max_compensated_distance, fire_tick)
+	var compensated_distance: float = float(compensated_hit.get("distance", INF)) if not compensated_hit.is_empty() else INF
+	var use_compensated_hit: bool = not compensated_hit.is_empty() and compensated_distance <= world_damageable_distance + 0.05
+
+	if use_compensated_hit:
+		hit_position = compensated_hit.get("position", hit_position)
+		hit_normal = compensated_hit.get("normal", hit_normal)
+		var raw_compensated_target: Variant = compensated_hit.get("target", null)
+		if raw_compensated_target is Node:
+			hit_target = raw_compensated_target as Node
+		is_headshot = bool(compensated_hit.get("headshot", false))
+		feedback_text = "IMPACT"
+		feedback_color = Color(0.95, 0.72, 0.28, 1.0)
+		Network.record_perf_event("weapon.rewind_hit")
+		if fire_sequence > 0:
+			Network.record_perf_event("weapon.fire_sequence")
+	elif not world_result.is_empty():
+		hit_position = world_result.get("position", hit_position)
+		hit_normal = world_result.get("normal", hit_normal)
+		var raw_target: Variant = world_result.get("collider", null)
+		if raw_target is Node:
+			hit_target = raw_target as Node
 		feedback_text = "IMPACT"
 		feedback_color = Color(0.95, 0.72, 0.28, 1.0)
 
-		# 检查是否爆头
-		if hit_target and hit_target.has_method("is_head_shot") and hit_target.is_head_shot():
-			is_headshot = true
-			damage_dealt *= HEADSHOT_MULTIPLIER
+	if hit_target and hit_target.has_method("is_head_shot") and hit_target.is_head_shot():
+		is_headshot = true
+	if is_headshot:
+		damage_dealt *= HEADSHOT_MULTIPLIER
 
-		# 距离衰减
-		var distance = shooter_pos.distance_to(hit_position)
-		if distance > DAMAGE_FALLOFF_RANGE:
-			damage_dealt *= DAMAGE_FALLOFF_FACTOR
+	var distance: float = shooter_pos.distance_to(hit_position)
+	if distance > DAMAGE_FALLOFF_RANGE:
+		damage_dealt *= DAMAGE_FALLOFF_FACTOR
 
-		# 击中 Props 玩家
-		if hit_target and _is_damageable_weapon_target(hit_target):
-			if hit_target is Node and (hit_target as Node).is_in_group("players"):
-				var hit_normal: Vector3 = result.get("normal", -aim_dir)
-				_send_green_blood_impact_visual(shooter_pos, hit_position, hit_normal, aim_dir)
-			hit_target.take_damage(damage_dealt, sender_id, is_headshot)
-			if hit_target.has_method("is_card_decoy_target") and hit_target.is_card_decoy_target():
-				feedback_text = "DECOY HIT -%d" % int(round(damage_dealt))
-				feedback_color = Color(0.62, 0.92, 1.0, 1.0)
-			elif hit_target.has_method("is_disguised") and hit_target.is_disguised():
-				feedback_text = "DISGUISE HIT -%d" % int(round(damage_dealt))
-				feedback_color = Color(0.18, 1.0, 0.86, 1.0)
-			else:
-				feedback_text = "HIT -%d" % int(round(damage_dealt))
-				feedback_color = Color(1.0, 0.86, 0.25, 1.0)
+	if hit_target and _is_damageable_weapon_target(hit_target):
+		if hit_target.is_in_group("players"):
+			_send_green_blood_impact_visual(shooter_pos, hit_position, hit_normal, clean_aim_dir)
+		hit_target.take_damage(damage_dealt, sender_id, is_headshot)
+		if hit_target.has_method("is_card_decoy_target") and hit_target.is_card_decoy_target():
+			feedback_text = "DECOY HIT -%d" % int(round(damage_dealt))
+			feedback_color = Color(0.62, 0.92, 1.0, 1.0)
+		elif hit_target.has_method("is_disguised") and hit_target.is_disguised():
+			feedback_text = "DISGUISE HIT -%d" % int(round(damage_dealt))
+			feedback_color = Color(0.18, 1.0, 0.86, 1.0)
+		else:
+			feedback_text = "HIT -%d" % int(round(damage_dealt))
+			feedback_color = Color(1.0, 0.86, 0.25, 1.0)
 
-	# 广播弹道视觉(给所有客户端显示弹道光线)
 	_send_tracer_visual(shooter_pos, hit_position)
 
 	ammo_changed.emit(current_magazine, total_ammo)
@@ -553,6 +579,26 @@ func _on_weapon_out_of_ammo():
 # =============================================================================
 # 工具函数
 # =============================================================================
+
+func _find_rewind_player_hit(sender_id: int, shooter_pos: Vector3, aim_dir: Vector3, max_distance: float, fire_tick: int) -> Dictionary:
+	var tree: SceneTree = get_tree() if is_inside_tree() else null
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(tree)
+	if history == null:
+		return {}
+	return history.find_player_hit_on_segment(shooter_pos, aim_dir, max_distance, fire_tick, sender_id)
+
+
+func _get_fire_tick() -> int:
+	if shooter_node and shooter_node.has_method("get_network_input_tick"):
+		return int(shooter_node.call("get_network_input_tick"))
+	return NetworkTime.tick
+
+
+func _allocate_fire_sequence() -> int:
+	if shooter_node and shooter_node.has_method("allocate_network_intent_sequence"):
+		return int(shooter_node.call("allocate_network_intent_sequence"))
+	return int(Time.get_ticks_msec() & 0x7fffffff)
+
 
 func _get_aim_direction() -> Vector3:
 	if camera:

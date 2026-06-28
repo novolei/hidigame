@@ -33,9 +33,22 @@ func _ready() -> void:
 	if _camera:
 		_camera.fov = _target_fov
 	_apply_camera_interpolation_policy()
+	_refresh_camera_process_policy()
 	if not GameSettings.fov_changed.is_connected(_on_fov_changed):
 		GameSettings.fov_changed.connect(_on_fov_changed)
 	call_deferred("refresh_camera_collision_exclusions")
+	call_deferred("_refresh_camera_process_policy")
+
+
+func _refresh_camera_process_policy() -> void:
+	var authority: int = get_multiplayer_authority()
+	if authority <= 0:
+		set_process(true)
+		return
+	if not RuntimeMode.has_multiplayer_peer(multiplayer):
+		set_process(authority == 1)
+		return
+	set_process(authority == multiplayer.get_unique_id())
 
 
 func _apply_camera_interpolation_policy() -> void:

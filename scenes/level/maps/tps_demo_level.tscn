@@ -1,7 +1,38 @@
 [gd_scene format=3 uid="uid://c2gpxkhpbvilu"]
 
 [ext_resource type="PackedScene" uid="uid://b25uqksva4nae" path="res://scenes/level/maps/tps_demo_level_assets/level/level.tscn" id="1_60bm0"]
+[ext_resource type="Script" uid="uid://cp18xopp6lldb" path="res://scripts/maps/map_controller.gd" id="1_jvhun"]
 
 [node name="TpsDemoLevelMap" type="Node3D" unique_id=857159455]
+script = ExtResource("1_jvhun")
+lighting_mode = 0
+add_support_floor = false
+support_size = Vector2(120, 120)
 
 [node name="TpsDemoLevelContent" parent="." unique_id=582382165 instance=ExtResource("1_60bm0")]
+
+[node name="PlayerSpawnpoints" type="Node3D" parent="." unique_id=1597182904]
+
+[node name="Spawn1" type="Marker3D" parent="PlayerSpawnpoints" unique_id=315119441]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.8183, -1.0765, 78.7639)
+
+[node name="Spawn2" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1526439988]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.818, -1.077, 80.764)
+
+[node name="Spawn3" type="Marker3D" parent="PlayerSpawnpoints" unique_id=468192885]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.818, -1.077, 76.764)
+
+[node name="Spawn4" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1964909893]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64.818, -1.077, 74.764)
+
+[node name="Spawn5" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1907633485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71.5907, -6.05686, 46.2736)
+
+[node name="Spawn6" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1810142020]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 53.2126, -6.05686, 15.9321)
+
+[node name="Spawn7" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1926438417]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.96096, -11.6923, 20.2343)
+
+[node name="Spawn8" type="Marker3D" parent="PlayerSpawnpoints" unique_id=341940684]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.15526, -11.6923, -16.9238)

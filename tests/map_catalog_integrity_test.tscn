@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://g4p4270ht1sv"]
+
+[ext_resource type="Script" uid="uid://ccjlp1s1q5si7" path="res://tests/map_catalog_integrity_test.gd" id="1_swe3q"]
+
+[node name="MapCatalogIntegrityTest" type="Node3D" unique_id=1687620065]
+script = ExtResource("1_swe3q")

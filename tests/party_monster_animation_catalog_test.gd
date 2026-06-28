@@ -109,7 +109,7 @@ func _init() -> void:
 
 
 func _append_performance_camera_source_failures(failures: Array[String]) -> void:
-	var player_source := FileAccess.get_file_as_string("res://scripts/player.gd")
+	var player_source := FileAccess.get_file_as_string("res://scripts/player.gd").replace("\r\n", "\n")
 	for token in ["SKIN_PERFORMANCE_ACTIONS := [\"dance\", \"victory\"]", "request_skin_performance_action", "_begin_skin_performance_camera", "_on_active_skin_action_finished", "set_camera_rig_pose", "SKIN_PERFORMANCE_CAMERA_RETURN_DELAY"]:
 		if not player_source.contains(token):
 			failures.append("Player should keep Party Monster performance camera token: %s" % token)
@@ -142,11 +142,11 @@ func _append_performance_camera_source_failures(failures: Array[String]) -> void
 	for token in ["_try_party_monster_trip_from_slide_collisions", "_try_party_monster_trip_from_forward_sensor", "PhysicsRayQueryParameters3D.create", "PARTY_MONSTER_TRIP_MIN_SURFACE_HEIGHT_RATIO", "_is_party_monster_trip_surface_high_enough", "_begin_party_monster_trip_lock", "_finish_party_monster_trip_lock", "_should_hold_party_monster_trip_action"]:
 		if not player_source.contains(token):
 			failures.append("Player should keep Party Monster deterministic trip token: %s" % token)
-	var skin_source := FileAccess.get_file_as_string("res://assets/characters/party_monster/party_monster_skin.gd")
+	var skin_source := FileAccess.get_file_as_string("res://assets/characters/party_monster/party_monster_skin.gd").replace("\r\n", "\n")
 	for token in ["\"trip\": [\"trip_01\", \"trip_02\"]", "_make_trip_animation_camera_safe"]:
 		if not skin_source.contains(token):
 			failures.append("Party Monster skin should keep camera-safe trip token: %s" % token)
-	var spring_source := FileAccess.get_file_as_string("res://scripts/spring_arm_offset.gd")
+	var spring_source := FileAccess.get_file_as_string("res://scripts/spring_arm_offset.gd").replace("\r\n", "\n")
 	for token in ["capture_camera_rig_state", "apply_camera_rig_state", "set_camera_input_locked", "_camera_input_locked", "_request_owner_skin_performance_action(\"dance\")", "_request_owner_skin_performance_action(\"victory\")", "refresh_camera_collision_exclusions", "add_excluded_object", "clear_excluded_objects"]:
 		if not spring_source.contains(token):
 			failures.append("Spring arm should keep camera rig token: %s" % token)

@@ -10,6 +10,8 @@ const BOB_HEIGHT := 0.14
 const BOB_SPEED := 2.6
 const ROTATION_SPEED := 1.35
 const PREVIEW_TARGET_SIZE := 0.5
+const PREVIEW_VISIBILITY_RANGE := 28.0
+const PREVIEW_VISIBILITY_MARGIN := 4.0
 const BEACON_HEIGHT := 640.0
 const BEACON_BASE_Y := 0.16
 const BEACON_SPACE_FADE_START := 0.035
@@ -18,7 +20,11 @@ const BEACON_CORE_WIDTH := 0.36
 const BEACON_IMPACT_CORE_RADIUS := 0.26
 const BEACON_IMPACT_GLOW_RADIUS := 0.78
 const BEACON_REFRESH_INTERVAL := 0.18
+const BEACON_IDLE_REFRESH_INTERVAL := 0.42
 const PROMPT_LOCAL_POSITION := Vector3(-0.78, 1.38, 0.0)
+const VISUAL_UPDATE_INTERVAL := 1.0 / 30.0
+const IDLE_VISUAL_UPDATE_INTERVAL := 1.0 / 12.0
+const BEACON_PULSE_INTERVAL := 1.0 / 30.0
 const SLOT_COLORS := {
 	"eyes": Color(0.35, 0.86, 1.0, 1.0),
 	"mouth": Color(1.0, 0.42, 0.46, 1.0),
@@ -38,6 +44,7 @@ const SLOT_COLORS := {
 
 var slot := ""
 var is_available := true
+var match_active := true
 var respawn_timer := 0.0
 var _nearby_player_ids := {}
 var _visual_root: Node3D = null
@@ -56,6 +63,9 @@ var _beacon_impact_core: MeshInstance3D = null
 var _beacon_impact_particles: GPUParticles3D = null
 var _beacon_impact_requested := false
 var _beacon_refresh_time := 0.0
+var _visual_update_time := 0.0
+var _visual_motion_elapsed := 0.0
+var _beacon_pulse_time := 0.0
 var _accessory_color := Color(0.85, 0.92, 1.0, 1.0)
 
 
@@ -65,33 +75,139 @@ func _ready() -> void:
 	monitorable = true
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
-	set_process(true)
-	set_process_unhandled_input(true)
+	_seed_process_stagger()
+	set_process(_should_process_pickup())
+	set_process_unhandled_input(false)
 	_refresh_accessory_metadata()
 	_ensure_collision_shape()
 	_apply_visual()
+	_apply_match_active_state()
+
+
+func set_match_active(active: bool) -> void:
+	match_active = active
+	_apply_match_active_state()
+
+
+func _is_runtime_server() -> bool:
+	if not multiplayer.has_multiplayer_peer():
+		return true
+	return multiplayer.is_server()
+
+
+func _remote_sender_id() -> int:
+	if not multiplayer.has_multiplayer_peer():
+		return 1
+	return multiplayer.get_remote_sender_id()
+
+
+func _apply_match_active_state() -> void:
+	var pickup_active: bool = match_active and is_available
+	visible = pickup_active
+	set_deferred("monitoring", pickup_active)
+	set_deferred("monitorable", pickup_active)
+	for child in get_children():
+		if child is CollisionShape3D:
+			(child as CollisionShape3D).set_deferred("disabled", not pickup_active)
+	if pickup_active:
+		_seed_process_stagger()
+		_update_local_hint_visibility()
+	else:
+		_nearby_player_ids.clear()
+		_clear_prompt_hud()
+		set_process_unhandled_input(false)
+		if _beacon_root and is_instance_valid(_beacon_root):
+			_beacon_root.visible = false
+		if _beacon_impact_particles and is_instance_valid(_beacon_impact_particles):
+			_beacon_impact_particles.emitting = false
+	_sync_process_state()
 
 
 func _process(delta: float) -> void:
-	_time += delta
-	_update_visual_motion()
-	_update_beacon_pulse()
-	_beacon_refresh_time -= delta
-	if _beacon_refresh_time <= 0.0:
-		_beacon_refresh_time = BEACON_REFRESH_INTERVAL
-		_update_local_hint_visibility()
-	if not multiplayer.is_server():
+	if not match_active:
+		set_process(false)
 		return
 	if not is_available:
-		respawn_timer -= delta
-		if respawn_timer <= 0.0:
-			_respawn()
+		if _is_runtime_server():
+			respawn_timer -= delta
+			if respawn_timer <= 0.0:
+				_respawn()
+		else:
+			set_process(false)
+		return
+
+	_time += delta
+	_visual_motion_elapsed += delta
+	_visual_update_time -= delta
+	if _visual_update_time <= 0.0:
+		var visual_interval: float = _visual_update_interval()
+		_visual_update_time = visual_interval
+		_update_visual_motion(_visual_motion_elapsed)
+		_visual_motion_elapsed = 0.0
+	if _beacon_root and _beacon_root.visible:
+		_beacon_pulse_time -= delta
+		if _beacon_pulse_time <= 0.0:
+			_beacon_pulse_time = BEACON_PULSE_INTERVAL
+			_update_beacon_pulse()
+	_beacon_refresh_time -= delta
+	if _beacon_refresh_time <= 0.0:
+		var refresh_interval: float = _beacon_refresh_interval()
+		_beacon_refresh_time = refresh_interval
+		_update_local_hint_visibility()
+
+
+func _should_process_pickup() -> bool:
+	if not match_active:
+		return false
+	if not is_available:
+		return _is_runtime_server()
+	return _is_local_player_nearby() or _is_bounty_beacon_visible()
+
+
+func _sync_process_state() -> void:
+	set_process(_should_process_pickup())
+
+
+func _is_bounty_beacon_visible() -> bool:
+	return _beacon_root != null and is_instance_valid(_beacon_root) and _beacon_root.visible
+
+
+func _seed_process_stagger() -> void:
+	var phase_seed: int = hash("%s:%s" % [String(name), accessory_id])
+	if phase_seed < 0:
+		phase_seed = -phase_seed
+	var phase: float = float(phase_seed % 997) / 997.0
+	_visual_update_time = maxf(VISUAL_UPDATE_INTERVAL * phase, 0.001)
+	_beacon_refresh_time = maxf(_beacon_refresh_interval() * fposmod(phase + 0.37, 1.0), 0.001)
+	_beacon_pulse_time = maxf(BEACON_PULSE_INTERVAL * fposmod(phase + 0.71, 1.0), 0.001)
+
+
+func _visual_update_interval() -> float:
+	if _is_local_player_nearby() or (_beacon_root and _beacon_root.visible):
+		return VISUAL_UPDATE_INTERVAL
+	return IDLE_VISUAL_UPDATE_INTERVAL
+
+
+func _beacon_refresh_interval() -> float:
+	if _is_local_player_nearby() or (_beacon_root and _beacon_root.visible):
+		return BEACON_REFRESH_INTERVAL
+	return BEACON_IDLE_REFRESH_INTERVAL
+
+
+func _local_peer_id() -> int:
+	if multiplayer.has_multiplayer_peer():
+		return multiplayer.get_unique_id()
+	return 1
+
+
+func _is_local_player_nearby() -> bool:
+	return _nearby_player_ids.has(_local_peer_id())
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_available or not event.is_action_pressed("interact"):
+	if not match_active or not is_available or not event.is_action_pressed("interact"):
 		return
-	var local_id := multiplayer.get_unique_id()
+	var local_id := _local_peer_id()
 	if not _nearby_player_ids.has(local_id):
 		return
 	request_pickup_for_player(local_id)
@@ -106,26 +222,35 @@ func configure(new_accessory_id: String) -> void:
 
 func refresh_bounty_beacon_visibility() -> void:
 	_update_local_hint_visibility()
+	_sync_process_state()
 
 
 func request_pickup_for_player(peer_id: int) -> void:
-	if not is_available:
+	if not match_active or not is_available:
 		return
-	if multiplayer.is_server():
-		_server_try_pickup_by_id(peer_id)
+	var player_node: Node3D = _find_player_node(peer_id)
+	var query_tick: int = _pickup_query_tick_for_player(player_node)
+	if _is_runtime_server():
+		_server_try_pickup_by_id(peer_id, query_tick)
 	else:
-		_request_pickup_rpc.rpc_id(1)
+		_request_pickup_rpc.rpc_id(1, query_tick)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_pickup_rpc() -> void:
-	if not multiplayer.is_server():
+func _request_pickup_rpc(query_tick: int = -1) -> void:
+	if not _is_runtime_server():
 		return
-	_server_try_pickup_by_id(multiplayer.get_remote_sender_id())
+	_server_try_pickup_by_id(_remote_sender_id(), query_tick)
 
 
-func _server_try_pickup_by_id(peer_id: int) -> void:
-	if not multiplayer.is_server() or not is_available:
+func _pickup_query_tick_for_player(player_node: Node) -> int:
+	if player_node and player_node.has_method("get_network_input_tick"):
+		return int(player_node.call("get_network_input_tick"))
+	return NetworkTime.tick
+
+
+func _server_try_pickup_by_id(peer_id: int, query_tick: int = -1) -> void:
+	if not _is_runtime_server() or not match_active or not is_available:
 		return
 	var accessory := AccessoryCatalog.get_accessory(accessory_id)
 	if accessory.is_empty():
@@ -140,7 +265,7 @@ func _server_try_pickup_by_id(peer_id: int) -> void:
 	if not CharacterSkinCatalog.is_party_monster(model_id):
 		return
 	var player_node := _find_player_node(peer_id)
-	if not _is_player_close_enough(player_node):
+	if not _server_player_was_in_pickup_range(peer_id, player_node, query_tick):
 		return
 	var current_loadout := AccessoryCatalog.sanitize_loadout(info.get("party_monster_accessories", {}), model_id)
 	var replaced_id := str(current_loadout.get(str(accessory.get("slot", "")), ""))
@@ -151,6 +276,14 @@ func _server_try_pickup_by_id(peer_id: int) -> void:
 	if player_node and player_node.has_method("send_party_monster_accessory_feedback"):
 		player_node.call("send_party_monster_accessory_feedback", accessory_id, replaced_id)
 	_consume()
+
+
+func _server_player_was_in_pickup_range(peer_id: int, player_node: Node3D, query_tick: int) -> bool:
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree())
+	if history != null and query_tick >= 0:
+		if history.player_was_in_radius(peer_id, global_position, PICKUP_RANGE + 0.9, query_tick):
+			return true
+	return _is_player_close_enough(player_node)
 
 
 func _is_player_close_enough(player_node: Node3D) -> bool:
@@ -183,13 +316,13 @@ func _find_player_node(peer_id: int) -> Node3D:
 
 
 func _consume() -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		return
 	_set_available.rpc(false, RESPAWN_TIME)
 
 
 func _respawn() -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		return
 	_set_available.rpc(true, 0.0)
 
@@ -198,21 +331,16 @@ func _respawn() -> void:
 func _set_available(available: bool, next_respawn_time: float = 0.0) -> void:
 	is_available = available
 	respawn_timer = maxf(next_respawn_time, 0.0)
-	visible = available
-	monitoring = available
-	monitorable = available
-	for child in get_children():
-		if child is CollisionShape3D:
-			(child as CollisionShape3D).disabled = not available
-	_update_local_hint_visibility()
+	_apply_match_active_state()
 
 
 func _on_body_entered(body: Node) -> void:
-	if not body or not body.is_in_group("players"):
+	if not match_active or not body or not body.is_in_group("players"):
 		return
 	if body.has_method("get_multiplayer_authority"):
 		_nearby_player_ids[int(body.get_multiplayer_authority())] = true
 	_update_local_hint_visibility()
+	_sync_process_state()
 
 
 func _on_body_exited(body: Node) -> void:
@@ -221,6 +349,7 @@ func _on_body_exited(body: Node) -> void:
 	if body.has_method("get_multiplayer_authority"):
 		_nearby_player_ids.erase(int(body.get_multiplayer_authority()))
 	_update_local_hint_visibility()
+	_sync_process_state()
 
 
 func _refresh_accessory_metadata() -> void:
@@ -249,8 +378,7 @@ func _apply_visual() -> void:
 	_visual_root.name = "AccessoryVisualRoot"
 	_visual_root.position = Vector3(0.0, _base_visual_y, 0.0)
 	add_child(_visual_root)
-	_accessory_color = _add_real_accessory_preview(_visual_root, fallback_color)
-	_add_bounty_beacon(_accessory_color)
+	_add_fallback_preview(_visual_root, fallback_color)
 	_update_local_hint_visibility()
 
 
@@ -290,6 +418,11 @@ func _add_real_accessory_preview(parent: Node3D, fallback_color: Color) -> Color
 func _add_fallback_preview(parent: Node3D, color: Color) -> void:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = "AccessoryFallbackPreview"
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	mesh_instance.visibility_range_end = PREVIEW_VISIBILITY_RANGE
+	mesh_instance.visibility_range_end_margin = PREVIEW_VISIBILITY_MARGIN
+	mesh_instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	mesh_instance.mesh = _fallback_mesh_for_slot()
 	mesh_instance.material_override = _slot_material(color)
 	parent.add_child(mesh_instance)
@@ -302,18 +435,20 @@ func _fallback_mesh_for_slot() -> Mesh:
 		cone.top_radius = 0.0
 		cone.bottom_radius = 0.42
 		cone.height = 0.72
-		cone.radial_segments = 16
+		cone.radial_segments = 10
 		return cone
 	if slot == "tail" or slot == "gloves":
 		var cylinder := CylinderMesh.new()
 		cylinder.top_radius = 0.22
 		cylinder.bottom_radius = 0.22
 		cylinder.height = 0.65
-		cylinder.radial_segments = 16
+		cylinder.radial_segments = 10
 		return cylinder
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.34
 	sphere.height = 0.68
+	sphere.radial_segments = 12
+	sphere.rings = 6
 	return sphere
 
 
@@ -342,6 +477,7 @@ func _make_beacon_ribbon(node_name: String, width: float, height: float, color: 
 	ribbon.position = Vector3(0.0, height * 0.5 + BEACON_BASE_Y, 0.0)
 	ribbon.rotation.y = yaw
 	ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ribbon.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	ribbon.extra_cull_margin = height * 2.0
 	var material := _beacon_material(color, base_alpha, core_alpha, emission, top_fade, flow_speed)
 	ribbon.material_override = material
@@ -402,12 +538,13 @@ func _make_impact_glow_disc(node_name: String, radius: float, height: float, col
 	var disc := MeshInstance3D.new()
 	disc.name = node_name
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	disc.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	disc.position = Vector3(0.0, height * 0.5, 0.0)
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = radius
 	mesh.bottom_radius = radius
 	mesh.height = height
-	mesh.radial_segments = 48
+	mesh.radial_segments = 18
 	mesh.rings = 1
 	mesh.material = _impact_glow_material(color, alpha, energy)
 	disc.mesh = mesh
@@ -496,10 +633,10 @@ func _normalize_accessory_preview(preview: Node3D) -> void:
 	preview.position -= Vector3(center.x, scaled_bounds.position.y, center.z)
 
 
-func _update_visual_motion() -> void:
+func _update_visual_motion(delta: float) -> void:
 	if _visual_root and is_instance_valid(_visual_root):
 		_visual_root.position.y = _base_visual_y + sin(_time * BOB_SPEED) * BOB_HEIGHT
-		_visual_root.rotation.y += ROTATION_SPEED * get_process_delta_time()
+		_visual_root.rotation.y += ROTATION_SPEED * maxf(delta, 0.0)
 	_face_prompt_hud_to_camera()
 
 
@@ -526,8 +663,9 @@ func _update_local_hint_visibility() -> void:
 
 
 func _update_prompt_visibility() -> void:
-	var local_id := multiplayer.get_unique_id()
+	var local_id := _local_peer_id()
 	var local_nearby := is_available and _nearby_player_ids.has(local_id)
+	set_process_unhandled_input(local_nearby)
 	if not local_nearby:
 		_clear_prompt_hud()
 		return
@@ -649,20 +787,25 @@ func _face_prompt_hud_to_camera() -> void:
 
 
 func _update_beacon_visibility() -> void:
+	var should_show := _should_show_bounty_beacon()
+	if should_show and not _beacon_root:
+		_add_bounty_beacon(_accessory_color)
 	if not _beacon_root:
+		_beacon_impact_requested = false
 		return
 	var was_visible := _beacon_root.visible
-	var should_show := _should_show_bounty_beacon()
 	_beacon_root.visible = should_show
 	_beacon_impact_requested = should_show
 	if _beacon_impact_particles and is_instance_valid(_beacon_impact_particles):
 		if should_show and not was_visible:
 			_beacon_impact_particles.restart()
 		_beacon_impact_particles.emitting = should_show
+	if should_show != was_visible:
+		_sync_process_state()
 
 
 func _prompt_action_text() -> String:
-	var local_id := multiplayer.get_unique_id()
+	var local_id := _local_peer_id()
 	if Network.players.has(local_id):
 		var info: Dictionary = Network.players.get(local_id, {})
 		var model_id := CharacterSkinCatalog.normalize(str(info.get("character_model", CharacterSkinCatalog.DEFAULT_ID)))
@@ -679,7 +822,7 @@ func _prompt_action_text() -> String:
 func _should_show_bounty_beacon() -> bool:
 	if not is_available or slot.is_empty():
 		return false
-	var local_id := multiplayer.get_unique_id()
+	var local_id := _local_peer_id()
 	if not Network.players.has(local_id):
 		return false
 	var info: Dictionary = Network.players.get(local_id, {})

@@ -10,15 +10,22 @@ func _ready() -> void:
 func _run() -> void:
 	_reset_network_state()
 	await _test_ammo_availability_state_controls_visibility_and_collision()
-	await _test_ammo_pickup_uses_meshy_visuals_and_sized_collision()
+	await _test_ammo_pickup_uses_lightweight_visuals_and_sized_collision()
 	_test_map_prop_sync_budget_coalesces_motion()
 	_test_map_prop_sync_budget_caps_flush_size()
+	_test_map_prop_sync_budget_defaults_are_play_safe()
 	_test_map_prop_sync_budget_batches_rest_states()
 	await _test_map_prop_network_state_application()
+	_test_map_prop_runtime_visual_policy_limits_mesh_cost()
 	await _test_map_prop_non_sleeping_state_requires_meaningful_delta()
 	_test_level_applies_map_prop_state_by_name()
+	_test_level_map_prop_motion_relevance_filters_far_players()
+	_test_level_map_prop_motion_payload_slices_far_states()
+	_test_level_map_prop_motion_sync_uses_targeted_rpc()
 	await _test_map_prop_impact_server_throttle()
+	await _test_map_prop_authoritative_rest_freezes_until_impact()
 	await _test_map_prop_authoritative_impact_wakes_body()
+	await _test_map_prop_low_motion_rest_forces_sleep()
 	_shutdown_network_state()
 
 	if failures.is_empty():
@@ -70,6 +77,20 @@ func _test_ammo_availability_state_controls_visibility_and_collision() -> void:
 	add_child(ammo)
 	await get_tree().process_frame
 
+	ammo.set_match_active(false)
+	await get_tree().process_frame
+	_expect(not ammo.visible, "Inactive prep-spawned ammo should be hidden")
+	_expect(not ammo.monitoring, "Inactive prep-spawned ammo should stop monitoring")
+	_expect(not ammo.monitorable, "Inactive prep-spawned ammo should stop being monitorable")
+	_expect(collision.disabled, "Inactive prep-spawned ammo should disable collision")
+
+	ammo.set_match_active(true)
+	await get_tree().process_frame
+	_expect(ammo.visible, "Activated ammo should become visible before pickup")
+	_expect(ammo.monitoring, "Activated ammo should resume monitoring")
+	_expect(ammo.monitorable, "Activated ammo should resume being monitorable")
+	_expect(not collision.disabled, "Activated ammo should re-enable collision")
+
 	ammo._set_available(false, 12.5)
 	await get_tree().process_frame
 	_expect(not ammo.visible, "Consumed ammo should be hidden on every peer")
@@ -89,7 +110,7 @@ func _test_ammo_availability_state_controls_visibility_and_collision() -> void:
 	await get_tree().process_frame
 
 
-func _test_ammo_pickup_uses_meshy_visuals_and_sized_collision() -> void:
+func _test_ammo_pickup_uses_lightweight_visuals_and_sized_collision() -> void:
 	var level: Node = preload("res://scripts/level.gd").new()
 	var container: Node3D = Node3D.new()
 	container.name = "AmmoPackContainer"
@@ -98,19 +119,20 @@ func _test_ammo_pickup_uses_meshy_visuals_and_sized_collision() -> void:
 	var probe_types: Array[int] = [AmmoPickup.AmmoType.SMALL, AmmoPickup.AmmoType.MEDIUM, AmmoPickup.AmmoType.LARGE]
 
 	for ammo_type_value: int in probe_types:
-		var ammo_name: String = "AmmoMeshyProbe_%d" % ammo_type_value
+		var ammo_name: String = "AmmoLightweightProbe_%d" % ammo_type_value
 		var data: Dictionary = {"name": ammo_name, "position": Vector3.ZERO, "type": ammo_type_value}
 		level.call("_spawn_one_ammo", container, ammo_script, data)
 		var ammo: Area3D = container.get_node_or_null(ammo_name) as Area3D
 		_expect(ammo != null, "Level ammo spawn should create an Area3D for type %d" % ammo_type_value)
 		if ammo == null:
 			continue
-		var visual: Node3D = ammo.get_node_or_null("AmmoBoxVisual") as Node3D
-		_expect(visual != null, "Ammo pickup should use the Meshy ammo box visual for type %d" % ammo_type_value)
+		var visual: MeshInstance3D = ammo.get_node_or_null("Mesh") as MeshInstance3D
+		_expect(visual != null, "Ammo pickup should use a lightweight runtime mesh for type %d" % ammo_type_value)
 		if visual != null:
-			var expected_scale: Vector3 = AmmoPickup.visual_scale_for_type(ammo_type_value)
-			_expect(visual.scale.distance_to(expected_scale) < 0.001, "Ammo Meshy visual scale should match type sizing")
-			_expect(expected_scale.distance_to(Vector3(0.42, 0.42, 0.42)) < 0.001, "Ammo Meshy visual should stay close to the 0.8m pickup size")
+			_expect(visual.mesh is BoxMesh or visual.mesh is CylinderMesh, "Ammo runtime visual should be a primitive low-poly mesh")
+			_expect(visual.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "Ammo runtime visual should not cast active-play shadows")
+			_expect(visual.gi_mode == GeometryInstance3D.GI_MODE_DISABLED, "Ammo runtime visual should disable GI")
+			_expect(visual.visibility_range_end <= 42.0, "Ammo runtime visual should have a local cull range")
 		var label: Label3D = ammo.get_node_or_null("Label") as Label3D
 		_expect(label != null, "Ammo pickup should keep its floating label")
 		if label != null:
@@ -134,7 +156,7 @@ func _test_map_prop_sync_budget_coalesces_motion() -> void:
 	budget.queue_motion("MapProp_A", first_transform, Vector3(0.1, 0.0, 0.0), Vector3.ZERO, false)
 	budget.queue_motion("MapProp_A", latest_transform, Vector3(0.2, 0.0, 0.0), Vector3.UP, false)
 
-	var early_flush: Array[Dictionary] = budget.tick(0.05)
+	var early_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL * 0.5)
 	_expect(early_flush.is_empty(), "Map prop motion budget should wait for its flush interval")
 	_expect(budget.pending_count() == 1, "Map prop motion budget should coalesce repeated prop updates")
 
@@ -173,6 +195,13 @@ func _test_map_prop_sync_budget_caps_flush_size() -> void:
 	var final_flush: Array[Dictionary] = budget.tick(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL)
 	_expect(final_flush.size() == 1, "Map prop budget should eventually drain the final overflow state")
 	_expect(not budget.has_pending(), "Map prop budget should be empty after all capped flushes drain")
+
+
+func _test_map_prop_sync_budget_defaults_are_play_safe() -> void:
+	_expect(MapPropSyncBudget.DEFAULT_MOTION_FLUSH_INTERVAL >= 1.0 / 15.0, "Map prop motion budget should not flush faster than 15Hz by default")
+	_expect(MapPropSyncBudget.DEFAULT_MAX_MOTION_STATES_PER_FLUSH <= 12, "Map prop motion budget should cap active motion burst size")
+	_expect(MapPropSyncBudget.DEFAULT_REST_FLUSH_INTERVAL >= 1.0 / 20.0, "Map prop rest budget should not flush reliable rest states faster than 20Hz by default")
+	_expect(MapPropSyncBudget.DEFAULT_MAX_REST_STATES_PER_FLUSH <= 24, "Map prop rest budget should cap reliable rest burst size")
 
 
 func _test_map_prop_sync_budget_batches_rest_states() -> void:
@@ -223,6 +252,33 @@ func _test_map_prop_network_state_application() -> void:
 	await get_tree().process_frame
 
 
+func _test_map_prop_runtime_visual_policy_limits_mesh_cost() -> void:
+	var prop: FruitProp = FruitProp.new()
+	var visual_root: Node3D = Node3D.new()
+	visual_root.name = "MapPropVisual"
+	var mesh: MeshInstance3D = MeshInstance3D.new()
+	mesh.name = "NestedMesh"
+	mesh.mesh = BoxMesh.new()
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	mesh.gi_mode = GeometryInstance3D.GI_MODE_STATIC
+	var collision: CollisionShape3D = CollisionShape3D.new()
+	collision.name = "NestedCollision"
+	collision.shape = BoxShape3D.new()
+	visual_root.add_child(mesh)
+	visual_root.add_child(collision)
+
+	prop._disable_nested_collisions(visual_root)
+
+	_expect(mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "Runtime map prop meshes should not cast real-time shadows")
+	_expect(mesh.gi_mode == GeometryInstance3D.GI_MODE_DISABLED, "Runtime map prop meshes should not contribute to expensive GI")
+	_expect(absf(mesh.visibility_range_end - FruitProp.RUNTIME_VISUAL_CULL_RANGE) < 0.001, "Runtime map prop meshes should use the active-play cull range")
+	_expect(mesh.visibility_range_fade_mode == GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED, "Runtime map prop mesh culling should use cheap hysteresis")
+	_expect(collision.disabled, "Imported nested collisions should remain disabled under the authoritative prop body")
+
+	prop.free()
+	visual_root.free()
+
+
 func _test_map_prop_non_sleeping_state_requires_meaningful_delta() -> void:
 	var prop: FruitProp = FruitProp.new()
 	prop.name = "NonSleepingBroadcastProbe"
@@ -263,6 +319,69 @@ func _test_level_applies_map_prop_state_by_name() -> void:
 	level.free()
 
 
+func _test_level_map_prop_motion_relevance_filters_far_players() -> void:
+	var level = preload("res://scripts/level.gd").new()
+	var players := Node3D.new()
+	players.name = "PlayersContainer"
+	level.add_child(players)
+	var near_player := Node3D.new()
+	near_player.name = "8"
+	near_player.position = Vector3(2.0, 0.0, 0.0)
+	players.add_child(near_player)
+	var far_player := Node3D.new()
+	far_player.name = "9"
+	far_player.position = Vector3(120.0, 0.0, 0.0)
+	players.add_child(far_player)
+	Network.players[8] = {"role": Network.Role.HUNTER}
+	Network.players[9] = {"role": Network.Role.CHAMELEON}
+	var payload: Array = [["MapProp_Relevance", Transform3D(Basis.IDENTITY, Vector3.ZERO), Vector3.RIGHT, Vector3.ZERO, false]]
+
+	_expect(level._is_peer_relevant_to_map_prop_payload(8, payload), "Nearby hunters should receive moving map prop states")
+	_expect(not level._is_peer_relevant_to_map_prop_payload(9, payload), "Far gameplay peers should skip continuous map prop motion states")
+	Network.players[9] = {"role": Network.Role.SPECTATOR}
+	_expect(not level._is_peer_relevant_to_map_prop_payload(9, payload), "Spectators should also skip far continuous map prop motion and wait for reliable rest state")
+
+	level.free()
+	Network.players.erase(8)
+	Network.players.erase(9)
+
+
+func _test_level_map_prop_motion_payload_slices_far_states() -> void:
+	var level = preload("res://scripts/level.gd").new()
+	var players := Node3D.new()
+	players.name = "PlayersContainer"
+	level.add_child(players)
+	var near_player := Node3D.new()
+	near_player.name = "8"
+	near_player.position = Vector3(2.0, 0.0, 0.0)
+	players.add_child(near_player)
+	Network.players[8] = {"role": Network.Role.HUNTER}
+	var payload: Array = [
+		["MapProp_Near", Transform3D(Basis.IDENTITY, Vector3.ZERO), Vector3.RIGHT, Vector3.ZERO, false],
+		["MapProp_Far", Transform3D(Basis.IDENTITY, Vector3(120.0, 0.0, 0.0)), Vector3.RIGHT, Vector3.ZERO, false],
+	]
+
+	var near_payload: Array = level._map_prop_motion_payload_for_peer(8, payload)
+	_expect(near_payload.size() == 1, "Map prop motion sync should send only peer-relevant states")
+	if near_payload.size() == 1:
+		_expect(str((near_payload[0] as Array)[0]) == "MapProp_Near", "Map prop motion payload should keep the nearby prop state")
+	Network.players[8] = {"role": Network.Role.SPECTATOR}
+	var spectator_payload: Array = level._map_prop_motion_payload_for_peer(8, payload)
+	_expect(spectator_payload.size() == 1, "Spectators should use observer relevance for continuous prop motion")
+	if spectator_payload.size() == 1:
+		_expect(str((spectator_payload[0] as Array)[0]) == "MapProp_Near", "Spectator prop motion payload should keep only nearby states")
+
+	level.free()
+	Network.players.erase(8)
+
+
+func _test_level_map_prop_motion_sync_uses_targeted_rpc() -> void:
+	var level_source: String = FileAccess.get_file_as_string("res://scripts/level.gd")
+	_expect(level_source.contains("_map_prop_motion_payloads_by_peer(payload)"), "Map prop motion sync should build peer-specific payloads")
+	_expect(level_source.contains("_rpc_sync_map_prop_motion_states.rpc_id(peer_id, peer_payload)"), "Map prop motion sync should use targeted rpc_id fan-out")
+	_expect(not level_source.contains("_rpc_sync_map_prop_motion_states.rpc(payload)"), "Map prop motion sync should not broadcast every moving prop batch to all peers")
+
+
 func _test_map_prop_impact_server_throttle() -> void:
 	var level = preload("res://scripts/level.gd").new()
 	_expect(level._should_accept_map_prop_impact("ThrottleProp", 7), "First map prop impact should pass the server throttle")
@@ -274,6 +393,31 @@ func _test_map_prop_impact_server_throttle() -> void:
 	level.free()
 
 
+func _test_map_prop_authoritative_rest_freezes_until_impact() -> void:
+	var prop := FruitProp.new()
+	prop.name = "RestFreezePropProbe"
+	add_child(prop)
+	await get_tree().process_frame
+
+	prop.sleeping = true
+	prop._configure_multiplayer_body_authority()
+	_expect(prop.freeze, "Authoritative resting map props should freeze to reduce server physics cost")
+	_expect(not prop.is_physics_processing(), "Authoritative resting map props should not run per-frame physics processing")
+	_expect(prop.freeze_mode == RigidBody3D.FREEZE_MODE_STATIC, "Authoritative resting map props should use static freeze mode")
+	_expect(not prop.contact_monitor, "Authoritative resting map props should disable contact reporting")
+	_expect(prop.max_contacts_reported == 0, "Authoritative resting map props should not report idle contacts")
+	prop.apply_player_impact(Vector3(4.0, 0.0, 0.0), prop.global_position, Vector3.LEFT, false)
+	await get_tree().physics_frame
+	_expect(not prop.freeze, "Authoritative map prop impact should unfreeze before applying movement")
+	_expect(prop.is_physics_processing(), "Authoritative map prop impact should resume physics processing while moving")
+	_expect(not prop.sleeping, "Authoritative map prop impact should wake sleeping bodies")
+	_expect(prop.contact_monitor, "Authoritative moving map props should enable temporary contact reporting")
+	_expect(prop.max_contacts_reported == FruitProp.CONTACT_REPORT_COUNT, "Authoritative moving map props should cap reported contacts")
+
+	prop.queue_free()
+	await get_tree().process_frame
+
+
 func _test_map_prop_authoritative_impact_wakes_body() -> void:
 	var prop := FruitProp.new()
 	prop.name = "ImpactPropProbe"
@@ -282,9 +426,38 @@ func _test_map_prop_authoritative_impact_wakes_body() -> void:
 
 	prop.mass = 3.0
 	prop.sleeping = true
+	prop._configure_multiplayer_body_authority()
+	_expect(not prop.is_physics_processing(), "Resting impact probe should start with physics processing disabled")
 	prop.apply_player_impact(Vector3(4.0, 0.0, 0.0), prop.global_position, Vector3.LEFT, false)
 	await get_tree().physics_frame
+	_expect(not prop.freeze, "Authoritative player impact should unfreeze map props before replication")
+	_expect(prop.is_physics_processing(), "Authoritative player impact should re-enable physics processing")
 	_expect(not prop.sleeping, "Authoritative player impact should wake map props for replication")
+
+	prop.queue_free()
+	await get_tree().process_frame
+
+
+func _test_map_prop_low_motion_rest_forces_sleep() -> void:
+	var prop := FruitProp.new()
+	prop.name = "LowMotionRestProbe"
+	add_child(prop)
+	await get_tree().process_frame
+
+	prop.sleeping = false
+	prop.freeze = false
+	prop.linear_velocity = Vector3(0.02, 0.01, 0.02)
+	prop.angular_velocity = Vector3(0.0, 0.04, 0.0)
+	prop._has_recent_floor_contact = true
+	prop._configure_multiplayer_body_authority()
+	prop.set_physics_process(true)
+	var forced_rest: bool = prop._try_force_low_motion_rest(FruitProp.FORCE_REST_DELAY + 0.02)
+	_expect(forced_rest, "Low-motion grounded map props should force a reliable rest state")
+	_expect(prop.sleeping, "Low-motion map props should sleep after the forced rest window")
+	_expect(prop.freeze, "Low-motion map props should freeze after forced rest")
+	_expect(not prop.is_physics_processing(), "Low-motion map props should stop physics processing after forced rest")
+	_expect(not prop.contact_monitor, "Low-motion rested map props should disable contact reporting again")
+	_expect(prop.max_contacts_reported == 0, "Low-motion rested map props should clear reported contacts")
 
 	prop.queue_free()
 	await get_tree().process_frame

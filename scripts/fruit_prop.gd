@@ -16,12 +16,27 @@ const MAX_LINEAR_SPEED := 7.0
 const MAX_ANGULAR_SPEED := 7.5
 const FLOOR_SETTLE_LINEAR_SPEED := 0.14
 const FLOOR_SETTLE_ANGULAR_SPEED := 0.22
-const NETWORK_SYNC_INTERVAL := 0.08
-const NETWORK_POSITION_EPSILON := 0.015
-const NETWORK_ROTATION_EPSILON := 0.01
-const NETWORK_VELOCITY_EPSILON := 0.04
+const FORCE_REST_LINEAR_SPEED := 0.08
+const FORCE_REST_ANGULAR_SPEED := 0.12
+const FORCE_REST_DELAY := 0.24
+const CONTACT_REPORT_COUNT := 2
+const NETWORK_SYNC_INTERVAL := 0.16
+const NETWORK_POSITION_EPSILON := 0.035
+const NETWORK_ROTATION_EPSILON := 0.025
+const NETWORK_VELOCITY_EPSILON := 0.09
 const CLIENT_IMPACT_REQUEST_INTERVAL := 0.12
+const CLIENT_IMPACT_REQUEST_INTERVAL_MSEC := 120
 const CLIENT_MAX_REPORTED_IMPACT_SPEED := 9.0
+const PLAYER_IMPACT_SERVER_MAX_DISTANCE := 4.5
+const RUNTIME_VISUAL_CULL_RANGE := 28.0
+const RUNTIME_VISUAL_CULL_MARGIN := 5.0
+const REMOTE_VISUAL_SMOOTH_SPEED := 18.0
+const REMOTE_VISUAL_STOP_DISTANCE := 0.015
+const REMOTE_VISUAL_STOP_ANGLE := 0.02
+const REMOTE_VISUAL_SNAP_DISTANCE := 4.0
+
+static var _packed_scene_cache: Dictionary = {}
+static var _material_cache: Dictionary = {}
 
 var prop_id := "apple"
 var display_name := "Apple"
@@ -42,10 +57,16 @@ var _last_synced_transform := Transform3D()
 var _last_synced_linear_velocity := Vector3.ZERO
 var _last_synced_angular_velocity := Vector3.ZERO
 var _last_synced_sleeping := true
-var _client_impact_request_cooldown := 0.0
+var _client_next_impact_request_msec := 0
+var _remote_visual_smoothing_active := false
+var _remote_visual_target_transform := Transform3D.IDENTITY
+var _visual_local_rest_transform := Transform3D.IDENTITY
+var _low_motion_elapsed := 0.0
+var _has_recent_floor_contact := false
 
 
 func _ready() -> void:
+	set_process(false)
 	_configure_physics_body()
 	_configure_multiplayer_body_authority()
 	add_to_group("map_props")
@@ -54,15 +75,37 @@ func _ready() -> void:
 		add_to_group("fruit_props")
 
 
+func _process(delta: float) -> void:
+	if not _remote_visual_smoothing_active or not visual_root:
+		_remote_visual_smoothing_active = false
+		set_process(false)
+		return
+	var blend_weight: float = clampf(1.0 - exp(-REMOTE_VISUAL_SMOOTH_SPEED * maxf(delta, 0.0)), 0.0, 1.0)
+	visual_root.transform = visual_root.transform.interpolate_with(_remote_visual_target_transform, blend_weight)
+	var current_rotation: Quaternion = visual_root.transform.basis.get_rotation_quaternion()
+	var target_rotation: Quaternion = _remote_visual_target_transform.basis.get_rotation_quaternion()
+	if visual_root.transform.origin.distance_to(_remote_visual_target_transform.origin) <= REMOTE_VISUAL_STOP_DISTANCE and current_rotation.angle_to(target_rotation) <= REMOTE_VISUAL_STOP_ANGLE:
+		visual_root.transform = _remote_visual_target_transform
+		_remote_visual_smoothing_active = false
+		set_process(false)
+
+
 func _physics_process(delta: float) -> void:
-	if multiplayer.is_server():
-		_network_sync_elapsed += delta
-		if _network_sync_elapsed >= NETWORK_SYNC_INTERVAL:
-			_network_sync_elapsed = 0.0
-			if _should_broadcast_network_state():
-				_broadcast_network_state()
-	elif _client_impact_request_cooldown > 0.0:
-		_client_impact_request_cooldown = maxf(0.0, _client_impact_request_cooldown - delta)
+	if not _is_runtime_server():
+		set_physics_process(false)
+		return
+	if sleeping and _network_sync_initialized and _last_synced_sleeping:
+		_freeze_authoritative_resting_body()
+		return
+	if _try_force_low_motion_rest(delta):
+		return
+	_network_sync_elapsed += delta
+	if _network_sync_elapsed >= NETWORK_SYNC_INTERVAL:
+		_network_sync_elapsed = 0.0
+		if _should_broadcast_network_state():
+			_broadcast_network_state()
+		if sleeping:
+			_freeze_authoritative_resting_body()
 
 
 func apply_data(data: Dictionary) -> void:
@@ -116,9 +159,9 @@ func _rebuild_visual() -> void:
 	for child in get_children():
 		child.queue_free()
 
-	var scene := load(scene_path)
-	if scene is PackedScene:
-		visual_root = (scene as PackedScene).instantiate() as Node3D
+	var scene: PackedScene = _load_cached_packed_scene(scene_path)
+	if scene != null:
+		visual_root = scene.instantiate() as Node3D
 		if visual_root:
 			visual_root.name = "MapPropVisual"
 			visual_root.scale = disguise_scale
@@ -136,39 +179,46 @@ func _rebuild_visual() -> void:
 	collision.shape = shape
 	add_child(collision)
 	_place_body_and_visual_on_ground()
+	if visual_root:
+		_visual_local_rest_transform = visual_root.transform
+	else:
+		_visual_local_rest_transform = Transform3D.IDENTITY
 	mass = _calculate_mass()
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = _calculate_center_of_mass_offset()
 	sleeping = true
 
 
-func apply_player_impact(player_velocity: Vector3, contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false) -> void:
-	if not multiplayer.is_server():
-		_request_authoritative_player_impact(player_velocity, contact_point, contact_normal, disguised_player)
+func apply_player_impact(player_velocity: Vector3, contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false, query_tick: int = -1) -> void:
+	if not _is_runtime_server():
+		_request_authoritative_player_impact(player_velocity, contact_point, contact_normal, disguised_player, query_tick)
 		return
 	_apply_player_impact_authoritative(player_velocity, contact_point, contact_normal, disguised_player)
 
 
-func _request_authoritative_player_impact(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
-	if _client_impact_request_cooldown > 0.0:
+func _request_authoritative_player_impact(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, query_tick: int) -> void:
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec < _client_next_impact_request_msec:
 		return
-	_client_impact_request_cooldown = CLIENT_IMPACT_REQUEST_INTERVAL
+	_client_next_impact_request_msec = now_msec + CLIENT_IMPACT_REQUEST_INTERVAL_MSEC
 	var reported_velocity := player_velocity
 	if reported_velocity.length() > CLIENT_MAX_REPORTED_IMPACT_SPEED:
 		reported_velocity = reported_velocity.normalized() * CLIENT_MAX_REPORTED_IMPACT_SPEED
 	var level := _get_level_node()
 	if level and level.has_method("request_map_prop_impact"):
-		level.request_map_prop_impact(self, reported_velocity, contact_point, contact_normal, disguised_player)
+		level.request_map_prop_impact(self, reported_velocity, contact_point, contact_normal, disguised_player, query_tick)
 		return
-	_request_player_impact_rpc.rpc_id(1, reported_velocity, contact_point, contact_normal, disguised_player)
+	_request_player_impact_rpc.rpc_id(1, reported_velocity, contact_point, contact_normal, disguised_player, query_tick)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_player_impact_rpc(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
-	if not multiplayer.is_server():
+func _request_player_impact_rpc(player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, query_tick: int = -1) -> void:
+	if not _is_runtime_server():
 		return
-	var sender_id := multiplayer.get_remote_sender_id()
+	var sender_id: int = _remote_sender_id()
 	if sender_id != 0 and not Network.players.has(sender_id):
+		return
+	if sender_id != 0 and not _server_player_was_in_impact_range(sender_id, contact_point, query_tick):
 		return
 	var reported_velocity := player_velocity
 	if reported_velocity.length() > CLIENT_MAX_REPORTED_IMPACT_SPEED:
@@ -176,7 +226,26 @@ func _request_player_impact_rpc(player_velocity: Vector3, contact_point: Vector3
 	_apply_player_impact_authoritative(reported_velocity, contact_point, contact_normal, disguised_player)
 
 
-func _apply_player_impact_authoritative(player_velocity: Vector3, contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false) -> void:
+func _server_player_was_in_impact_range(sender_id: int, contact_point: Vector3, query_tick: int) -> bool:
+	var check_position: Vector3 = contact_point if contact_point != Vector3.ZERO else global_position
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree()) if is_inside_tree() else null
+	if history != null and query_tick >= 0:
+		return history.player_was_in_radius(sender_id, check_position, PLAYER_IMPACT_SERVER_MAX_DISTANCE, query_tick)
+	if not is_inside_tree():
+		return false
+	for raw_player: Node in get_tree().get_nodes_in_group("players"):
+		if not raw_player is Node3D:
+			continue
+		var player: Node3D = raw_player as Node3D
+		var peer_id: int = int(str(player.name))
+		if peer_id <= 0 and player.has_method("get_multiplayer_authority"):
+			peer_id = int(player.call("get_multiplayer_authority"))
+		if peer_id == sender_id:
+			return player.global_position.distance_to(check_position) <= PLAYER_IMPACT_SERVER_MAX_DISTANCE
+	return false
+
+
+func _apply_player_impact_authoritative(player_velocity: Vector3, _contact_point: Vector3 = Vector3.ZERO, contact_normal: Vector3 = Vector3.ZERO, disguised_player: bool = false) -> void:
 	var horizontal_velocity := Vector3(player_velocity.x, 0.0, player_velocity.z)
 	var speed := horizontal_velocity.length()
 	if speed < PLAYER_IMPACT_MIN_SPEED:
@@ -192,7 +261,7 @@ func _apply_player_impact_authoritative(player_velocity: Vector3, contact_point:
 	var mass_resistance := clampf(3.0 / maxf(mass, 1.0), 0.35, 1.0)
 	var impulse_strength := clampf(speed * multiplier * mass_resistance, 0.0, PLAYER_IMPACT_MAX_IMPULSE)
 	var impulse := impact_direction * impulse_strength
-	sleeping = false
+	_wake_authoritative_body()
 	apply_central_impulse(impulse)
 
 	var roll_axis := Vector3.UP.cross(impact_direction)
@@ -222,6 +291,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			has_floor_contact = true
 		elif absf(normal.y) < 0.35:
 			has_wall_contact = true
+	_has_recent_floor_contact = has_floor_contact
 
 	if has_floor_contact:
 		next_linear.y = minf(next_linear.y, 0.0)
@@ -253,10 +323,9 @@ func _configure_physics_body() -> void:
 	linear_damp = 2.6
 	angular_damp = 1.8
 	can_sleep = true
-	contact_monitor = true
-	max_contacts_reported = 8
+	_set_contact_reporting(false)
 	if _has_property("continuous_cd"):
-		set("continuous_cd", true)
+		set("continuous_cd", false)
 	var material := PhysicsMaterial.new()
 	material.friction = 0.78
 	material.bounce = 0.025
@@ -265,17 +334,115 @@ func _configure_physics_body() -> void:
 
 func _configure_multiplayer_body_authority() -> void:
 	_apply_network_interpolation_policy()
-	if multiplayer.multiplayer_peer == null or multiplayer.is_server():
-		freeze = false
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	var authoritative_body: bool = multiplayer_api == null or multiplayer_api.multiplayer_peer == null or multiplayer_api.is_server()
+	set_physics_process(authoritative_body and not sleeping)
+	if authoritative_body:
+		freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+		freeze = sleeping
+		_set_contact_reporting(not sleeping)
 		return
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	sleeping = true
+	_set_contact_reporting(false)
+
+
+func _wake_authoritative_body() -> void:
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	_set_contact_reporting(true)
+	set_physics_process(true)
+	freeze = false
+	sleeping = false
+	_low_motion_elapsed = 0.0
+
+
+func _try_force_low_motion_rest(delta: float) -> bool:
+	if sleeping:
+		_low_motion_elapsed = 0.0
+		return false
+	if not _has_recent_floor_contact:
+		_low_motion_elapsed = 0.0
+		return false
+	var horizontal_speed := Vector2(linear_velocity.x, linear_velocity.z).length()
+	var vertical_speed := absf(linear_velocity.y)
+	if horizontal_speed > FORCE_REST_LINEAR_SPEED or vertical_speed > FORCE_REST_LINEAR_SPEED or angular_velocity.length() > FORCE_REST_ANGULAR_SPEED:
+		_low_motion_elapsed = 0.0
+		return false
+	_low_motion_elapsed += maxf(delta, 0.0)
+	if _low_motion_elapsed < FORCE_REST_DELAY:
+		return false
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	sleeping = true
+	_broadcast_network_state()
+	_freeze_authoritative_resting_body()
+	return true
+
+
+func _freeze_authoritative_resting_body() -> void:
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	if multiplayer_api != null and multiplayer_api.multiplayer_peer != null and not multiplayer_api.is_server():
+		return
+	if not sleeping:
+		return
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	freeze = true
+	set_physics_process(false)
+	_set_contact_reporting(false)
+
+
+func _set_contact_reporting(active: bool) -> void:
+	contact_monitor = active
+	max_contacts_reported = CONTACT_REPORT_COUNT if active else 0
 
 
 func _apply_network_interpolation_policy() -> void:
-	var use_engine_interpolation: bool = multiplayer.multiplayer_peer == null or multiplayer.is_server()
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	var use_engine_interpolation: bool = multiplayer_api == null or multiplayer_api.multiplayer_peer == null or multiplayer_api.is_server()
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT if use_engine_interpolation else Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+
+func _runtime_multiplayer_api() -> MultiplayerAPI:
+	return multiplayer if is_inside_tree() else null
+
+
+func _is_runtime_server() -> bool:
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	return multiplayer_api == null or multiplayer_api.multiplayer_peer == null or multiplayer_api.is_server()
+
+
+func _remote_sender_id() -> int:
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	if multiplayer_api == null or multiplayer_api.multiplayer_peer == null:
+		return 1
+	return multiplayer_api.get_remote_sender_id()
+
+
+func _should_smooth_remote_visual(next_transform: Transform3D, next_sleeping: bool) -> bool:
+	if next_sleeping or not visual_root or not is_inside_tree():
+		return false
+	var multiplayer_api: MultiplayerAPI = _runtime_multiplayer_api()
+	if multiplayer_api == null or multiplayer_api.multiplayer_peer == null or multiplayer_api.is_server():
+		return false
+	var target_visual_position: Vector3 = next_transform * _visual_local_rest_transform.origin
+	return visual_root.global_position.distance_to(target_visual_position) <= REMOTE_VISUAL_SNAP_DISTANCE
+
+
+func _begin_remote_visual_smoothing(previous_visual_global_transform: Transform3D) -> void:
+	if not visual_root:
+		return
+	_remote_visual_target_transform = _visual_local_rest_transform
+	visual_root.global_transform = previous_visual_global_transform
+	_remote_visual_smoothing_active = true
+	set_process(true)
+
+
+func _snap_remote_visual_to_rest() -> void:
+	_remote_visual_smoothing_active = false
+	if visual_root:
+		visual_root.transform = _visual_local_rest_transform
+	set_process(false)
 
 
 func _should_broadcast_network_state() -> bool:
@@ -297,7 +464,7 @@ func _should_broadcast_network_state() -> bool:
 
 
 func _broadcast_network_state() -> void:
-	if not multiplayer.is_server():
+	if not _is_runtime_server():
 		return
 	var was_sleeping := _last_synced_sleeping
 	_store_synced_network_state()
@@ -330,11 +497,16 @@ func _sync_prop_rest_state(next_transform: Transform3D, next_linear_velocity: Ve
 
 
 func _apply_network_physics_state(next_transform: Transform3D, next_linear_velocity: Vector3, next_angular_velocity: Vector3, next_sleeping: bool, force: bool = false) -> void:
-	if is_inside_tree() and multiplayer.is_server() and not force:
+	if is_inside_tree() and _is_runtime_server() and not force:
 		return
+	var should_smooth_visual: bool = _should_smooth_remote_visual(next_transform, next_sleeping)
+	var previous_visual_global_transform: Transform3D = Transform3D.IDENTITY
+	if should_smooth_visual and visual_root:
+		previous_visual_global_transform = visual_root.global_transform
 	_apply_network_interpolation_policy()
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
+	_set_contact_reporting(false)
 	if is_inside_tree():
 		global_transform = next_transform
 		reset_physics_interpolation()
@@ -343,6 +515,10 @@ func _apply_network_physics_state(next_transform: Transform3D, next_linear_veloc
 	linear_velocity = next_linear_velocity
 	angular_velocity = next_angular_velocity
 	sleeping = next_sleeping
+	if should_smooth_visual and visual_root:
+		_begin_remote_visual_smoothing(previous_visual_global_transform)
+	else:
+		_snap_remote_visual_to_rest()
 
 
 func _get_level_node() -> Node:
@@ -488,13 +664,22 @@ func _floor_angular_damping() -> float:
 
 
 func _has_property(property_name: String) -> bool:
-	for property in get_property_list():
+	return _has_object_property(self, property_name)
+
+
+func _has_object_property(object: Object, property_name: String) -> bool:
+	if object == null:
+		return false
+	for property in object.get_property_list():
 		if str(property.get("name", "")) == property_name:
 			return true
 	return false
 
 
 func _disable_nested_collisions(node: Node) -> void:
+	_apply_static_visual_subtree_policy(node)
+	if node is GeometryInstance3D:
+		_apply_runtime_visual_policy(node as GeometryInstance3D)
 	if node is CollisionShape3D:
 		(node as CollisionShape3D).disabled = true
 	elif node is CollisionObject3D:
@@ -502,6 +687,32 @@ func _disable_nested_collisions(node: Node) -> void:
 		(node as CollisionObject3D).collision_mask = 0
 	for child in node.get_children():
 		_disable_nested_collisions(child)
+
+
+func _apply_static_visual_subtree_policy(node: Node) -> void:
+	node.set_process(false)
+	node.set_physics_process(false)
+	node.set_process_input(false)
+	node.set_process_unhandled_input(false)
+	node.set_process_unhandled_key_input(false)
+	if node is AnimationPlayer:
+		(node as AnimationPlayer).active = false
+	elif node is AudioStreamPlayer3D:
+		(node as AudioStreamPlayer3D).stop()
+	elif node is AudioStreamPlayer2D:
+		(node as AudioStreamPlayer2D).stop()
+	elif node is AudioStreamPlayer:
+		(node as AudioStreamPlayer).stop()
+
+
+func _apply_runtime_visual_policy(instance: GeometryInstance3D) -> void:
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	instance.visibility_range_end = RUNTIME_VISUAL_CULL_RANGE
+	instance.visibility_range_end_margin = RUNTIME_VISUAL_CULL_MARGIN
+	instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	if _has_object_property(instance, "lod_bias"):
+		instance.set("lod_bias", 0.72)
 
 
 func _get_map_collision_radius() -> float:
@@ -558,26 +769,50 @@ func _find_mesh_instances(node: Node, result: Array[MeshInstance3D]) -> void:
 		_find_mesh_instances(child, result)
 
 
-func _transform_aabb(transform: Transform3D, box: AABB) -> AABB:
+func _transform_aabb(source_transform: Transform3D, box: AABB) -> AABB:
 	var min_corner := Vector3(INF, INF, INF)
 	var max_corner := Vector3(-INF, -INF, -INF)
 	for x in [0.0, 1.0]:
 		for y in [0.0, 1.0]:
 			for z in [0.0, 1.0]:
 				var point := box.position + Vector3(box.size.x * x, box.size.y * y, box.size.z * z)
-				var transformed := transform * point
+				var transformed := source_transform * point
 				min_corner = min_corner.min(transformed)
 				max_corner = max_corner.max(transformed)
 	return AABB(min_corner, max_corner - min_corner)
 
 
+static func _load_cached_packed_scene(path: String) -> PackedScene:
+	if path.is_empty():
+		return null
+	if _packed_scene_cache.has(path):
+		return _packed_scene_cache[path] as PackedScene
+	var resource: Resource = load(path)
+	var scene: PackedScene = resource as PackedScene
+	if scene != null:
+		_packed_scene_cache[path] = scene
+	return scene
+
+
+static func _load_cached_material(path: String) -> Material:
+	if path.is_empty():
+		return null
+	if _material_cache.has(path):
+		return _material_cache[path] as Material
+	var resource: Resource = load(path)
+	var material: Material = resource as Material
+	if material != null:
+		_material_cache[path] = material
+	return material
+
+
 func _apply_fallback_material(node: Node) -> void:
 	if fallback_material_path.is_empty():
 		return
-	var material_resource := load(fallback_material_path)
-	if not material_resource is Material:
+	var material_resource: Material = _load_cached_material(fallback_material_path)
+	if material_resource == null:
 		return
-	_apply_material_to_unassigned_meshes(node, material_resource as Material)
+	_apply_material_to_unassigned_meshes(node, material_resource)
 
 
 func _apply_material_to_unassigned_meshes(node: Node, material: Material) -> void:

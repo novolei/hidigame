@@ -31,6 +31,7 @@ const HOST_PORT_FALLBACK_ATTEMPTS: int = 12
 const PERF_TELEMETRY_INTERVAL_SEC := 10.0
 const PERF_TELEMETRY_SLOW_FRAME_MS := 50.0
 const PERF_TELEMETRY_MAX_EVENT_KEYS := 10
+const PERF_TELEMETRY_ENV_CACHE_MSEC := 250
 var server_port: int = SERVER_PORT
 const DEV_ALLOW_SINGLE_PLAYER_START := true
 const MAX_PLAYERS: int = 24  # v0.3.2 改为 24(原模板 10)
@@ -99,9 +100,13 @@ var _perf_telemetry_worst_delta := 0.0
 var _perf_telemetry_frames := 0
 var _perf_telemetry_slow_frames := 0
 var _perf_telemetry_enabled := false
+var _perf_telemetry_enabled_cache := false
+var _perf_telemetry_enabled_cache_msec := -1000000
 var _perf_telemetry_event_counts: Dictionary = {}
 var _perf_telemetry_event_bytes: Dictionary = {}
 var _noray_private_transport: NorayPrivateTransport = null
+# Latest user-facing networking error (e.g. version mismatch); UI may read this.
+var last_error: String = ""
 
 
 func _runtime_debug_log(
@@ -171,7 +176,7 @@ var lobby_config: Dictionary = {
 	"host_stalker_count": -1,        # -1 表示按 1:1 自动
 	"stalker_glass_alpha_max": 0.125,
 	"stalker_glass_material": "classic",
-	"hunter_auto_turret_enabled": true,
+	"hunter_auto_turret_enabled": false,
 	"hunter_auto_turret_range": 34.0,
 	"auto_balance": true,
 	"public_server": false,
@@ -196,6 +201,7 @@ signal player_role_changed(peer_id, new_role)        # 角色变化
 signal player_life_state_changed(peer_id, alive)
 signal player_disconnected(peer_id)
 signal server_disconnected
+signal version_mismatch(server_protocol: int, client_protocol: int, server_build_id: String)  # 版本/协议不匹配,被拒绝进房
 signal roles_assigned()                              # 服务器完成角色分配
 signal lobby_config_updated(config)                  # host 改配置
 signal match_intro_started(remaining_sec: float)     # 全局正式开局倒计时开始
@@ -223,6 +229,8 @@ var card_loadouts: Dictionary = {}
 var _card_rng := RandomNumberGenerator.new()
 var _card_draft_active := false
 var _card_timer_sync_remaining := 0.0
+var _card_intent_sequence: int = 0
+var _last_card_intents: Dictionary = {}
 
 # -----------------------------------------------------------------------------
 # 阶段同步 RPC(server → 所有 client,通知阶段变化)
@@ -394,11 +402,33 @@ func request_keep_card(card_id: String) -> void:
 		_request_keep_card_rpc.rpc_id(1, card_id)
 
 
+func _next_network_intent_sequence() -> int:
+	_card_intent_sequence += 1
+	if _card_intent_sequence >= 0x7fffffff:
+		_card_intent_sequence = 1
+	return _card_intent_sequence
+
+
+func _record_card_intent(peer_id: int, slot_index: int, intent_tick: int, intent_sequence: int) -> void:
+	if intent_tick < 0:
+		return
+	_last_card_intents[peer_id] = {
+		"slot_index": slot_index,
+		"intent_tick": intent_tick,
+		"server_tick": NetworkTime.tick,
+		"sequence": intent_sequence,
+		"tick_delta": NetworkTime.tick - intent_tick,
+	}
+	Network.record_perf_event("card.intent")
+
+
 func request_use_card_slot(slot_index: int) -> void:
+	var intent_tick: int = NetworkTime.tick
+	var intent_sequence: int = _next_network_intent_sequence()
 	if multiplayer.is_server():
-		_server_use_card_slot(local_peer_id(), slot_index)
+		_server_use_card_slot(local_peer_id(), slot_index, intent_tick, intent_sequence)
 	else:
-		_request_use_card_slot_rpc.rpc_id(1, slot_index)
+		_request_use_card_slot_rpc.rpc_id(1, slot_index, intent_tick, intent_sequence)
 
 
 func server_try_consume_reactive_card(peer_id: int, card_id: String) -> bool:
@@ -428,10 +458,10 @@ func _request_keep_card_rpc(card_id: String) -> void:
 
 
 @rpc("any_peer", "reliable")
-func _request_use_card_slot_rpc(slot_index: int) -> void:
+func _request_use_card_slot_rpc(slot_index: int, intent_tick: int = -1, intent_sequence: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
-	_server_use_card_slot(multiplayer.get_remote_sender_id(), slot_index)
+	_server_use_card_slot(multiplayer.get_remote_sender_id(), slot_index, intent_tick, intent_sequence)
 
 
 func _server_begin_card_pick(peer_id: int) -> void:
@@ -564,7 +594,8 @@ func _update_card_draft_remaining_fields(state: Dictionary, now_msec: int = -1) 
 	state["draft_remaining_sec"] = maxf(0.0, float(draft_expires_at_msec - now_msec) / 1000.0)
 
 
-func _server_use_card_slot(peer_id: int, slot_index: int) -> void:
+func _server_use_card_slot(peer_id: int, slot_index: int, intent_tick: int = -1, intent_sequence: int = 0) -> void:
+	_record_card_intent(peer_id, slot_index, intent_tick, intent_sequence)
 	if not players.has(peer_id):
 		return
 	var loadout := card_loadouts.get(peer_id, []) as Array
@@ -650,7 +681,8 @@ func _process(delta):
 func _process_performance_telemetry(delta: float) -> void:
 	_perf_telemetry_enabled = _should_log_performance_telemetry()
 	if not _perf_telemetry_enabled:
-		_reset_performance_telemetry_window()
+		if _perf_telemetry_elapsed > 0.0 or _perf_telemetry_frames > 0 or not _perf_telemetry_event_counts.is_empty() or not _perf_telemetry_event_bytes.is_empty():
+			_reset_performance_telemetry_window()
 		return
 	_perf_telemetry_elapsed += delta
 	_perf_telemetry_accumulated_delta += delta
@@ -685,16 +717,20 @@ func _process_performance_telemetry(delta: float) -> void:
 
 
 func is_performance_telemetry_enabled() -> bool:
-	return _perf_telemetry_enabled or _should_log_performance_telemetry()
+	if _perf_telemetry_enabled:
+		return true
+	_perf_telemetry_enabled = _should_log_performance_telemetry()
+	return _perf_telemetry_enabled
 
 
 func record_perf_event(key: String, count: int = 1, approx_bytes: int = 0) -> void:
 	if count <= 0:
 		return
+	if not _perf_telemetry_enabled and not _should_log_performance_telemetry():
+		return
+	_perf_telemetry_enabled = true
 	var clean_key := key.strip_edges()
 	if clean_key.is_empty():
-		return
-	if not is_performance_telemetry_enabled():
 		return
 	_perf_telemetry_event_counts[clean_key] = int(_perf_telemetry_event_counts.get(clean_key, 0)) + count
 	if approx_bytes > 0:
@@ -702,6 +738,8 @@ func record_perf_event(key: String, count: int = 1, approx_bytes: int = 0) -> vo
 
 
 func record_rpc_event(key: String, recipient_count: int = 1, approx_bytes_per_recipient: int = 0) -> void:
+	if not _perf_telemetry_enabled and not _should_log_performance_telemetry():
+		return
 	var clean_key := key.strip_edges()
 	if clean_key.is_empty():
 		return
@@ -712,12 +750,18 @@ func record_rpc_event(key: String, recipient_count: int = 1, approx_bytes_per_re
 
 
 func _should_log_performance_telemetry() -> bool:
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _perf_telemetry_enabled_cache_msec < PERF_TELEMETRY_ENV_CACHE_MSEC:
+		return _perf_telemetry_enabled_cache
 	var env := OS.get_environment("MAOMAO_PERF_LOG").strip_edges().to_lower()
 	if env == "1" or env == "true" or env == "yes" or env == "on":
-		return true
-	if env == "0" or env == "false" or env == "no" or env == "off":
-		return false
-	return RuntimeMode.is_dedicated_public_server(multiplayer, lobby_config)
+		_perf_telemetry_enabled_cache = true
+	elif env == "0" or env == "false" or env == "no" or env == "off":
+		_perf_telemetry_enabled_cache = false
+	else:
+		_perf_telemetry_enabled_cache = RuntimeMode.is_dedicated_public_server(multiplayer, lobby_config)
+	_perf_telemetry_enabled_cache_msec = now_msec
+	return _perf_telemetry_enabled_cache
 
 
 func _performance_telemetry_role() -> String:
@@ -768,6 +812,8 @@ func _reset_performance_telemetry_window() -> void:
 	_perf_telemetry_worst_delta = 0.0
 	_perf_telemetry_frames = 0
 	_perf_telemetry_slow_frames = 0
+	_perf_telemetry_enabled = false
+	_perf_telemetry_enabled_cache_msec = -1000000
 	_perf_telemetry_event_counts.clear()
 	_perf_telemetry_event_bytes.clear()
 
@@ -847,6 +893,7 @@ func get_diagnostic_snapshot() -> Dictionary:
 		"netfox": _diagnostic_netfox_snapshot(),
 		"simulator": _diagnostic_simulator_snapshot(),
 		"sync_budget": _diagnostic_sync_budget_snapshot(),
+		"card_intents": _last_card_intents.duplicate(true),
 	}
 
 
@@ -903,6 +950,11 @@ func _diagnostic_netfox_snapshot() -> Dictionary:
 		"tick_factor": NetworkTime.tick_factor,
 		"ticktime": NetworkTime.ticktime,
 		"tickrate_setting": int(ProjectSettings.get_setting(&"netfox/time/tickrate", 30)),
+		"max_ticks_per_frame": int(ProjectSettings.get_setting(&"netfox/time/max_ticks_per_frame", 8)),
+		"physics_tps": Engine.physics_ticks_per_second,
+		"physics_interpolation": bool(ProjectSettings.get_setting(&"physics/common/physics_interpolation", false)),
+		"remote_rtt_ms": NetworkTime.remote_rtt * 1000.0,
+		"remote_rtt_jitter_ms": NetworkTimeSynchronizer.rtt_jitter * 1000.0,
 		"network_loop_ms": NetworkPerformance.get_network_loop_duration_ms(),
 		"network_ticks": NetworkPerformance.get_network_ticks(),
 		"rollback_loop_ms": NetworkPerformance.get_rollback_loop_duration_ms(),
@@ -2467,7 +2519,7 @@ func _server_apply_lobby_config(new_config: Dictionary) -> void:
 	lobby_config["stalker_glass_alpha_max"] = clampf(float(lobby_config.get("stalker_glass_alpha_max", 0.125)), 0.04, 0.24)
 	if str(lobby_config.get("stalker_glass_material", "classic")) != "liquid_glass":
 		lobby_config["stalker_glass_material"] = "classic"
-	lobby_config["hunter_auto_turret_enabled"] = bool(lobby_config.get("hunter_auto_turret_enabled", true))
+	lobby_config["hunter_auto_turret_enabled"] = bool(lobby_config.get("hunter_auto_turret_enabled", false))
 	lobby_config["hunter_auto_turret_range"] = clampf(float(lobby_config.get("hunter_auto_turret_range", 34.0)), 8.0, 60.0)
 	_runtime_debug_log("[Network] Lobby config updated: ", lobby_config)
 	lobby_config_updated.emit(lobby_config)
@@ -2490,7 +2542,7 @@ func _on_connected_ok():
 	if not players.has(peer_id):
 		players[peer_id] = player_info.duplicate()
 	player_connected.emit(peer_id, players[peer_id])
-	_register_player.rpc_id(1, player_info)
+	_register_player.rpc_id(1, _handshake_registration_info())
 	_request_full_sync.rpc_id(1)
 
 
@@ -2498,6 +2550,23 @@ func _on_player_connected(id):
 	if DisplayServer.get_name() == "headless":
 		return
 	_register_player.rpc_id(id, player_info)
+
+
+# Player info plus this build's handshake identity. Sent only to the server
+# (peer 1) so it can reject incompatible clients before any gameplay RPC flows.
+func _handshake_registration_info() -> Dictionary:
+	var info: Dictionary = player_info.duplicate(true)
+	info.merge(BuildInfo.handshake_payload(), true)
+	return info
+
+
+# Server -> client: the join was refused because of a network protocol mismatch.
+# Surfaces a clear "update required" message instead of a later RPC crash.
+@rpc("authority", "call_remote", "reliable")
+func _rpc_reject_protocol(server_protocol: int, client_protocol: int, server_build_id: String) -> void:
+	last_error = "版本不匹配 / Version mismatch: server protocol v%d, this client v%d. Please update before joining." % [server_protocol, client_protocol]
+	push_warning(last_error + " (server build: " + server_build_id + ")")
+	version_mismatch.emit(server_protocol, client_protocol, server_build_id)
 
 
 @rpc("any_peer", "reliable")
@@ -2508,6 +2577,19 @@ func _register_player(new_player_info):
 	if not new_player_info.has("alive"):
 		new_player_info["alive"] = true
 	if multiplayer.is_server():
+		# Version gate: reject clients whose network protocol does not match this
+		# server BEFORE adding them or running any gameplay path. This is what turns
+		# a stale-build mismatch into a clean refusal instead of a later RPC crash.
+		var client_protocol := int(new_player_info.get("protocol_version", -1))
+		if not BuildInfo.is_compatible(client_protocol):
+			push_warning("Peer %d rejected: client protocol v%d != server v%d (client build %s)." % [int(new_player_id), client_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, str(new_player_info.get("build_id", "?"))])
+			_rpc_reject_protocol.rpc_id(new_player_id, BuildInfo.NETWORK_PROTOCOL_VERSION, client_protocol, BuildInfo.build_id())
+			multiplayer.multiplayer_peer.disconnect_peer(new_player_id)
+			return
+		# Handshake fields are transient; keep them out of the synced player record.
+		new_player_info.erase("protocol_version")
+		new_player_info.erase("build_id")
+		new_player_info.erase("content_version")
 		if is_public_lobby_server():
 			_public_lobby_handle_room_request(new_player_id, new_player_info)
 			return
@@ -2555,12 +2637,23 @@ func _request_full_sync():
 	if not multiplayer.is_server() or is_public_lobby_server():
 		return
 	var sender_id = multiplayer.get_remote_sender_id()
-	# 把所有玩家数据发给新客户端
-	_broadcast_full_sync.rpc_id(sender_id, players, lobby_config)
+	# 把所有玩家数据发给新客户端(附带服务器握手身份,供客户端校验协议版本)
+	_broadcast_full_sync.rpc_id(sender_id, players, lobby_config, BuildInfo.handshake_payload())
 
 
 @rpc("authority", "call_remote", "reliable")
-func _broadcast_full_sync(all_players: Dictionary, config: Dictionary):
+func _broadcast_full_sync(all_players: Dictionary, config: Dictionary, server_info: Dictionary = {}):
+	# On the FIRST full sync, validate the server's protocol. An older server that
+	# predates the handshake sends no server_info, so the protocol reads as -1 and
+	# is correctly treated as incompatible (the new-client / stale-server case).
+	if multiplayer.has_multiplayer_peer() and not _has_received_full_sync and not multiplayer.is_server():
+		var server_protocol := int(server_info.get("protocol_version", -1))
+		if not BuildInfo.is_compatible(server_protocol):
+			var server_build := str(server_info.get("build_id", "?"))
+			push_warning("Server protocol v%d != client v%d; refusing to join (server build %s)." % [server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, server_build])
+			version_mismatch.emit(server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION, server_build)
+			_leave_after_version_mismatch("版本不匹配 / Version mismatch: server protocol v%d, this client v%d. Please update before joining." % [server_protocol, BuildInfo.NETWORK_PROTOCOL_VERSION])
+			return
 	var previous_players := players.duplicate(true)
 	var should_emit_diffs := _has_received_full_sync
 	players = all_players
@@ -2647,6 +2740,19 @@ func _on_connection_failed():
 func _on_server_disconnected():
 	if _redirecting_to_public_room:
 		return
+	multiplayer.multiplayer_peer = null
+	players.clear()
+	public_lobby_snapshot_received.emit([])
+	server_disconnected.emit()
+
+
+# Client-side clean leave after detecting an incompatible server protocol on the
+# first full sync. Tears down the peer so no gameplay RPC is ever processed.
+func _leave_after_version_mismatch(message: String) -> void:
+	last_error = message
+	_redirecting_to_public_room = false
+	if multiplayer.multiplayer_peer:
+		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
 	players.clear()
 	public_lobby_snapshot_received.emit([])

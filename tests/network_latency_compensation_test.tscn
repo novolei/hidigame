@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://nw45xwxx7dqu"]
+
+[ext_resource type="Script" uid="uid://myf00e3t18nc" path="res://tests/network_latency_compensation_test.gd" id="1_7qs33"]
+
+[node name="NetworkLatencyCompensationTest" type="Node" unique_id=802631870]
+script = ExtResource("1_7qs33")

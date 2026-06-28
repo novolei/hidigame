@@ -17,6 +17,7 @@ const CharacterSetupOverlayScript := preload("res://scripts/character_setup_over
 const LevelLayout := preload("res://scripts/level_layout_config.gd")
 const RuntimeModeScript := preload("res://scripts/runtime_mode.gd")
 const MapPropSyncBudgetScript := preload("res://scripts/map_prop_sync_budget.gd")
+const NetworkInterestScript := preload("res://scripts/network_interest.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PartyMonsterAccessoryPickupScript := preload("res://scripts/party_monster_accessory_pickup.gd")
 const PartyMonsterHuntHUDScript := preload("res://scripts/party_monster_hunt_hud.gd")
@@ -26,6 +27,46 @@ const HologramFlagScene := preload("res://scenes/effects/hologram_flag.tscn")
 const BENCHMARK_WINDOW_SIZE := Vector2i(1280, 720)
 const BENCHMARK_DECOR_VISIBILITY_RANGE := 90.0
 const BENCHMARK_DECOR_VISIBILITY_MARGIN := 12.0
+const MATCH_PERFORMANCE_DECOR_VISIBILITY_RANGE := 48.0
+const MATCH_PERFORMANCE_DECOR_VISIBILITY_MARGIN := 6.0
+const MATCH_PERFORMANCE_RUNTIME_PROP_VISIBILITY_RANGE := 28.0
+const MATCH_PERFORMANCE_RUNTIME_PROP_VISIBILITY_MARGIN := 5.0
+const MATCH_PERFORMANCE_PICKUP_VISIBILITY_RANGE := 26.0
+const MATCH_PERFORMANCE_PICKUP_VISIBILITY_MARGIN := 4.0
+const MATCH_PERFORMANCE_PICKUP_LABEL_VISIBILITY_RANGE := 18.0
+const MATCH_PERFORMANCE_BOUNTY_BEACON_VISIBILITY_RANGE := 80.0
+const MATCH_PERFORMANCE_BOUNTY_BEACON_VISIBILITY_MARGIN := 8.0
+const MATCH_PERFORMANCE_PLAYER_VISUAL_VISIBILITY_RANGE := 80.0
+const MATCH_PERFORMANCE_PLAYER_VISUAL_VISIBILITY_MARGIN := 8.0
+const MATCH_PERFORMANCE_HEAVY_MAP_DECOR_VISIBILITY_RANGE := 30.0
+const MATCH_PERFORMANCE_HEAVY_MAP_DECOR_VISIBILITY_MARGIN := 5.0
+const MATCH_PERFORMANCE_HEAVY_MAP_DECOR_NAME_TOKENS := [
+	"tree",
+	"bridge",
+	"big_",
+	"mid_",
+]
+const MATCH_PERFORMANCE_HIDDEN_DECOR_NAME_TOKENS := [
+	"fixeddecor_cozybeaver",
+	"tanks_light_tank",
+	"tank_light_model",
+	"synty_car_small",
+	"sm_polygoncity_veh_car_small",
+	"tanks_busted_tank",
+	"bustedtank",
+]
+const MATCH_PERFORMANCE_HIDDEN_DECOR_RESOURCE_TOKENS := [
+	"meshy_ai_cozy_beaver",
+	"tank_light_model",
+	"sm_polygoncity_veh_car_small",
+	"bustedtank",
+]
+const MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE := 28.0
+const MATCH_PERFORMANCE_MAIN_SHADOW_BLUR := 0.2
+const MATCH_PERFORMANCE_LIGHT_FADE_BEGIN := 22.0
+const MATCH_PERFORMANCE_LIGHT_FADE_LENGTH := 8.0
+const MATCH_PERFORMANCE_LIGHT_FADE_SHADOW := 12.0
+const HUD_REFRESH_INTERVAL := 0.10
 const MENU_BACKGROUND_NODE_PATHS := [
 	"Environment",
 	"PlayersContainer",
@@ -69,6 +110,14 @@ var _benchmark_restore_state: Dictionary = {}
 var _benchmark_environment_state: Dictionary = {}
 var _benchmark_light_states: Array[Dictionary] = []
 var _benchmark_geometry_states: Array[Dictionary] = []
+var _match_performance_policy_enabled := false
+var _match_performance_environment_state: Dictionary = {}
+var _match_performance_light_states: Array[Dictionary] = []
+var _match_performance_geometry_states: Array[Dictionary] = []
+var _match_performance_refresh_pending := false
+var _training_targets_suspended_for_match := false
+var _training_targets_process_mode_before_suspend := -1
+var _preparation_room_process_mode_before_suspend := -1
 var _menu_background_suspended := false
 var _menu_world_environment_resource: Environment = null
 var match_intro_overlay: MatchIntroOverlay = null
@@ -124,9 +173,21 @@ var network_console_input: LineEdit = null
 var _network_console_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 var _known_player_names: Dictionary = {}
 var _hologram_flag_states: Dictionary = {}
+var _hologram_flag_intent_sequence: int = 0
 var _quit_confirm_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 var _map_prop_sync_budget: MapPropSyncBudget = MapPropSyncBudgetScript.new()
 var _map_prop_impact_last_msec: Dictionary = {}
+var _map_prop_spawn_queue: Array = []
+var _map_prop_spawn_container: Node3D = null
+var _map_prop_spawn_generation: int = 0
+var _unity_decor_spawn_queue: Array = []
+var _unity_decor_spawn_container: Node3D = null
+var _unity_decor_spawn_generation: int = 0
+var _unity_decor_scene_cache: Dictionary = {}
+var _unity_decor_material_cache: Dictionary = {}
+var _match_pickup_activation_queue: Array[Node] = []
+var _match_pickup_activation_active := false
+var _hud_refresh_elapsed: float = HUD_REFRESH_INTERVAL
 
 var prep_timer: Timer = null
 var prep_remaining: float = 0.0
@@ -161,10 +222,17 @@ const MAP_PROP_MIN_COLLISION_RADIUS: float = 0.16
 const MAP_PROP_MAX_COLLISION_RADIUS: float = 0.32
 const UNITY_DECOR_COLLISION_LAYER: int = 2
 const UNITY_DECOR_COLLISION_PADDING: Vector3 = Vector3(0.08, 0.04, 0.08)
+const UNITY_DECOR_VISUAL_CULL_RANGE: float = 32.0
+const UNITY_DECOR_VISUAL_CULL_MARGIN: float = 6.0
 const MAP_PROP_IMPACT_MAX_DISTANCE: float = 4.5
+const MAP_PROP_MOTION_SYNC_RELEVANCE_RADIUS: float = 20.0
 const MAP_PROP_IMPACT_SERVER_MIN_INTERVAL_MSEC: int = 90
 const MAP_PROP_IMPACT_THROTTLE_MAX_ENTRIES: int = 256
 const MAP_PROP_IMPACT_THROTTLE_PRUNE_MSEC: int = 2000
+const MAP_PROP_SPAWN_BATCH_SIZE: int = 2
+const MAP_PROP_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
+const UNITY_DECOR_SPAWN_BATCH_SIZE: int = 3
+const UNITY_DECOR_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
 const WORLD_COLLISION_MASK: int = 2
 const TPS_DEMO_LEVEL_MAP_NAME := "TPS Demo Level"
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
@@ -204,10 +272,11 @@ const LOW_GRAVITY_MULTIPLIER := 0.42
 const LOW_GRAVITY_EVENT_DURATION := 24.0
 const LOW_GRAVITY_CHECK_INTERVAL := 18.0
 const LOW_GRAVITY_EVENT_CHANCE := 0.34
-const PARTY_MONSTER_ACCESSORY_MIN_PICKUPS := 24
-const PARTY_MONSTER_ACCESSORY_MAX_PICKUPS := 48
+const PARTY_MONSTER_ACCESSORY_MIN_PICKUPS := 21
+const PARTY_MONSTER_ACCESSORY_MAX_PICKUPS := 24
 const PARTY_MONSTER_ACCESSORY_MIN_DISTANCE := 5.5
 const PARTY_MONSTER_ACCESSORY_MIN_PER_SLOT := 3
+const MATCH_PICKUP_ACTIVATION_BATCH_SIZE := 2
 const PARTY_MONSTER_BOUNTY_FIRST_DELAY := 18.0
 const PARTY_MONSTER_BOUNTY_ACTIVE_SECONDS := 78.0
 const PARTY_MONSTER_BOUNTY_REST_SECONDS := 22.0
@@ -392,7 +461,7 @@ func _server_start_loading_phase() -> void:
 	if game_state != GameState.LOADING:
 		return
 	_hide_loading_overlay()
-	_server_start_match_intro_phase()
+	_server_start_card_draft_phase()
 
 
 func _run_match_loading_sequence(map_name: String) -> void:
@@ -803,6 +872,12 @@ func _apply_selected_map_scene() -> void:
 	map_root.name = "TankDemoMapRoot"
 	map_root.set_meta("selected_map", selected_map)
 	environment.add_child(map_root)
+	# Maps migrated to the map framework carry a MapController on their root, which
+	# owns lighting / collision-layer / grounding / support-floor preparation in one
+	# place (see scripts/maps/). Only unmigrated maps fall back to the legacy blunt
+	# lighting-strip + TPS-specific collision pass below.
+	if map_root is MapController:
+		return
 	_sanitize_embedded_map_lighting(map_root)
 	_adapt_embedded_map_collision(map_root, selected_map)
 
@@ -897,10 +972,271 @@ func _apply_runtime_graphics_settings() -> void:
 	var settings := _game_settings()
 	if settings and settings.has_method("apply_graphics_settings"):
 		settings.call("apply_graphics_settings", get_window(), get_viewport(), _get_match_environment_resource(), self)
+	_sync_match_performance_policy(true)
 	if benchmark_mode_enabled:
 		_apply_benchmark_window_state(true)
 		_apply_benchmark_render_policy(true)
 	_sync_menu_background_performance_state(true)
+
+
+func _should_enable_match_performance_policy() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	return game_state == GameState.CARD_DRAFT \
+		or game_state == GameState.SKIN_CONFIG \
+		or game_state == GameState.MATCH_INTRO \
+		or game_state == GameState.PREP \
+		or game_state == GameState.PLAY
+
+
+func _sync_match_performance_policy(force: bool = false) -> void:
+	if benchmark_mode_enabled:
+		return
+	var desired_enabled: bool = _should_enable_match_performance_policy()
+	if not force and desired_enabled == _match_performance_policy_enabled:
+		return
+	if _match_performance_policy_enabled:
+		_apply_match_performance_render_policy(false)
+		_match_performance_policy_enabled = false
+	if desired_enabled:
+		_apply_match_performance_render_policy(true)
+		_match_performance_policy_enabled = true
+
+
+func _apply_match_performance_render_policy(enabled: bool) -> void:
+	var environment: Environment = _get_match_environment_resource()
+	if environment:
+		_apply_match_performance_environment_policy(environment, enabled)
+	_apply_match_performance_light_policy(enabled)
+	_apply_match_performance_geometry_policy(enabled)
+
+
+func _request_match_performance_policy_refresh() -> void:
+	if not _match_performance_policy_enabled:
+		return
+	if _match_performance_refresh_pending:
+		return
+	_match_performance_refresh_pending = true
+	call_deferred("_refresh_match_performance_policy_for_runtime_nodes")
+
+
+func _refresh_match_performance_policy_for_runtime_nodes() -> void:
+	_match_performance_refresh_pending = false
+	if not _match_performance_policy_enabled:
+		return
+	_apply_match_performance_runtime_node_policy()
+
+
+func _apply_match_performance_runtime_node_policy() -> void:
+	for container_name in ["MapPropContainer", "UnityDecorContainer", "AmmoPackContainer", "PartyMonsterAccessoryContainer", "PlayersContainer"]:
+		var container: Node = get_node_or_null(container_name)
+		if not container:
+			continue
+		_apply_match_performance_lights_in_subtree(container)
+		_apply_match_performance_geometry_in_subtree(container)
+
+
+func _apply_match_performance_environment_policy(environment: Environment, enabled: bool) -> void:
+	if enabled:
+		if _match_performance_environment_state.is_empty():
+			_match_performance_environment_state = _make_property_state(environment, [
+				"glow_enabled",
+				"fog_enabled",
+				"volumetric_fog_enabled",
+				"ssao_enabled",
+				"ssil_enabled",
+				"sdfgi_enabled",
+				"reflected_light_source",
+			])
+		_set_property_if_present(environment, "glow_enabled", false)
+		_set_property_if_present(environment, "fog_enabled", false)
+		_set_property_if_present(environment, "volumetric_fog_enabled", false)
+		_set_property_if_present(environment, "ssao_enabled", false)
+		_set_property_if_present(environment, "ssil_enabled", false)
+		_set_property_if_present(environment, "sdfgi_enabled", false)
+		_set_property_if_present(environment, "reflected_light_source", Environment.REFLECTION_SOURCE_DISABLED)
+		return
+	_restore_property_state(_match_performance_environment_state)
+	_match_performance_environment_state.clear()
+
+
+func _apply_match_performance_light_policy(enabled: bool) -> void:
+	if enabled:
+		_match_performance_light_states.clear()
+		var lights: Array[Node] = _find_light_nodes()
+		for node in lights:
+			var light := node as Light3D
+			if not light:
+				continue
+			_match_performance_light_states.append(_make_property_state(light, [
+				"shadow_enabled",
+				"shadow_blur",
+				"light_volumetric_fog_energy",
+				"distance_fade_enabled",
+				"distance_fade_begin",
+				"distance_fade_length",
+				"distance_fade_shadow",
+				"directional_shadow_max_distance",
+			]))
+			var keep_main_shadow: bool = _is_main_match_shadow_light(light)
+			light.shadow_enabled = keep_main_shadow
+			light.light_volumetric_fog_energy = 0.0
+			_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAIN_SHADOW_BLUR if keep_main_shadow else 0.0)
+			_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE if keep_main_shadow else 0.0)
+			_set_property_if_present(light, "distance_fade_enabled", true)
+			_set_property_if_present(light, "distance_fade_begin", MATCH_PERFORMANCE_LIGHT_FADE_BEGIN)
+			_set_property_if_present(light, "distance_fade_length", MATCH_PERFORMANCE_LIGHT_FADE_LENGTH)
+			_set_property_if_present(light, "distance_fade_shadow", MATCH_PERFORMANCE_LIGHT_FADE_SHADOW)
+		return
+	for state in _match_performance_light_states:
+		_restore_property_state(state)
+	_match_performance_light_states.clear()
+
+
+func _is_main_match_shadow_light(light: Light3D) -> bool:
+	if not light is DirectionalLight3D:
+		return false
+	var environment_root: Node = get_node_or_null("Environment")
+	return environment_root != null and light.get_parent() == environment_root and String(light.name) == "DirectionalLight3D"
+
+
+func _find_light_nodes() -> Array[Node]:
+	var lights: Array[Node] = []
+	_collect_light_nodes(self, lights)
+	return lights
+
+
+func _collect_light_nodes(node: Node, lights: Array[Node]) -> void:
+	if node is Light3D:
+		lights.append(node)
+	for child: Node in node.get_children():
+		_collect_light_nodes(child, lights)
+
+
+func _apply_match_performance_lights_in_subtree(root_node: Node) -> void:
+	var lights: Array[Node] = []
+	_collect_light_nodes(root_node, lights)
+	for node: Node in lights:
+		var light := node as Light3D
+		if not light:
+			continue
+		if not _has_match_performance_state_for(_match_performance_light_states, light):
+			_match_performance_light_states.append(_make_property_state(light, [
+				"shadow_enabled",
+				"shadow_blur",
+				"light_volumetric_fog_energy",
+				"distance_fade_enabled",
+				"distance_fade_begin",
+				"distance_fade_length",
+				"distance_fade_shadow",
+				"directional_shadow_max_distance",
+			]))
+		var keep_main_shadow: bool = _is_main_match_shadow_light(light)
+		light.shadow_enabled = keep_main_shadow
+		light.light_volumetric_fog_energy = 0.0
+		_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAIN_SHADOW_BLUR if keep_main_shadow else 0.0)
+		_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE if keep_main_shadow else 0.0)
+		_set_property_if_present(light, "distance_fade_enabled", true)
+		_set_property_if_present(light, "distance_fade_begin", MATCH_PERFORMANCE_LIGHT_FADE_BEGIN)
+		_set_property_if_present(light, "distance_fade_length", MATCH_PERFORMANCE_LIGHT_FADE_LENGTH)
+		_set_property_if_present(light, "distance_fade_shadow", MATCH_PERFORMANCE_LIGHT_FADE_SHADOW)
+
+
+func _apply_match_performance_geometry_in_subtree(root_node: Node) -> void:
+	var geometry_nodes: Array[Node] = []
+	_collect_match_performance_geometry_nodes(root_node, geometry_nodes)
+	for node: Node in geometry_nodes:
+		var instance := node as GeometryInstance3D
+		if not instance:
+			continue
+		if not _has_match_performance_state_for(_match_performance_geometry_states, instance):
+			_match_performance_geometry_states.append(_make_property_state(instance, [
+				"visible",
+				"cast_shadow",
+				"gi_mode",
+				"visibility_range_end",
+				"visibility_range_end_margin",
+				"visibility_range_fade_mode",
+			]))
+		if _should_limit_benchmark_visibility(instance):
+			_apply_match_performance_geometry_limits(instance)
+
+
+func _apply_match_performance_geometry_limits(instance: GeometryInstance3D) -> void:
+	_set_property_if_present(instance, "cast_shadow", GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	if _is_hidden_match_decor_geometry(instance):
+		instance.visible = false
+		instance.visibility_range_end = 0.0
+		instance.visibility_range_end_margin = 0.0
+		instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		return
+	var runtime_prop: bool = _is_runtime_map_prop_geometry(instance)
+	if runtime_prop:
+		instance.visibility_range_end = MATCH_PERFORMANCE_RUNTIME_PROP_VISIBILITY_RANGE
+		instance.visibility_range_end_margin = MATCH_PERFORMANCE_RUNTIME_PROP_VISIBILITY_MARGIN
+	elif _is_player_visual_geometry(instance):
+		instance.visibility_range_end = MATCH_PERFORMANCE_PLAYER_VISUAL_VISIBILITY_RANGE
+		instance.visibility_range_end_margin = MATCH_PERFORMANCE_PLAYER_VISUAL_VISIBILITY_MARGIN
+	elif _is_bounty_beacon_geometry(instance):
+		instance.visibility_range_end = MATCH_PERFORMANCE_BOUNTY_BEACON_VISIBILITY_RANGE
+		instance.visibility_range_end_margin = MATCH_PERFORMANCE_BOUNTY_BEACON_VISIBILITY_MARGIN
+	elif _is_match_pickup_geometry(instance):
+		if instance is Label3D:
+			instance.visibility_range_end = MATCH_PERFORMANCE_PICKUP_LABEL_VISIBILITY_RANGE
+			instance.visibility_range_end_margin = MATCH_PERFORMANCE_PICKUP_VISIBILITY_MARGIN
+		else:
+			instance.visibility_range_end = MATCH_PERFORMANCE_PICKUP_VISIBILITY_RANGE
+			instance.visibility_range_end_margin = MATCH_PERFORMANCE_PICKUP_VISIBILITY_MARGIN
+	elif _is_heavy_match_map_decor_geometry(instance):
+		instance.visibility_range_end = MATCH_PERFORMANCE_HEAVY_MAP_DECOR_VISIBILITY_RANGE
+		instance.visibility_range_end_margin = MATCH_PERFORMANCE_HEAVY_MAP_DECOR_VISIBILITY_MARGIN
+	else:
+		instance.visibility_range_end = MATCH_PERFORMANCE_DECOR_VISIBILITY_RANGE
+		instance.visibility_range_end_margin = MATCH_PERFORMANCE_DECOR_VISIBILITY_MARGIN
+	instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
+
+func _collect_match_performance_geometry_nodes(node: Node, result: Array[Node]) -> void:
+	if node is MeshInstance3D or node is CSGShape3D or node is GPUParticles3D or node is Label3D:
+		result.append(node)
+	for child: Node in node.get_children():
+		_collect_match_performance_geometry_nodes(child, result)
+
+
+func _has_match_performance_state_for(states: Array[Dictionary], object: Object) -> bool:
+	for state: Dictionary in states:
+		if state.get("node", null) == object:
+			return true
+	return false
+
+
+func _apply_match_performance_geometry_policy(enabled: bool) -> void:
+	if enabled:
+		_match_performance_geometry_states.clear()
+		var geometry_nodes: Array[Node] = []
+		geometry_nodes.append_array(find_children("*", "MeshInstance3D", true, false))
+		geometry_nodes.append_array(find_children("*", "CSGShape3D", true, false))
+		geometry_nodes.append_array(find_children("*", "GPUParticles3D", true, false))
+		geometry_nodes.append_array(find_children("*", "Label3D", true, false))
+		for node in geometry_nodes:
+			var instance := node as GeometryInstance3D
+			if not instance:
+				continue
+			_match_performance_geometry_states.append(_make_property_state(instance, [
+				"visible",
+				"cast_shadow",
+				"gi_mode",
+				"visibility_range_end",
+				"visibility_range_end_margin",
+				"visibility_range_fade_mode",
+			]))
+			if _should_limit_benchmark_visibility(instance):
+				_apply_match_performance_geometry_limits(instance)
+		return
+	for state in _match_performance_geometry_states:
+		_restore_property_state(state)
+	_match_performance_geometry_states.clear()
 
 
 func _set_benchmark_mode_enabled(enabled: bool) -> void:
@@ -909,6 +1245,9 @@ func _set_benchmark_mode_enabled(enabled: bool) -> void:
 	if benchmark_mode_enabled == enabled:
 		return
 	if enabled:
+		if _match_performance_policy_enabled:
+			_apply_match_performance_render_policy(false)
+			_match_performance_policy_enabled = false
 		_capture_benchmark_restore_state()
 		benchmark_mode_enabled = true
 		_apply_benchmark_window_state(true)
@@ -917,6 +1256,7 @@ func _set_benchmark_mode_enabled(enabled: bool) -> void:
 		benchmark_mode_enabled = false
 		_apply_benchmark_render_policy(false)
 		_apply_benchmark_window_state(false)
+		_sync_match_performance_policy(true)
 	if debug_overlay and is_instance_valid(debug_overlay):
 		debug_overlay._process(0.0)
 
@@ -1008,7 +1348,7 @@ func _apply_benchmark_environment_policy(environment: Environment, enabled: bool
 func _apply_benchmark_light_policy(enabled: bool) -> void:
 	if enabled:
 		_benchmark_light_states.clear()
-		var lights: Array[Node] = find_children("*", "Light3D", true, false)
+		var lights: Array[Node] = _find_light_nodes()
 		for node in lights:
 			var light := node as Light3D
 			if not light:
@@ -1071,11 +1411,104 @@ func _apply_benchmark_geometry_policy(enabled: bool) -> void:
 
 
 func _should_limit_benchmark_visibility(instance: GeometryInstance3D) -> bool:
+	if _is_runtime_map_prop_geometry(instance):
+		return true
 	var lower_name := String(instance.name).to_lower()
 	for token in ["ground", "floor", "wall", "border", "gate", "terrain", "map"]:
 		if lower_name.contains(token):
 			return false
 	return true
+
+
+func _is_hidden_match_decor_geometry(instance: GeometryInstance3D) -> bool:
+	if _is_runtime_map_prop_geometry(instance):
+		return false
+	var current: Node = instance
+	while current:
+		var lower_name: String = String(current.name).to_lower()
+		for token: String in MATCH_PERFORMANCE_HIDDEN_DECOR_NAME_TOKENS:
+			if lower_name.contains(token):
+				return true
+		current = current.get_parent()
+	if instance is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = instance as MeshInstance3D
+		if mesh_instance.mesh:
+			var resource_path: String = String(mesh_instance.mesh.resource_path).to_lower()
+			for token: String in MATCH_PERFORMANCE_HIDDEN_DECOR_RESOURCE_TOKENS:
+				if resource_path.contains(token):
+					return true
+	return false
+
+
+func _is_heavy_match_map_decor_geometry(instance: GeometryInstance3D) -> bool:
+	if _is_runtime_map_prop_geometry(instance):
+		return false
+	if not _is_imported_match_map_geometry(instance):
+		return false
+	var current: Node = instance
+	while current:
+		var lower_name: String = String(current.name).to_lower()
+		for token: String in MATCH_PERFORMANCE_HEAVY_MAP_DECOR_NAME_TOKENS:
+			if lower_name.contains(token):
+				return true
+		current = current.get_parent()
+	return false
+
+
+func _is_imported_match_map_geometry(instance: GeometryInstance3D) -> bool:
+	var current: Node = instance
+	while current:
+		if String(current.scene_file_path).to_lower().contains("assets/map/map.gltf"):
+			return true
+		current = current.get_parent()
+	if instance is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = instance as MeshInstance3D
+		if mesh_instance.mesh and String(mesh_instance.mesh.resource_path).to_lower().contains("assets/map/map.gltf"):
+			return true
+	return false
+
+
+func _is_bounty_beacon_geometry(instance: GeometryInstance3D) -> bool:
+	var current: Node = instance
+	while current:
+		var current_name: String = String(current.name)
+		if current_name == "AccessoryBountyBeacon" or current_name.begins_with("BountyBeam"):
+			return true
+		current = current.get_parent()
+	return false
+
+
+func _is_match_pickup_geometry(instance: GeometryInstance3D) -> bool:
+	var current: Node = instance
+	while current:
+		if current.is_in_group("ammo_pickups") or current.is_in_group("party_monster_accessory_pickups"):
+			return true
+		var current_name: String = String(current.name)
+		if current_name == "AmmoPackContainer" or current_name == "PartyMonsterAccessoryContainer":
+			return true
+		current = current.get_parent()
+	return false
+
+
+func _is_runtime_map_prop_geometry(instance: GeometryInstance3D) -> bool:
+	var current: Node = instance
+	while current:
+		if current.is_in_group("map_props") or String(current.name).begins_with("MapProp_"):
+			return true
+		current = current.get_parent()
+	return false
+
+
+func _is_player_visual_geometry(instance: GeometryInstance3D) -> bool:
+	var players_root: Node = get_node_or_null("PlayersContainer")
+	if players_root == null:
+		return false
+	var current: Node = instance
+	while current:
+		if current == players_root:
+			return true
+		current = current.get_parent()
+	return false
 
 
 func _make_property_state(object: Object, property_names: Array) -> Dictionary:
@@ -1091,8 +1524,11 @@ func _make_property_state(object: Object, property_names: Array) -> Dictionary:
 
 
 func _restore_property_state(state: Dictionary) -> void:
-	var object := state.get("node", null) as Object
-	if object == null or not is_instance_valid(object):
+	var object_value: Variant = state.get("node", null)
+	if object_value == null or not is_instance_valid(object_value):
+		return
+	var object: Object = object_value as Object
+	if object == null:
 		return
 	var properties: Dictionary = state.get("properties", {})
 	for property_name in properties.keys():
@@ -1143,6 +1579,9 @@ func _set_menu_background_suspended(suspended: bool) -> void:
 
 func _process(delta):
 	_sync_menu_background_performance_state()
+	_sync_match_performance_policy()
+	_sync_active_match_training_targets()
+	_process_match_pickup_activation_queue()
 	# 鏇存柊鍊掕鏃舵樉绀?浠讳綍鐘舵€?
 	if game_state == GameState.LOADING:
 		_update_loading_tip(delta)
@@ -1173,10 +1612,18 @@ func _process(delta):
 	_process_map_prop_motion_sync(delta)
 	if _is_dedicated_public_server_runtime():
 		return
+	_process_client_hud_refresh(delta)
+	_update_mouse_capture()
+
+
+func _process_client_hud_refresh(delta: float) -> void:
+	_hud_refresh_elapsed += maxf(delta, 0.0)
+	if _hud_refresh_elapsed < HUD_REFRESH_INTERVAL:
+		return
+	_hud_refresh_elapsed = 0.0
 	_update_status_hud()
 	_update_party_monster_hunt_hud()
 	_update_skill_hud()
-	_update_mouse_capture()
 
 
 func _is_dedicated_public_server_runtime() -> bool:
@@ -1209,12 +1656,86 @@ func _flush_map_prop_state_batch(states: Array[Dictionary], reliable: bool) -> v
 		payload.append([prop_name, next_transform, next_linear_velocity, next_angular_velocity, next_sleeping])
 	if payload.is_empty():
 		return
-	var event_key: String = "map_prop.rest_batch" if reliable else "map_prop.motion"
-	Network.record_rpc_event(event_key, maxi(Network.multiplayer.get_peers().size(), 1), payload.size() * 104)
 	if reliable:
-		_rpc_sync_map_prop_rest_states.rpc(payload)
-	else:
-		_rpc_sync_map_prop_motion_states.rpc(payload)
+		var recipients: PackedInt32Array = _map_prop_state_recipient_ids(payload, true)
+		if recipients.is_empty():
+			return
+		Network.record_rpc_event("map_prop.rest_batch", recipients.size(), payload.size() * 104)
+		for peer_id: int in recipients:
+			_rpc_sync_map_prop_rest_states.rpc_id(peer_id, payload)
+		return
+	var peer_payloads: Dictionary = _map_prop_motion_payloads_by_peer(payload)
+	if peer_payloads.is_empty():
+		return
+	var total_states: int = 0
+	for raw_peer_id: Variant in peer_payloads.keys():
+		var peer_payload: Array = peer_payloads.get(raw_peer_id, []) as Array
+		total_states += peer_payload.size()
+	Network.record_rpc_event("map_prop.motion", peer_payloads.size(), total_states * 104)
+	for raw_peer_id: Variant in peer_payloads.keys():
+		var peer_id: int = int(raw_peer_id)
+		var peer_payload: Array = peer_payloads.get(raw_peer_id, []) as Array
+		if not peer_payload.is_empty():
+			_rpc_sync_map_prop_motion_states.rpc_id(peer_id, peer_payload)
+
+
+func _map_prop_state_recipient_ids(payload: Array, reliable: bool) -> PackedInt32Array:
+	var recipients: PackedInt32Array = PackedInt32Array()
+	if multiplayer.multiplayer_peer == null:
+		return recipients
+	for peer_id: int in multiplayer.get_peers():
+		if reliable or _is_peer_relevant_to_map_prop_payload(peer_id, payload):
+			NetworkInterestScript.append_unique_peer_id(recipients, peer_id)
+	return recipients
+
+
+func _map_prop_motion_payloads_by_peer(payload: Array) -> Dictionary:
+	var peer_payloads: Dictionary = {}
+	if multiplayer.multiplayer_peer == null:
+		return peer_payloads
+	for peer_id: int in multiplayer.get_peers():
+		var peer_payload: Array = _map_prop_motion_payload_for_peer(peer_id, payload)
+		if not peer_payload.is_empty():
+			peer_payloads[peer_id] = peer_payload
+	return peer_payloads
+
+
+func _map_prop_motion_payload_for_peer(peer_id: int, payload: Array) -> Array:
+	if peer_id <= 0:
+		return []
+	if _should_receive_all_map_prop_motion(peer_id):
+		return payload.duplicate()
+	var player_node: Node3D = NetworkInterestScript.find_player_node_for_peer(get_tree() if is_inside_tree() else null, self, peer_id)
+	if player_node == null:
+		return payload.duplicate()
+	var radius_sq: float = MAP_PROP_MOTION_SYNC_RELEVANCE_RADIUS * MAP_PROP_MOTION_SYNC_RELEVANCE_RADIUS
+	var observer_position: Vector3 = player_node.global_position if player_node.is_inside_tree() else player_node.position
+	var peer_payload: Array = []
+	for raw_state: Variant in payload:
+		if _is_map_prop_state_near_observer(raw_state, observer_position, radius_sq):
+			peer_payload.append(raw_state)
+	return peer_payload
+
+
+func _should_receive_all_map_prop_motion(peer_id: int) -> bool:
+	if not Network.players.has(peer_id):
+		return false
+	var role: int = int(Network.players[peer_id].get("role", Network.Role.NONE))
+	return role == Network.Role.NONE
+
+
+func _is_map_prop_state_near_observer(raw_state: Variant, observer_position: Vector3, radius_sq: float) -> bool:
+	if not (raw_state is Array):
+		return false
+	var state: Array = raw_state as Array
+	if state.size() < 2 or not (state[1] is Transform3D):
+		return false
+	var next_transform: Transform3D = state[1]
+	return observer_position.distance_squared_to(next_transform.origin) <= radius_sq
+
+
+func _is_peer_relevant_to_map_prop_payload(peer_id: int, payload: Array) -> bool:
+	return not _map_prop_motion_payload_for_peer(peer_id, payload).is_empty()
 
 
 # -----------------------------------------------------------------------------
@@ -1875,6 +2396,9 @@ func get_spawn_point_for_role(role: int, pid: int) -> Vector3:
 			return _get_hunter_spawn_point(pid)
 		Network.Role.CHAMELEON, Network.Role.STALKER:
 			# 涓绘垬鍦哄嚭鐢熷尯
+			var authored_prop_spawn := _get_authored_map_spawn_point(pid)
+			if authored_prop_spawn.x < INF:
+				return authored_prop_spawn
 			return get_grounded_spawn_position(LevelLayout.prop_spawn_point(pid, Network.get_props()))
 		_:
 			pass
@@ -1934,6 +2458,33 @@ func get_spawn_point() -> Vector3:
 	return get_grounded_spawn_position(LevelLayout.random_default_spawn_point())
 
 
+# Returns an authored in-map spawn position from the selected map's MapController
+# (its native PlayerSpawnpoints markers), or Vector3.INF when the map ships none.
+# This lets imported maps (e.g. TPS Demo) place players on their real interior
+# floor instead of the origin-based Warehouse layout, which only fits the default
+# arena and otherwise drops players onto whatever geometry sits over the origin.
+func _get_authored_map_spawn_point(pid: int) -> Vector3:
+	var environment := get_node_or_null("Environment") as Node
+	if environment == null:
+		return Vector3(INF, INF, INF)
+	var map_root := environment.get_node_or_null("TankDemoMapRoot")
+	if not (map_root is MapController):
+		return Vector3(INF, INF, INF)
+	var controller := map_root as MapController
+	if not controller.has_authored_spawns():
+		return Vector3(INF, INF, INF)
+	var points := controller.get_player_spawn_points()
+	if points.is_empty():
+		return Vector3(INF, INF, INF)
+	var base := points[absi(pid) % points.size()].origin
+	# Deterministic small jitter so players sharing one marker do not stack.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(pid) * 92821 + 4801
+	var angle := rng.randf() * TAU
+	var radius := rng.randf_range(0.0, 1.0)
+	return base + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+
+
 func get_grounded_spawn_position(base_position: Vector3) -> Vector3:
 	if not is_inside_tree() or not get_world_3d():
 		return base_position
@@ -1971,6 +2522,13 @@ func _get_selected_map_support_body() -> StaticBody3D:
 	var map_root := environment.get_node_or_null("TankDemoMapRoot") as Node
 	if map_root == null:
 		return null
+	# Any framework map (MapController) tags its fall-through guard floor with the
+	# shared group, so spawn grounding works uniformly across maps.
+	for node in map_root.find_children("*", "StaticBody3D", true, false):
+		var grouped := node as StaticBody3D
+		if grouped and grouped.is_in_group("map_gameplay_support"):
+			return grouped
+	# Back-compat: the polygon apocalypse support body predates the shared group.
 	var generated := map_root.get_node_or_null("GeneratedPolygonApocalypseMap") as Node
 	if generated == null:
 		return null
@@ -2127,6 +2685,8 @@ func _server_start_prep_phase() -> void:
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
 	_server_spawn_unity_decorations()
+	_server_spawn_match_pickups_for_round()
+	_set_match_pickups_active(false)
 	_runtime_debug_log("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
 
 	# 閿佸畾鎵€鏈?Hunter
@@ -2179,8 +2739,8 @@ func _server_start_match() -> void:
 	_apply_configured_gravity()
 	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
 	Network.server_broadcast_match_started()
-	_server_spawn_ammo_packs()
-	_server_spawn_party_monster_accessory_pickups()
+	_ensure_match_pickups_spawned()
+	_set_match_pickups_active(true)
 	_server_reset_party_monster_bounty_cycle()
 
 
@@ -2207,7 +2767,7 @@ func _server_spawn_map_props() -> void:
 
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.randomize()
-	var container: Node3D = _get_or_create_map_prop_container()
+	var container: Node3D = _get_or_create_map_prop_container(true)
 	_map_prop_sync_budget.reset()
 	var used_positions: Array[Vector3] = []
 	var spawn_data: Array = []
@@ -2230,23 +2790,23 @@ func _server_spawn_map_props() -> void:
 			"position": pos,
 			"rotation_y": rng.randf_range(-PI, PI),
 		}
-		_spawn_one_map_prop(container, data)
 		spawn_data.append(data)
 		used_positions.append(pos)
 
-	_runtime_debug_log("[Level] Spawning map props: ", spawn_data.size())
-	_rpc_spawn_map_props.rpc(spawn_data)
+	_runtime_debug_log("[Level] Queueing map props: ", spawn_data.size())
+	_queue_map_prop_spawn_batches(container, spawn_data, true)
 
 
 func _get_random_map_prop_position(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
 	return get_grounded_spawn_position(LevelLayout.random_map_prop_position(used, min_dist, rng))
 
 
-func _get_or_create_map_prop_container() -> Node3D:
+func _get_or_create_map_prop_container(clear_existing: bool = true) -> Node3D:
 	var existing = get_node_or_null("MapPropContainer")
 	if existing:
-		for child in existing.get_children():
-			child.free()
+		if clear_existing:
+			for child in existing.get_children():
+				child.free()
 		return existing
 	var container := Node3D.new()
 	container.name = "MapPropContainer"
@@ -2254,11 +2814,65 @@ func _get_or_create_map_prop_container() -> Node3D:
 	return container
 
 
+func _queue_map_prop_spawn_batches(container: Node3D, spawn_data: Array, replicate_to_clients: bool) -> void:
+	_map_prop_spawn_generation += 1
+	_map_prop_spawn_queue = spawn_data.duplicate()
+	_map_prop_spawn_container = container
+	if replicate_to_clients:
+		_rpc_prepare_map_props_spawn.rpc()
+	_schedule_map_prop_spawn_batch(_map_prop_spawn_generation, replicate_to_clients, true)
+
+
+func _schedule_map_prop_spawn_batch(generation: int, replicate_to_clients: bool, immediate: bool = false) -> void:
+	if immediate or not is_inside_tree():
+		_process_map_prop_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		_process_map_prop_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var timer: SceneTreeTimer = tree.create_timer(MAP_PROP_SPAWN_BATCH_DELAY_SECONDS)
+	timer.timeout.connect(_process_map_prop_spawn_batch.bind(generation, replicate_to_clients), CONNECT_ONE_SHOT)
+
+
+func _process_map_prop_spawn_batch(generation: int, replicate_to_clients: bool) -> void:
+	if generation != _map_prop_spawn_generation:
+		return
+	if _map_prop_spawn_container == null or not is_instance_valid(_map_prop_spawn_container):
+		_map_prop_spawn_queue.clear()
+		return
+	var batch: Array = []
+	var limit: int = mini(MAP_PROP_SPAWN_BATCH_SIZE, _map_prop_spawn_queue.size())
+	for i in range(limit):
+		var data: Dictionary = _map_prop_spawn_queue.pop_front()
+		_spawn_one_map_prop(_map_prop_spawn_container, data)
+		batch.append(data)
+	if replicate_to_clients and not batch.is_empty():
+		_rpc_spawn_map_props_batch.rpc(batch, _map_prop_spawn_queue.is_empty())
+	if _map_prop_spawn_queue.is_empty():
+		_request_match_performance_policy_refresh()
+		return
+	_schedule_map_prop_spawn_batch(generation, replicate_to_clients)
+
+
 @rpc("authority", "call_remote", "reliable")
-func _rpc_spawn_map_props(spawn_data: Array) -> void:
-	var container = _get_or_create_map_prop_container()
+func _rpc_prepare_map_props_spawn() -> void:
+	_get_or_create_map_prop_container(true)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_map_props_batch(spawn_data: Array, done: bool = false) -> void:
+	var container = _get_or_create_map_prop_container(false)
 	for data in spawn_data:
 		_spawn_one_map_prop(container, data)
+	if done:
+		_request_match_performance_policy_refresh()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_map_props(spawn_data: Array) -> void:
+	var container = _get_or_create_map_prop_container(true)
+	_queue_map_prop_spawn_batches(container, spawn_data, false)
 
 
 func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
@@ -2279,24 +2893,24 @@ func _spawn_one_map_prop(container: Node3D, data: Dictionary) -> void:
 	})
 
 
-func request_map_prop_impact(prop: FruitProp, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+func request_map_prop_impact(prop: FruitProp, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, query_tick: int = -1) -> void:
 	if not prop:
 		return
 	if _is_multiplayer_server():
-		_server_apply_map_prop_impact(prop.name, player_velocity, contact_point, contact_normal, disguised_player, 0)
+		_server_apply_map_prop_impact(prop.name, player_velocity, contact_point, contact_normal, disguised_player, 0, query_tick)
 	else:
-		_request_map_prop_impact_rpc.rpc_id(1, prop.name, player_velocity, contact_point, contact_normal, disguised_player)
+		_request_map_prop_impact_rpc.rpc_id(1, prop.name, player_velocity, contact_point, contact_normal, disguised_player, query_tick)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_map_prop_impact_rpc(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool) -> void:
+func _request_map_prop_impact_rpc(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, query_tick: int = -1) -> void:
 	if not _is_multiplayer_server():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
-	_server_apply_map_prop_impact(prop_name, player_velocity, contact_point, contact_normal, disguised_player, sender_id)
+	_server_apply_map_prop_impact(prop_name, player_velocity, contact_point, contact_normal, disguised_player, sender_id, query_tick)
 
 
-func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, sender_id: int) -> void:
+func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, contact_point: Vector3, contact_normal: Vector3, disguised_player: bool, sender_id: int, query_tick: int = -1) -> void:
 	if not _is_multiplayer_server():
 		return
 	var prop := _get_map_prop_by_name(prop_name)
@@ -2305,8 +2919,7 @@ func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, 
 	if sender_id != 0:
 		if not Network.players.has(sender_id):
 			return
-		var player_node := players_container.get_node_or_null(str(sender_id)) if players_container else null
-		if player_node is Node3D and (player_node as Node3D).global_position.distance_to(prop.global_position) > MAP_PROP_IMPACT_MAX_DISTANCE:
+		if not _server_player_was_near_map_prop_impact(sender_id, prop, contact_point, query_tick):
 			return
 	if not _should_accept_map_prop_impact(prop.name, sender_id):
 		return
@@ -2314,6 +2927,15 @@ func _server_apply_map_prop_impact(prop_name: String, player_velocity: Vector3, 
 	if reported_velocity.length() > FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED:
 		reported_velocity = reported_velocity.normalized() * FruitProp.CLIENT_MAX_REPORTED_IMPACT_SPEED
 	prop._apply_player_impact_authoritative(reported_velocity, contact_point, contact_normal, disguised_player)
+
+
+func _server_player_was_near_map_prop_impact(sender_id: int, prop: FruitProp, contact_point: Vector3, query_tick: int) -> bool:
+	var check_position: Vector3 = contact_point if contact_point != Vector3.ZERO else prop.global_position
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree()) if is_inside_tree() else null
+	if history != null and query_tick >= 0:
+		return history.player_was_in_radius(sender_id, check_position, MAP_PROP_IMPACT_MAX_DISTANCE, query_tick)
+	var player_node := players_container.get_node_or_null(str(sender_id)) if players_container else null
+	return player_node is Node3D and (player_node as Node3D).global_position.distance_to(check_position) <= MAP_PROP_IMPACT_MAX_DISTANCE
 
 
 func _should_accept_map_prop_impact(prop_name: String, sender_id: int) -> bool:
@@ -2413,23 +3035,25 @@ func _get_map_prop_by_name(prop_name: String) -> FruitProp:
 	return null
 
 
-func request_place_hologram_flag(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
-	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+func request_place_hologram_flag(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float, intent_tick: int = -1, intent_sequence: int = 0) -> void:
+	var resolved_tick: int = NetworkTime.tick if intent_tick < 0 else intent_tick
+	var resolved_sequence: int = _next_hologram_flag_intent_sequence() if intent_sequence <= 0 else intent_sequence
+	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height, resolved_tick, resolved_sequence)
 	if _is_multiplayer_server():
 		_server_place_hologram_flag(owner_id, state, 0)
 	else:
-		_request_place_hologram_flag_rpc.rpc_id(1, owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+		_request_place_hologram_flag_rpc.rpc_id(1, owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height, resolved_tick, resolved_sequence)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _request_place_hologram_flag_rpc(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> void:
+func _request_place_hologram_flag_rpc(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float, intent_tick: int = -1, intent_sequence: int = 0) -> void:
 	if not _is_multiplayer_server():
 		return
 	var sender_id := multiplayer.get_remote_sender_id()
 	if sender_id != owner_id:
 		push_warning("Peer " + str(sender_id) + " tried to place hologram flag for " + str(owner_id))
 		return
-	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height)
+	var state := _sanitize_hologram_flag_state(owner_id, flag_transform, model_id, accessory_loadout, skin_color, player_visual_height, intent_tick, intent_sequence)
 	_server_place_hologram_flag(owner_id, state, sender_id)
 
 
@@ -2492,7 +3116,14 @@ func _rpc_sync_hologram_flags(states: Array) -> void:
 		_spawn_or_update_hologram_flag(owner_id, state)
 
 
-func _sanitize_hologram_flag_state(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float) -> Dictionary:
+func _next_hologram_flag_intent_sequence() -> int:
+	_hologram_flag_intent_sequence += 1
+	if _hologram_flag_intent_sequence >= 0x7fffffff:
+		_hologram_flag_intent_sequence = 1
+	return _hologram_flag_intent_sequence
+
+
+func _sanitize_hologram_flag_state(owner_id: int, flag_transform: Transform3D, model_id: String, accessory_loadout: Dictionary, skin_color: int, player_visual_height: float, intent_tick: int = -1, intent_sequence: int = 0) -> Dictionary:
 	var normalized_model: String = CharacterSkinCatalog.normalize(model_id)
 	var clean_accessory_loadout: Dictionary = PartyMonsterAccessoryCatalogScript.sanitize_loadout(accessory_loadout, normalized_model)
 	return {
@@ -2502,6 +3133,9 @@ func _sanitize_hologram_flag_state(owner_id: int, flag_transform: Transform3D, m
 		"party_monster_accessories": clean_accessory_loadout,
 		"skin_color": clampi(skin_color, 0, 3),
 		"player_height": clampf(player_visual_height, 0.8, 4.0),
+		"intent_tick": intent_tick,
+		"server_tick": NetworkTime.tick,
+		"intent_sequence": intent_sequence,
 	}
 
 
@@ -2591,12 +3225,12 @@ func _server_spawn_unity_decorations() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var container := _get_or_create_unity_decor_container()
+	var container := _get_or_create_unity_decor_container(true)
 	var used_positions: Array[Vector3] = []
 	var spawn_data: Array = []
 
 	for i in range(decor_count):
-		var decor: Dictionary = UnityAssetCatalog.random_decoration(rng)
+		var decor: Dictionary = UnityAssetCatalog.random_active_play_decoration(rng)
 		var pos: Vector3 = get_grounded_spawn_position(LevelLayout.random_unity_decor_position(used_positions, LevelLayout.UNITY_DECOR_MIN_DISTANCE, rng))
 		var data := {
 			"name": "UnityDecor_%03d_%s" % [i, str(decor.get("id", "decor")).to_upper()],
@@ -2610,19 +3244,19 @@ func _server_spawn_unity_decorations() -> void:
 			"position": pos,
 			"rotation_y": rng.randf_range(-PI, PI),
 		}
-		_spawn_one_unity_decoration(container, data)
 		spawn_data.append(data)
 		used_positions.append(pos)
 
-	_runtime_debug_log("[Level] Spawning Unity decorations: ", spawn_data.size())
-	_rpc_spawn_unity_decorations.rpc(spawn_data)
+	_runtime_debug_log("[Level] Queueing Unity decorations: ", spawn_data.size())
+	_queue_unity_decor_spawn_batches(container, spawn_data, true)
 
 
-func _get_or_create_unity_decor_container() -> Node3D:
+func _get_or_create_unity_decor_container(clear_existing: bool = true) -> Node3D:
 	var existing = get_node_or_null("UnityDecorContainer")
 	if existing:
-		for child in existing.get_children():
-			child.free()
+		if clear_existing:
+			for child in existing.get_children():
+				child.free()
 		return existing
 	var container := Node3D.new()
 	container.name = "UnityDecorContainer"
@@ -2630,21 +3264,75 @@ func _get_or_create_unity_decor_container() -> Node3D:
 	return container
 
 
+func _queue_unity_decor_spawn_batches(container: Node3D, spawn_data: Array, replicate_to_clients: bool) -> void:
+	_unity_decor_spawn_generation += 1
+	_unity_decor_spawn_queue = spawn_data.duplicate()
+	_unity_decor_spawn_container = container
+	if replicate_to_clients:
+		_rpc_prepare_unity_decorations_spawn.rpc()
+	_schedule_unity_decor_spawn_batch(_unity_decor_spawn_generation, replicate_to_clients, true)
+
+
+func _schedule_unity_decor_spawn_batch(generation: int, replicate_to_clients: bool, immediate: bool = false) -> void:
+	if immediate or not is_inside_tree():
+		_process_unity_decor_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		_process_unity_decor_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var timer: SceneTreeTimer = tree.create_timer(UNITY_DECOR_SPAWN_BATCH_DELAY_SECONDS)
+	timer.timeout.connect(_process_unity_decor_spawn_batch.bind(generation, replicate_to_clients), CONNECT_ONE_SHOT)
+
+
+func _process_unity_decor_spawn_batch(generation: int, replicate_to_clients: bool) -> void:
+	if generation != _unity_decor_spawn_generation:
+		return
+	if _unity_decor_spawn_container == null or not is_instance_valid(_unity_decor_spawn_container):
+		_unity_decor_spawn_queue.clear()
+		return
+	var batch: Array = []
+	var limit: int = mini(UNITY_DECOR_SPAWN_BATCH_SIZE, _unity_decor_spawn_queue.size())
+	for i in range(limit):
+		var data: Dictionary = _unity_decor_spawn_queue.pop_front()
+		_spawn_one_unity_decoration(_unity_decor_spawn_container, data)
+		batch.append(data)
+	if replicate_to_clients and not batch.is_empty():
+		_rpc_spawn_unity_decorations_batch.rpc(batch, _unity_decor_spawn_queue.is_empty())
+	if _unity_decor_spawn_queue.is_empty():
+		_request_match_performance_policy_refresh()
+		return
+	_schedule_unity_decor_spawn_batch(generation, replicate_to_clients)
+
+
 @rpc("authority", "call_remote", "reliable")
-func _rpc_spawn_unity_decorations(spawn_data: Array) -> void:
-	var container := _get_or_create_unity_decor_container()
+func _rpc_prepare_unity_decorations_spawn() -> void:
+	_get_or_create_unity_decor_container(true)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_unity_decorations_batch(spawn_data: Array, done: bool = false) -> void:
+	var container := _get_or_create_unity_decor_container(false)
 	for data in spawn_data:
 		_spawn_one_unity_decoration(container, data)
+	if done:
+		_request_match_performance_policy_refresh()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_unity_decorations(spawn_data: Array) -> void:
+	var container := _get_or_create_unity_decor_container(true)
+	_queue_unity_decor_spawn_batches(container, spawn_data, false)
 
 
 func _spawn_one_unity_decoration(container: Node3D, data: Dictionary) -> void:
 	var scene_path := str(data.get("scene", ""))
-	var packed := load(scene_path)
-	if not packed is PackedScene:
+	var packed: PackedScene = _load_cached_unity_decor_scene(scene_path)
+	if packed == null:
 		push_warning("Unity decoration scene did not load: " + scene_path)
 		return
 
-	var node := (packed as PackedScene).instantiate() as Node3D
+	var node := packed.instantiate() as Node3D
 	if not node:
 		push_warning("Unity decoration scene did not instantiate as Node3D: " + scene_path)
 		return
@@ -2658,16 +3346,39 @@ func _spawn_one_unity_decoration(container: Node3D, data: Dictionary) -> void:
 	_apply_material_to_visual_tree(node, str(data.get("material", "")), bool(data.get("force_material", false)), false)
 	_apply_named_material_overrides(node, data.get("node_materials", {}))
 	_align_visual_bottom_to_ground(node, float(node.global_position.y))
+	_apply_unity_decoration_runtime_policy(node)
 	_disable_imported_collision_objects(node)
 	_add_decoration_collision_body(container, node)
+
+
+func _load_cached_unity_decor_scene(path: String) -> PackedScene:
+	if path.is_empty():
+		return null
+	if _unity_decor_scene_cache.has(path):
+		return _unity_decor_scene_cache[path] as PackedScene
+	var resource: Resource = load(path)
+	var packed: PackedScene = resource as PackedScene
+	if packed != null:
+		_unity_decor_scene_cache[path] = packed
+	return packed
+
+
+func _load_cached_unity_decor_material(path: String) -> Material:
+	if path.is_empty():
+		return null
+	if _unity_decor_material_cache.has(path):
+		return _unity_decor_material_cache[path] as Material
+	var resource: Resource = load(path)
+	var material: Material = resource as Material
+	if material != null:
+		_unity_decor_material_cache[path] = material
+	return material
 
 
 func _apply_material_to_visual_tree(node: Node, material_path: String, force_material: bool = false, disable_collisions: bool = false) -> void:
 	var material: Material = null
 	if not material_path.is_empty():
-		var loaded := load(material_path)
-		if loaded is Material:
-			material = loaded as Material
+		material = _load_cached_unity_decor_material(material_path)
 	if node is MeshInstance3D and material:
 		var mesh_instance := node as MeshInstance3D
 		if force_material or not _mesh_instance_has_material(mesh_instance):
@@ -2703,12 +3414,40 @@ func _apply_named_material_overrides(node: Node, node_materials) -> void:
 		for node_name in material_map.keys():
 			if mesh_instance.name.contains(str(node_name)):
 				var material_path := str(material_map[node_name])
-				var loaded := load(material_path)
-				if loaded is Material:
-					mesh_instance.material_override = loaded as Material
+				var material: Material = _load_cached_unity_decor_material(material_path)
+				if material != null:
+					mesh_instance.material_override = material
 				break
 	for child in node.get_children():
 		_apply_named_material_overrides(child, node_materials)
+
+
+func _apply_unity_decoration_runtime_policy(node: Node) -> void:
+	node.set_process(false)
+	node.set_physics_process(false)
+	node.set_process_input(false)
+	node.set_process_unhandled_input(false)
+	node.set_process_unhandled_key_input(false)
+	if node is AnimationPlayer:
+		var animation_player := node as AnimationPlayer
+		animation_player.stop()
+		animation_player.active = false
+	elif node is AudioStreamPlayer3D:
+		(node as AudioStreamPlayer3D).stop()
+	elif node is AudioStreamPlayer2D:
+		(node as AudioStreamPlayer2D).stop()
+	elif node is AudioStreamPlayer:
+		(node as AudioStreamPlayer).stop()
+	if node is GeometryInstance3D:
+		var instance := node as GeometryInstance3D
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		instance.visibility_range_end = UNITY_DECOR_VISUAL_CULL_RANGE
+		instance.visibility_range_end_margin = UNITY_DECOR_VISUAL_CULL_MARGIN
+		instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		_set_property_if_present(instance, "lod_bias", 0.72)
+	for child in node.get_children():
+		_apply_unity_decoration_runtime_policy(child)
 
 
 func _disable_imported_collision_objects(node: Node) -> void:
@@ -2906,6 +3645,89 @@ func _transform_aabb(transform: Transform3D, box: AABB) -> AABB:
 	return AABB(min_corner, max_corner - min_corner)
 
 
+func _match_pickups_are_active() -> bool:
+	return game_state == GameState.PLAY
+
+
+func _apply_match_pickups_active(active: bool) -> void:
+	if not active:
+		_match_pickup_activation_queue.clear()
+		_match_pickup_activation_active = false
+		for raw_pickup: Node in _collect_match_pickups():
+			_apply_match_pickup_active_state(raw_pickup, false)
+		return
+	_match_pickup_activation_queue = _collect_match_pickups()
+	_match_pickup_activation_active = not _match_pickup_activation_queue.is_empty()
+
+
+func _collect_match_pickups() -> Array[Node]:
+	var pickups: Array[Node] = []
+	var tree := get_tree()
+	if tree == null:
+		return pickups
+	for raw_pickup: Node in tree.get_nodes_in_group("ammo_pickups"):
+		if raw_pickup != null and is_instance_valid(raw_pickup):
+			pickups.append(raw_pickup)
+	for raw_pickup: Node in tree.get_nodes_in_group("party_monster_accessory_pickups"):
+		if raw_pickup != null and is_instance_valid(raw_pickup):
+			pickups.append(raw_pickup)
+	return pickups
+
+
+func _process_match_pickup_activation_queue(max_to_process: int = MATCH_PICKUP_ACTIVATION_BATCH_SIZE) -> void:
+	if not _match_pickup_activation_active:
+		return
+	if _match_pickup_activation_queue.is_empty():
+		_match_pickup_activation_active = false
+		return
+	var processed: int = 0
+	var budget: int = maxi(max_to_process, 1)
+	while processed < budget and not _match_pickup_activation_queue.is_empty():
+		var raw_pickup: Node = _match_pickup_activation_queue.pop_front() as Node
+		if raw_pickup == null or not is_instance_valid(raw_pickup):
+			continue
+		_apply_match_pickup_active_state(raw_pickup, true)
+		processed += 1
+	if _match_pickup_activation_queue.is_empty():
+		_match_pickup_activation_active = false
+
+
+func _apply_match_pickup_active_state(raw_pickup: Node, active: bool) -> void:
+	if raw_pickup != null and is_instance_valid(raw_pickup) and raw_pickup.has_method("set_match_active"):
+		raw_pickup.call("set_match_active", active)
+
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_set_match_pickups_active(active: bool) -> void:
+	_apply_match_pickups_active(active)
+
+
+func _set_match_pickups_active(active: bool) -> void:
+	if _is_multiplayer_server() and _has_runtime_multiplayer_peer():
+		_rpc_set_match_pickups_active.rpc(active)
+	else:
+		_apply_match_pickups_active(active)
+
+
+func _has_spawned_match_pickups() -> bool:
+	var ammo_container: Node = get_node_or_null("AmmoPackContainer")
+	var accessory_container: Node = get_node_or_null("PartyMonsterAccessoryContainer")
+	return ammo_container != null and ammo_container.get_child_count() > 0 and accessory_container != null and accessory_container.get_child_count() > 0
+
+
+func _server_spawn_match_pickups_for_round() -> void:
+	if not _is_multiplayer_server():
+		return
+	_server_spawn_ammo_packs()
+	_server_spawn_party_monster_accessory_pickups()
+
+
+func _ensure_match_pickups_spawned() -> void:
+	if _has_spawned_match_pickups():
+		return
+	_server_spawn_match_pickups_for_round()
+
+
 func _server_spawn_ammo_packs() -> void:
 	if not _is_multiplayer_server():
 		return
@@ -2951,7 +3773,9 @@ func _server_spawn_ammo_packs() -> void:
 		used_positions.append(pos)
 		index += 1
 
+	_apply_match_pickups_active(_match_pickups_are_active())
 	_rpc_spawn_ammo_packs.rpc(spawn_data)
+	_request_match_performance_policy_refresh()
 
 
 func _get_random_ammo_position(used: Array[Vector3], min_dist: float) -> Vector3:
@@ -2976,6 +3800,8 @@ func _rpc_spawn_ammo_packs(spawn_data: Array) -> void:
 	var container = _get_or_create_ammo_container()
 	for data in spawn_data:
 		_spawn_one_ammo(container, ammo_script, data)
+	_apply_match_pickups_active(_match_pickups_are_active())
+	_request_match_performance_policy_refresh()
 
 
 func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
@@ -2989,30 +3815,22 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 
 	# Visual marker.
 	var marker_color: Color = AmmoPickup.AMMO_COLORS.get(type, Color.WHITE)
-	var visual_path: String = AmmoPickup.visual_scene_path_for_type(type)
-	var visual_scene: Resource = load(visual_path)
-	if visual_scene is PackedScene:
-		var visual_root: Node = (visual_scene as PackedScene).instantiate()
-		visual_root.name = "AmmoBoxVisual"
-		node.add_child(visual_root)
-		if visual_root is Node3D:
-			var visual_node: Node3D = visual_root as Node3D
-			visual_node.scale = AmmoPickup.visual_scale_for_type(type)
-			visual_node.rotation.y = fposmod(float(abs(hash(str(node.name)))), TAU)
-	else:
-		push_warning("Ammo visual did not load, using fallback marker: " + visual_path)
-		var mesh_inst: MeshInstance3D = MeshInstance3D.new()
-		mesh_inst.name = "Mesh"
-		var box_mesh: BoxMesh = BoxMesh.new()
-		box_mesh.size = Vector3(0.4, 0.4, 0.4)
-		mesh_inst.mesh = box_mesh
-		var mat: StandardMaterial3D = StandardMaterial3D.new()
-		mat.albedo_color = marker_color
-		mat.emission_enabled = true
-		mat.emission = marker_color
-		mat.emission_energy_multiplier = 0.5
-		mesh_inst.set_surface_override_material(0, mat)
-		node.add_child(mesh_inst)
+	var mesh_inst: MeshInstance3D = MeshInstance3D.new()
+	mesh_inst.name = "Mesh"
+	mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_inst.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	mesh_inst.visibility_range_end = MATCH_PERFORMANCE_PICKUP_VISIBILITY_RANGE
+	mesh_inst.visibility_range_end_margin = MATCH_PERFORMANCE_PICKUP_VISIBILITY_MARGIN
+	mesh_inst.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	mesh_inst.mesh = _make_runtime_ammo_mesh(type)
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = marker_color
+	mat.emission_enabled = true
+	mat.emission = marker_color
+	mat.emission_energy_multiplier = 0.5
+	mat.roughness = 0.72
+	mesh_inst.set_surface_override_material(0, mat)
+	node.add_child(mesh_inst)
 
 	# Floating pickup label.
 	var label: Label3D = Label3D.new()
@@ -3021,6 +3839,9 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 	label.position = Vector3(0, AmmoPickup.label_height_for_type(type), 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.outline_modulate = marker_color
+	label.visibility_range_end = MATCH_PERFORMANCE_PICKUP_LABEL_VISIBILITY_RANGE
+	label.visibility_range_end_margin = MATCH_PERFORMANCE_PICKUP_VISIBILITY_MARGIN
+	label.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	node.add_child(label)
 
 	# Pickup trigger shape.
@@ -3034,6 +3855,27 @@ func _spawn_one_ammo(container: Node3D, ammo_script, data: Dictionary) -> void:
 	container.add_child(node, true)
 	node.position = pos
 	node.set_deferred("ammo_type", type)
+	if node.has_method("set_match_active"):
+		node.call("set_match_active", _match_pickups_are_active())
+
+
+func _make_runtime_ammo_mesh(type: int) -> Mesh:
+	if type == AmmoPickup.AmmoType.SPECIAL:
+		var cache_mesh: CylinderMesh = CylinderMesh.new()
+		cache_mesh.top_radius = 0.24
+		cache_mesh.bottom_radius = 0.24
+		cache_mesh.height = 0.44
+		cache_mesh.radial_segments = 12
+		return cache_mesh
+	var box_mesh: BoxMesh = BoxMesh.new()
+	match type:
+		AmmoPickup.AmmoType.MEDIUM:
+			box_mesh.size = Vector3(0.54, 0.34, 0.34)
+		AmmoPickup.AmmoType.LARGE:
+			box_mesh.size = Vector3(0.72, 0.42, 0.46)
+		_:
+			box_mesh.size = Vector3(0.42, 0.26, 0.30)
+	return box_mesh
 
 
 func _server_spawn_party_monster_accessory_pickups() -> void:
@@ -3041,7 +3883,7 @@ func _server_spawn_party_monster_accessory_pickups() -> void:
 		return
 	_party_monster_accessory_spawn_round += 1
 	var total_players: int = max(Network.players.size(), 1)
-	var pickup_count: int = clampi(total_players * 4 + 20, PARTY_MONSTER_ACCESSORY_MIN_PICKUPS, PARTY_MONSTER_ACCESSORY_MAX_PICKUPS)
+	var pickup_count: int = clampi(total_players + 18, PARTY_MONSTER_ACCESSORY_MIN_PICKUPS, PARTY_MONSTER_ACCESSORY_MAX_PICKUPS)
 	var spawn_seed: int = int(_party_monster_rng.randi() ^ (_party_monster_accessory_spawn_round * 4099) ^ Time.get_ticks_msec())
 	var spawn_rng := RandomNumberGenerator.new()
 	spawn_rng.seed = spawn_seed
@@ -3060,7 +3902,9 @@ func _server_spawn_party_monster_accessory_pickups() -> void:
 		_spawn_one_party_monster_accessory(container, data)
 		spawn_data.append(data)
 		used_positions.append(pos)
+	_apply_match_pickups_active(_match_pickups_are_active())
 	_rpc_spawn_party_monster_accessories.rpc(spawn_data)
+	_request_match_performance_policy_refresh()
 
 
 func _get_random_party_monster_accessory_position(used: Array[Vector3], min_dist: float, rng: RandomNumberGenerator) -> Vector3:
@@ -3085,6 +3929,8 @@ func _rpc_spawn_party_monster_accessories(spawn_data: Array) -> void:
 	for raw_data: Variant in spawn_data:
 		var data: Dictionary = raw_data as Dictionary
 		_spawn_one_party_monster_accessory(container, data)
+	_apply_match_pickups_active(_match_pickups_are_active())
+	_request_match_performance_policy_refresh()
 
 
 func _spawn_one_party_monster_accessory(container: Node3D, data: Dictionary) -> void:
@@ -3098,6 +3944,8 @@ func _spawn_one_party_monster_accessory(container: Node3D, data: Dictionary) -> 
 	node.set("accessory_id", accessory_id)
 	container.add_child(node, true)
 	node.position = data.get("position", Vector3.ZERO)
+	if node.has_method("set_match_active"):
+		node.call("set_match_active", _match_pickups_are_active())
 
 
 func _server_reset_party_monster_bounty_cycle() -> void:
@@ -3296,6 +4144,7 @@ func _on_match_intro_started(remaining: float) -> void:
 
 func _on_prep_phase_started(remaining: float) -> void:
 	game_state = GameState.PREP
+	_apply_match_pickups_active(false)
 	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_set_preparation_room_active(true)
@@ -3326,6 +4175,7 @@ func _on_prep_phase_started(remaining: float) -> void:
 
 func _on_prep_phase_ended() -> void:
 	game_state = GameState.PLAY
+	_apply_match_pickups_active(true)
 	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_hide_match_intro_overlay()
@@ -3345,6 +4195,7 @@ func _on_prep_phase_ended() -> void:
 
 func _on_match_started() -> void:
 	game_state = GameState.PLAY
+	_apply_match_pickups_active(true)
 	_hide_loading_overlay()
 	match_intro_remaining = 0.0
 	_set_preparation_room_active(false)
@@ -3416,12 +4267,8 @@ func _apply_gravity_to_players() -> void:
 
 
 func _apply_gravity_to_props() -> void:
-	var tree := get_tree()
-	if not tree:
-		return
-	for prop in tree.get_nodes_in_group("map_props"):
-		if prop is RigidBody3D:
-			(prop as RigidBody3D).sleeping = false
+	# Active rigid bodies read ProjectSettings gravity directly; waking every resting disguise prop causes a hunt-start physics spike.
+	return
 
 
 func _node_has_property(node: Object, property_name: String) -> bool:
@@ -3447,13 +4294,62 @@ func _update_prep_ui() -> void:
 		prep_timer_label.modulate = Color(1, 1, 1, 1)
 
 
+func _sync_active_match_training_targets(force: bool = false) -> void:
+	var should_suspend: bool = game_state == GameState.PLAY
+	if not force and should_suspend == _training_targets_suspended_for_match:
+		return
+	_training_targets_suspended_for_match = should_suspend
+	_set_training_targets_active(not should_suspend)
+
+
+func _set_training_targets_active(active: bool) -> void:
+	var training_targets: Node3D = get_node_or_null("TrainingTargets") as Node3D
+	if training_targets == null:
+		return
+	training_targets.visible = active
+	if active:
+		if _training_targets_process_mode_before_suspend >= 0:
+			training_targets.process_mode = _training_targets_process_mode_before_suspend as Node.ProcessMode
+			_training_targets_process_mode_before_suspend = -1
+	else:
+		if _training_targets_process_mode_before_suspend < 0:
+			_training_targets_process_mode_before_suspend = training_targets.process_mode
+		training_targets.process_mode = Node.PROCESS_MODE_DISABLED
+	var shapes: Array[Node] = training_targets.find_children("*", "CollisionShape3D", true, false)
+	for node: Node in shapes:
+		var shape: CollisionShape3D = node as CollisionShape3D
+		if shape != null:
+			shape.disabled = not active
+	var animation_players: Array[Node] = training_targets.find_children("*", "AnimationPlayer", true, false)
+	for node: Node in animation_players:
+		var animation_player: AnimationPlayer = node as AnimationPlayer
+		if animation_player != null:
+			animation_player.active = active
+			if not active:
+				animation_player.stop()
+
+
 func _set_preparation_room_active(active: bool) -> void:
 	if not preparation_room:
 		return
 	preparation_room.visible = active
+	_set_preparation_room_process_enabled(active)
 	_set_preparation_room_collisions_enabled(active)
 	if active:
 		_set_preparation_gate_open(false)
+
+
+func _set_preparation_room_process_enabled(enabled: bool) -> void:
+	if not preparation_room:
+		return
+	if enabled:
+		if _preparation_room_process_mode_before_suspend >= 0:
+			preparation_room.process_mode = _preparation_room_process_mode_before_suspend as Node.ProcessMode
+			_preparation_room_process_mode_before_suspend = -1
+		return
+	if _preparation_room_process_mode_before_suspend < 0:
+		_preparation_room_process_mode_before_suspend = preparation_room.process_mode
+	preparation_room.process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func _set_preparation_room_collisions_enabled(enabled: bool) -> void:

@@ -100,6 +100,15 @@ func force_reveal(duration: float) -> void:
 	force_shadow_check()
 
 
+func apply_hunter_flashlight_rewind_exposure(sample_seconds: float) -> void:
+	var reveal_seconds: float = _hunter_flashlight_reveal_seconds()
+	hunter_flashlight_exposure = minf(reveal_seconds, hunter_flashlight_exposure + maxf(sample_seconds, 0.0))
+	if hunter_flashlight_exposure >= reveal_seconds and not hunter_flashlight_reveal_latched:
+		hunter_flashlight_reveal_latched = true
+		flashlight_reveal_lockout_remaining = maxf(flashlight_reveal_lockout_remaining, FLASHLIGHT_REVEAL_LOCKOUT)
+	force_shadow_check()
+
+
 func get_shadow_level() -> int:
 	return int(shadow_level)
 

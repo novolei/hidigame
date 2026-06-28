@@ -79,7 +79,7 @@ func _reset_network_state() -> void:
 		"host_stalker_count": -1,
 		"stalker_glass_alpha_max": 0.125,
 		"stalker_glass_material": "classic",
-		"hunter_auto_turret_enabled": true,
+		"hunter_auto_turret_enabled": false,
 		"hunter_auto_turret_range": 34.0,
 		"auto_balance": true,
 		"public_server": false,
@@ -277,7 +277,7 @@ func _test_public_room_redirect_waits_for_room_sync() -> void:
 	}, true)
 	Network._broadcast_full_sync({
 		2: _player("Client", Network.Role.HUNTER),
-	}, room_config)
+	}, room_config, BuildInfo.handshake_payload())
 	_expect(not Network.is_redirecting_to_public_room(), "A public room full sync should mark the redirect as complete")
 	Network.multiplayer.multiplayer_peer = null
 
@@ -393,7 +393,7 @@ func _test_lobby_ui_state() -> void:
 	_expect(ui.selected_role == Network.Role.SPECTATOR, "Clicking spectators should choose spectator mode")
 	ui.stalker_glass_option.select(2)
 	ui.stalker_glass_material_option.select(0)
-	ui.auto_turret_enabled_option.select(0)
+	ui.auto_turret_enabled_option.select(1)
 	ui.auto_turret_range_option.select(2)
 	_expect(absf(float(ui.get_host_config().get("stalker_glass_alpha_max", 0.0)) - 0.125) < 0.001, "Host config should publish Stalker invisibility strength")
 	_expect(str(ui.get_host_config().get("stalker_glass_material", "")) == "classic", "Host config should publish Stalker cloak material mode")
@@ -639,7 +639,7 @@ func _test_client_join_waits_for_full_sync_before_lobby() -> void:
 		1: _player("Host", Network.Role.CHAMELEON),
 		2: _player("Client", Network.Role.HUNTER),
 	}
-	Network._broadcast_full_sync(synced_players, synced_config)
+	Network._broadcast_full_sync(synced_players, synced_config, BuildInfo.handshake_payload())
 	await get_tree().process_frame
 	_expect(level.main_menu.lobby_visible, "Client should enter lobby after receiving authoritative full sync")
 	_expect(level.main_menu.current_lobby_id == "SYNC", "Client lobby should use the synced lobby id")
@@ -667,13 +667,44 @@ func _test_player_replication_budget() -> void:
 	_expect(old_synchronizer == null, "Player scene should not double-write position with MultiplayerSynchronizer after NetFox migration")
 	var transform_sync: NetfoxPlayerTransformSync = player.get_node_or_null("NetfoxTransformSync") as NetfoxPlayerTransformSync
 	_expect(transform_sync != null, "Player scene should include NetfoxTransformSync for owner/server/remote transform relay")
+	var input_state: PlayerInputState = player.get_node_or_null("PlayerInputState") as PlayerInputState
+	_expect(input_state != null, "Player scene should capture tick-aligned owner input for NetFox simulation")
+	if input_state:
+		_expect(input_state.buffer_frame_input, "PlayerInputState should buffer per-frame input until the next netfox tick")
+	var action_bus: PlayerActionBus = player.get_node_or_null("PlayerActionBus") as PlayerActionBus
+	_expect(action_bus != null, "Player scene should include PlayerActionBus for reliable semantic action relay")
+	var movement_motor: PlayerMovementMotor = player.get_node_or_null("MovementMotor") as PlayerMovementMotor
+	_expect(movement_motor != null, "Player scene should include MovementMotor for rollback-owned minimal movement state")
+	var rollback_sync: RollbackSynchronizer = player.get_node_or_null("RollbackSynchronizer") as RollbackSynchronizer
+	_expect(rollback_sync != null, "Player scene should include RollbackSynchronizer for state reconciliation")
+	var tick_interpolator: TickInterpolator = player.get_node_or_null("MovementTickInterpolator") as TickInterpolator
+	_expect(tick_interpolator != null, "Player scene should include TickInterpolator for rollback visual smoothing")
+	if movement_motor:
+		_expect(movement_motor.player_path == NodePath(".."), "MovementMotor should target the player root")
+		_expect(movement_motor.input_state_path == NodePath("../PlayerInputState"), "MovementMotor should consume tick-aligned PlayerInputState")
+		_expect(not movement_motor.mirror_player_physics_state, "MovementMotor should not mirror physics once rollback owns normal root movement")
+		_expect(movement_motor.apply_simulation_to_player_root, "MovementMotor should drive the player root from rollback simulation for responsive local prediction")
+	if rollback_sync:
+		_expect(rollback_sync.root == player, "RollbackSynchronizer should resolve properties from the player root")
+		_expect(rollback_sync.enable_prediction, "RollbackSynchronizer should keep predicted local movement responsive")
+		_expect(rollback_sync.state_properties.has("MovementMotor:simulated_position"), "RollbackSynchronizer should track minimal movement position state")
+		_expect(rollback_sync.state_properties.has("MovementMotor:simulated_velocity"), "RollbackSynchronizer should track minimal movement velocity state")
+		_expect(rollback_sync.state_properties.has("MovementMotor:simulated_can_double_jump"), "RollbackSynchronizer should reconcile double-jump availability")
+		_expect(rollback_sync.state_properties.has("MovementMotor:simulated_has_double_jumped"), "RollbackSynchronizer should reconcile double-jump consumption")
+		_expect(rollback_sync.input_properties.has("PlayerInputState:move_axis"), "RollbackSynchronizer should replay tick-aligned movement input")
+		_expect(rollback_sync.input_properties.has("PlayerInputState:jump_pressed"), "RollbackSynchronizer should replay jump input")
+		_expect(not rollback_sync.enable_input_broadcast, "RollbackSynchronizer should send owner input to the server only")
+	if tick_interpolator:
+		_expect(tick_interpolator.root == player, "MovementTickInterpolator should resolve from the player root")
+		_expect(tick_interpolator.properties.has("MovementMotor:simulated_position"), "MovementTickInterpolator should smooth the rollback movement state")
 	if transform_sync:
 		_expect(transform_sync.root_path == NodePath(".."), "NetFox transform sync should target the player root")
 		_expect(transform_sync.send_every_ticks == 1, "NetFox transform sync should send one snapshot per network tick")
-		_expect(transform_sync.interpolation_delay_ticks == 4, "Remote players should keep a public-internet interpolation buffer")
-		_expect(transform_sync.max_extrapolation_ticks == 3, "Remote players should use a short extrapolation cap for missed packets")
-		_expect(transform_sync.max_snapshots == 18, "Remote snapshot history should stay bounded but absorb jitter")
-		_expect(transform_sync.render_lerp_speed >= 20.0, "Remote render should smooth sampled snapshots instead of hard-writing every frame")
+		_expect(transform_sync.interpolation_delay_ticks == 1, "Remote players should keep a one-tick low-latency interpolation buffer at 60 tps")
+		_expect(transform_sync.max_extrapolation_ticks == 5, "Remote players should use bounded dead-reckoning when low-latency interpolation runs out of buffered snapshots")
+		_expect(transform_sync.max_snapshots == 24, "Remote snapshot history should stay bounded but absorb jitter")
+		_expect(transform_sync.render_lerp_speed >= 50.0, "Remote render should chase sampled snapshots quickly instead of adding visible latency")
+		_expect(transform_sync.adaptive_latency_extra_ticks <= 3, "Remote render should cap adaptive visual delay")
 		_expect(transform_sync.max_velocity_mps <= 80.0, "Remote transform sync should clamp abusive velocity snapshots")
 		_expect(transform_sync.max_abs_position <= 5000.0, "Remote transform sync should reject out-of-world snapshots")
 		_expect(NetfoxPlayerTransformSync.TRANSFORM_SNAPSHOT_APPROX_BYTES > 0, "Transform snapshot telemetry should declare an approximate byte budget")
@@ -717,14 +748,23 @@ func _test_level_start_match_path() -> void:
 	await get_tree().process_frame
 
 	_expect(level.get_node_or_null("MapLoadingOverlay") != null, "Start Match should create the map loading overlay")
-	_expect(await _wait_for_level_state(level, level.GameState.MATCH_INTRO, 180), "Start Match should finish map loading before the 3 second countdown")
-	_expect(level.game_state == level.GameState.MATCH_INTRO, "Start Match should move Level from LOBBY through loading to the 3 second countdown")
+	_expect(await _wait_for_level_state(level, level.GameState.CARD_DRAFT, 180), "Start Match should finish map loading before card draft")
+	_expect(level.game_state == level.GameState.CARD_DRAFT, "Start Match should move Level from LOBBY through loading to card draft")
 	_expect(level.get_node_or_null("Environment/TankDemoMapRoot") != null, "Start Match loading should mount the selected map")
 	_expect(not level.main_menu.visible, "Start Match should hide the lobby UI")
-	_expect(int(round(level.prep_remaining)) == 0, "Loading and countdown should not consume hide prep time")
+	_expect(int(round(level.prep_remaining)) == 0, "Loading, card draft, skin setup, and countdown should not consume hide prep time")
 	_expect(Network.get_hunters().size() == 1, "Start Match should keep one configured Hunter")
 	_expect(Network.get_props().size() == 1, "Start Match should keep one Prop")
-	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Prop players should receive a Party Monster default skin before countdown")
+	_expect(not Network.card_drafts.is_empty(), "Card draft should be active before skin configuration")
+	_finish_all_card_drafts()
+	await get_tree().process_frame
+	_expect(await _wait_for_level_state(level, level.GameState.SKIN_CONFIG, 30), "Card draft completion should start skin configuration")
+	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Start Match should enter skin configuration after card draft")
+	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Prop players should receive a Party Monster default skin during skin configuration")
+	_expect(int(ceil(level.skin_config_remaining)) == int(Network.SKIN_CONFIG_TOTAL_SECONDS), "Skin configuration should start with the full setup timer")
+	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Skin configuration completion should start the 3 second countdown")
 	_expect(int(ceil(level.match_intro_remaining)) == 3, "Match intro should start with a 3 second countdown")
 	level._process(level.MATCH_INTRO_DURATION + 0.1)
 	await get_tree().process_frame
@@ -756,7 +796,7 @@ func _test_client_full_sync_waits_until_prep_to_spawn_player_nodes() -> void:
 		1: _player("Host", Network.Role.HUNTER),
 		2: _player("StalkerClient", Network.Role.STALKER),
 	}
-	Network._broadcast_full_sync(synced_players, Network.lobby_config.duplicate())
+	Network._broadcast_full_sync(synced_players, Network.lobby_config.duplicate(), BuildInfo.handshake_payload())
 	await get_tree().process_frame
 
 	var players_container: Node = level.get_node("PlayersContainer")
@@ -946,11 +986,20 @@ func _test_single_player_character_test_start() -> void:
 	await get_tree().process_frame
 
 	_expect(level.get_node_or_null("MapLoadingOverlay") != null, "Single-player Start Match should create the map loading overlay")
-	_expect(await _wait_for_level_state(level, level.GameState.MATCH_INTRO, 180), "Single-player Start Match should finish loading before the 3 second countdown")
-	_expect(level.game_state == level.GameState.MATCH_INTRO, "Single-player test should enter the 3 second countdown before PREP")
+	_expect(await _wait_for_level_state(level, level.GameState.CARD_DRAFT, 180), "Single-player Start Match should finish loading before card draft")
+	_expect(level.game_state == level.GameState.CARD_DRAFT, "Single-player test should enter card draft before skin configuration")
 	_expect(Network.players[1]["role"] == Network.Role.CHAMELEON, "Single-player test should auto fallback to Chameleon")
 	_expect(Network.get_props().size() == 1, "Single-player test should count the solo player as a prop")
+	_expect(not Network.card_drafts.is_empty(), "Single-player card draft should be active before skin configuration")
+	_finish_all_card_drafts()
+	await get_tree().process_frame
+	_expect(await _wait_for_level_state(level, level.GameState.SKIN_CONFIG, 30), "Single-player card draft completion should start skin configuration")
+	_expect(level.game_state == level.GameState.SKIN_CONFIG, "Single-player test should enter skin configuration after card draft")
 	_expect(CharacterSkinCatalog.is_party_monster(str(Network.players[1].get("character_model", ""))), "Single-player prop should receive a Party Monster default skin")
+	_expect(int(ceil(level.skin_config_remaining)) == int(Network.SKIN_CONFIG_TOTAL_SECONDS), "Single-player skin configuration should start with the full setup timer")
+	level._process(Network.SKIN_CONFIG_TOTAL_SECONDS + 0.1)
+	await get_tree().process_frame
+	_expect(level.game_state == level.GameState.MATCH_INTRO, "Single-player skin configuration completion should start the 3 second countdown")
 	_expect(int(ceil(level.match_intro_remaining)) == 3, "Single-player match intro should start with a 3 second countdown")
 	level._process(level.MATCH_INTRO_DURATION + 0.1)
 	await get_tree().process_frame

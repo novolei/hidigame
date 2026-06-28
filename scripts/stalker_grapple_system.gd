@@ -7,6 +7,7 @@ const PULL_DURATION := 0.28
 const TARGET_BACKOFF := 0.95
 const TARGET_UP_OFFSET := 0.18
 const VISUAL_DURATION := 0.24
+const GRAPPLE_REQUEST_APPROX_BYTES := 72
 const HOOK_SCENE: PackedScene = preload("res://scenes/effects/stalker_grapple_hook.tscn")
 const ROPE_SCENE: PackedScene = preload("res://scenes/effects/stalker_grapple_rope.tscn")
 
@@ -51,20 +52,23 @@ func request_grapple() -> bool:
 		return false
 	if cooldown_remaining > 0.0 or pulling:
 		return false
-	var hit := _find_grapple_hit()
+	var origin: Vector3 = _ray_origin()
+	var direction: Vector3 = _ray_direction()
+	var query_tick: int = _grapple_query_tick()
+	var hit: Dictionary = _find_grapple_hit_from(origin, direction, query_tick, _owner_peer_id())
 	if hit.is_empty():
 		return false
 	var hit_position: Vector3 = hit.get("position", Vector3.ZERO)
-	var hit_normal: Vector3 = hit.get("normal", Vector3.UP)
-	var origin := _ray_origin()
-	var direction := (hit_position - origin).normalized()
-	var target := hit_position - direction * TARGET_BACKOFF + hit_normal.normalized() * TARGET_UP_OFFSET
+	var target: Vector3 = _pull_target_from_hit(origin, hit)
 	_start_pull(target)
-	if multiplayer.has_multiplayer_peer():
-		_show_grapple_effect.rpc(origin, hit_position)
-	else:
-		_show_grapple_effect(origin, hit_position)
+	_show_grapple_effect(origin, hit_position)
 	cooldown_remaining = COOLDOWN
+	if multiplayer.has_multiplayer_peer():
+		if multiplayer.is_server():
+			_broadcast_grapple_effect_to_peers(origin, hit_position)
+		else:
+			Network.record_rpc_event("grapple.request", 1, GRAPPLE_REQUEST_APPROX_BYTES)
+			_request_grapple.rpc_id(1, origin, direction, query_tick)
 	return true
 
 
@@ -77,23 +81,112 @@ func is_grappling() -> bool:
 
 
 func _find_grapple_hit() -> Dictionary:
+	return _find_grapple_hit_from(_ray_origin(), _ray_direction(), _grapple_query_tick(), _owner_peer_id())
+
+
+func _find_grapple_hit_from(origin: Vector3, direction: Vector3, query_tick: int, excluded_peer_id: int = 0) -> Dictionary:
 	if not stalker_owner or not stalker_owner.get_world_3d():
 		return {}
-	var space := stalker_owner.get_world_3d().direct_space_state
-	var origin := _ray_origin()
-	var direction := _ray_direction()
-	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * RANGE)
+	if direction.length_squared() <= 0.0001:
+		return {}
+	var clean_direction: Vector3 = direction.normalized()
+	var space: PhysicsDirectSpaceState3D = stalker_owner.get_world_3d().direct_space_state
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(origin, origin + clean_direction * RANGE)
 	query.collide_with_bodies = true
 	query.collide_with_areas = false
 	query.exclude = [stalker_owner.get_rid()]
 	query.collision_mask = 0x7FFFFFFF
-	var hit := space.intersect_ray(query)
+	var world_hit: Dictionary = space.intersect_ray(query)
+	if not world_hit.is_empty() and world_hit.get("collider", null) == stalker_owner:
+		world_hit = {}
+	var rewind_hit: Dictionary = {}
+	var history: NetworkRewindHistory = NetworkRewindHistory.find_in_tree(get_tree())
+	if history != null:
+		rewind_hit = history.find_player_hit_on_segment(origin, clean_direction, RANGE, query_tick, excluded_peer_id)
+	if rewind_hit.is_empty():
+		return world_hit
+	if world_hit.is_empty():
+		return rewind_hit
+	var world_distance: float = origin.distance_to(world_hit.get("position", origin))
+	var rewind_distance: float = float(rewind_hit.get("distance", INF))
+	return rewind_hit if rewind_distance < world_distance else world_hit
+
+
+func _pull_target_from_hit(origin: Vector3, hit: Dictionary) -> Vector3:
+	var hit_position: Vector3 = hit.get("position", Vector3.ZERO)
+	var hit_normal: Vector3 = hit.get("normal", Vector3.UP)
+	var direction: Vector3 = (hit_position - origin).normalized()
+	if direction.length_squared() <= 0.0001:
+		direction = _ray_direction()
+	return hit_position - direction * TARGET_BACKOFF + hit_normal.normalized() * TARGET_UP_OFFSET
+
+
+func _owner_peer_id() -> int:
+	if stalker_owner and stalker_owner.has_method("get_multiplayer_authority"):
+		return int(stalker_owner.call("get_multiplayer_authority"))
+	return 1
+
+
+func _grapple_query_tick() -> int:
+	if stalker_owner and stalker_owner.has_method("get_network_input_tick"):
+		return int(stalker_owner.call("get_network_input_tick"))
+	return NetworkTime.tick
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_grapple(origin: Vector3, direction: Vector3, query_tick: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != _owner_peer_id():
+		return
+	_server_accept_grapple(sender_id, origin, direction, query_tick)
+
+
+func _server_accept_grapple(sender_id: int, origin: Vector3, direction: Vector3, query_tick: int) -> void:
+	if sender_id != _owner_peer_id():
+		return
+	if cooldown_remaining > 0.0:
+		_reject_grapple.rpc_id(sender_id)
+		return
+	var hit: Dictionary = _find_grapple_hit_from(origin, direction, query_tick, sender_id)
 	if hit.is_empty():
-		return {}
-	var collider = hit.get("collider", null)
-	if collider == stalker_owner:
-		return {}
-	return hit
+		_reject_grapple.rpc_id(sender_id)
+		return
+	var hit_position: Vector3 = hit.get("position", Vector3.ZERO)
+	var target: Vector3 = _pull_target_from_hit(origin, hit)
+	cooldown_remaining = COOLDOWN
+	_show_grapple_effect(origin, hit_position)
+	_broadcast_grapple_effect_to_peers(origin, hit_position)
+	_apply_grapple_correction.rpc_id(sender_id, target)
+
+
+func _broadcast_grapple_effect_to_peers(origin: Vector3, hit_position: Vector3) -> void:
+	if not multiplayer.has_multiplayer_peer():
+		return
+	var peers: PackedInt32Array = multiplayer.get_peers()
+	if peers.is_empty():
+		return
+	Network.record_rpc_event("grapple.effect", peers.size(), 48)
+	for peer_id: int in peers:
+		_show_grapple_effect.rpc_id(peer_id, origin, hit_position)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _apply_grapple_correction(target: Vector3) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.get_remote_sender_id() != 1:
+		return
+	if not stalker_owner or not stalker_owner.is_multiplayer_authority():
+		return
+	_start_pull(target)
+	cooldown_remaining = COOLDOWN
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _reject_grapple() -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.get_remote_sender_id() != 1:
+		return
+	pulling = false
 
 
 func _start_pull(target: Vector3) -> void:
@@ -124,6 +217,10 @@ func _ray_direction() -> Vector3:
 
 @rpc("any_peer", "call_local", "reliable")
 func _show_grapple_effect(origin: Vector3, target: Vector3) -> void:
+	if multiplayer.has_multiplayer_peer():
+		var sender_id: int = multiplayer.get_remote_sender_id()
+		if sender_id != 0 and sender_id != 1:
+			return
 	_clear_visuals()
 	_hook_visual = HOOK_SCENE.instantiate()
 	_rope_visual = ROPE_SCENE.instantiate()

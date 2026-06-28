@@ -19,7 +19,8 @@ const MUZZLE_LOCAL_OFFSET := Vector3(0.0, 0.11, -0.72)
 const VISION_HALF_ANGLE_DEGREES := 50.0
 const TARGET_RANGE := 34.0
 const FIRE_INTERVAL := 0.5
-const TARGET_SCAN_INTERVAL := 0.12
+const TARGET_SCAN_INTERVAL := 0.22
+const TARGET_LOCKED_SCAN_INTERVAL := 0.36
 const DAMAGE_PER_BULLET := 10.0
 const SPREAD_DEGREES := 2.2
 const NEAR_MISS_HIT_RADIUS := 0.82
@@ -42,6 +43,9 @@ const TPS_BULLET_VISUAL_MIN_SECONDS := 0.08
 const TPS_BULLET_VISUAL_MAX_SECONDS := 1.25
 const TPS_BULLET_MIN_DISTANCE := 0.12
 const TURRET_VISUAL_RPC_RELEVANCE_RADIUS := 48.0
+const USE_HIGH_POLY_DRONE_VISUAL_DEFAULT := false
+const TURRET_VISUAL_CULL_RANGE := 42.0
+const TURRET_VISUAL_CULL_MARGIN := 6.0
 
 var hunter: Node3D = null
 var owner_peer_id := 1
@@ -84,7 +88,7 @@ func _should_skip_dedicated_server_visuals() -> bool:
 
 
 func is_auto_turret_enabled() -> bool:
-	return bool(Network.lobby_config.get("hunter_auto_turret_enabled", true))
+	return bool(Network.lobby_config.get("hunter_auto_turret_enabled", false))
 
 
 func get_target_range() -> float:
@@ -92,9 +96,9 @@ func get_target_range() -> float:
 
 
 func _should_scan_targets() -> bool:
-	if multiplayer.is_server():
-		return true
 	if not multiplayer.has_multiplayer_peer():
+		return false
+	if multiplayer.is_server():
 		return true
 	return hunter != null and is_instance_valid(hunter) and hunter.has_method("is_multiplayer_authority") and bool(hunter.call("is_multiplayer_authority"))
 
@@ -104,12 +108,27 @@ func _get_budgeted_target(delta: float) -> Node3D:
 		_cached_target = null
 		return null
 	_target_scan_elapsed += delta
-	if _cached_target and not is_instance_valid(_cached_target):
+	var has_trackable_cached_target: bool = _cached_target_is_still_trackable()
+	if not has_trackable_cached_target:
 		_cached_target = null
-	if _target_scan_elapsed >= TARGET_SCAN_INTERVAL or _cached_target == null:
+	var scan_interval: float = TARGET_LOCKED_SCAN_INTERVAL if has_trackable_cached_target else TARGET_SCAN_INTERVAL
+	if _target_scan_elapsed >= scan_interval or _cached_target == null:
 		_target_scan_elapsed = 0.0
 		_cached_target = _find_best_visible_prop_target()
 	return _cached_target
+
+
+func _cached_target_is_still_trackable() -> bool:
+	if _cached_target == null or not is_instance_valid(_cached_target):
+		return false
+	if not _is_valid_prop_target(_cached_target):
+		return false
+	var aim_point: Vector3 = _get_target_aim_point(_cached_target)
+	if _get_muzzle_position().distance_to(aim_point) > get_target_range():
+		return false
+	if not _is_inside_scan_cone(aim_point):
+		return false
+	return true
 
 
 func _process(delta: float) -> void:
@@ -133,7 +152,7 @@ func _process(delta: float) -> void:
 	var target := _get_budgeted_target(delta)
 	if not skip_visuals:
 		_update_tracking(delta, target)
-	if multiplayer.is_server() and target and fire_cooldown <= 0.0 and not is_overheated():
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and target and fire_cooldown <= 0.0 and not is_overheated():
 		fire_cooldown = FIRE_INTERVAL
 		_server_fire_at_target(target)
 
@@ -191,6 +210,10 @@ func get_target_scan_interval_for_test() -> float:
 	return TARGET_SCAN_INTERVAL
 
 
+func get_locked_target_scan_interval_for_test() -> float:
+	return TARGET_LOCKED_SCAN_INTERVAL
+
+
 func get_damage_per_bullet() -> float:
 	return DAMAGE_PER_BULLET
 
@@ -226,7 +249,7 @@ func is_overheated() -> bool:
 func drain_by_card(duration: float = OVERHEAT_COOLDOWN_SECONDS) -> void:
 	heat_shots = SHOTS_BEFORE_OVERHEAT
 	overheat_cooldown = maxf(overheat_cooldown, duration)
-	Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1), 12)
+	Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1) if multiplayer.has_multiplayer_peer() else 1, 12)
 	_broadcast_turret_overheat.rpc()
 
 
@@ -360,13 +383,17 @@ func _ensure_visual() -> void:
 	visual_root.scale = Vector3.ONE * MODEL_SCALE
 	add_child(visual_root)
 
-	var packed := load(DRONE_SCENE_PATH)
-	if packed is PackedScene:
-		var model := (packed as PackedScene).instantiate()
-		model.name = "CombatDroneModel"
-		model.rotation.y = MODEL_FORWARD_YAW_OFFSET
-		visual_root.add_child(model)
-		_apply_drone_materials(model)
+	if _should_use_high_poly_drone_visual():
+		var packed := load(DRONE_SCENE_PATH)
+		if packed is PackedScene:
+			var model := (packed as PackedScene).instantiate()
+			model.name = "CombatDroneModel"
+			model.rotation.y = MODEL_FORWARD_YAW_OFFSET
+			visual_root.add_child(model)
+			_apply_drone_materials(model)
+			_apply_turret_visual_performance_policy(model)
+		else:
+			_add_fallback_drone_visual()
 	else:
 		_add_fallback_drone_visual()
 
@@ -376,14 +403,30 @@ func _ensure_visual() -> void:
 	muzzle_marker.position = MUZZLE_LOCAL_OFFSET
 
 
+func _should_use_high_poly_drone_visual() -> bool:
+	if _should_skip_dedicated_server_visuals():
+		return false
+	return bool(Network.lobby_config.get("hunter_auto_turret_high_poly_visual", USE_HIGH_POLY_DRONE_VISUAL_DEFAULT))
+
+
+func uses_high_poly_visual_for_test() -> bool:
+	return visual_root != null and visual_root.get_node_or_null("CombatDroneModel") != null
+
+
 func _add_fallback_drone_visual() -> void:
 	var body := MeshInstance3D.new()
 	body.name = "CombatDroneFallbackBody"
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(1.4, 0.55, 1.0)
 	body.mesh = mesh
-	body.material_override = _make_emissive_material(Color(0.22, 0.30, 0.34, 1.0), Color(0.45, 0.95, 1.0, 1.0), 0.7)
+	var body_material := _make_emissive_material(Color(0.22, 0.30, 0.34, 1.0), Color(0.45, 0.95, 1.0, 1.0), 0.7)
+	var albedo := _load_first_texture([DRONE_EMBEDDED_ALBEDO_PATH, DRONE_ALBEDO_PATH])
+	if albedo:
+		body_material.albedo_texture = albedo
+		body_material.albedo_color = Color.WHITE
+	body.material_override = body_material
 	visual_root.add_child(body)
+	_apply_turret_visual_performance_policy(body)
 
 	var barrel := MeshInstance3D.new()
 	barrel.name = "CombatDroneFallbackBarrel"
@@ -391,11 +434,25 @@ func _add_fallback_drone_visual() -> void:
 	barrel_mesh.top_radius = 0.12
 	barrel_mesh.bottom_radius = 0.12
 	barrel_mesh.height = 1.05
+	barrel_mesh.radial_segments = 10
 	barrel.mesh = barrel_mesh
 	barrel.rotation.x = PI * 0.5
 	barrel.position.z = -0.72
 	barrel.material_override = _make_emissive_material(Color(0.05, 0.07, 0.08, 1.0), Color(1.0, 0.46, 0.18, 1.0), 0.35)
 	visual_root.add_child(barrel)
+	_apply_turret_visual_performance_policy(barrel)
+
+
+func _apply_turret_visual_performance_policy(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var instance := node as GeometryInstance3D
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		instance.visibility_range_end = TURRET_VISUAL_CULL_RANGE
+		instance.visibility_range_end_margin = TURRET_VISUAL_CULL_MARGIN
+		instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	for child in node.get_children():
+		_apply_turret_visual_performance_policy(child)
 
 
 func _apply_drone_materials(root: Node) -> void:
@@ -737,7 +794,7 @@ func _has_line_of_sight(origin: Vector3, aim_point: Vector3, target: Node3D) -> 
 
 
 func _server_fire_at_target(target: Node3D) -> void:
-	if not multiplayer.is_server() or not target or not is_instance_valid(target):
+	if not multiplayer.has_multiplayer_peer() or not multiplayer.is_server() or not target or not is_instance_valid(target):
 		return
 	if not is_auto_turret_enabled() or is_overheated():
 		return
@@ -776,7 +833,7 @@ func _server_fire_at_target(target: Node3D) -> void:
 	heat_shots += 1
 	if heat_shots >= SHOTS_BEFORE_OVERHEAT:
 		overheat_cooldown = OVERHEAT_COOLDOWN_SECONDS
-		Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1), 12)
+		Network.record_rpc_event("turret.overheat", maxi(multiplayer.get_peers().size(), 1) if multiplayer.has_multiplayer_peer() else 1, 12)
 		_broadcast_turret_overheat.rpc()
 
 

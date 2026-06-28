@@ -86,7 +86,9 @@ func unset_visibility_for(peer: int) -> void:
 	_visibility_overrides.erase(peer)
 
 ## Recalculate visibility for each known peer
-func update_visibility(peers: PackedInt32Array = multiplayer.get_peers()) -> void:
+func update_visibility(peers: PackedInt32Array = PackedInt32Array()) -> void:
+	if peers.is_empty() and multiplayer != null and multiplayer.multiplayer_peer != null:
+		peers = multiplayer.get_peers()
 	# Find visible peers
 	_visible_peers.clear()
 	for peer in peers:

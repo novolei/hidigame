@@ -9,6 +9,11 @@
 [ext_resource type="Script" uid="uid://bj7yrijm7bppq" path="res://scripts/spring_arm_offset.gd" id="4_ygggd"]
 [ext_resource type="Texture2D" uid="uid://brp1gy30s4rks" path="res://assets/characters/player/GodotRobotPaletteSwap/GodotRedPalette.png" id="5_qlefn"]
 [ext_resource type="Script" uid="uid://2qr0hkdu2j70" path="res://scripts/network/netfox_player_transform_sync.gd" id="9_pnmcy"]
+[ext_resource type="Script" uid="uid://cnb00p3g3ob2j" path="res://scripts/network/player_input_state.gd" id="10_rtsbg"]
+[ext_resource type="Script" uid="uid://bkcbjajf1v8my" path="res://scripts/network/player_action_bus.gd" id="11_d2uvk"]
+[ext_resource type="Script" uid="uid://mvqjldm0fr4h" path="res://scripts/network/player_movement_motor.gd" id="12_hbshb"]
+[ext_resource type="Script" uid="uid://d350u8evihs1u" path="res://addons/netfox/rollback/rollback-synchronizer.gd" id="13_a6urh"]
+[ext_resource type="Script" uid="uid://dour8fehaaugp" path="res://addons/netfox/tick-interpolator.gd" id="14_xgf8p"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_mx45w"]
 radius = 0.35796
@@ -5015,3 +5020,32 @@ text = "player name test"
 
 [node name="NetfoxTransformSync" type="Node" parent="." unique_id=846583563]
 script = ExtResource("9_pnmcy")
+
+[node name="PlayerInputState" type="Node" parent="." unique_id=1523603520]
+script = ExtResource("10_rtsbg")
+
+[node name="PlayerActionBus" type="Node" parent="." unique_id=1467698806]
+script = ExtResource("11_d2uvk")
+
+[node name="MovementMotor" type="Node" parent="." unique_id=985061159]
+script = ExtResource("12_hbshb")
+mirror_player_physics_state = false
+apply_simulation_to_player_root = true
+metadata/_custom_type_script = "res://scripts/network/player_movement_motor.gd"
+
+[node name="RollbackSynchronizer" type="Node" parent="." unique_id=1156351089 node_paths=PackedStringArray("root")]
+script = ExtResource("13_a6urh")
+root = NodePath("..")
+enable_prediction = true
+state_properties = Array[String](["MovementMotor:simulated_position", "MovementMotor:simulated_velocity", "MovementMotor:simulated_current_speed", "MovementMotor:simulated_grounded", "MovementMotor:simulated_yaw", "MovementMotor:simulated_can_double_jump", "MovementMotor:simulated_has_double_jumped"])
+full_state_interval = 12
+diff_ack_interval = 4
+input_properties = Array[String](["PlayerInputState:move_axis", "PlayerInputState:jump_pressed", "PlayerInputState:jump_held", "PlayerInputState:sprint_held", "PlayerInputState:sequence"])
+enable_input_broadcast = false
+metadata/_custom_type_script = "res://addons/netfox/rollback/rollback-synchronizer.gd"
+
+[node name="MovementTickInterpolator" type="Node" parent="." unique_id=1175192196 node_paths=PackedStringArray("root")]
+script = ExtResource("14_xgf8p")
+root = NodePath("..")
+properties = Array[String](["MovementMotor:simulated_position"])
+metadata/_custom_type_script = "res://addons/netfox/tick-interpolator.gd"

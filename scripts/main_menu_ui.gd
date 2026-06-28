@@ -1961,7 +1961,7 @@ func _build_match_details_panel() -> Control:
 	hunter_count_option = _option([-1, 1, 2, 3, 4, 5, 6, 7, 8], "hunters")
 	stalker_glass_option = _option([0.07, 0.105, 0.125, 0.16], "stalker_glass")
 	stalker_glass_material_option = _option(["classic", "liquid_glass"], "stalker_glass_material")
-	auto_turret_enabled_option = _option([true, false], "auto_turret_enabled")
+	auto_turret_enabled_option = _option([false, true], "auto_turret_enabled")
 	auto_turret_range_option = _option([18, 26, 34, 42], "auto_turret_range")
 
 	box.add_child(_option_group(I18n.t("level"), map_option))
@@ -2340,7 +2340,7 @@ func _update_config_controls(config: Dictionary) -> void:
 	_set_option_by_value(hunter_count_option, int(config.get("host_hunter_count", -1)), 0)
 	_set_option_by_value(stalker_glass_option, float(config.get("stalker_glass_alpha_max", 0.125)), 2)
 	_set_option_by_value(stalker_glass_material_option, str(config.get("stalker_glass_material", "classic")), 0)
-	_set_option_by_value(auto_turret_enabled_option, bool(config.get("hunter_auto_turret_enabled", true)), 0)
+	_set_option_by_value(auto_turret_enabled_option, bool(config.get("hunter_auto_turret_enabled", false)), 0)
 	_set_option_by_value(auto_turret_range_option, int(round(float(config.get("hunter_auto_turret_range", 34.0)))), 2)
 
 
@@ -2359,7 +2359,7 @@ func _collect_lobby_config() -> Dictionary:
 		"host_hunter_count": int(_get_option_value(hunter_count_option, -1)),
 		"stalker_glass_alpha_max": float(_get_option_value(stalker_glass_option, 0.125)),
 		"stalker_glass_material": str(_get_option_value(stalker_glass_material_option, "classic")),
-		"hunter_auto_turret_enabled": bool(_get_option_value(auto_turret_enabled_option, true)),
+		"hunter_auto_turret_enabled": bool(_get_option_value(auto_turret_enabled_option, false)),
 		"hunter_auto_turret_range": float(_get_option_value(auto_turret_range_option, 34)),
 	}
 

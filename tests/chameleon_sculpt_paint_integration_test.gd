@@ -198,6 +198,13 @@ func _test_paint_rpc_batch_chunking(player: Character) -> void:
 		_expect(chunk_bytes <= Character.CAMOUFLAGE_PAINT_RPC_MAX_BYTES, "Heavy paint RPC chunks should stay under the byte budget")
 	_expect(total_clip_counts == clip_stamp_count * clip_triangles_per_stamp, "Paint RPC chunking should preserve UV clip triangle counts")
 
+	var first_sequence: int = player._next_camouflage_paint_sequence()
+	var second_sequence: int = player._next_camouflage_paint_sequence()
+	_expect(second_sequence == first_sequence + 1, "Paint prediction sequences should advance monotonically")
+	_expect(not player._remember_camouflage_paint_event(44, first_sequence, 0), "First predicted paint event should be accepted")
+	_expect(player._remember_camouflage_paint_event(44, first_sequence, 0), "Server echo for a predicted paint event should be deduplicated")
+	_expect(not player._remember_camouflage_paint_event(44, first_sequence, 1), "A later chunk from the same paint sequence should remain valid")
+
 
 func _test_dedicated_server_paint_render_skip_contract() -> void:
 	var player_source: String = FileAccess.get_file_as_string("res://scripts/player.gd")
@@ -207,6 +214,8 @@ func _test_dedicated_server_paint_render_skip_contract() -> void:
 	_expect(player_source.contains("_camouflage_paint_texture = null"), "Paint render cache cleanup should release the global paint texture reference")
 	_expect(player_source.contains("if _should_skip_camouflage_paint_rendering():"), "Paint start/stroke handlers should guard dedicated public server rendering")
 	_expect(player_source.contains("@rpc(\"any_peer\", \"call_local\", \"unreliable_ordered\")\nfunc _apply_camouflage_brush_stroke_batch"), "Paint batch transport should remain unreliable ordered visual sync")
+	_expect(player_source.contains("event_paint_sequence") and player_source.contains("event_chunk_index"), "Paint batch RPCs should carry prediction sequence metadata for echo dedupe")
+	_expect(player_source.contains("_remember_camouflage_paint_event(source_peer_id, paint_sequence, chunk_index)"), "Paint batch apply should dedupe predicted local brush events")
 
 
 func _expect(condition: bool, message: String) -> void:

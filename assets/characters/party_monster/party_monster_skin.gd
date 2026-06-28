@@ -194,6 +194,8 @@ const DEFAULT_VARIANT_ID := "party_monster_c01"
 	set = set_character_model_id
 @export_range(0.0, 1.0, 0.01) var walk_run_blending := 0.0:
 	set = set_walk_run_blending
+@export var idle_variation_process_enabled := true:
+	set = set_idle_variation_process_enabled
 
 signal action_finished(action_name: String, clip_name: String)
 
@@ -220,7 +222,7 @@ var _smoothed_mesh_cache: Dictionary = {}
 
 func _ready() -> void:
 	_rng.randomize()
-	set_process(true)
+	set_process(idle_variation_process_enabled)
 	_build_skin()
 	idle()
 
@@ -241,6 +243,12 @@ func set_character_model_id(model_id: String) -> void:
 
 func set_walk_run_blending(value: float) -> void:
 	walk_run_blending = clampf(value, 0.0, 1.0)
+
+
+func set_idle_variation_process_enabled(enabled: bool) -> void:
+	idle_variation_process_enabled = enabled
+	if is_inside_tree():
+		set_process(idle_variation_process_enabled and not _animation_paused)
 
 
 func idle() -> void:
@@ -327,6 +335,7 @@ func play_clip(clip_name: String) -> bool:
 
 func set_animation_paused(paused: bool) -> void:
 	_animation_paused = paused
+	set_process(idle_variation_process_enabled and not _animation_paused)
 	if _animation_player:
 		if paused and String(_animation_player.current_animation) != "":
 			_animation_player.advance(0.0)

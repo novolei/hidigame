@@ -1,6 +1,7 @@
 extends Node3D
 
 const LevelLayout := preload("res://scripts/level_layout_config.gd")
+const UnityCatalog := preload("res://scripts/unity_asset_catalog.gd")
 
 var failures: Array[String] = []
 
@@ -14,6 +15,7 @@ func _run() -> void:
 	_test_prop_spawns_are_spread()
 	_test_random_positions_stay_inside_playable_radius()
 	_test_random_positions_keep_min_distance()
+	_test_active_play_decor_pool_excludes_high_poly_decoration()
 
 	if failures.is_empty():
 		print("[LevelLayoutConfigTest] PASS")
@@ -25,6 +27,8 @@ func _run() -> void:
 
 
 func _test_counts_scale_for_24_players() -> void:
+	_expect(LevelLayout.map_prop_count(2) == LevelLayout.MAP_PROP_COUNT_MIN, "2-player map prop count should use the small-room performance budget")
+	_expect(LevelLayout.map_prop_count(5) > LevelLayout.MAP_PROP_COUNT_MIN and LevelLayout.map_prop_count(5) < LevelLayout.MAP_PROP_COUNT_8, "Small-room map prop count should scale gradually before 8 players")
 	_expect(LevelLayout.map_prop_count(8) == LevelLayout.MAP_PROP_COUNT_8, "8-player map prop count should use the 8-player tuning point")
 	_expect(LevelLayout.map_prop_count(24) == LevelLayout.MAP_PROP_COUNT_24, "24-player map prop count should use the 24-player tuning point")
 	_expect(LevelLayout.unity_decor_count(24) == LevelLayout.UNITY_DECOR_COUNT_24, "Unity decor count should scale through LevelLayout")
@@ -79,6 +83,25 @@ func _test_random_positions_keep_min_distance() -> void:
 		for existing: Vector3 in used:
 			_expect(candidate_position.distance_to(existing) >= LevelLayout.MAP_PROP_MIN_DISTANCE - 0.001, "Map prop positions should respect configured spacing")
 		used.append(candidate_position)
+
+
+func _test_active_play_decor_pool_excludes_high_poly_decoration() -> void:
+	var excluded_ids: Dictionary = {
+		"tanks_light_tank": true,
+		"synty_car_small": true,
+		"tanks_busted_tank": true,
+	}
+	var active_pool: Array = UnityCatalog.active_play_decorations()
+	_expect(not active_pool.is_empty(), "Active-play decor pool should retain lightweight decoration options")
+	for raw_decoration: Variant in active_pool:
+		var decoration: Dictionary = raw_decoration as Dictionary
+		var decor_id: String = str(decoration.get("id", ""))
+		_expect(not excluded_ids.has(decor_id), "Active-play decor pool should exclude high-poly decor: %s" % decor_id)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 68925
+	for index: int in range(64):
+		var sampled: Dictionary = UnityCatalog.random_active_play_decoration(rng)
+		_expect(not excluded_ids.has(str(sampled.get("id", ""))), "Active-play random decor should not return excluded high-poly ids")
 
 
 func _flat_radius(point: Vector3) -> float:

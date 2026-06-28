@@ -80,11 +80,12 @@ func get_passive_cooldown_remaining() -> float:
 
 
 func _is_local_hunter_active() -> bool:
+	if not hunter_owner or not is_instance_valid(hunter_owner) or not hunter_owner.is_inside_tree():
+		return false
+	if not hunter_owner.multiplayer.has_multiplayer_peer():
+		return false
 	return (
-		hunter_owner
-		and is_instance_valid(hunter_owner)
-		and hunter_owner.is_inside_tree()
-		and hunter_owner.has_method("is_hunter")
+		hunter_owner.has_method("is_hunter")
 		and bool(hunter_owner.call("is_hunter"))
 		and hunter_owner.is_multiplayer_authority()
 	)

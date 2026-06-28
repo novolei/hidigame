@@ -10,30 +10,36 @@ const PROP_SPAWN_RADIUS: float = 22.0
 const PROP_SPAWN_JITTER_RADIUS: float = 7.0
 const HUNTER_RELEASE_RADIUS: float = 30.0
 
-const MAP_PROP_COUNT_8: int = 52
-const MAP_PROP_COUNT_24: int = 132
+const MAP_PROP_COUNT_MIN: int = 24
+const MAP_PROP_COUNT_8: int = 36
+const MAP_PROP_COUNT_24: int = 56
 const MAP_PROP_MIN_DISTANCE: float = 2.8
 const MAP_PROP_INNER_RADIUS: float = 5.0
 const MAP_PROP_OUTER_RADIUS: float = 38.0
 
 const UNITY_DECOR_COUNT_8: int = 18
-const UNITY_DECOR_COUNT_24: int = 52
+const UNITY_DECOR_COUNT_24: int = 36
 const UNITY_DECOR_MIN_DISTANCE: float = 4.8
 const UNITY_DECOR_INNER_RADIUS: float = 8.0
 const UNITY_DECOR_OUTER_RADIUS: float = 39.0
 
-const AMMO_PACK_COUNT_SMALL_8: int = 8
-const AMMO_PACK_COUNT_MEDIUM_8: int = 4
-const AMMO_PACK_COUNT_LARGE_8: int = 2
-const AMMO_PACK_COUNT_SMALL_24: int = 24
-const AMMO_PACK_COUNT_MEDIUM_24: int = 12
-const AMMO_PACK_COUNT_LARGE_24: int = 5
+const AMMO_PACK_COUNT_SMALL_8: int = 7
+const AMMO_PACK_COUNT_MEDIUM_8: int = 3
+const AMMO_PACK_COUNT_LARGE_8: int = 1
+const AMMO_PACK_COUNT_SMALL_24: int = 18
+const AMMO_PACK_COUNT_MEDIUM_24: int = 9
+const AMMO_PACK_COUNT_LARGE_24: int = 4
 const AMMO_PACK_MIN_DISTANCE: float = 6.0
 const AMMO_PACK_INNER_RADIUS: float = 10.0
 const AMMO_PACK_OUTER_RADIUS: float = 39.0
 
 
 static func map_prop_count(total_players: int) -> int:
+	if total_players <= 2:
+		return MAP_PROP_COUNT_MIN
+	if total_players <= 8:
+		var ratio: float = clampf(float(total_players - 2) / 6.0, 0.0, 1.0)
+		return int(round(lerpf(float(MAP_PROP_COUNT_MIN), float(MAP_PROP_COUNT_8), ratio)))
 	return _scaled_count(total_players, MAP_PROP_COUNT_8, MAP_PROP_COUNT_24)
 
 

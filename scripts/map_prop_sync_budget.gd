@@ -1,10 +1,10 @@
 class_name MapPropSyncBudget
 extends RefCounted
 
-const DEFAULT_MOTION_FLUSH_INTERVAL: float = 0.2
-const DEFAULT_MAX_MOTION_STATES_PER_FLUSH: int = 12
-const DEFAULT_REST_FLUSH_INTERVAL: float = 0.05
-const DEFAULT_MAX_REST_STATES_PER_FLUSH: int = 24
+const DEFAULT_MOTION_FLUSH_INTERVAL: float = 1.0 / 8.0
+const DEFAULT_MAX_MOTION_STATES_PER_FLUSH: int = 4
+const DEFAULT_REST_FLUSH_INTERVAL: float = 1.0 / 10.0
+const DEFAULT_MAX_REST_STATES_PER_FLUSH: int = 8
 
 var motion_flush_interval: float = DEFAULT_MOTION_FLUSH_INTERVAL
 var max_motion_states_per_flush: int = DEFAULT_MAX_MOTION_STATES_PER_FLUSH
