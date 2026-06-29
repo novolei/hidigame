@@ -5364,6 +5364,7 @@ func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: St
 		message = "SWAPPED %s" % label.to_upper()
 	_card_feedback_to_owner(message, Color(1.0, 0.86, 0.25, 1.0), 1.0)
 	_accessory_pickup_sfx_to_owner()
+	get_tree().call_group("match_score_tracker", "record_objective_pickup", int(name))
 
 
 # Route a sprite-style pickup chime to the player who grabbed the accessory
@@ -8056,6 +8057,7 @@ func take_damage(amount: float, attacker_id: int, is_headshot: bool = false):
 
 	health = max(0.0, health - amount)
 	_server_report_damage_to_attacker(attacker_id)
+	get_tree().call_group("match_score_tracker", "record_damage", attacker_id, int(name), amount)
 
 	if health <= 0.0:
 		_server_die(attacker_id)
@@ -8069,6 +8071,10 @@ func _server_die(killer_id: int) -> void:
 		return
 	if _is_dead:
 		return
+	# Scoring: record the death + kill once (covers the card-revival path too).
+	get_tree().call_group("match_score_tracker", "record_kill", killer_id, int(name))
+	if killer_id > 0 and is_party_monster_bounty_marked():
+		get_tree().call_group("match_score_tracker", "record_bounty_kill", killer_id)
 	if _is_prop_role() and Network.server_try_consume_reactive_card(int(name), "prop_revival"):
 		if _should_log_runtime_debug():
 			print("[Combat] Player ", name, " consumed Revival Card after lethal hit by ", killer_id)
@@ -8109,6 +8115,7 @@ func _server_revive_from_card_after_delay() -> void:
 	if Network.players.has(int(name)):
 		Network.server_set_player_alive(int(name), true)
 	_card_feedback_to_owner("REVIVED", Color(0.62, 1.0, 0.74, 1.0), 1.0)
+	get_tree().call_group("match_score_tracker", "record_revive", int(name))
 
 
 func _card_find_respawn_outside_hunter_view() -> Vector3:

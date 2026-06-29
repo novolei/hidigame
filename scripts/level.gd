@@ -179,6 +179,13 @@ var _console_drawer_width: float = 600.0
 var _console_player_locked: bool = false
 var game_pause_menu: GamePauseMenu = null
 var _pause_menu_active := false
+# --- scoreboard / scoring ---
+const SCOREBOARD_BROADCAST_INTERVAL := 1.5
+var score_tracker: MatchScoreTracker = null      # server-only accumulator
+var scoreboard_hud: ScoreboardHUD = null         # client-only Tab overlay
+var scoreboard_snapshot: Dictionary = {}         # peer_id -> packed stats row (synced)
+var _scoreboard_visible := false
+var _scoreboard_broadcast_elapsed := 0.0
 var _console_history: PackedStringArray = PackedStringArray()
 var _console_history_index: int = 0
 var _known_player_names: Dictionary = {}
@@ -1620,6 +1627,10 @@ func _process(delta):
 		_process_gravity_events(delta)
 		if _is_multiplayer_server():
 			_server_process_party_monster_bounties(delta)
+			_scoreboard_broadcast_elapsed += delta
+			if _scoreboard_broadcast_elapsed >= SCOREBOARD_BROADCAST_INTERVAL:
+				_scoreboard_broadcast_elapsed = 0.0
+				_broadcast_scoreboard()
 		if _is_multiplayer_server() and match_remaining <= 0.0:
 			_server_end_match()
 	_process_map_prop_motion_sync(delta)
@@ -4245,6 +4256,13 @@ func _on_match_started() -> void:
 	_apply_configured_gravity()
 	low_gravity_check_remaining = LOW_GRAVITY_CHECK_INTERVAL
 	_update_card_hud()
+	# Fresh scoreboard for the new match.
+	if _is_multiplayer_server():
+		_ensure_score_tracker()
+		if score_tracker:
+			score_tracker.reset()
+		_scoreboard_broadcast_elapsed = 0.0
+		_broadcast_scoreboard()
 
 
 func _process_gravity_events(delta: float) -> void:
@@ -5278,6 +5296,16 @@ func _input(event):
 		_set_benchmark_mode_enabled(not benchmark_mode_enabled)
 		get_viewport().set_input_as_handled()
 		return
+	# Hold Tab to show the scoreboard; release to hide. Consume only while it owns Tab.
+	if event is InputEventKey and not (event as InputEventKey).echo and (event as InputEventKey).keycode == KEY_TAB:
+		if event.pressed and _can_show_scoreboard():
+			_set_scoreboard_visible(true)
+			get_viewport().set_input_as_handled()
+			return
+		elif not event.pressed and _scoreboard_visible:
+			_set_scoreboard_visible(false)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
 		if _handle_network_console_key(key_event):
@@ -5766,6 +5794,76 @@ func _pause_return_to_lobby() -> void:
 	else:
 		Network.leave_current_lobby()
 		get_tree().reload_current_scene()
+
+
+# =============================================================================
+# SCOREBOARD (Tab) + match scoring
+# =============================================================================
+
+func _ensure_score_tracker() -> void:
+	if not _is_multiplayer_server():
+		return
+	if score_tracker and is_instance_valid(score_tracker):
+		return
+	score_tracker = preload("res://scripts/scoring/match_score_tracker.gd").new()
+	score_tracker.name = "MatchScoreTracker"
+	add_child(score_tracker)
+
+
+func _ensure_scoreboard_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	scoreboard_hud = hud.get_node_or_null("ScoreboardHUD")
+	if not scoreboard_hud:
+		scoreboard_hud = preload("res://scripts/scoreboard_hud.gd").new()
+		scoreboard_hud.name = "ScoreboardHUD"
+		hud.add_child(scoreboard_hud)
+
+
+func _broadcast_scoreboard() -> void:
+	if not score_tracker or not is_instance_valid(score_tracker):
+		return
+	var rows := score_tracker.snapshot_rows()
+	if multiplayer.has_multiplayer_peer():
+		_rpc_scoreboard.rpc(rows)
+	else:
+		_rpc_scoreboard(rows)
+
+
+@rpc("authority", "call_local", "reliable")
+func _rpc_scoreboard(rows: Array) -> void:
+	scoreboard_snapshot.clear()
+	for row in rows:
+		if row is Array and (row as Array).size() >= 8:
+			scoreboard_snapshot[int(row[0])] = row
+	if _scoreboard_visible and scoreboard_hud and is_instance_valid(scoreboard_hud):
+		scoreboard_hud.set_snapshot(scoreboard_snapshot)
+
+
+func _can_show_scoreboard() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	if game_state != GameState.PREP and game_state != GameState.PLAY:
+		return false
+	if _is_network_console_visible() or _is_pause_menu_visible():
+		return false
+	if main_menu and main_menu.is_menu_visible():
+		return false
+	return true
+
+
+func _set_scoreboard_visible(visible_state: bool) -> void:
+	_scoreboard_visible = visible_state
+	if visible_state:
+		_ensure_scoreboard_hud()
+		if scoreboard_hud and is_instance_valid(scoreboard_hud):
+			scoreboard_hud.set_snapshot(scoreboard_snapshot)
+			scoreboard_hud.show_board()
+	elif scoreboard_hud and is_instance_valid(scoreboard_hud):
+		scoreboard_hud.hide_board()
 
 
 func _handle_card_hotkeys(event: InputEventKey) -> bool:
