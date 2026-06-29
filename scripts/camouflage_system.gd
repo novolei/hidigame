@@ -158,12 +158,16 @@ func _is_stale_pose_hit_cache_key(cache_key: String) -> bool:
 	return _is_pose_hit_cache_key(cache_key) and _pose_generation_from_cache_key(cache_key) != _pose_hit_cache_generation
 
 
+const PAINT_WASD_ORBIT_SPEED := 220.0   # WASD camera-orbit speed (px-equivalent/sec) in paint mode
+
+
 func _process(delta: float) -> void:
 	if _stroke_wait > 0.0:
 		_stroke_wait = maxf(0.0, _stroke_wait - delta)
 	_finalize_mesh_hit_cache_jobs()
 	if not skill_active:
 		return
+	_apply_paint_camera_wasd(delta)
 	if _update_paint_session_timer(delta):
 		return
 
@@ -1053,6 +1057,17 @@ func _orbit_owner_camera(relative: Vector2) -> void:
 		return
 	if camouflage_owner.has_method("adjust_camouflage_camera_orbit"):
 		camouflage_owner.call("adjust_camouflage_camera_orbit", relative)
+
+
+# WASD orbits the camera around the painted model while painting (A/D yaw, W/S
+# pitch), to pair with the scroll-wheel zoom. The body is frozen in paint mode, so
+# the movement keys are free to drive the view.
+func _apply_paint_camera_wasd(delta: float) -> void:
+	var yaw_dir := (1.0 if Input.is_action_pressed("move_right") else 0.0) - (1.0 if Input.is_action_pressed("move_left") else 0.0)
+	var pitch_dir := (1.0 if Input.is_action_pressed("move_backward") else 0.0) - (1.0 if Input.is_action_pressed("move_forward") else 0.0)
+	if is_zero_approx(yaw_dir) and is_zero_approx(pitch_dir):
+		return
+	_orbit_owner_camera(Vector2(yaw_dir, pitch_dir) * PAINT_WASD_ORBIT_SPEED * delta)
 
 
 func _zoom_owner_camera(step_count: float) -> void:

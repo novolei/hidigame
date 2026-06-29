@@ -158,6 +158,8 @@ func _scan_for_disguised_chameleons() -> bool:
 			else:
 				_visual_targets.erase(target_id)
 			target.call("set_hunter_prop_sense_revealed", true, proximity, interval, visual_active)
+			if target.has_method("notify_owner_hunter_sense"):
+				target.call("notify_owner_hunter_sense", proximity, interval, visual_active)
 		else:
 			_deactivate_target(target)
 

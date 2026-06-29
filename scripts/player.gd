@@ -2295,6 +2295,11 @@ func _process_shared_visual_feedback_frame(delta: float, is_local_player: bool) 
 		_party_monster_trip_cooldown = maxf(0.0, _party_monster_trip_cooldown - delta)
 	if _party_monster_trip_reaction_lock_remaining > 0.0:
 		_party_monster_trip_reaction_lock_remaining = maxf(0.0, _party_monster_trip_reaction_lock_remaining - delta)
+	# Chameleon "you're being sensed" cue auto-clears when no hunter refreshes it.
+	if _hunter_sense_alert_remaining > 0.0:
+		_hunter_sense_alert_remaining = maxf(0.0, _hunter_sense_alert_remaining - delta)
+		if _hunter_sense_alert_remaining <= 0.0:
+			set_hunter_prop_sense_revealed(false)
 		if _party_monster_trip_action_locked and _party_monster_trip_reaction_lock_remaining <= 0.0:
 			# Trip animation finished: stay down and wait for the player to stand up (press jump)
 			# instead of auto-recovering. Movement stays locked while _party_monster_trip_action_locked.
@@ -5641,6 +5646,37 @@ func set_hunter_prop_sense_revealed(revealed: bool, intensity: float = 1.0, beep
 		_hunter_prop_sense_feedback_elapsed = 0.0
 	if not was_revealed and not _hunter_prop_sense_ping_spawned:
 		_spawn_hunter_prop_sense_ping_marker()
+
+
+var _hunter_sense_alert_remaining: float = 0.0
+
+
+# Called on the DETECTING hunter's local copy of this chameleon. Server-relays a
+# pulse to the chameleon's OWNER so they also get the beep + red-flash feedback
+# (detection runs client-side per hunter, so the owner had no cue before).
+func notify_owner_hunter_sense(intensity: float, beep_interval: float, visual_active: bool) -> void:
+	if not _has_active_camouflage_multiplayer_peer():
+		return
+	if _is_runtime_multiplayer_server():
+		_client_hunter_sense_alert.rpc_id(int(str(name)), intensity, beep_interval, visual_active)
+	else:
+		_relay_hunter_sense_alert.rpc_id(1, intensity, beep_interval, visual_active)
+
+
+@rpc("any_peer", "call_local", "unreliable_ordered")
+func _relay_hunter_sense_alert(intensity: float, beep_interval: float, visual_active: bool) -> void:
+	if not _is_runtime_multiplayer_server():
+		return
+	_client_hunter_sense_alert.rpc_id(int(str(name)), intensity, beep_interval, visual_active)
+
+
+@rpc("authority", "call_local", "unreliable_ordered")
+func _client_hunter_sense_alert(intensity: float, beep_interval: float, visual_active: bool) -> void:
+	if int(str(name)) != _local_peer_id():
+		return
+	# Refresh a short timeout (any hunter keeps it alive); expiry clears the cue.
+	_hunter_sense_alert_remaining = 0.5
+	set_hunter_prop_sense_revealed(true, intensity, beep_interval, visual_active)
 
 
 func is_hunter_prop_sense_revealed() -> bool:
