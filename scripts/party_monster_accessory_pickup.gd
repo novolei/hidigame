@@ -9,7 +9,7 @@ const RESPAWN_TIME := 42.0
 const BOB_HEIGHT := 0.14
 const BOB_SPEED := 2.6
 const ROTATION_SPEED := 1.35
-const PREVIEW_TARGET_SIZE := 0.5
+const PREVIEW_TARGET_SIZE := 0.6   # uniform on-map display size (1.2x the previous 0.5)
 const PREVIEW_VISIBILITY_RANGE := 28.0
 const PREVIEW_VISIBILITY_MARGIN := 4.0
 const BEACON_HEIGHT := 640.0
@@ -732,8 +732,10 @@ func _normalize_accessory_preview(preview: Node3D) -> void:
 	var scaled_bounds := _calculate_visible_bounds(preview)
 	if scaled_bounds.size == Vector3.ZERO:
 		return
+	# Center the bounding box on all axes (not grounded), so every accessory floats
+	# at the same uniform height regardless of its shape.
 	var center := scaled_bounds.position + scaled_bounds.size * 0.5
-	preview.position -= Vector3(center.x, scaled_bounds.position.y, center.z)
+	preview.position -= center
 
 
 func _update_visual_motion(delta: float) -> void:

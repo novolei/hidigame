@@ -5353,6 +5353,9 @@ func _apply_party_monster_accessories_to_active_skin() -> void:
 	_active_skin_node.call("set_accessory_loadout", _party_monster_accessory_loadout)
 
 
+const ACCESSORY_PICKUP_SFX_PATH := "res://assets/unity_migrated/tanks_complete/Audio/SFX/PickupPowerUp.wav"
+
+
 func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: String = "") -> void:
 	var label := PartyMonsterAccessoryCatalogScript.accessory_label(accessory_id)
 	var replaced_label := PartyMonsterAccessoryCatalogScript.accessory_label(replaced_id) if not replaced_id.is_empty() else ""
@@ -5360,6 +5363,33 @@ func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: St
 	if not replaced_label.is_empty() and replaced_label != label:
 		message = "SWAPPED %s" % label.to_upper()
 	_card_feedback_to_owner(message, Color(1.0, 0.86, 0.25, 1.0), 1.0)
+	_accessory_pickup_sfx_to_owner()
+
+
+# Route a sprite-style pickup chime to the player who grabbed the accessory
+# (owner client only — server is authoritative for the pickup itself).
+func _accessory_pickup_sfx_to_owner() -> void:
+	var owner_id := get_multiplayer_authority()
+	if _card_can_rpc_to_owner(owner_id):
+		_client_accessory_pickup_sfx.rpc_id(owner_id)
+	elif owner_id == _local_peer_id() or not _has_runtime_multiplayer_peer():
+		_client_accessory_pickup_sfx()
+
+
+@rpc("authority", "call_local", "reliable")
+func _client_accessory_pickup_sfx() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var stream := load(ACCESSORY_PICKUP_SFX_PATH)
+	if stream == null:
+		return
+	var sfx := AudioStreamPlayer.new()
+	sfx.stream = stream
+	sfx.volume_db = -3.0
+	sfx.pitch_scale = randf_range(0.98, 1.07)
+	add_child(sfx)
+	sfx.finished.connect(sfx.queue_free)
+	sfx.play()
 
 
 func set_party_monster_bounty_marked(marked: bool, accessory_ids: Array = [], label: String = "") -> void:
