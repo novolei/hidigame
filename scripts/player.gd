@@ -55,7 +55,8 @@ const PROP_PUSH_QUERY_INTERVAL_MSEC := 50
 const PROP_PUSH_ASSIST_MIN_SPEED := 2.6
 const WORLD_COLLISION_MASK := 2
 const HOLOGRAM_FLAG_ACTION := "place_hologram_flag"
-const MAP_PING_RANGE := 220.0  # middle-click world ping reach
+const MAP_PING_RANGE := 220.0       # middle-click world ping raycast reach
+const MAP_PING_AIR_DISTANCE := 30.0 # where the ping lands when aiming at open space (no surface hit)
 const HOLOGRAM_FLAG_PLACEMENT_RANGE := 14.0
 const HOLOGRAM_FLAG_FALLBACK_DISTANCE := 4.5
 const HOLOGRAM_FLAG_GROUND_RAY_UP := 2.0
@@ -1601,7 +1602,9 @@ func _request_map_ping() -> void:
 	if camera:
 		ray_origin = camera.global_position
 		forward = -camera.global_transform.basis.z.normalized()
-	var target := ray_origin + forward * MAP_PING_RANGE
+	# Surface hit -> exact point (ground / wall / ceiling). Open space -> a point
+	# floating along the aim, so any spatial position can be pinged.
+	var target := ray_origin + forward * MAP_PING_AIR_DISTANCE
 	var world := get_world_3d()
 	if world:
 		var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + forward * MAP_PING_RANGE, WORLD_COLLISION_MASK)
@@ -1620,7 +1623,7 @@ func _request_map_ping() -> void:
 func _map_ping(world_pos: Vector3) -> void:
 	if int(str(name)) != _local_peer_id() and not is_ally_of_local_viewer():
 		return
-	get_tree().call_group("map_ping_hud", "register_ping", world_pos)
+	get_tree().call_group("map_ping_hud", "register_ping", world_pos, int(str(name)))
 
 
 func _resolve_hologram_flag_ground_position(position: Vector3) -> Vector3:

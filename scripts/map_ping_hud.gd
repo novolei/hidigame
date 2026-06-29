@@ -12,9 +12,8 @@ class_name MapPingHUD
 const FONT_PATH := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const PING_SOUND_PATH := "res://assets/audio/ui/ui_confirm_click.mp3"
 const BASE_VIEWPORT := Vector2(1920.0, 1080.0)
-const PING_SECONDS := 7.0
+const PING_SECONDS := 10.0
 const FADE_SECONDS := 0.8
-const MAX_PINGS := 12
 const MARKER_LIFT := 1.7              # metres the disc floats above the ground point
 const ACCENT := Color(1.0, 0.82, 0.30, 1.0)
 const BEAM_COLOR := Color(1.0, 0.82, 0.30, 0.55)
@@ -48,10 +47,18 @@ func _ready() -> void:
 	visible = false
 
 
-func register_ping(world_pos: Vector3) -> void:
-	_pings.append({"pos": world_pos, "expire": Time.get_ticks_msec() + int(PING_SECONDS * 1000.0)})
-	if _pings.size() > MAX_PINGS:
-		_pings.pop_front()
+func register_ping(world_pos: Vector3, pinger_id: int = 0) -> void:
+	var expire := Time.get_ticks_msec() + int(PING_SECONDS * 1000.0)
+	# One ping per player: a new ping replaces that player's previous one.
+	var replaced := false
+	for entry in _pings:
+		if int((entry as Dictionary).get("pinger", 0)) == pinger_id:
+			(entry as Dictionary)["pos"] = world_pos
+			(entry as Dictionary)["expire"] = expire
+			replaced = true
+			break
+	if not replaced:
+		_pings.append({"pos": world_pos, "expire": expire, "pinger": pinger_id})
 	if _sound and _sound.stream:
 		_sound.pitch_scale = randf_range(1.0, 1.08)
 		_sound.play()
