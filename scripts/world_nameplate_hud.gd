@@ -16,6 +16,7 @@ class_name WorldNameplateHUD
 const FONT_PATH := "res://assets/fonts/SairaCondensed-Light.woff2"
 const BOUNTY_ICON_PATH := "res://resources/ui/icons/bounty.svg"
 const CROWN_ICON_PATH := "res://resources/ui/icons/crown.svg"
+const BEACON_SPAWN_SECONDS := 0.55   # brief pop-in when a bounty beacon first appears
 const LOW_HEALTH_ICON_PATH := "res://resources/ui/icons/low_health.svg"
 const BASE_VIEWPORT := Vector2(1920.0, 1080.0)
 
@@ -53,6 +54,7 @@ var _now_msec := 0
 var _name_font: Font = null
 var _bounty_icon: Texture2D = null
 var _crown_icon: Texture2D = null
+var _beacon_spawn: Dictionary = {}   # peer_id -> first-appearance msec (drives pop-in)
 var _low_health_icon: Texture2D = null
 
 
@@ -100,17 +102,23 @@ func _draw() -> void:
 	var res_scale := _get_resolution_scale()
 	var show_plates := _show_nameplates()
 	var cam_pos := _camera.global_position
+	var active_beacons := {}
 	for entry in _entries:
 		var world_pos: Vector3 = entry.get("pos", Vector3.ZERO)
+		var peer := int(entry.get("peer", 0))
 		# Full-map bounty beacon (hunters) — drawn even off-screen / behind camera.
+		# Tracks first-appearance per peer to play a brief pop-in.
 		if bool(entry.get("bounty_marker", false)):
-			_draw_bounty_beacon(world_pos, cam_pos.distance_to(world_pos), res_scale)
+			if not _beacon_spawn.has(peer):
+				_beacon_spawn[peer] = _now_msec
+			active_beacons[peer] = true
+			var spawn_t := clampf(float(_now_msec - int(_beacon_spawn[peer])) / (BEACON_SPAWN_SECONDS * 1000.0), 0.0, 1.0)
+			_draw_bounty_beacon(world_pos, cam_pos.distance_to(world_pos), res_scale, spawn_t)
 		if _camera.is_position_behind(world_pos):
 			continue
 		var screen := _camera.unproject_position(world_pos)
 		var dist := cam_pos.distance_to(world_pos)
 		var scale := res_scale * clampf(REFERENCE_DISTANCE / maxf(dist, 1.0), MIN_DISTANCE_SCALE, MAX_DISTANCE_SCALE)
-		var peer := int(entry.get("peer", 0))
 		var is_self := bool(entry.get("is_self", false))
 		var is_ally := bool(entry.get("is_ally", false))
 		var revealed := not is_self and not is_ally and _reveals.has(peer) and _now_msec < int(_reveals[peer])
@@ -118,6 +126,10 @@ func _draw() -> void:
 			_draw_enemy_reveal(screen, str(entry.get("name", "")), float(entry.get("ratio", 0.0)), scale)
 		if show_plates and bool(entry.get("name_visible", false)):
 			_draw_nameplate(screen, entry, is_self, is_ally, scale)
+	# Drop spawn timers for peers that lost their beacon, so a re-bounty replays the pop-in.
+	for tracked in _beacon_spawn.keys():
+		if not active_beacons.has(tracked):
+			_beacon_spawn.erase(tracked)
 
 
 func _draw_nameplate(screen: Vector2, entry: Dictionary, is_self: bool, is_ally: bool, scale: float) -> void:
@@ -219,7 +231,7 @@ func _get_crown_icon() -> Texture2D:
 # Hunter-only full-map beacon over a bountied prop: a yellow diamond with a crown
 # and the distance, following the target and clamped to the screen edge so it's
 # always visible (even through walls / off-screen).
-func _draw_bounty_beacon(world_pos: Vector3, dist: float, res_scale: float) -> void:
+func _draw_bounty_beacon(world_pos: Vector3, dist: float, res_scale: float, spawn_t: float = 1.0) -> void:
 	var vp := size if size.x > 2.0 else get_viewport_rect().size
 	var center := vp * 0.5
 	var top := world_pos + Vector3.UP * 1.95
@@ -229,24 +241,42 @@ func _draw_bounty_beacon(world_pos: Vector3, dist: float, res_scale: float) -> v
 	var margin := 56.0 * res_scale
 	screen.x = clampf(screen.x, margin, vp.x - margin)
 	screen.y = clampf(screen.y, margin, vp.y - margin)
-	var s := 22.0 * res_scale
+	# Pop-in: ease-out-back scale overshoot + quick fade so it "lands" on appearance.
+	var pop := maxf(0.04, _ease_out_back(spawn_t))
+	var alpha := clampf(spawn_t / 0.30, 0.0, 1.0)
+	var s := 22.0 * res_scale * pop
+	# Expanding ring shockwave during the spawn window only.
+	if spawn_t < 1.0:
+		var ring_r := lerpf(s * 1.15, 58.0 * res_scale, spawn_t)
+		draw_arc(screen, ring_r, 0.0, TAU, 40, _with_alpha(BOUNTY_COLOR, (1.0 - spawn_t) * 0.7), maxf(1.5, 2.5 * res_scale), true)
 	var diamond := PackedVector2Array([
 		screen + Vector2(0.0, -s), screen + Vector2(s, 0.0),
 		screen + Vector2(0.0, s), screen + Vector2(-s, 0.0)])
-	draw_colored_polygon(diamond, Color(0.06, 0.08, 0.05, 0.86))
+	draw_colored_polygon(diamond, Color(0.06, 0.08, 0.05, 0.86 * alpha))
 	var outline := PackedVector2Array(diamond)
 	outline.append(diamond[0])
-	draw_polyline(outline, BOUNTY_COLOR, maxf(2.0, 3.0 * res_scale), true)
+	draw_polyline(outline, _with_alpha(BOUNTY_COLOR, alpha), maxf(2.0, 3.0 * res_scale), true)
 	var crown := _get_crown_icon()
 	if crown:
 		var isz := s * 1.05
-		draw_texture_rect(crown, Rect2(screen - Vector2(isz, isz) * 0.5, Vector2(isz, isz)), false, BOUNTY_COLOR)
+		draw_texture_rect(crown, Rect2(screen - Vector2(isz, isz) * 0.5, Vector2(isz, isz)), false, _with_alpha(BOUNTY_COLOR, alpha))
 	var font := _get_name_font()
 	var dsize := _scaled(18, res_scale)
 	var dtext := "%.0fm" % dist
 	var dpos := Vector2(screen.x - 60.0 * res_scale, screen.y - s - 8.0 * res_scale)
-	draw_string(font, dpos + Vector2(1.5, 1.5), dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, Color(0.0, 0.0, 0.0, 0.6))
-	draw_string(font, dpos, dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, BOUNTY_COLOR)
+	draw_string(font, dpos + Vector2(1.5, 1.5), dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, Color(0.0, 0.0, 0.0, 0.6 * alpha))
+	draw_string(font, dpos, dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, _with_alpha(BOUNTY_COLOR, alpha))
+
+
+# Ease-out-back: overshoots past 1.0 then settles, giving the beacon a snappy pop.
+func _ease_out_back(x: float) -> float:
+	var c1 := 1.70158
+	var c3 := c1 + 1.0
+	return 1.0 + c3 * pow(x - 1.0, 3.0) + c1 * pow(x - 1.0, 2.0)
+
+
+func _with_alpha(c: Color, a: float) -> Color:
+	return Color(c.r, c.g, c.b, c.a * clampf(a, 0.0, 1.0))
 
 
 func _get_low_health_icon() -> Texture2D:
