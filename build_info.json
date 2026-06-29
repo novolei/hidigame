@@ -1,10 +1,10 @@
 {
-  "build_id": "ec386534",
-  "content_version": "0.4.27+20260629.ec386534",
-  "version": "0.4.27",
+  "build_id": "4b2088c3",
+  "content_version": "0.4.28+20260629.4b2088c3",
+  "version": "0.4.28",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "ec38653454f019e18f1435940d05350c871923bd",
-  "built_at": "2026-06-29T19:30:00+08:00",
-  "role": "baseline"
+  "git_commit": "4b2088c342875247b97bf26104ad0dabdea0e0a5",
+  "built_at": "2026-06-29T20:30:00+08:00",
+  "role": "hotpatch"
 }
