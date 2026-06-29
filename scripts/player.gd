@@ -5369,8 +5369,9 @@ func _apply_party_monster_accessories_to_active_skin() -> void:
 
 # Under resources/ (not assets/) so the chime ships inside the core_patch hotpatch —
 # assets/** is excluded from incremental updates, which is why it was silent before.
-const ACCESSORY_PICKUP_SFX_PATH := "res://resources/audio/pickup_chime.wav"
+const ACCESSORY_PICKUP_SFX := preload("res://resources/audio/pickup_chime.wav")
 var _last_pickup_sfx_msec: int = 0   # dedupe window so the two triggers don't double-play
+var _pickup_sfx_player: AudioStreamPlayer = null
 
 
 func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: String = "") -> void:
@@ -5406,21 +5407,18 @@ func _client_accessory_pickup_sfx() -> void:
 	if now - _last_pickup_sfx_msec < 350:
 		return
 	_last_pickup_sfx_msec = now
-	var stream := load(ACCESSORY_PICKUP_SFX_PATH)
-	if stream == null:
-		return
-	var sfx := AudioStreamPlayer.new()
-	sfx.stream = stream
-	sfx.bus = "Master"
-	sfx.volume_db = 0.0
-	sfx.pitch_scale = randf_range(0.98, 1.07)
-	var scene := get_tree().current_scene
-	if scene:
-		scene.add_child(sfx)
-	else:
-		add_child(sfx)
-	sfx.finished.connect(sfx.queue_free)
-	sfx.play()
+	# Persistent player (created once), mirroring the working map-ping sound: a fresh
+	# AudioStreamPlayer + play() in the same frame was not producing audio.
+	if _pickup_sfx_player == null or not is_instance_valid(_pickup_sfx_player):
+		_pickup_sfx_player = AudioStreamPlayer.new()
+		_pickup_sfx_player.name = "AccessoryPickupSfx"
+		_pickup_sfx_player.bus = &"Master"
+		_pickup_sfx_player.volume_db = 0.0
+		_pickup_sfx_player.max_polyphony = 3
+		_pickup_sfx_player.stream = ACCESSORY_PICKUP_SFX
+		add_child(_pickup_sfx_player)
+	_pickup_sfx_player.pitch_scale = randf_range(0.98, 1.07)
+	_pickup_sfx_player.play()
 
 
 func set_party_monster_bounty_marked(marked: bool, accessory_ids: Array = [], label: String = "") -> void:

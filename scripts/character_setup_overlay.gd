@@ -45,6 +45,12 @@ const MAX_ANGULAR_VELOCITY := 9.0
 const URGENCY_THRESHOLD := 8.0   # seconds below which the timer enters the "panic" state
 const DEFAULT_TOTAL_SECONDS := 20.0
 
+# --- Entrance / ambient motion ----------------------------------------------
+const BASE_CAROUSEL_Y := -0.32   # resting Y of the carousel ring (heads clear the countdown)
+const INTRO_RISE := 2.2          # how far below it starts before springing up
+const INTRO_DURATION := 0.55     # seconds for the entrance pop
+const SIDE_SPIN_SPEED := 0.4     # radians/sec gentle auto-rotation for the off-center skins
+
 # --- Fitting -----------------------------------------------------------------
 const FIT_TARGET_HEIGHT := 2.42
 const FIT_TARGET_SIDE := 1.6
@@ -73,10 +79,11 @@ var _preview_stage: Node3D = null
 var _carousel_root: Node3D = null
 var _preview_camera: Camera3D = null
 var _countdown_label: Label = null
-var _countdown_ring: TextureProgressBar = null
+var _countdown_ring: CountdownRing = null
 var _name_label: Label = null
 var _index_label: Label = null
 var _hint_label: Label = null
+var _role_label: Label = null
 var _left_arrow: Button = null
 var _right_arrow: Button = null
 var _spinner: TextureRect = null
@@ -113,6 +120,7 @@ var _remaining := 0.0
 var _total_seconds := DEFAULT_TOTAL_SECONDS
 var _warmup_pending: Array[int] = []
 var _warmup_done := false
+var _intro_t := 1.0                    # 0..1 entrance progress (1 = settled)
 
 
 func _ready() -> void:
@@ -157,6 +165,7 @@ func show_setup(remaining: float) -> void:
 	_center_angular_velocity = 0.0
 	_dragging = false
 	_network_dirty = false
+	_intro_t = 0.0
 	_last_applied_id = _skin_ids[wrapi(start_index, 0, _skin_ids.size())] if not _skin_ids.is_empty() else ""
 
 	_begin_warmup()
@@ -250,6 +259,8 @@ func get_visible_slot_count_for_test() -> int:
 func _process(delta: float) -> void:
 	_elapsed += delta
 	_remaining = maxf(0.0, _remaining - delta)
+	if _intro_t < 1.0:
+		_intro_t = minf(1.0, _intro_t + delta / INTRO_DURATION)
 
 	if not _warmup_pending.is_empty():
 		_warmup_step()
@@ -323,6 +334,9 @@ func _update_carousel_transforms() -> void:
 	var base := roundi(_scroll) - HALF
 	var center_logical := roundi(_scroll)
 
+	# Entrance: the whole ring rises from below with a slight overshoot.
+	_carousel_root.position.y = BASE_CAROUSEL_Y - (1.0 - _intro_lift()) * INTRO_RISE
+
 	# Reset spin + animation focus whenever the centered skin changes.
 	if center_logical != _last_center_logical:
 		_last_center_logical = center_logical
@@ -352,9 +366,10 @@ func _update_carousel_transforms() -> void:
 		# Only the centered slot carries the player's drag rotation; the rest face front.
 		var yaw_node: Node3D = _slot_yaw[k]
 		if yaw_node and is_instance_valid(yaw_node):
-			var is_center := abs_off < 0.5
-			var target_yaw := _center_yaw if is_center else 0.0
-			yaw_node.rotation.y = target_yaw
+			if abs_off < 0.5:
+				yaw_node.rotation.y = _center_yaw          # center follows drag + inertia
+			else:
+				yaw_node.rotation.y = _elapsed * SIDE_SPIN_SPEED + float(k) * 0.8  # sides idle-spin
 
 		var shadow_mat: StandardMaterial3D = _slot_shadow_mat[k]
 		if shadow_mat:
@@ -362,19 +377,18 @@ func _update_carousel_transforms() -> void:
 
 
 func _refresh_animation_focus() -> void:
-	# Centered model plays a live idle; off-center models hold a static pose to save cost.
+	# All models hold a static idle pose. A static pose guarantees the measured visual
+	# center stays fixed, so the drag/auto rotation spins exactly around the body axis
+	# (a live, root-motion idle would drift the body off the pivot). Liveliness instead
+	# comes from the gentle yaw auto-spin applied to the side slots.
 	for k in range(SLOT_COUNT):
 		var model: Node = _slot_model[k]
 		if model == null or not is_instance_valid(model):
 			continue
-		var logical := (roundi(_scroll) - HALF) + k
-		var is_center := logical == roundi(_scroll)
 		if model.has_method("set_animation_paused"):
-			model.call("set_animation_paused", not is_center)
-		if is_center and model.has_method("idle"):
-			model.call("idle")
-		elif not is_center and model.has_method("apply_pose_now"):
-			model.call("apply_pose_now", 0.35)
+			model.call("set_animation_paused", true)
+		if model.has_method("apply_pose_now"):
+			model.call("apply_pose_now", 0.0)
 
 
 # --- Input -------------------------------------------------------------------
@@ -573,23 +587,27 @@ func _model_ground_offset(model: Node3D) -> Vector3:
 	return Vector3(-center.x, -box.position.y, -center.z)
 
 
-func _accumulate_model_bounds(root_model: Node3D, node: Node, bounds: Array, parent_transform: Transform3D = Transform3D.IDENTITY) -> void:
+func _accumulate_model_bounds(root_model: Node3D, node: Node, bounds: Array, parent_transform: Transform3D = Transform3D.IDENTITY, branch_visible: bool = true) -> void:
+	# branch_visible tracks visibility *within the model* (Party Monster toggles parts by
+	# hiding ancestor Node3Ds). We deliberately ignore the model root's / slot's own
+	# visibility so a faded carousel slot still measures a correct center for its pivot.
 	var local_transform := parent_transform
+	var node_visible := branch_visible
 	if node is Node3D and node != root_model:
 		local_transform = parent_transform * (node as Node3D).transform
-	if node is VisualInstance3D:
+		node_visible = branch_visible and (node as Node3D).visible
+	if node is VisualInstance3D and node_visible:
 		var visual := node as VisualInstance3D
-		if visual.visible:
-			var local_aabb := visual.get_aabb()
-			if local_aabb.size.length_squared() > 0.0001:
-				var transformed := _transform_aabb(local_aabb, local_transform)
-				if bool(bounds[0]):
-					bounds[1] = (bounds[1] as AABB).merge(transformed)
-				else:
-					bounds[1] = transformed
-					bounds[0] = true
+		var local_aabb := visual.get_aabb()
+		if local_aabb.size.length_squared() > 0.0001:
+			var transformed := _transform_aabb(local_aabb, local_transform)
+			if bool(bounds[0]):
+				bounds[1] = (bounds[1] as AABB).merge(transformed)
+			else:
+				bounds[1] = transformed
+				bounds[0] = true
 	for child in node.get_children():
-		_accumulate_model_bounds(root_model, child, bounds, local_transform)
+		_accumulate_model_bounds(root_model, child, bounds, local_transform, node_visible)
 
 
 func _transform_aabb(box: AABB, xform: Transform3D) -> AABB:
@@ -727,7 +745,7 @@ func _build_preview_world() -> void:
 
 	_carousel_root = Node3D.new()
 	_carousel_root.name = "CarouselRoot"
-	_carousel_root.position = Vector3(0.0, -0.32, 0.0)  # drop the models so the countdown clears their heads
+	_carousel_root.position = Vector3(0.0, BASE_CAROUSEL_Y, 0.0)  # drop the models so the countdown clears their heads
 	_preview_stage.add_child(_carousel_root)
 
 	_shadow_texture = _make_shadow_texture()
@@ -834,18 +852,9 @@ func _build_edge_vignettes() -> void:
 
 func _build_chrome() -> void:
 	# Countdown ring + number, top center.
-	_countdown_ring = TextureProgressBar.new()
+	_countdown_ring = CountdownRing.new()
 	_countdown_ring.name = "CountdownRing"
 	_countdown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_countdown_ring.fill_mode = TextureProgressBar.FILL_COUNTER_CLOCKWISE
-	_countdown_ring.min_value = 0.0
-	_countdown_ring.max_value = 1.0
-	_countdown_ring.step = 0.0
-	_countdown_ring.value = 1.0
-	_countdown_ring.texture_under = _make_ring_texture(Color(1.0, 1.0, 1.0, 0.16))
-	_countdown_ring.texture_progress = _make_ring_texture(Color(1.0, 1.0, 1.0, 0.92))
-	_countdown_ring.radial_initial_angle = 0.0
-	_countdown_ring.radial_center_offset = Vector2.ZERO
 	add_child(_countdown_ring)
 
 	_countdown_label = _make_label("20", 60, COUNTDOWN_CALM, _title_font)
@@ -871,6 +880,12 @@ func _build_chrome() -> void:
 	_hint_label.name = "Hint"
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_hint_label)
+
+	# Role / faction skill teaser, just under the countdown ring.
+	_role_label = _make_label("", 20, Color(1.0, 0.95, 0.84, 0.95), _title_font)
+	_role_label.name = "RoleHint"
+	_role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_role_label)
 
 	_left_arrow = _make_arrow_button("‹", false)
 	add_child(_left_arrow)
@@ -965,14 +980,21 @@ func _apply_layout(layout: Vector2) -> void:
 		_edge_right.position = Vector2(layout.x - edge_w, 0.0)
 		_edge_right.size = Vector2(edge_w, layout.y)
 
-	var ring_size := clampf(layout.y * 0.16, 144.0, 184.0)  # min matches the ring texture's native size
+	var ring_size := clampf(layout.y * 0.15, 120.0, 158.0)
+	var ring_top := clampf(layout.y * 0.024, 12.0, 34.0)
 	if _countdown_ring:
 		_countdown_ring.size = Vector2(ring_size, ring_size)
-		_countdown_ring.position = Vector2((layout.x - ring_size) * 0.5, clampf(layout.y * 0.022, 12.0, 34.0))
+		_countdown_ring.position = Vector2((layout.x - ring_size) * 0.5, ring_top)
+		_countdown_ring.thickness = clampf(ring_size * 0.06, 6.0, 10.0)
+		_countdown_ring.queue_redraw()
 	if _countdown_label:
 		_countdown_label.size = Vector2(ring_size, ring_size)
-		_countdown_label.position = _countdown_ring.position if _countdown_ring else Vector2((layout.x - ring_size) * 0.5, 40.0)
+		_countdown_label.position = Vector2((layout.x - ring_size) * 0.5, ring_top)
 		_countdown_label.pivot_offset = Vector2(ring_size * 0.5, ring_size * 0.5)
+	if _role_label:
+		var role_w := clampf(layout.x * 0.72, 420.0, 1000.0)
+		_role_label.size = Vector2(role_w, 28.0)
+		_role_label.position = Vector2((layout.x - role_w) * 0.5, ring_top + ring_size + 4.0)
 
 	var name_w := clampf(layout.x * 0.6, 360.0, 900.0)
 	var name_y := layout.y - clampf(layout.y * 0.2, 120.0, 220.0)
@@ -998,6 +1020,48 @@ func _apply_layout(layout: Vector2) -> void:
 
 # --- Countdown + spinner animation ------------------------------------------
 
+func _intro_lift() -> float:
+	# Ease-out-back: the carousel springs up past its rest point then settles.
+	var t := clampf(_intro_t, 0.0, 1.0)
+	var c1 := 1.70158
+	var c3 := c1 + 1.0
+	var inv := t - 1.0
+	return 1.0 + c3 * inv * inv * inv + c1 * inv * inv
+
+
+func _local_role() -> int:
+	var local_id := 1
+	if multiplayer.has_multiplayer_peer():
+		local_id = multiplayer.get_unique_id()
+	if Network and Network.players.has(local_id):
+		return int(Network.players[local_id].get("role", 0))
+	if Network:
+		return int(Network.player_info.get("role", 0))
+	return 0
+
+
+func _role_hint_text() -> String:
+	var key := "skin_select.role.none"
+	match _local_role():
+		1:
+			key = "skin_select.role.chameleon"
+		2:
+			key = "skin_select.role.stalker"
+		3:
+			key = "skin_select.role.hunter"
+		4:
+			key = "skin_select.role.spectator"
+	return _t(key, "")
+
+
+func _t(key: String, fallback: String) -> String:
+	if I18n and I18n.has_method("t"):
+		var value := str(I18n.call("t", key))
+		if value != key and not value.is_empty():
+			return value
+	return fallback
+
+
 func _countdown_urgency() -> float:
 	if _remaining >= URGENCY_THRESHOLD:
 		return 0.0
@@ -1008,14 +1072,15 @@ func _update_countdown() -> void:
 	if _countdown_label == null:
 		return
 	_countdown_label.text = "%d" % int(ceil(_remaining))
-	if _countdown_ring:
-		_countdown_ring.value = clampf(_remaining / maxf(_total_seconds, 0.001), 0.0, 1.0)
 
 	var urgency := _countdown_urgency()
 	var color := COUNTDOWN_CALM.lerp(COUNTDOWN_PANIC, urgency)
 	_countdown_label.add_theme_color_override("font_color", color)
 	if _countdown_ring:
-		_countdown_ring.modulate = Color(1.0, 1.0, 1.0, 1.0).lerp(Color(1.0, 0.45, 0.4, 1.0), urgency)
+		# During the entrance the ring sweeps in 0->full; afterwards it tracks the timer.
+		var ring_progress := _intro_t if _intro_t < 1.0 else clampf(_remaining / maxf(_total_seconds, 0.001), 0.0, 1.0)
+		var fill := Color(1.0, 1.0, 1.0, 0.92).lerp(Color(1.0, 0.42, 0.36, 1.0), urgency)
+		_countdown_ring.configure(ring_progress, fill, Color(1.0, 1.0, 1.0, 0.16), _countdown_ring.thickness)
 
 	# Below the threshold the timer pulses and (deeper in) shakes to build pressure.
 	var pulse := 1.0
@@ -1042,7 +1107,13 @@ func _update_spinner(delta: float) -> void:
 
 func _update_chrome() -> void:
 	_update_skin_text()
+	_update_role_text()
 	_update_countdown()
+
+
+func _update_role_text() -> void:
+	if _role_label:
+		_role_label.text = _role_hint_text()
 
 
 func _update_skin_text() -> void:
@@ -1121,27 +1192,6 @@ func _make_shadow_texture() -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 
-func _make_ring_texture(color: Color) -> Texture2D:
-	var tex_size := 144  # TextureProgressBar adopts this as its min size, so it doubles as the on-screen ring diameter
-	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0, 0, 0, 0))
-	var center := float(tex_size) * 0.5
-	var outer := center - 4.0
-	var inner := outer - 9.0
-	for y in range(tex_size):
-		for x in range(tex_size):
-			var dx := float(x) - center
-			var dy := float(y) - center
-			var r := sqrt(dx * dx + dy * dy)
-			var edge := minf(r - inner, outer - r)
-			var a := clampf(edge, 0.0, 1.5) / 1.5
-			if r < inner or r > outer:
-				a = 0.0
-			if a > 0.0:
-				image.set_pixel(x, y, Color(color.r, color.g, color.b, color.a * a))
-	return ImageTexture.create_from_image(image)
-
-
 func _make_spinner_texture() -> Texture2D:
 	var tex_size := 96
 	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
@@ -1217,4 +1267,5 @@ func _on_locale_changed(_locale: String) -> void:
 	if _hint_label:
 		_hint_label.text = _hint_text()
 	_update_skin_text()
+	_update_role_text()
 	_update_countdown()
