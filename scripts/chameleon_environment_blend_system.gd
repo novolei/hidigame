@@ -372,10 +372,23 @@ func _refresh_hand() -> void:
 func _refresh_options() -> void:
 	_refresh_hand()
 	_options.clear()
+	# "Spray Self" was removed (it crashed the client on re-use). Replaced with a real
+	# GLB prop disguise — a self-contained crate copied into resources/ so it ships in
+	# the core_patch incremental update and replicates to hunters via the normal path.
 	_options.append({
-		"id": "paint_self",
-		"type": "paint_self",
-		"name": "Spray Self"
+		"id": "preset_crate",
+		"type": "preset_prop",
+		"name": "Crate",
+		"preset_id": "asset_crate",
+		"preset": {
+			"id": "asset_crate",
+			"name": "Crate",
+			"mesh": "scene",
+			"scene_path": "res://resources/props/disguise_crate.glb",
+			"scale": Vector3(0.7, 0.7, 0.7),
+			"offset": Vector3.ZERO,
+			"fallback_mesh": "box",
+		},
 	})
 	for preset in _hand:
 		var clean := (preset as Dictionary).duplicate(true)
