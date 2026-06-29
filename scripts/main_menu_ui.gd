@@ -53,6 +53,7 @@ var lobby_chat_visible := false
 var lobby_chat_fading := false
 var _lobby_chat_fade_token := 0
 var settings_visible := false
+var _in_game_settings := false   # settings opened as a standalone in-game overlay (pause menu)
 var settings_active_tab := SETTINGS_TAB_GENERAL
 var public_lobby_visible := false
 var landing_action_panel_mode := ""
@@ -352,6 +353,28 @@ func hide_menu() -> void:
 
 func is_menu_visible() -> bool:
 	return visible
+
+
+signal in_game_settings_closed
+
+
+# Show ONLY the settings panel as an in-game overlay (no landing/lobby behind it),
+# so players can change config mid-match via the pause menu. Closing it (back
+# button or ESC) routes through _set_settings_visible(false) -> close_in_game_settings.
+func open_in_game_settings() -> void:
+	_in_game_settings = true
+	settings_visible = true
+	show()
+	_build_ui()
+
+
+func close_in_game_settings() -> void:
+	if not _in_game_settings:
+		return
+	_in_game_settings = false
+	settings_visible = false
+	hide()
+	in_game_settings_closed.emit()
 
 
 func show_landing() -> void:
@@ -694,6 +717,12 @@ func _build_ui() -> void:
 	_ensure_ui_select_player()
 
 	_build_stage_background()
+
+	# In-game overlay: settings only, no landing/lobby/menus behind it.
+	if _in_game_settings:
+		settings_visible = true
+		_build_settings_panel()
+		return
 
 	if public_lobby_visible:
 		_build_public_lobby_ui()
@@ -1462,6 +1491,10 @@ func _settings_values_match(left, right) -> bool:
 
 
 func _set_settings_visible(value: bool) -> void:
+	# In the in-game overlay any "close settings" action returns to the pause menu.
+	if not value and _in_game_settings:
+		close_in_game_settings()
+		return
 	settings_visible = value
 	if value and not lobby_visible and not public_lobby_visible:
 		landing_action_panel_mode = ""

@@ -177,6 +177,8 @@ var _network_console_previous_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 var _console_drawer_height: float = 320.0
 var _console_drawer_width: float = 600.0
 var _console_player_locked: bool = false
+var game_pause_menu: GamePauseMenu = null
+var _pause_menu_active := false
 var _console_history: PackedStringArray = PackedStringArray()
 var _console_history_index: int = 0
 var _known_player_names: Dictionary = {}
@@ -5212,6 +5214,8 @@ func _should_capture_mouse() -> bool:
 		return false
 	if _is_network_console_visible():
 		return false
+	if _is_pause_menu_visible():
+		return false
 	if get_tree().get_node_count_in_group("active_radial_wheel") > 0:
 		return false
 	if _is_quit_confirm_visible():
@@ -5663,6 +5667,9 @@ func _gameplay_console_help() -> String:
 
 
 func _handle_escape_pressed() -> bool:
+	if _is_pause_menu_visible():
+		_close_pause_menu()
+		return true
 	if _is_quit_confirm_visible():
 		_hide_quit_confirm_prompt()
 		return true
@@ -5676,8 +5683,89 @@ func _handle_escape_pressed() -> bool:
 		return false
 	if card_hud and card_hud.has_method("is_detail_visible") and card_hud.is_detail_visible():
 		return false
-	_show_quit_confirm_prompt()
+	# Plain main menu (lobby / landing) handles its own ESC.
+	if main_menu and main_menu.is_menu_visible():
+		return false
+	_open_pause_menu()
 	return true
+
+
+# =============================================================================
+# IN-GAME PAUSE MENU (ESC) — reusable vertical-button panel
+# =============================================================================
+
+func _ensure_pause_menu() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if game_pause_menu and is_instance_valid(game_pause_menu):
+		return
+	game_pause_menu = preload("res://scripts/game_pause_menu.gd").new()
+	game_pause_menu.name = "GamePauseMenu"
+	add_child(game_pause_menu)
+	game_pause_menu.configure("PAUSED  ·  暂停", [
+		{"id": "settings", "label": "设置  ·  SETTINGS"},
+		{"id": "lobby", "label": "返回大厅  ·  RETURN TO LOBBY"},
+		{"id": "quit", "label": "退出游戏  ·  QUIT GAME"},
+	])
+	game_pause_menu.option_selected.connect(_on_pause_option_selected)
+	if main_menu and not main_menu.in_game_settings_closed.is_connected(_on_in_game_settings_closed):
+		main_menu.in_game_settings_closed.connect(_on_in_game_settings_closed)
+
+
+func _is_pause_menu_visible() -> bool:
+	return game_pause_menu != null and is_instance_valid(game_pause_menu) and game_pause_menu.visible
+
+
+func _open_pause_menu() -> void:
+	if game_state != GameState.PREP and game_state != GameState.PLAY:
+		return
+	_ensure_pause_menu()
+	if not game_pause_menu:
+		return
+	_pause_menu_active = true
+	game_pause_menu.open()
+	_set_console_player_locked(true)   # reuse the player input lock (mutually exclusive with the console)
+	_update_mouse_capture()
+
+
+func _close_pause_menu() -> void:
+	_pause_menu_active = false
+	if game_pause_menu and is_instance_valid(game_pause_menu):
+		game_pause_menu.close()
+	_set_console_player_locked(false)
+	_update_mouse_capture()
+
+
+func _on_pause_option_selected(option_id: String) -> void:
+	match option_id:
+		"settings":
+			# Stay paused/locked; swap the pause panel for the settings overlay.
+			if game_pause_menu and is_instance_valid(game_pause_menu):
+				game_pause_menu.close()
+			if main_menu:
+				main_menu.open_in_game_settings()
+			_update_mouse_capture()
+		"lobby":
+			_close_pause_menu()
+			_pause_return_to_lobby()
+		"quit":
+			_close_pause_menu()
+			_show_quit_confirm_prompt()
+
+
+func _on_in_game_settings_closed() -> void:
+	# Settings closed from the pause overlay -> return to the pause panel.
+	if _pause_menu_active and game_pause_menu and is_instance_valid(game_pause_menu):
+		game_pause_menu.open()
+	_update_mouse_capture()
+
+
+func _pause_return_to_lobby() -> void:
+	if _is_public_room_client_context():
+		_return_to_public_server_lobby("public_lobby.loading", false)
+	else:
+		Network.leave_current_lobby()
+		get_tree().reload_current_scene()
 
 
 func _handle_card_hotkeys(event: InputEventKey) -> bool:
