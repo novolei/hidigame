@@ -93,6 +93,14 @@ func _before_tick_loop() -> void:
 	sample_now(NetworkTime.tick)
 
 
+## Public: re-evaluate whether input should be captured. Must be called after an
+## external input-lock flag (console / match-intro) changes, because while
+## capture is off this node stops processing and disconnects the tick callback —
+## so it can't otherwise notice the flag clearing and resume on its own.
+func refresh_capture_policy() -> void:
+	_refresh_capture_policy()
+
+
 func _refresh_capture_policy() -> void:
 	if Engine.is_editor_hint():
 		return

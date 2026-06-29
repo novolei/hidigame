@@ -5405,6 +5405,10 @@ func _set_console_player_locked(locked: bool) -> void:
 	for child in players_container.get_children():
 		if child is Character:
 			child.console_input_locked = locked
+			# Re-arm input sampling — the input state stops processing while
+			# locked and won't resume on its own when the console closes.
+			if child.has_method("refresh_input_capture_policy"):
+				child.refresh_input_capture_policy()
 
 
 func _ensure_network_console_ui() -> void:

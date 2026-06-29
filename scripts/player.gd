@@ -2019,6 +2019,16 @@ func set_match_intro_locked(locked: bool) -> void:
 		_restore_skin_performance_camera_now()
 		velocity = Vector3.ZERO
 		_current_speed = 0.0
+	refresh_input_capture_policy()
+
+
+# Re-arm input sampling after an input-lock flag (match_intro_locked /
+# console_input_locked) changes — the input state stops processing while locked
+# and can't resume on its own.
+func refresh_input_capture_policy() -> void:
+	var input_state := _resolve_player_input_state()
+	if input_state and input_state.has_method("refresh_capture_policy"):
+		input_state.refresh_capture_policy()
 
 
 func _set_player_tint(color: Color) -> void:
