@@ -175,11 +175,11 @@ func revert_to_self() -> bool:
 		return false
 	for i in range(PRESET_LIBRARY.size()):
 		if str(PRESET_LIBRARY[i].get("id", "")) == "human":
-			return try_shift(i)
+			return try_shift(i, false)  # revert is free — no cooldown
 	return false
 
 
-func try_shift(preset_index: int) -> bool:
+func try_shift(preset_index: int, apply_cooldown: bool = true) -> bool:
 	if is_shifting:
 		shift_failed.emit("already_shifting")
 		return false
@@ -203,7 +203,7 @@ func try_shift(preset_index: int) -> bool:
 	shift_started.emit(preset_index, preset)
 	_runtime_debug_log("[ShapeShift] Shifting to prop ", preset["name"])
 
-	_animate_to_preset(preset)
+	_animate_to_preset(preset, apply_cooldown)
 	return true
 
 
@@ -245,7 +245,7 @@ func try_shift_nearby_fruit() -> bool:
 	return try_replicate_nearby_prop()
 
 
-func _animate_to_preset(preset: Dictionary) -> void:
+func _animate_to_preset(preset: Dictionary, apply_cooldown: bool = true) -> void:
 	if not shift_owner:
 		is_shifting = false
 		return
@@ -255,7 +255,9 @@ func _animate_to_preset(preset: Dictionary) -> void:
 	await shift_owner.get_tree().create_timer(SHIFT_TRANSITION_TIME).timeout
 
 	is_shifting = false
-	cooldown_remaining = SHIFT_COOLDOWN
+	# Reverting to self (human preset) is free — it doesn't arm the Q cooldown.
+	if apply_cooldown:
+		cooldown_remaining = SHIFT_COOLDOWN
 	shift_completed.emit(current_preset_index, preset)
 	_runtime_debug_log("[ShapeShift] Shift completed, CD=", SHIFT_COOLDOWN, "s")
 
