@@ -1,10 +1,10 @@
 {
-  "build_id": "569e9c6e",
-  "content_version": "0.4.21+20260629.569e9c6e",
-  "version": "0.4.21",
+  "build_id": "edb15c69",
+  "content_version": "0.4.22+20260629.edb15c69",
+  "version": "0.4.22",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "569e9c6e7d542759cd993befe11aa498a6a7d448",
-  "built_at": "2026-06-29T16:20:00+08:00",
+  "git_commit": "edb15c69278575aeca3cc53c790b11d8e5db9863",
+  "built_at": "2026-06-29T16:55:00+08:00",
   "role": "hotpatch"
 }
