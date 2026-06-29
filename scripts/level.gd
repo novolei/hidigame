@@ -2077,6 +2077,7 @@ func _reset_local_state_for_public_lobby() -> void:
 	_clear_runtime_container_children("AmmoPackContainer")
 	_clear_runtime_container_children("PartyMonsterAccessoryContainer")
 	_clear_runtime_container_children("UnityDecorContainer")
+	_clear_prop_death_tombstones()
 	if players_container:
 		for child in players_container.get_children():
 			child.queue_free()
@@ -2110,6 +2111,16 @@ func _clear_runtime_container_children(container_name: String) -> void:
 		return
 	for child in container.get_children():
 		child.queue_free()
+
+
+# Death tombstones are spawned as top_level children of the scene root (player.gd
+# _spawn_prop_tombstone), so the named-container sweep above never reaches them and graves
+# leaked into the next match / a freshly opened room. Clear the group explicitly. Runs locally
+# on each peer, which is correct: every peer spawns its own copy of each grave.
+func _clear_prop_death_tombstones() -> void:
+	for node in get_tree().get_nodes_in_group(Character.PROP_DEATH_TOMBSTONE_GROUP):
+		if is_instance_valid(node):
+			node.queue_free()
 
 
 func _on_steam_lobby_created(success: bool, steam_lobby_id: String, message: String) -> void:
@@ -4322,6 +4333,8 @@ func _on_prep_phase_ended() -> void:
 
 func _on_match_started() -> void:
 	game_state = GameState.PLAY
+	# Fresh battlefield: drop any graves left over from a previous round in this same level.
+	_clear_prop_death_tombstones()
 	_apply_match_pickups_active(true)
 	_hide_loading_overlay()
 	match_intro_remaining = 0.0

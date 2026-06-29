@@ -37,6 +37,9 @@ var _empty_label: Label = null
 var _spinner: TextureRect = null
 var _status_label: Label = null
 var _count_label: Label = null
+var _search_input: LineEdit = null
+var _refresh_button: Button = null
+var _filter_text := ""
 
 var _discovery: Node = null
 var _rooms: Array = []
@@ -86,6 +89,9 @@ func open() -> void:
 		_name_input.text = ""
 	if _password_input:
 		_password_input.text = ""
+	if _search_input:
+		_search_input.text = ""
+	_filter_text = ""
 	_selected_uid = ""
 	_update_create_enabled()
 	set_status("", false)
@@ -120,6 +126,19 @@ func get_room_count_for_test() -> int:
 
 func _on_rooms_updated(rooms: Array) -> void:
 	_render_rooms(rooms)
+
+
+func _on_refresh_pressed() -> void:
+	# Force the discovery node to re-scan and re-emit; falls back to repainting the cache.
+	if _discovery and _discovery.has_method("force_refresh"):
+		_discovery.force_refresh()
+	else:
+		_render_rooms(_rooms)
+
+
+func _on_search_changed(text: String) -> void:
+	_filter_text = text.strip_edges().to_lower()
+	_render_rooms(_rooms)
 
 
 func _process(delta: float) -> void:
@@ -249,7 +268,24 @@ func _build_body() -> Control:
 	var list_col := VBoxContainer.new()
 	list_col.add_theme_constant_override("separation", 10)
 	list_card.add_child(list_col)
-	list_col.add_child(_section_label("ROOMS ON YOUR NETWORK"))
+
+	# Header row: section title on the left, a manual refresh button on the right.
+	var list_header := HBoxContainer.new()
+	list_header.add_theme_constant_override("separation", 10)
+	var section := _section_label("ROOMS ON YOUR NETWORK")
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	list_header.add_child(section)
+	_refresh_button = _icon_button("⟳", _refresh_label())
+	_refresh_button.pressed.connect(_on_refresh_pressed)
+	list_header.add_child(_refresh_button)
+	list_col.add_child(list_header)
+
+	# Search box: filters the discovered rooms by name (and host) as you type.
+	_search_input = _line_edit(_search_placeholder(), false)
+	_search_input.max_length = 32
+	_search_input.text_changed.connect(_on_search_changed)
+	list_col.add_child(_search_input)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -308,15 +344,33 @@ func _render_rooms(rooms: Array) -> void:
 	for child in _room_list_box.get_children():
 		if child != _empty_label:
 			child.queue_free()
-	var has_rooms := not _rooms.is_empty()
+	var display_rooms := _filtered_rooms(_rooms)
+	var has_rooms := not display_rooms.is_empty()
+	var filtering := not _filter_text.is_empty()
 	if _empty_label:
 		_empty_label.visible = not has_rooms
+		# "No match" while a filter is active, otherwise the regular scanning hint.
+		_empty_label.text = _no_match_text() if filtering else _searching_text()
 	if _spinner:
-		_spinner.visible = not has_rooms
+		# Keep the scanning spinner only while genuinely searching (no filter applied).
+		_spinner.visible = not has_rooms and not filtering
 	if _count_label:
-		_count_label.text = (_found_text() % _rooms.size()) if has_rooms else _scanning_text()
-	for room in _rooms:
+		_count_label.text = (_found_text() % display_rooms.size()) if has_rooms else _scanning_text()
+	for room in display_rooms:
 		_room_list_box.add_child(_make_room_row(room as Dictionary))
+
+
+func _filtered_rooms(rooms: Array) -> Array:
+	if _filter_text.is_empty():
+		return rooms
+	var result: Array = []
+	for room in rooms:
+		var entry := room as Dictionary
+		var name_l := str(entry.get("room_name", "")).to_lower()
+		var host_l := str(entry.get("host_name", "")).to_lower()
+		if name_l.contains(_filter_text) or host_l.contains(_filter_text):
+			result.append(room)
+	return result
 
 
 func _make_room_row(room: Dictionary) -> Control:
@@ -573,6 +627,23 @@ func _button(text: String, primary: bool) -> Button:
 	return button
 
 
+func _icon_button(glyph: String, tooltip: String) -> Button:
+	var button := Button.new()
+	button.text = glyph
+	button.tooltip_text = tooltip
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.custom_minimum_size = Vector2(46.0, 40.0)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_override("font", _title_font if _title_font else ThemeDB.fallback_font)
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color(0.18, 0.10, 0.03, 1.0))
+	button.add_theme_stylebox_override("normal", _round_style(GOLD, 12, Color(0, 0, 0, 0), 0))
+	button.add_theme_stylebox_override("hover", _round_style(Color(1.0, 0.74, 0.28, 1.0), 12, Color(0, 0, 0, 0), 0))
+	button.add_theme_stylebox_override("pressed", _round_style(Color(0.88, 0.6, 0.18, 1.0), 12, Color(0, 0, 0, 0), 0))
+	return button
+
+
 func _section_label(text: String) -> Label:
 	var label := _label(text, 16, Color(1.0, 1.0, 1.0, 0.74), _title_font)
 	label.add_theme_constant_override("outline_size", 0)
@@ -663,6 +734,9 @@ func _placeholder_password() -> String: return _t("private_server.password_place
 func _create_label() -> String: return _t("private_server.create", "创建房间")
 func _create_hint() -> String: return _t("private_server.create_hint", "必须填写房间名 · 同网络玩家可加入 · 最多 24 人")
 func _searching_text() -> String: return _t("private_server.searching", "正在搜索同网络的房间…")
+func _search_placeholder() -> String: return _t("private_server.search_placeholder", "按房间名搜索…")
+func _refresh_label() -> String: return _t("private_server.refresh", "刷新列表")
+func _no_match_text() -> String: return _t("private_server.no_match", "没有匹配的房间")
 func _scanning_text() -> String: return _t("private_server.scanning", "扫描中…")
 func _found_text() -> String: return _t("private_server.found", "%d 个房间")
 func _host_line() -> String: return _t("private_server.host_line", "房主 %s")
@@ -680,6 +754,10 @@ func _on_locale_changed(_locale: String) -> void:
 		_password_input.placeholder_text = _placeholder_password()
 	if _create_button:
 		_create_button.text = _create_label()
+	if _search_input:
+		_search_input.placeholder_text = _search_placeholder()
+	if _refresh_button:
+		_refresh_button.tooltip_text = _refresh_label()
 	if _empty_label:
 		_empty_label.text = _searching_text()
 	_render_rooms(_rooms)

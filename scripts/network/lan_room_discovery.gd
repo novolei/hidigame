@@ -45,12 +45,15 @@ func start_advertising(info: Dictionary) -> void:
 	if _ad_uid.is_empty():
 		_ad_uid = _make_uid()
 	_advertising = true
-	_ad_accum = BROADCAST_INTERVAL    # beacon immediately on the next tick
 	if _send_socket == null:
 		_send_socket = PacketPeerUDP.new()
 		_send_socket.set_broadcast_enabled(true)
 	_ensure_registry_dir()
 	set_process(true)
+	# Beacon right now (not on the next tick) so same-machine instances and an already-open
+	# browser surface the room within a frame instead of waiting up to a full broadcast interval.
+	_ad_accum = 0.0
+	_emit_beacon()
 
 
 func update_advertisement(info: Dictionary) -> void:
@@ -104,6 +107,17 @@ func stop_browsing() -> void:
 
 func is_browsing() -> bool:
 	return _browsing
+
+
+# Manual refresh for the browser's refresh button: drain every channel and re-emit the list
+# immediately, even if the signature is unchanged, so the button always feels responsive.
+func force_refresh() -> void:
+	if not _browsing:
+		return
+	_drain_packets()
+	_scan_registry()
+	_last_signature = ""  # force rooms_updated to fire even if nothing changed
+	_expire_and_emit()
 
 
 func get_rooms() -> Array:

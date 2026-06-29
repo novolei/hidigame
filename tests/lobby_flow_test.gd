@@ -14,6 +14,7 @@ func _run() -> void:
 	_test_host_room_metadata()
 	_test_public_room_server_uses_empty_lobby_id()
 	_test_public_room_lifecycle_logging()
+	_test_public_room_closing_lifecycle()
 	_test_public_room_detached_launch_helpers()
 	_test_performance_telemetry_event_window()
 	_test_network_diagnostic_console_commands()
@@ -169,6 +170,61 @@ func _test_public_room_lifecycle_logging() -> void:
 		Network.multiplayer.multiplayer_peer = null
 	Network.server_port = Network.SERVER_PORT
 	Network.set("_public_room_status_dir", "")
+
+
+func _test_public_room_closing_lifecycle() -> void:
+	# Room-side: the "closing" state only triggers once a room has had players and emptied out,
+	# and the status file carries the closing flag + the room's own pid for liveness checks.
+	_reset_network_state()
+	var status_dir: String = OS.get_cache_dir().path_join("maomao_closing_" + str(Time.get_ticks_usec()))
+	DirAccess.make_dir_recursive_absolute(status_dir)
+	Network.set("_public_room_status_dir", status_dir)
+	var host_error: int = Network.start_public_room_server("Closing Room", "", 19115, "closing-room")
+	_expect(host_error == OK, "Closing-lifecycle test room should start")
+	if host_error == OK:
+		_expect(not Network._public_room_is_closing(), "A not-ready room should not be marked closing")
+		Network.mark_public_room_runtime_ready()
+		_expect(not Network._public_room_is_closing(), "A ready room nobody has joined yet should not be closing")
+		Network.set("_public_room_ever_had_players", true)
+		Network.players[2] = _player("Owner", Network.Role.HUNTER)
+		_expect(not Network._public_room_is_closing(), "A room with a player present should not be closing")
+		Network.players.clear()
+		_expect(Network._public_room_is_closing(), "A ready room that had players and is now empty should be closing")
+		Network._write_public_room_status()
+		var status = JSON.parse_string(FileAccess.get_file_as_string(Network._public_room_status_path("closing-room")))
+		_expect(status is Dictionary and bool((status as Dictionary).get("closing", false)), "Status file should advertise closing=true for an emptied room")
+		_expect(status is Dictionary and int((status as Dictionary).get("process_id", -1)) == OS.get_process_id(), "Status file should carry the room's own pid for liveness checks")
+		Network._delete_public_room_status_file("test_cleanup")
+	if Network.multiplayer.multiplayer_peer:
+		Network.multiplayer.multiplayer_peer.close()
+		Network.multiplayer.multiplayer_peer = null
+	Network.server_port = Network.SERVER_PORT
+	Network.set("_public_room_status_dir", "")
+
+	# Lobby-side: closing rooms are hidden from the browser snapshot and rejected for joins,
+	# while a live room is shown and joinable.
+	_reset_network_state()
+	var now := Time.get_unix_time_from_system()
+	var live_room := {
+		"room_id": "alpha", "room_name": "Alpha", "lobby_id": "", "locked": false,
+		"port": 18081, "process_id": -1, "host_peer_name": "A", "player_count": 2,
+		"max_players": 24, "created_unix": now, "last_seen_unix": now, "ready": true, "closing": false,
+	}
+	var closing_room := live_room.duplicate()
+	closing_room["room_id"] = "beta"
+	closing_room["room_name"] = "Beta"
+	closing_room["player_count"] = 0
+	closing_room["closing"] = true
+	Network.public_rooms["alpha"] = live_room
+	Network.public_rooms["beta"] = closing_room
+	var snapshot_ids: Array = []
+	for room in Network._public_lobby_room_snapshot():
+		snapshot_ids.append(str((room as Dictionary).get("room_id", "")))
+	_expect(snapshot_ids.has("alpha"), "A live room should appear in the public lobby snapshot")
+	_expect(not snapshot_ids.has("beta"), "A closing room should be hidden from the public lobby snapshot")
+	_expect(Network._public_lobby_room_is_joinable(live_room, "alpha"), "A live ready room should be joinable")
+	_expect(not Network._public_lobby_room_is_joinable(closing_room, "beta"), "A closing room should not be joinable")
+	Network.public_rooms.clear()
 
 
 func _test_public_room_detached_launch_helpers() -> void:

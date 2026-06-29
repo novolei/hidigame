@@ -82,6 +82,9 @@ const PARTY_MONSTER_BOUNTY_GLOW_RANGE := 5.8
 const PARTY_MONSTER_BOUNTY_LABEL_MIN_HEIGHT := 2.7
 const LOCAL_FEEDBACK_TRANSFORM_INTERVAL := 0.08
 const PROP_TOMBSTONE_SCENE_PATH := "res://assets/hunter_auto_turret/tombstone/hunter_auto_turret_tombstone.fbx"
+# Group every spawned grave joins so the level can free leaked tombstones on match reset /
+# room change — they are top_level scene-root children that were never cleaned up before.
+const PROP_DEATH_TOMBSTONE_GROUP := "prop_death_tombstone"
 const DEATH_DISSOLVE_SECONDS := 2.4
 const DEATH_DISSOLVE_NOISE_SCALE := 1.65
 const DEATH_DISSOLVE_EDGE_WIDTH := 0.055
@@ -3365,8 +3368,13 @@ func _card_grounded_position(candidate: Vector3) -> Vector3:
 	return hit.get("position", candidate) + Vector3.UP * 0.08
 
 
-@rpc("authority", "call_local", "reliable")
+# any_peer (not authority): server-validated card effects are pushed to the owner, but the
+# server is not this client-owned node's authority, so @rpc("authority") was dropped on the
+# owner. Guard to server/local only (anti-spoof) — only the targeted owner receives it via rpc_id.
+@rpc("any_peer", "call_local", "reliable")
 func _client_card_feedback(text: String, color: Color, duration: float) -> void:
+	if not _is_authoritative_state_rpc_sender():
+		return
 	var level = get_tree().get_current_scene()
 	if level and level.has_method("show_combat_feedback"):
 		level.show_combat_feedback(text, color, duration)
@@ -3400,8 +3408,13 @@ func _card_can_rpc_to_owner(owner_id: int) -> bool:
 	return multiplayer.get_peers().has(owner_id)
 
 
-@rpc("authority", "call_local", "reliable")
+# any_peer (not authority): same reason as _client_card_feedback — the server is not this
+# client-owned node's authority. Guard to server/local sender, then the existing owner check
+# below keeps the impairment local to the targeted owner.
+@rpc("any_peer", "call_local", "reliable")
 func _client_card_screen_impairment(label: String, duration: float) -> void:
+	if not _is_authoritative_state_rpc_sender():
+		return
 	if not _is_local_authority() and multiplayer.multiplayer_peer:
 		return
 	_card_screen_impairment_remaining = maxf(_card_screen_impairment_remaining, duration)
@@ -5490,8 +5503,15 @@ func _pickup_sfx_to_owner() -> void:
 # Sprite pickup chime. Triggered from BOTH the owner RPC above and the local
 # loadout-change signal; a short dedupe window prevents a double-play. Plays on the
 # scene root (non-positional) so it can't be affected by the player node's state.
-@rpc("authority", "call_local", "reliable")
+# any_peer (not authority): the pickup is validated on the SERVER, which is NOT the
+# multiplayer authority of this client-owned player node (authority is the owner peer, see
+# set_multiplayer_authority in _ready). A server-sent @rpc("authority") is dropped by Godot's
+# receiver-side authority check, which is why the chime never reached the owner. Guarded so
+# only the server (peer 1) or a local call_local (sender 0) can trigger it.
+@rpc("any_peer", "call_local", "reliable")
 func _client_accessory_pickup_sfx() -> void:
+	if not _is_authoritative_state_rpc_sender():
+		return
 	if DisplayServer.get_name() == "headless":
 		return
 	var now := Time.get_ticks_msec()
@@ -5693,8 +5713,13 @@ func _relay_hunter_sense_alert(intensity: float, beep_interval: float, visual_ac
 	_client_hunter_sense_alert.rpc_id(int(str(name)), intensity, beep_interval, visual_active)
 
 
-@rpc("authority", "call_local", "unreliable_ordered")
+# any_peer (not authority): relayed by the server, which is not this player node's
+# multiplayer authority (the owner peer is), so @rpc("authority") was dropped on the owner and
+# the detected chameleon got no beep/red-flash. Guard to server/local, then to the owner only.
+@rpc("any_peer", "call_local", "unreliable_ordered")
 func _client_hunter_sense_alert(intensity: float, beep_interval: float, visual_active: bool) -> void:
+	if not _is_authoritative_state_rpc_sender():
+		return
 	if int(str(name)) != _local_peer_id():
 		return
 	# Refresh a short timeout (any hunter keeps it alive); expiry clears the cue.
@@ -8301,9 +8326,11 @@ func _broadcast_death(killer_id: int):
 	_play_skin_reaction("die")
 	_begin_dead_observer_state()
 	var death_position := global_position
+	# Tombstone for EVERY role (hunters included) so deaths look consistent. It used to sit
+	# inside the _is_prop_role() branch, so hunters died without a grave.
+	_spawn_prop_tombstone(death_position)
 	if _is_prop_role():
 		_spawn_prop_death_smoke(_get_prop_death_effect_position())
-		_spawn_prop_tombstone(death_position)
 		_play_prop_death_vanish()
 	else:
 		_play_character_death_vanish()
@@ -8635,6 +8662,8 @@ func _spawn_prop_tombstone(death_position: Vector3) -> void:
 	tombstone.name = "PropDeathTombstone"
 	tombstone.top_level = true
 	scene_root.add_child(tombstone)
+	# Tag it so level.gd can free leaked graves on match reset / room change.
+	tombstone.add_to_group(PROP_DEATH_TOMBSTONE_GROUP)
 	_fit_node_to_height(tombstone, PROP_TOMBSTONE_TARGET_HEIGHT)
 	var final_position := _resolve_tombstone_ground_position(death_position)
 	var apex_position := final_position + Vector3.UP * 0.78

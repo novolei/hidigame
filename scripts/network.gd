@@ -94,6 +94,10 @@ var _public_lobby_snapshot_dirty := false
 var _public_room_empty_elapsed := 0.0
 var _public_room_created_msec := 0
 var _public_room_runtime_ready := false
+# True once any player has joined this room. Drives the "closing" state: a room that has had
+# players and is now empty tears down on the short EMPTY_TTL (and hides from the lobby list),
+# while a brand-new room nobody joined yet only dies after the longer cold-start grace.
+var _public_room_ever_had_players := false
 var _public_room_status_dir := ""
 var _public_lobby_failover_endpoints: Array[String] = []
 var _public_lobby_failover_index := 0
@@ -1179,6 +1183,7 @@ func start_public_room_server(room_name: String, lobby_password: String, port: i
 	_public_room_status_elapsed = 0.0
 	_public_room_empty_elapsed = 0.0
 	_public_room_runtime_ready = false
+	_public_room_ever_had_players = false
 	_public_room_created_msec = Time.get_ticks_msec()
 	active_public_room_id = _public_room_key(room_name if not room_name.strip_edges().is_empty() else room_id)
 	if not room_id.strip_edges().is_empty():
@@ -1577,6 +1582,8 @@ func _public_lobby_room_is_joinable(room: Dictionary, room_id: String) -> bool:
 		return false
 	if not bool(room.get("ready", false)):
 		return false
+	if bool(room.get("closing", false)):
+		return false  # room is emptying out and about to be destroyed — don't route a joiner into it
 	var last_seen := float(room.get("last_seen_unix", 0.0))
 	return Time.get_unix_time_from_system() - last_seen <= PUBLIC_ROOM_STALE_SECONDS
 
@@ -1711,7 +1718,12 @@ func _public_room_process_heartbeat(delta: float) -> void:
 		return
 	_public_room_status_elapsed += delta
 	var room_age_msec := Time.get_ticks_msec() - _public_room_created_msec
-	if players.is_empty() and room_age_msec >= int(PUBLIC_ROOM_START_GRACE_SECONDS * 1000.0):
+	# The 45s start grace only protects a brand-new room that nobody has joined yet (cold start /
+	# creator still being redirected in). Once anyone has joined, an emptied room is torn down on
+	# the short EMPTY_TTL — this is what makes "leave an empty room → it dies in ~3s and drops off
+	# the lobby list" actually hold, instead of lingering up to the full grace.
+	var past_start_grace := room_age_msec >= int(PUBLIC_ROOM_START_GRACE_SECONDS * 1000.0)
+	if players.is_empty() and (_public_room_ever_had_players or past_start_grace):
 		_public_room_empty_elapsed += delta
 	else:
 		_public_room_empty_elapsed = 0.0
@@ -1724,7 +1736,40 @@ func _public_room_process_heartbeat(delta: float) -> void:
 		get_tree().quit(0)
 
 
+func _public_lobby_prune_dead_room_processes() -> void:
+	# Authoritative liveness: if a room's OS process is gone, drop it from the registry now (and
+	# delete its status file so the file scan can't resurrect it) instead of waiting out the 20s
+	# stale window. Rooms with an unknown pid (e.g. adopted across a lobby restart) fall back to
+	# the stale-TTL path below.
+	for key in public_rooms.keys():
+		var room: Dictionary = public_rooms.get(key, {})
+		# Only trust the pid once the room is ready and has written its own pid into the status
+		# file. While still booting, the recorded pid may be a short-lived detached launcher, and
+		# boot failures are already handled by the ready-timeout in the create flow.
+		if not bool(room.get("ready", false)):
+			continue
+		var pid := int(room.get("process_id", -1))
+		if pid <= 0:
+			continue
+		if OS.is_process_running(pid):
+			continue
+		_public_room_lifecycle_log("room_process_dead_pruned", str(key), {
+			"room_name": str(room.get("room_name", key)),
+			"pid": pid,
+		})
+		_delete_public_room_status_file_for(str(key))
+		public_rooms.erase(key)
+		_public_lobby_mark_snapshot_dirty()
+
+
+func _delete_public_room_status_file_for(room_id: String) -> void:
+	var path := _public_room_status_path(room_id)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+
+
 func _public_lobby_refresh_room_files() -> void:
+	_public_lobby_prune_dead_room_processes()
 	var status_dir := _public_room_status_directory()
 	var dir := DirAccess.open(status_dir)
 	var now := Time.get_unix_time_from_system()
@@ -1810,6 +1855,7 @@ func _public_lobby_sanitize_room_record(room: Dictionary) -> Dictionary:
 		"created_unix": float(room.get("created_unix", Time.get_unix_time_from_system())),
 		"last_seen_unix": float(room.get("last_seen_unix", Time.get_unix_time_from_system())),
 		"ready": bool(room.get("ready", false)),
+		"closing": bool(room.get("closing", false)),
 	}
 
 
@@ -1829,6 +1875,8 @@ func _public_lobby_room_snapshot() -> Array:
 	var rooms: Array = []
 	for raw_room in public_rooms.values():
 		var room: Dictionary = raw_room
+		if bool(room.get("closing", false)):
+			continue  # empty room being torn down — hide it from the browser immediately
 		rooms.append({
 			"room_id": str(room.get("room_id", "")),
 			"room_name": str(room.get("room_name", "Public Room")),
@@ -1848,6 +1896,13 @@ func _public_lobby_snapshot_rpc(rooms: Array) -> void:
 	public_lobby_snapshot_received.emit(rooms.duplicate(true))
 
 
+func _public_room_is_closing() -> bool:
+	# A ready room that has had players and is now empty is on its way out (EMPTY_TTL countdown).
+	# A brand-new room nobody has joined yet is NOT closing, so it still shows in the browser
+	# while the creator is being redirected in.
+	return _public_room_runtime_ready and _public_room_ever_had_players and players.is_empty()
+
+
 func _write_public_room_status() -> void:
 	if active_public_room_id.is_empty():
 		return
@@ -1865,6 +1920,12 @@ func _write_public_room_status() -> void:
 		"created_unix": Time.get_unix_time_from_system() - (float(Time.get_ticks_msec() - _public_room_created_msec) / 1000.0),
 		"last_seen_unix": Time.get_unix_time_from_system(),
 		"ready": _public_room_runtime_ready,
+		# The room writes its own OS pid so the lobby can detect a crashed/exited room instantly
+		# (OS.is_process_running) instead of waiting out the 20s stale window.
+		"process_id": OS.get_process_id(),
+		# "closing" = had players and is now empty → on the EMPTY_TTL countdown. The lobby hides
+		# closing rooms from the browser immediately so an emptied room disappears at count 0.
+		"closing": _public_room_is_closing(),
 	}
 	var status_path: String = _public_room_status_path(active_public_room_id)
 	var file: FileAccess = FileAccess.open(status_path, FileAccess.WRITE)
@@ -2629,6 +2690,7 @@ func _register_player(new_player_info):
 	player_connected.emit(new_player_id, players[new_player_id])
 	if multiplayer.is_server():
 		if is_public_room_server():
+			_public_room_ever_had_players = true
 			_public_room_lifecycle_log("room_peer_joined", active_public_room_id, {
 				"peer_id": new_player_id,
 				"peer_name": str(players[new_player_id].get("nick", "")),
