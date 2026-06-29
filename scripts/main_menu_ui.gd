@@ -15,6 +15,8 @@ signal start_match_pressed(config: Dictionary)
 signal auto_assign_pressed(config: Dictionary)
 signal config_changed(config: Dictionary)
 signal lobby_chat_message_sent(message_text: String)
+signal lan_create_pressed(room_name: String, password: String)
+signal lan_join_pressed(address: String, port: int, password: String, room_name: String)
 
 const TEAM_UNASSIGNED := -1
 const TEAM_SPECTATOR := 3
@@ -56,6 +58,7 @@ var settings_visible := false
 var _in_game_settings := false   # settings opened as a standalone in-game overlay (pause menu)
 var settings_active_tab := SETTINGS_TAB_GENERAL
 var public_lobby_visible := false
+var _private_browser: PrivateServerBrowser = null
 var landing_action_panel_mode := ""
 var public_lobby_rooms: Array = []
 var selected_public_room_id := ""
@@ -390,6 +393,7 @@ func show_landing() -> void:
 
 
 func show_lobby(lobby_id: String, host_mode: bool) -> void:
+	_close_private_browser()
 	lobby_visible = true
 	public_lobby_visible = false
 	selected_public_room_id = ""
@@ -1535,12 +1539,15 @@ func _build_landing_ui() -> void:
 	public_server_button.pressed.connect(_on_public_server_pressed)
 	menu.add_child(public_server_button)
 
-	host_button = _landing_menu_button(I18n.t("menu.create_private_server"), false, true)
-	host_button.pressed.connect(_on_host_pressed)
+	# "Join Private Server" opens the LAN room browser (create + browse in one page).
+	host_button = _landing_menu_button(I18n.t("menu.join_private_server"), false, true)
+	host_button.pressed.connect(_open_private_browser)
 	menu.add_child(host_button)
 
+	# Legacy join-by-code panel is superseded by the LAN browser; kept built but hidden.
 	join_button = _landing_menu_button(I18n.t("menu.join_private_server"), show_private_join_panel, true)
 	join_button.pressed.connect(_open_landing_private_join_panel)
+	join_button.visible = false
 	menu.add_child(join_button)
 
 	var spacer := Control.new()
@@ -1676,6 +1683,23 @@ func _compact_field_row(label_text: String, field: Control) -> Control:
 	field.custom_minimum_size = _sv(0, 34)
 	row.add_child(field)
 	return row
+
+
+func _open_private_browser() -> void:
+	if _private_browser == null:
+		_private_browser = PrivateServerBrowser.new()
+		_private_browser.name = "PrivateServerBrowser"
+		add_child(_private_browser)
+		_private_browser.create_requested.connect(func(room_name, password): lan_create_pressed.emit(room_name, password))
+		_private_browser.join_requested.connect(func(room, password): lan_join_pressed.emit(str(room.get("address", "")), int(room.get("port", 0)), password, str(room.get("room_name", ""))))
+		_private_browser.back_requested.connect(_close_private_browser)
+	move_child(_private_browser, get_child_count() - 1)
+	_private_browser.open()
+
+
+func _close_private_browser() -> void:
+	if _private_browser and is_instance_valid(_private_browser):
+		_private_browser.close()
 
 
 func _open_landing_private_join_panel() -> void:
@@ -2652,6 +2676,9 @@ func _validate_join_request() -> bool:
 
 func show_join_status(text: String, is_error: bool = false) -> void:
 	_set_join_status(text, is_error)
+	# Surface join feedback inside the LAN browser while it is open.
+	if _private_browser and is_instance_valid(_private_browser) and _private_browser.visible:
+		_private_browser.set_status(text, is_error)
 
 
 # Drive the create-private-server button's "connecting" state. Gives an immediate, obvious

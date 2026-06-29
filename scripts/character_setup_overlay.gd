@@ -49,7 +49,7 @@ const DEFAULT_TOTAL_SECONDS := 20.0
 const BASE_CAROUSEL_Y := -0.32   # resting Y of the carousel ring (heads clear the countdown)
 const INTRO_RISE := 2.2          # how far below it starts before springing up
 const INTRO_DURATION := 0.55     # seconds for the entrance pop
-const SIDE_SPIN_SPEED := 0.4     # radians/sec gentle auto-rotation for the off-center skins
+const SIDE_DROP := 0.62          # how far off-center skins sink, clearing the larger top-left hero panel
 
 # --- Fitting -----------------------------------------------------------------
 const FIT_TARGET_HEIGHT := 2.42
@@ -83,7 +83,11 @@ var _countdown_ring: CountdownRing = null
 var _name_label: Label = null
 var _index_label: Label = null
 var _hint_label: Label = null
-var _role_label: Label = null
+var _hero_panel: VBoxContainer = null
+var _hero_title: Label = null
+var _hero_card: Dictionary = {}
+var _skill_cards: Array[Dictionary] = []
+var _skill_icon_cache: Dictionary = {}
 var _left_arrow: Button = null
 var _right_arrow: Button = null
 var _spinner: TextureRect = null
@@ -359,17 +363,15 @@ func _update_carousel_transforms() -> void:
 		fade = smoothstep(0.0, 1.0, fade)
 		var final_scale := depth_scale * fade
 
-		slot.position = Vector3(offset * X_SPACING, 0.0, -abs_off * Z_DEPTH)
+		slot.position = Vector3(offset * X_SPACING, -abs_off * SIDE_DROP, -abs_off * Z_DEPTH)
 		slot.scale = Vector3.ONE * maxf(final_scale, 0.0001)
 		slot.visible = final_scale > 0.02
 
 		# Only the centered slot carries the player's drag rotation; the rest face front.
 		var yaw_node: Node3D = _slot_yaw[k]
 		if yaw_node and is_instance_valid(yaw_node):
-			if abs_off < 0.5:
-				yaw_node.rotation.y = _center_yaw          # center follows drag + inertia
-			else:
-				yaw_node.rotation.y = _elapsed * SIDE_SPIN_SPEED + float(k) * 0.8  # sides idle-spin
+			# Only the centered skin spins (drag + inertia); side skins stay facing front.
+			yaw_node.rotation.y = _center_yaw if abs_off < 0.5 else 0.0
 
 		var shadow_mat: StandardMaterial3D = _slot_shadow_mat[k]
 		if shadow_mat:
@@ -568,35 +570,84 @@ func _fit_model_scale(model: Node3D) -> float:
 
 
 func _model_ground_offset(model: Node3D) -> Vector3:
-	# Center the visual on X/Z and rest the feet on the slot ground plane (Y=0).
+	# Rest the feet on the slot ground plane (Y=0) and place the spin axis through the body
+	# centerline. These skins are SKINNED, so MeshInstance3D.get_aabb() returns the misleading
+	# bind-pose bounds (the mesh origin is offset ~0.8 in Z from the standing body). Pivoting on
+	# that makes the body orbit. We instead take the X/Z pivot from the posed skeleton's bone
+	# cloud, which reflects the actual standing pose; the AABB is still used only for Y grounding.
 	var saved_scale := model.scale
 	var saved_pos := model.position
 	var saved_rot := model.rotation
 	model.scale = Vector3.ONE
 	model.rotation = Vector3.ZERO
 	model.position = Vector3.ZERO
-	var bounds: Array = [false, AABB()]
-	_accumulate_model_bounds(model, model, bounds)
+
+	var full_bounds: Array = [false, AABB()]
+	_accumulate_model_bounds(model, model, full_bounds)
+	var pivot_xz := _model_pivot_xz(model)
+
 	model.scale = saved_scale
 	model.position = saved_pos
 	model.rotation = saved_rot
-	if not bool(bounds[0]):
+
+	if not bool(full_bounds[0]):
 		return Vector3.ZERO
-	var box: AABB = bounds[1] as AABB
-	var center: Vector3 = box.position + (box.size * 0.5)
-	return Vector3(-center.x, -box.position.y, -center.z)
+	var full_box: AABB = full_bounds[1] as AABB
+	return Vector3(-pivot_xz.x, -full_box.position.y, -pivot_xz.y)
 
 
-func _accumulate_model_bounds(root_model: Node3D, node: Node, bounds: Array, parent_transform: Transform3D = Transform3D.IDENTITY, branch_visible: bool = true) -> void:
+func _model_pivot_xz(model: Node3D) -> Vector2:
+	# X/Z of the standing body axis, taken from the skeleton bone cloud (robust for skinned
+	# meshes). Falls back to the visible-part AABB center if no skeleton is present.
+	var skeleton := _find_skeleton(model)
+	if skeleton and skeleton.get_bone_count() > 0:
+		var rel := model.global_transform.affine_inverse() * skeleton.global_transform
+		var has_any := false
+		var box := AABB()
+		for i in range(skeleton.get_bone_count()):
+			var p: Vector3 = rel * skeleton.get_bone_global_pose(i).origin
+			if not has_any:
+				box = AABB(p, Vector3.ZERO)
+				has_any = true
+			else:
+				box = box.expand(p)
+		if has_any:
+			var center := box.position + (box.size * 0.5)
+			return Vector2(center.x, center.z)
+	var bounds: Array = [false, AABB()]
+	_accumulate_model_bounds(model, model, bounds)
+	if bool(bounds[0]):
+		var b: AABB = bounds[1] as AABB
+		var c: Vector3 = b.position + (b.size * 0.5)
+		return Vector2(c.x, c.z)
+	return Vector2.ZERO
+
+
+func _find_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child in node.get_children():
+		var found := _find_skeleton(child)
+		if found:
+			return found
+	return null
+
+
+func _accumulate_model_bounds(root_model: Node3D, node: Node, bounds: Array, parent_transform: Transform3D = Transform3D.IDENTITY, branch_visible: bool = true, require_prefix: String = "", branch_match: bool = false) -> void:
 	# branch_visible tracks visibility *within the model* (Party Monster toggles parts by
 	# hiding ancestor Node3Ds). We deliberately ignore the model root's / slot's own
 	# visibility so a faded carousel slot still measures a correct center for its pivot.
+	# require_prefix (optional) restricts the measurement to meshes under a node whose name
+	# starts with that prefix (e.g. "MainBody") — used to pivot on the torso, not the arms.
 	var local_transform := parent_transform
 	var node_visible := branch_visible
+	var match_here := branch_match
 	if node is Node3D and node != root_model:
 		local_transform = parent_transform * (node as Node3D).transform
 		node_visible = branch_visible and (node as Node3D).visible
-	if node is VisualInstance3D and node_visible:
+	if not require_prefix.is_empty() and String(node.name).begins_with(require_prefix):
+		match_here = true
+	if node is VisualInstance3D and node_visible and (require_prefix.is_empty() or match_here):
 		var visual := node as VisualInstance3D
 		var local_aabb := visual.get_aabb()
 		if local_aabb.size.length_squared() > 0.0001:
@@ -607,7 +658,7 @@ func _accumulate_model_bounds(root_model: Node3D, node: Node, bounds: Array, par
 				bounds[1] = transformed
 				bounds[0] = true
 	for child in node.get_children():
-		_accumulate_model_bounds(root_model, child, bounds, local_transform, node_visible)
+		_accumulate_model_bounds(root_model, child, bounds, local_transform, node_visible, require_prefix, match_here)
 
 
 func _transform_aabb(box: AABB, xform: Transform3D) -> AABB:
@@ -881,11 +932,8 @@ func _build_chrome() -> void:
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_hint_label)
 
-	# Role / faction skill teaser, just under the countdown ring.
-	_role_label = _make_label("", 20, Color(1.0, 0.95, 0.84, 0.95), _title_font)
-	_role_label.name = "RoleHint"
-	_role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(_role_label)
+	# Role / faction skill panel, top-left (HEROES-style vertical card stack).
+	_build_hero_panel()
 
 	_left_arrow = _make_arrow_button("‹", false)
 	add_child(_left_arrow)
@@ -991,10 +1039,15 @@ func _apply_layout(layout: Vector2) -> void:
 		_countdown_label.size = Vector2(ring_size, ring_size)
 		_countdown_label.position = Vector2((layout.x - ring_size) * 0.5, ring_top)
 		_countdown_label.pivot_offset = Vector2(ring_size * 0.5, ring_size * 0.5)
-	if _role_label:
-		var role_w := clampf(layout.x * 0.72, 420.0, 1000.0)
-		_role_label.size = Vector2(role_w, 28.0)
-		_role_label.position = Vector2((layout.x - role_w) * 0.5, ring_top + ring_size + 4.0)
+	if _hero_panel:
+		# Scale the whole panel with screen height so the cards stay large and legible
+		# (roughly up to ~1/3 of the centered model's on-screen scale on tall displays).
+		var ui_scale := clampf(layout.y / 760.0, 1.0, 1.5)
+		_hero_panel.scale = Vector2(ui_scale, ui_scale)
+		var panel_w := clampf(layout.x * 0.16, 300.0, 360.0)
+		_hero_panel.position = Vector2(clampf(layout.x * 0.022, 16.0, 48.0), clampf(layout.y * 0.045, 22.0, 64.0))
+		_hero_panel.custom_minimum_size = Vector2(panel_w, 0.0)
+		_hero_panel.size = Vector2(panel_w, _hero_panel.size.y)
 
 	var name_w := clampf(layout.x * 0.6, 360.0, 900.0)
 	var name_y := layout.y - clampf(layout.y * 0.2, 120.0, 220.0)
@@ -1008,7 +1061,7 @@ func _apply_layout(layout: Vector2) -> void:
 		_hint_label.size = Vector2(name_w, 24.0)
 		_hint_label.position = Vector2((layout.x - name_w) * 0.5, name_y + 74.0)
 
-	var arrow_y := layout.y * 0.5 - 52.0
+	var arrow_y := layout.y * 0.585 - 18.0  # aligned with the dropped side skins, clear of the hero panel
 	if _left_arrow:
 		_left_arrow.position = Vector2(clampf(layout.x * 0.03, 18.0, 64.0), arrow_y)
 	if _right_arrow:
@@ -1030,36 +1083,11 @@ func _intro_lift() -> float:
 
 
 func _local_role() -> int:
-	var local_id := 1
-	if multiplayer.has_multiplayer_peer():
-		local_id = multiplayer.get_unique_id()
-	if Network and Network.players.has(local_id):
-		return int(Network.players[local_id].get("role", 0))
-	if Network:
-		return int(Network.player_info.get("role", 0))
-	return 0
-
-
-func _role_hint_text() -> String:
-	var key := "skin_select.role.none"
-	match _local_role():
-		1:
-			key = "skin_select.role.chameleon"
-		2:
-			key = "skin_select.role.stalker"
-		3:
-			key = "skin_select.role.hunter"
-		4:
-			key = "skin_select.role.spectator"
-	return _t(key, "")
-
-
-func _t(key: String, fallback: String) -> String:
-	if I18n and I18n.has_method("t"):
-		var value := str(I18n.call("t", key))
-		if value != key and not value.is_empty():
-			return value
-	return fallback
+	# Roles are assigned + locked before SKIN_CONFIG, so the authoritative faction is
+	# available via Network.get_my_role() (reads players[local_peer_id].role).
+	if Network and Network.has_method("get_my_role"):
+		return int(Network.get_my_role())
+	return -1
 
 
 func _countdown_urgency() -> float:
@@ -1107,13 +1135,201 @@ func _update_spinner(delta: float) -> void:
 
 func _update_chrome() -> void:
 	_update_skin_text()
-	_update_role_text()
+	_update_hero_panel()
 	_update_countdown()
 
 
-func _update_role_text() -> void:
-	if _role_label:
-		_role_label.text = _role_hint_text()
+func _build_hero_panel() -> void:
+	_hero_panel = VBoxContainer.new()
+	_hero_panel.name = "HeroPanel"
+	_hero_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero_panel.add_theme_constant_override("separation", 9)
+	add_child(_hero_panel)
+
+	_hero_title = _make_label("YOUR ROLE", 18, Color(1.0, 1.0, 1.0, 0.8), _title_font)
+	_hero_title.add_theme_constant_override("outline_size", 0)
+	_hero_title.name = "HeroTitle"
+	_hero_panel.add_child(_hero_title)
+
+	var hero_card := _make_hero_card(true)
+	_hero_panel.add_child(hero_card["root"])
+	_hero_card = hero_card
+
+	_skill_cards = []
+	for i in range(3):
+		var card := _make_hero_card(false)
+		_hero_panel.add_child(card["root"])
+		_skill_cards.append(card)
+
+
+func _make_hero_card(is_hero: bool) -> Dictionary:
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.09, 0.06, 0.04, 0.46)
+	style.set_corner_radius_all(18)
+	style.content_margin_left = 9.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 9.0 if is_hero else 8.0
+	style.content_margin_bottom = 9.0 if is_hero else 8.0
+	style.border_width_left = 4
+	style.border_color = Color(1.0, 0.8, 0.32, 0.9)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.30)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0.0, 3.0)
+	card.add_theme_stylebox_override("panel", style)
+
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+
+	var badge_size := 58.0 if is_hero else 46.0
+	var hex := HexBadge.new()
+	hex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hex.custom_minimum_size = Vector2(badge_size, badge_size)
+	hex.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(hex)
+
+	var icon := TextureRect.new()
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := badge_size * 0.27
+	icon.offset_left = inset
+	icon.offset_top = inset
+	icon.offset_right = -inset
+	icon.offset_bottom = -inset
+	hex.add_child(icon)
+
+	var text_col := VBoxContainer.new()
+	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text_col.add_theme_constant_override("separation", 1)
+	row.add_child(text_col)
+
+	var name_label := _make_label("", 25 if is_hero else 20, Color(1.0, 0.99, 0.96, 1.0), _title_font)
+	name_label.add_theme_constant_override("outline_size", 0)
+	text_col.add_child(name_label)
+
+	var sub_label := _make_label("", 13 if is_hero else 12, Color(1.0, 0.85, 0.6, 0.78), _body_font)
+	sub_label.add_theme_constant_override("outline_size", 0)
+	text_col.add_child(sub_label)
+
+	var key_chip := PanelContainer.new()
+	key_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	key_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	key_chip.custom_minimum_size = Vector2(34.0, 34.0)
+	var chip_style := StyleBoxFlat.new()
+	chip_style.bg_color = Color(1.0, 1.0, 1.0, 0.13)
+	chip_style.set_corner_radius_all(9)
+	chip_style.set_border_width_all(1)
+	chip_style.border_color = Color(1.0, 1.0, 1.0, 0.34)
+	chip_style.content_margin_left = 6.0
+	chip_style.content_margin_right = 6.0
+	key_chip.add_theme_stylebox_override("panel", chip_style)
+	var key_label := _make_label("", 18, Color(1.0, 1.0, 1.0, 0.94), _title_font)
+	key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	key_label.add_theme_constant_override("outline_size", 0)
+	key_chip.add_child(key_label)
+	row.add_child(key_chip)
+
+	return {"root": card, "style": style, "hex": hex, "icon": icon, "name": name_label, "sub": sub_label, "key_chip": key_chip, "key_label": key_label}
+
+
+func _update_hero_panel() -> void:
+	if not _hero_panel:
+		return
+	var zh := _is_zh()
+	if _hero_title:
+		_hero_title.text = "你的阵营" if zh else "YOUR ROLE"
+	var kit := _role_kit(zh)
+	var accent: Color = kit["color"]
+	if not _hero_card.is_empty():
+		(_hero_card["hex"] as HexBadge).configure(accent, Color(1.0, 1.0, 1.0, 0.95), 3.5, accent)
+		(_hero_card["icon"] as TextureRect).texture = _skill_icon_texture(str(kit["icon"]))
+		(_hero_card["name"] as Label).text = str(kit["name"])
+		(_hero_card["sub"] as Label).text = str(kit["tag"])
+		(_hero_card["key_chip"] as Control).visible = false
+		var hero_style := _hero_card["style"] as StyleBoxFlat
+		hero_style.bg_color = Color(accent.r * 0.42, accent.g * 0.38, accent.b * 0.36, 0.62)
+		hero_style.border_color = accent
+	var skills: Array = kit["skills"]
+	for i in range(_skill_cards.size()):
+		var sc: Dictionary = _skill_cards[i]
+		var root := sc["root"] as Control
+		if i < skills.size():
+			var skill: Dictionary = skills[i]
+			root.visible = true
+			var col := _skill_badge_color(i)
+			(sc["hex"] as HexBadge).configure(col, Color(1.0, 1.0, 1.0, 0.9), 2.5, Color(col.r, col.g, col.b, 0.55))
+			(sc["icon"] as TextureRect).texture = _skill_icon_texture(str(skill["icon"]))
+			(sc["name"] as Label).text = str(skill["n"])
+			(sc["sub"] as Label).text = str(skill.get("sub", ""))
+			var key := str(skill.get("key", ""))
+			(sc["key_chip"] as Control).visible = not key.is_empty()
+			(sc["key_label"] as Label).text = key
+			var skill_style := sc["style"] as StyleBoxFlat
+			skill_style.border_color = Color(col.r, col.g, col.b, 0.85)
+		else:
+			root.visible = false
+
+
+func _skill_badge_color(index: int) -> Color:
+	var palette := [Color(0.97, 0.72, 0.16, 1.0), Color(0.30, 0.74, 0.78, 1.0), Color(0.93, 0.40, 0.62, 1.0)]
+	return palette[index % palette.size()]
+
+
+func _skill_icon_texture(icon_key: String) -> Texture2D:
+	if icon_key.is_empty():
+		return null
+	if _skill_icon_cache.has(icon_key):
+		return _skill_icon_cache[icon_key] as Texture2D
+	var tex: Texture2D = load("res://assets/ui/skills/%s.png" % icon_key) as Texture2D
+	_skill_icon_cache[icon_key] = tex
+	return tex
+
+
+func _is_zh() -> bool:
+	return I18n != null and str(I18n.current_locale).begins_with("zh")
+
+
+func _role_kit(zh: bool) -> Dictionary:
+	# Mirrors the in-game skill HUD (level.gd _*_skill_hud_entries) and the actual
+	# res://assets/ui/skills icons. Role enum: CHAMELEON=0, STALKER=1, HUNTER=2, SPECTATOR=3.
+	match _local_role():
+		Network.Role.CHAMELEON:
+			return {"name": "藏匿者" if zh else "CHAMELEON", "tag": "伪装阵营" if zh else "PROP TEAM",
+				"icon": "camo", "color": Color(0.93, 0.33, 0.56, 1.0),
+				"skills": [
+					{"icon": "shape", "n": "变形" if zh else "Shift", "sub": "MORPH", "key": "Q"},
+					{"icon": "camo", "n": "涂装伪装" if zh else "Camo", "sub": "DISGUISE", "key": "C"},
+					{"icon": "stealth", "n": "环境融合" if zh else "Blend", "sub": "PASSIVE", "key": ""}]}
+		Network.Role.STALKER:
+			return {"name": "潜行者" if zh else "STALKER", "tag": "伪装阵营" if zh else "PROP TEAM",
+				"icon": "stealth", "color": Color(0.45, 0.38, 0.86, 1.0),
+				"skills": [
+					{"icon": "stealth", "n": "暗影潜行" if zh else "Shadow", "sub": "AUTO", "key": ""},
+					{"icon": "grapple", "n": "钩爪转移" if zh else "Hook", "sub": "GRAPPLE", "key": "2"},
+					{"icon": "sprint", "n": "突进" if zh else "Burst", "sub": "DASH", "key": "4"}]}
+		Network.Role.HUNTER:
+			return {"name": "猎人" if zh else "HUNTER", "tag": "猎人阵营" if zh else "HUNTER TEAM",
+				"icon": "detect", "color": Color(0.95, 0.45, 0.20, 1.0),
+				"skills": [
+					{"icon": "flashlight", "n": "强光灯" if zh else "Flash", "sub": "SPOTLIGHT", "key": "F"},
+					{"icon": "detect", "n": "侦测扫描" if zh else "Scan", "sub": "DETECT", "key": "2"},
+					{"icon": "sprint", "n": "冲刺" if zh else "Dash", "sub": "MOBILITY", "key": "4"}]}
+		Network.Role.SPECTATOR:
+			return {"name": "观战者" if zh else "SPECTATOR", "tag": "本局观战" if zh else "SPECTATING",
+				"icon": "locked", "color": Color(0.5, 0.55, 0.6, 1.0), "skills": []}
+		_:
+			return {"name": "伪装者" if zh else "PROP", "tag": "伪装阵营" if zh else "PROP TEAM",
+				"icon": "camo", "color": Color(0.93, 0.33, 0.56, 1.0),
+				"skills": [{"icon": "camo", "n": "挑选你的伪装" if zh else "Pick a disguise", "sub": "TIP", "key": ""}]}
 
 
 func _update_skin_text() -> void:
@@ -1267,5 +1483,5 @@ func _on_locale_changed(_locale: String) -> void:
 	if _hint_label:
 		_hint_label.text = _hint_text()
 	_update_skin_text()
-	_update_role_text()
+	_update_hero_panel()
 	_update_countdown()

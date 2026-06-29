@@ -380,6 +380,8 @@ func _ready():
 	main_menu.public_lobby_leave_pressed.connect(_on_public_lobby_leave_pressed)
 	main_menu.lobby_back_pressed.connect(_on_lobby_back_pressed)
 	main_menu.lobby_leave_pressed.connect(_on_lobby_leave_pressed)
+	main_menu.lan_create_pressed.connect(_on_lan_create_pressed)
+	main_menu.lan_join_pressed.connect(_on_lan_join_pressed)
 	main_menu.start_match_pressed.connect(_on_start_match_pressed)
 	main_menu.auto_assign_pressed.connect(_on_auto_assign_pressed)
 	main_menu.config_changed.connect(_on_lobby_config_changed)
@@ -1766,6 +1768,73 @@ func _is_peer_relevant_to_map_prop_payload(peer_id: int, payload: Array) -> bool
 
 # -----------------------------------------------------------------------------
 # 涓昏彍鍗曞洖璋?# -----------------------------------------------------------------------------
+var _lan_advertiser: LanRoomDiscovery = null
+
+
+# LAN "Private Server" host: a direct ENet listen-server advertised over the local network.
+# No VPS / Noray — discovery and join are pure peer-to-peer (see LanRoomDiscovery).
+func _on_lan_create_pressed(room_name: String, password: String) -> void:
+	var nickname: String = main_menu.get_nickname() if main_menu else "Host"
+	var skin: String = main_menu.get_skin() if main_menu else ""
+	var role: int = main_menu.selected_role if main_menu else Network.Role.NONE
+	var model: String = main_menu.get_character_model() if main_menu else CharacterSkinCatalog.DEFAULT_ID
+	var error: int = Network.start_host(nickname, skin, role, room_name, password, model)
+	if error != OK:
+		push_warning("Could not host LAN room. ENet error: " + str(error))
+		if main_menu:
+			main_menu.show_join_status(I18n.t("join_status.failed_private"), true)
+		return
+	# Open rooms (no password) must be joinable without a code; clear the auto-generated id.
+	if password.strip_edges().is_empty():
+		Network.lobby_config["lobby_id"] = ""
+	_start_lan_advertisement(password)
+	main_menu.show_lobby(str(Network.lobby_config.get("lobby_id", "")), true)
+	main_menu.show_join_status("")
+	_set_hud_visible(false)
+	_refresh_lobby_ui()
+
+
+func _on_lan_join_pressed(address: String, port: int, password: String, room_name: String) -> void:
+	if address.is_empty() or port <= 0:
+		if main_menu:
+			main_menu.show_join_status(I18n.t("join_status.failed"), true)
+		return
+	var nickname: String = main_menu.get_nickname() if main_menu else "Player"
+	var skin: String = main_menu.get_skin() if main_menu else ""
+	var role: int = main_menu.selected_role if main_menu else Network.Role.NONE
+	var model: String = main_menu.get_character_model() if main_menu else CharacterSkinCatalog.DEFAULT_ID
+	_join_lobby_direct(nickname, skin, "%s:%d" % [address, port], password, role, room_name, model)
+
+
+func _ensure_lan_advertiser() -> void:
+	if _lan_advertiser == null or not is_instance_valid(_lan_advertiser):
+		_lan_advertiser = LanRoomDiscovery.new()
+		_lan_advertiser.name = "LanAdvertiser"
+		add_child(_lan_advertiser)
+
+
+func _start_lan_advertisement(password: String) -> void:
+	_ensure_lan_advertiser()
+	_lan_advertiser.start_advertising({
+		"room_name": str(Network.lobby_config.get("room_name", "Room")),
+		"host_name": str(Network.lobby_config.get("host_peer_name", "")),
+		"player_count": Network.players.size(),
+		"max_players": Network.MAX_PLAYERS,
+		"port": Network.server_port,
+		"locked": not password.strip_edges().is_empty(),
+	})
+
+
+func _update_lan_advertisement() -> void:
+	if _lan_advertiser and is_instance_valid(_lan_advertiser) and _lan_advertiser.is_advertising():
+		_lan_advertiser.update_advertisement({"player_count": Network.players.size()})
+
+
+func _stop_lan_advertisement() -> void:
+	if _lan_advertiser and is_instance_valid(_lan_advertiser):
+		_lan_advertiser.stop_advertising()
+
+
 func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
 	pending_direct_join_waiting_for_sync = false
 	pending_direct_join_lobby_id = ""
@@ -1902,6 +1971,7 @@ func _on_lobby_leave_pressed() -> void:
 		_return_to_public_server_lobby()
 		return
 	_reset_local_state_for_public_lobby()
+	_stop_lan_advertisement()
 	Network.leave_current_lobby()
 	if main_menu:
 		main_menu.show_landing()
@@ -2110,6 +2180,7 @@ func _hide_menu_after_spawn() -> void:
 
 
 func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
+	_update_lan_advertisement()
 	if main_menu and main_menu.is_menu_visible():
 		_set_hud_visible(false)
 		main_menu.update_lobby(Network.players, Network.lobby_config)
@@ -2646,6 +2717,8 @@ func _on_auto_assign_pressed(config: Dictionary) -> void:
 
 
 func _on_start_match_pressed(config: Dictionary) -> void:
+	# Match is starting: stop advertising the room so it disappears from LAN browsers.
+	_stop_lan_advertisement()
 	Network.request_update_lobby_config(config)
 	if _is_multiplayer_server():
 		await get_tree().process_frame

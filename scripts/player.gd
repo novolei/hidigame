@@ -149,6 +149,29 @@ const PlayerInputStateScript := preload("res://scripts/network/player_input_stat
 const PlayerActionBusScript := preload("res://scripts/network/player_action_bus.gd")
 const PartyMonsterAccessoryCatalogScript := preload("res://scripts/party_monster_accessory_catalog.gd")
 const PROP_TOMBSTONE_TARGET_HEIGHT := 1.18
+# --- Death tombstone nameplate ---------------------------------------------------------------
+# The headstone's painted smiley faces +Z in model-local space (verified by averaging the mesh
+# normals of the vertices whose UVs fall inside the smiley texture region -> normal ~ (0,0,+1)).
+# The dead prop's name is drawn there, just below the smile, in the same warm brown as the face.
+# Local offset in the tombstone's OWN model frame (pre-fit-scale native units). Hand-tuned in
+# .fennara/tmp/tombstone_probe3 so the text sits flush on the recessed smiley panel — the model's
+# AABB front plane floats well in front of that panel, so a bounds-derived Z detaches the text.
+const PROP_TOMBSTONE_NAME_LOCAL_OFFSET := Vector3(0.017378, 0.361061, 0.127131)
+const PROP_TOMBSTONE_NAME_COLOR := Color(0.30, 0.22, 0.16)  # matches the painted brown smiley
+const PROP_TOMBSTONE_NAME_FONT_LATIN := "res://resources/ui/fonts/Bangers-Regular.ttf"
+const PROP_TOMBSTONE_NAME_FONT_CJK := "res://resources/ui/fonts/AaFengKuangYuanShiRen-2.ttf"
+const PROP_TOMBSTONE_NAME_FONT_SIZE := 64
+const PROP_TOMBSTONE_NAME_PIXEL_SIZE := 0.002          # world metres per font pixel (~0.13 m tall text)
+const PROP_TOMBSTONE_NAME_DEPTH := 0.035               # TextMesh extrusion depth -> the letters are solid 3D
+const PROP_TOMBSTONE_NAME_CURVE_STEP := 0.4            # glyph contour step; lower = smoother rounded edges
+const PROP_TOMBSTONE_NAME_ROUGHNESS := 0.72            # lit like the painted stone so the thickness reads
+# Long names are truncated (not shrunk) so the font stays a consistent, readable size and we never
+# extrude a huge glyph count. Budget is in display columns: CJK/full-width glyphs cost 2, others 1.
+const PROP_TOMBSTONE_NAME_MAX_DISPLAY_UNITS := 12
+const PROP_TOMBSTONE_NAME_ELLIPSIS := "…"
+# Slimmer-than-AABB collider so a sprinting party monster trips on the stone (not the grass tufts).
+const PROP_TOMBSTONE_COLLIDER_WIDTH_RATIO := 0.7
+const PROP_TOMBSTONE_COLLIDER_DEPTH_RATIO := 0.6
 const CAMOUFLAGE_PAINT_LAYER_SHADER := preload("res://shaders/camouflage_paint_layer.gdshader")
 const CHAMELEON_GPU_PBR_OVERLAY_SHADER := preload("res://shaders/chameleon_gpu_pbr_overlay.gdshader")
 const CAMOUFLAGE_GPU_OVERLAY_LAYER := 20
@@ -8620,6 +8643,11 @@ func _spawn_prop_tombstone(death_position: Vector3) -> void:
 	tombstone.set_meta("apex_offset", apex_position.y - final_position.y)
 	tombstone.global_position = final_position + Vector3.DOWN * 1.35
 	var final_scale := tombstone.scale
+	# Solid collider so a sprinting party monster trips on the headstone (party-monster trip system
+	# reads any world-layer obstacle); built before the squash tween so it inherits the resting scale.
+	_attach_tombstone_collision(tombstone)
+	# Name on the smiley face. Pass the resting scale so the label can counter-scale the fit factor.
+	_attach_tombstone_nameplate(tombstone, final_scale)
 	tombstone.scale = Vector3(final_scale.x * 0.58, final_scale.y * 0.12, final_scale.z * 0.58)
 	var tween := tombstone.create_tween()
 	tween.tween_property(tombstone, "global_position", apex_position, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -8640,6 +8668,112 @@ func _instantiate_prop_tombstone() -> Node3D:
 	if not tombstone:
 		tombstone = _build_fallback_tombstone()
 	return tombstone
+
+
+# Bilingual font for the headstone name: Latin glyphs come from Bangers, anything Bangers lacks
+# (CJK in particular) resolves through the AaFengKuangYuanShiRen fallback. Cached process-wide.
+static var _tombstone_nameplate_font: Font = null
+
+
+static func _get_tombstone_nameplate_font() -> Font:
+	if _tombstone_nameplate_font != null:
+		return _tombstone_nameplate_font
+	var latin: Font = load(PROP_TOMBSTONE_NAME_FONT_LATIN) as Font
+	var cjk: Font = load(PROP_TOMBSTONE_NAME_FONT_CJK) as Font
+	var variation := FontVariation.new()
+	if latin != null:
+		variation.base_font = latin
+	elif cjk != null:
+		variation.base_font = cjk
+	if cjk != null:
+		var fallbacks: Array[Font] = [cjk]
+		variation.fallbacks = fallbacks
+	_tombstone_nameplate_font = variation
+	return _tombstone_nameplate_font
+
+
+# Clamp an over-long name to the display-width budget and append an ellipsis. Width is counted in
+# columns (CJK/full-width glyph = 2, everything else = 1) so a long Han name and a long Latin name
+# both stop at roughly the stone's width. Keeps the font a fixed, readable size.
+func _truncate_tombstone_name(text: String) -> String:
+	var budget := float(PROP_TOMBSTONE_NAME_MAX_DISPLAY_UNITS)
+	var total := 0.0
+	for i in text.length():
+		total += 2.0 if text[i].unicode_at(0) >= 0x1100 else 1.0
+	if total <= budget:
+		return text
+	# Overflows: keep what fits, reserving one column for the trailing ellipsis.
+	var used := 0.0
+	var kept := ""
+	for i in text.length():
+		var ch := text[i]
+		var width := 2.0 if ch.unicode_at(0) >= 0x1100 else 1.0
+		if used + width > budget - 1.0:
+			break
+		kept += ch
+		used += width
+	return kept.strip_edges() + PROP_TOMBSTONE_NAME_ELLIPSIS
+
+
+# Draw the dead prop's name on the headstone's +Z smiley face as solid, extruded 3D text (a
+# TextMesh, not a flat Label3D quad — the letters have real thickness). Owner/remote clients only:
+# a headless dedicated server has no renderer and must never build render nodes (RuntimeAuthority).
+func _attach_tombstone_nameplate(tombstone: Node3D, resting_scale: Vector3) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var display_text := get_display_name().strip_edges()
+	if display_text.is_empty():
+		return
+	var bounds := _calculate_node_bounds(tombstone)  # model-local native units (pre-fit-scale)
+	if bounds.size.y <= 0.0001:
+		return
+	var text_mesh := TextMesh.new()
+	text_mesh.text = _truncate_tombstone_name(display_text)
+	text_mesh.font = _get_tombstone_nameplate_font()
+	text_mesh.font_size = PROP_TOMBSTONE_NAME_FONT_SIZE
+	text_mesh.pixel_size = PROP_TOMBSTONE_NAME_PIXEL_SIZE
+	text_mesh.depth = PROP_TOMBSTONE_NAME_DEPTH        # genuine extrusion -> 3D thickness
+	text_mesh.curve_step = PROP_TOMBSTONE_NAME_CURVE_STEP
+	text_mesh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text_mesh.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# Shaded material so scene light catches the extruded sides; albedo matches the painted smiley.
+	var material := StandardMaterial3D.new()
+	material.albedo_color = PROP_TOMBSTONE_NAME_COLOR
+	material.roughness = PROP_TOMBSTONE_NAME_ROUGHNESS
+	text_mesh.material = material
+	var label := MeshInstance3D.new()
+	label.name = "TombstoneNameplate"
+	label.mesh = text_mesh
+	tombstone.add_child(label)
+	# Position from the hand-tuned local offset (model frame), NOT from the AABB: the model's front
+	# plane sits forward of the recessed smiley panel, so a bounds-derived Z floats the text off it.
+	label.position = PROP_TOMBSTONE_NAME_LOCAL_OFFSET
+	# The nameplate rides the tombstone's fit scale (~1.3x). Counter-scale it so the text's world
+	# size (and extrusion depth) depend only on the TextMesh settings, not on the fit factor.
+	if resting_scale.x != 0.0 and resting_scale.y != 0.0 and resting_scale.z != 0.0:
+		label.scale = Vector3(1.0 / resting_scale.x, 1.0 / resting_scale.y, 1.0 / resting_scale.z)
+
+
+# A static body on the world layer so live players collide with the headstone; a sprinting party
+# monster trips on it because the trip system treats any world-layer obstacle as a stumble surface.
+func _attach_tombstone_collision(tombstone: Node3D) -> void:
+	var bounds := _calculate_node_bounds(tombstone)
+	if bounds.size == Vector3.ZERO:
+		return
+	var body := StaticBody3D.new()
+	body.name = "TombstoneBody"
+	body.collision_layer = WORLD_COLLISION_MASK
+	body.collision_mask = 0
+	tombstone.add_child(body)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(
+		bounds.size.x * PROP_TOMBSTONE_COLLIDER_WIDTH_RATIO,
+		bounds.size.y,
+		bounds.size.z * PROP_TOMBSTONE_COLLIDER_DEPTH_RATIO)
+	shape.shape = box
+	shape.position = bounds.get_center()
+	body.add_child(shape)
 
 
 func _build_fallback_tombstone() -> Node3D:
