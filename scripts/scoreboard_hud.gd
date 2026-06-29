@@ -68,13 +68,25 @@ func _draw() -> void:
 	var panel_x := (vp.x - panel_w) * 0.5
 	var content_left := panel_x + 26.0
 	var content_w := panel_w - 52.0
-	var y := vp.y * 0.12
-
+	var teams := _grouped_players()
 	var title_size := _scaled(34, vp)
+	var header_size := _scaled(18, vp)
+	var label_size := _scaled(20, vp)
+	var row_h := _scaled(30, vp)
+	# Measure the whole block so it sits vertically centered on screen.
+	var hunter_rows := maxi(1, (teams["hunters"] as Array).size())
+	var prop_rows := maxi(1, (teams["props"] as Array).size())
+	var spec_rows := (teams["spectators"] as Array).size()
+	var total_h := float(title_size) + 14.0 + float(header_size) + 22.0
+	total_h += float(label_size) + 8.0 + float(hunter_rows) * float(row_h)
+	total_h += 14.0 + float(label_size) + 8.0 + float(prop_rows) * float(row_h)
+	if spec_rows > 0:
+		total_h += 14.0 + float(label_size) + 8.0 + float(spec_rows) * float(row_h)
+	var y := clampf((vp.y - total_h) * 0.5, vp.y * 0.06, vp.y * 0.5)
+
 	draw_string(_font_bold, Vector2(content_left, y), "SCOREBOARD", HORIZONTAL_ALIGNMENT_LEFT, -1.0, title_size, Color(0.95, 0.97, 1.0, 0.96))
 	y += 14.0
 	# Column headers.
-	var header_size := _scaled(18, vp)
 	for column in COLUMNS:
 		var cx := content_left + content_w * float(column["x"])
 		draw_string(_font_bold, Vector2(cx - 150.0, y + header_size), str(column["label"]), HORIZONTAL_ALIGNMENT_RIGHT, 150.0, header_size, Color(0.78, 0.84, 0.95, 0.85))
@@ -82,7 +94,6 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(content_left, y), Vector2(content_w, 2.0)), Color(1.0, 1.0, 1.0, 0.14), true)
 	y += 12.0
 
-	var teams := _grouped_players()
 	y = _draw_team(content_left, content_w, y, vp, "HUNTERS  ·  猎人", HUNTER_COLOR, teams["hunters"])
 	y += 14.0
 	y = _draw_team(content_left, content_w, y, vp, "PROPS  ·  伪装者", PROP_COLOR, teams["props"])

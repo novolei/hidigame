@@ -284,7 +284,7 @@ const TANK_DEMO_MAP_SCENES := {
 }
 const MATCH_INTRO_DURATION := 3.0
 const PUBLIC_ROOM_JOIN_TIMEOUT_SEC := 40.0
-const PUBLIC_LOBBY_ROOM_REQUEST_TIMEOUT_SEC := 45.0
+const PUBLIC_LOBBY_ROOM_REQUEST_TIMEOUT_SEC := 18.0   # create/join room reply window before we alarm
 const LOW_GRAVITY_MULTIPLIER := 0.42
 const LOW_GRAVITY_EVENT_DURATION := 24.0
 const LOW_GRAVITY_CHECK_INTERVAL := 18.0
@@ -1862,7 +1862,7 @@ func _on_private_connection_status_changed(status_key: String, is_error: bool) -
 
 
 func _on_public_room_create_pressed(room_name: String, lobby_password: String) -> void:
-	_start_public_lobby_room_request_timeout()
+	_start_public_lobby_room_request_timeout("join_status.public_room_not_ready", "public_lobby.create_timeout")
 	Network.request_create_public_room(room_name, lobby_password)
 
 
@@ -1918,7 +1918,7 @@ func _cancel_public_lobby_room_request_timeout() -> void:
 	_public_lobby_room_request_token += 1
 
 
-func _start_public_lobby_room_request_timeout(status_key: String = "join_status.public_room_not_ready") -> void:
+func _start_public_lobby_room_request_timeout(status_key: String = "join_status.public_room_not_ready", alert_key: String = "public_lobby.request_timeout") -> void:
 	_cancel_public_lobby_room_request_timeout()
 	var token := _public_lobby_room_request_token
 	var timer := get_tree().create_timer(PUBLIC_LOBBY_ROOM_REQUEST_TIMEOUT_SEC)
@@ -1929,8 +1929,11 @@ func _start_public_lobby_room_request_timeout(status_key: String = "join_status.
 			return
 		if str(main_menu.public_lobby_loading_text).is_empty():
 			return
+		# Stop the spinner and raise a clear alarm so the player isn't stuck on
+		# "creating room…" when the room server is unreachable / overloaded.
 		main_menu.hide_public_lobby_loading()
 		main_menu.show_public_lobby_status(I18n.t(status_key), true)
+		main_menu.show_public_lobby_alert(I18n.t(alert_key), true, 4.0)
 		Network.request_public_room_list()
 		_set_hud_visible(false)
 	)
