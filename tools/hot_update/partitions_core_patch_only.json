@@ -25,7 +25,9 @@
         "assets/**",
         "Models/**",
         "imported_models/**",
-        "addons/**"
+        "addons/**",
+        "resources/ui/fonts/**",
+        "resources/props/**"
       ],
       "load_order": 10,
       "restart_required": true,
