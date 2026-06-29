@@ -1695,10 +1695,21 @@ func _open_private_browser() -> void:
 		# networks, not just LAN. The room's noray:<code> share code shows in the host lobby. (The
 		# LAN-only path that the previous update wired here is what broke cross-network hosting.)
 		_private_browser.create_requested.connect(func(room_name, password): host_pressed.emit(get_nickname(), get_skin(), selected_role, room_name, password, get_character_model()))
-		_private_browser.join_requested.connect(func(room, password): lan_join_pressed.emit(str(room.get("address", "")), int(room.get("port", 0)), password, str(room.get("room_name", ""))))
+		_private_browser.join_requested.connect(_on_private_browser_join_requested)
 		_private_browser.back_requested.connect(_close_private_browser)
 	move_child(_private_browser, get_child_count() - 1)
 	_private_browser.open()
+
+
+# A cross-network (Noray) room carries a noray:<code> share code — join through that; a
+# same-network LAN room carries an address:port. lan_join_pressed handles both (level.gd's
+# join detects the noray target and routes it through Noray instead of a direct IP).
+func _on_private_browser_join_requested(room: Dictionary, password: String) -> void:
+	var share_code := str(room.get("share_code", ""))
+	if not share_code.is_empty():
+		lan_join_pressed.emit(share_code, 0, password, str(room.get("room_name", "")))
+	else:
+		lan_join_pressed.emit(str(room.get("address", "")), int(room.get("port", 0)), password, str(room.get("room_name", "")))
 
 
 func _close_private_browser() -> void:

@@ -1795,7 +1795,10 @@ func _on_lan_create_pressed(room_name: String, password: String) -> void:
 
 
 func _on_lan_join_pressed(address: String, port: int, password: String, room_name: String) -> void:
-	if address.is_empty() or port <= 0:
+	# A cross-network room from the registry arrives as a noray:<code> target (port unused); a
+	# same-network LAN room arrives as address + port.
+	var is_noray := Network.is_noray_join_target(address)
+	if address.is_empty() or (not is_noray and port <= 0):
 		if main_menu:
 			main_menu.show_join_status(I18n.t("join_status.failed"), true)
 		return
@@ -1803,7 +1806,8 @@ func _on_lan_join_pressed(address: String, port: int, password: String, room_nam
 	var skin: String = main_menu.get_skin() if main_menu else ""
 	var role: int = main_menu.selected_role if main_menu else Network.Role.NONE
 	var model: String = main_menu.get_character_model() if main_menu else CharacterSkinCatalog.DEFAULT_ID
-	_join_lobby_direct(nickname, skin, "%s:%d" % [address, port], password, role, room_name, model)
+	var target := address if is_noray else "%s:%d" % [address, port]
+	_join_lobby_direct(nickname, skin, target, password, role, room_name, model)
 
 
 func _ensure_lan_advertiser() -> void:
@@ -1835,6 +1839,44 @@ func _stop_lan_advertisement() -> void:
 		_lan_advertiser.stop_advertising()
 
 
+var _private_registry: Node = null
+
+
+func _ensure_private_registry() -> void:
+	if _private_registry == null or not is_instance_valid(_private_registry):
+		_private_registry = preload("res://scripts/network/private_room_registry_client.gd").new()
+		_private_registry.name = "PrivateRoomRegistry"
+		add_child(_private_registry)
+
+
+# Publish a Noray-hosted private room to the cross-network registry so other players can find it
+# in the private browser. Only Noray rooms (share code noray:<id>) are listed — LAN/direct rooms
+# are not. Separate from the public-lobby room list by design.
+func _start_private_registry() -> void:
+	var share_code := str(Network.lobby_config.get("private_connection_code", ""))
+	if not share_code.to_lower().begins_with("noray:"):
+		return
+	_ensure_private_registry()
+	_private_registry.start_hosting({
+		"room_name": str(Network.lobby_config.get("room_name", "Room")),
+		"host_name": str(Network.lobby_config.get("host_peer_name", "")),
+		"share_code": share_code,
+		"player_count": Network.players.size(),
+		"max_players": Network.MAX_PLAYERS,
+		"locked": not str(Network.lobby_config.get("lobby_id", "")).strip_edges().is_empty(),
+	})
+
+
+func _update_private_registry() -> void:
+	if _private_registry and is_instance_valid(_private_registry):
+		_private_registry.update_player_count(Network.players.size())
+
+
+func _stop_private_registry() -> void:
+	if _private_registry and is_instance_valid(_private_registry):
+		_private_registry.stop_hosting()
+
+
 func _on_host_pressed(nickname: String, skin: String, role: int, room_name: String = "", lobby_password: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID) -> void:
 	pending_direct_join_waiting_for_sync = false
 	pending_direct_join_lobby_id = ""
@@ -1864,6 +1906,8 @@ func _on_host_pressed(nickname: String, skin: String, role: int, room_name: Stri
 	main_menu.show_join_status("")
 	_set_hud_visible(false)
 	_refresh_lobby_ui()
+	# Publish this Noray room to the cross-network private list so others can find + join it.
+	_start_private_registry()
 
 
 func _on_join_pressed(nickname: String, skin: String, address: String, lobby_id: String, role: int, room_name: String = "", character_model: String = CharacterSkinCatalog.DEFAULT_ID):
@@ -1972,6 +2016,7 @@ func _on_lobby_leave_pressed() -> void:
 		return
 	_reset_local_state_for_public_lobby()
 	_stop_lan_advertisement()
+	_stop_private_registry()
 	Network.leave_current_lobby()
 	if main_menu:
 		main_menu.show_landing()
@@ -2192,6 +2237,7 @@ func _hide_menu_after_spawn() -> void:
 
 func _refresh_lobby_ui(_peer_id = null, _info = null) -> void:
 	_update_lan_advertisement()
+	_update_private_registry()
 	if main_menu and main_menu.is_menu_visible():
 		_set_hud_visible(false)
 		main_menu.update_lobby(Network.players, Network.lobby_config)
@@ -2728,8 +2774,10 @@ func _on_auto_assign_pressed(config: Dictionary) -> void:
 
 
 func _on_start_match_pressed(config: Dictionary) -> void:
-	# Match is starting: stop advertising the room so it disappears from LAN browsers.
+	# Match is starting: stop advertising the room so it disappears from LAN browsers + the
+	# cross-network private list (an in-progress match shouldn't accept new joiners).
 	_stop_lan_advertisement()
+	_stop_private_registry()
 	Network.request_update_lobby_config(config)
 	if _is_multiplayer_server():
 		await get_tree().process_frame

@@ -42,7 +42,11 @@ var _refresh_button: Button = null
 var _filter_text := ""
 
 var _discovery: Node = null
+var _registry: Node = null              # PrivateRoomRegistryClient — Noray rooms across the internet
 var _rooms: Array = []
+var _lan_rooms: Array = []              # latest LAN-discovered rooms (same network)
+var _registry_rooms: Array = []         # latest registry (cross-network Noray) rooms
+var _registry_poll_accum := 0.0
 var _selected_uid := ""
 var _elapsed := 0.0
 
@@ -64,6 +68,12 @@ func _ready() -> void:
 	_discovery.name = "BrowseDiscovery"
 	add_child(_discovery)
 	_discovery.rooms_updated.connect(_on_rooms_updated)
+	# Cross-network Noray rooms come from the standalone HTTP registry (separate from the public
+	# lobby). The list merges these with same-network LAN rooms.
+	_registry = preload("res://scripts/network/private_room_registry_client.gd").new()
+	_registry.name = "PrivateRegistry"
+	add_child(_registry)
+	_registry.rooms_fetched.connect(_on_registry_rooms)
 	_build_ui()
 	visible = false
 	set_process(false)
@@ -97,7 +107,12 @@ func open() -> void:
 	set_status("", false)
 	_render_rooms([])
 	_close_modal()
+	_lan_rooms = []
+	_registry_rooms = []
+	_registry_poll_accum = 0.0
 	_discovery.start_browsing()
+	if _registry:
+		_registry.fetch_rooms()
 
 
 func close() -> void:
@@ -125,26 +140,71 @@ func get_room_count_for_test() -> int:
 # --- Discovery feed ----------------------------------------------------------
 
 func _on_rooms_updated(rooms: Array) -> void:
-	_render_rooms(rooms)
+	_lan_rooms = rooms.duplicate(true)
+	_render_merged()
+
+
+func _on_registry_rooms(rooms: Array) -> void:
+	# Normalize registry rooms into the same shape the room rows expect; the share_code is both
+	# the unique id and the join handle. Tagged is_noray so they can be told apart from LAN rooms.
+	var normalized: Array = []
+	for raw in rooms:
+		var r := raw as Dictionary
+		var code := str(r.get("share_code", ""))
+		if code.is_empty():
+			continue
+		normalized.append({
+			"uid": code,
+			"share_code": code,
+			"room_name": str(r.get("room_name", "Room")),
+			"host_name": str(r.get("host_name", "")),
+			"player_count": int(r.get("player_count", 0)),
+			"max_players": int(r.get("max_players", 24)),
+			"locked": bool(r.get("locked", false)),
+			"is_noray": true,
+		})
+	_registry_rooms = normalized
+	_render_merged()
+
+
+# Cross-network Noray rooms (from the registry) first, then same-network LAN rooms; deduped by uid.
+func _render_merged() -> void:
+	var merged: Array = []
+	var seen := {}
+	for source in [_registry_rooms, _lan_rooms]:
+		for room in source:
+			var uid := str((room as Dictionary).get("uid", ""))
+			if uid.is_empty() or seen.has(uid):
+				continue
+			seen[uid] = true
+			merged.append(room)
+	_render_rooms(merged)
 
 
 func _on_refresh_pressed() -> void:
-	# Force the discovery node to re-scan and re-emit; falls back to repainting the cache.
+	# Force the LAN discovery to re-scan and re-fetch the cross-network registry now.
 	if _discovery and _discovery.has_method("force_refresh"):
 		_discovery.force_refresh()
-	else:
-		_render_rooms(_rooms)
+	if _registry:
+		_registry.fetch_rooms()
+	_render_merged()
 
 
 func _on_search_changed(text: String) -> void:
 	_filter_text = text.strip_edges().to_lower()
-	_render_rooms(_rooms)
+	_render_merged()
 
 
 func _process(delta: float) -> void:
 	_elapsed += delta
 	if _spinner and _spinner.visible:
 		_spinner.rotation += delta * 6.0
+	# Poll the cross-network registry while the browser is open.
+	if _registry and visible:
+		_registry_poll_accum += delta
+		if _registry_poll_accum >= 3.0:
+			_registry_poll_accum = 0.0
+			_registry.fetch_rooms()
 
 
 # --- UI construction ---------------------------------------------------------
