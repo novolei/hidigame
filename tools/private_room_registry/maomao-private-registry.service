@@ -1,0 +1,17 @@
+[Unit]
+Description=Monster & Hunter private-room registry (Noray room list)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/maomao-private-registry/registry.py
+Restart=always
+RestartSec=2
+# Hardening: the service only needs to bind a localhost TCP port and hold an in-memory dict.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
