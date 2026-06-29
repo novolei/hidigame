@@ -104,6 +104,7 @@ var skill_hud = null
 var card_hud = null
 var health_hud = null
 var world_nameplate_hud = null
+var map_ping_hud = null
 var match_status_hud = null
 var party_monster_hunt_hud = null
 var debug_overlay: DebugOverlay = null
@@ -435,6 +436,7 @@ func _ready():
 	_ensure_card_hud()
 	_ensure_health_hud()
 	_ensure_world_nameplate_hud()
+	_ensure_map_ping_hud()
 	_ensure_party_monster_hunt_hud()
 	_ensure_match_intro_overlay()
 	_ensure_character_setup_overlay()
@@ -2007,6 +2009,8 @@ func _reset_local_state_for_public_lobby() -> void:
 		health_hud.clear()
 	if world_nameplate_hud:
 		world_nameplate_hud.clear()
+	if map_ping_hud:
+		map_ping_hud.clear()
 	if match_status_hud:
 		match_status_hud.clear()
 	if party_monster_hunt_hud:
@@ -4530,6 +4534,19 @@ func _ensure_world_nameplate_hud() -> void:
 		world_nameplate_hud = preload("res://scripts/world_nameplate_hud.gd").new()
 		world_nameplate_hud.name = "WorldNameplateHUD"
 		hud.add_child(world_nameplate_hud)
+
+
+func _ensure_map_ping_hud() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if not has_node("HUDCanvas"):
+		return
+	var hud = $HUDCanvas
+	map_ping_hud = hud.get_node_or_null("MapPingHUD")
+	if not map_ping_hud:
+		map_ping_hud = preload("res://scripts/map_ping_hud.gd").new()
+		map_ping_hud.name = "MapPingHUD"
+		hud.add_child(map_ping_hud)
 
 
 func _ensure_party_monster_hunt_hud() -> void:

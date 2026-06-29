@@ -55,6 +55,7 @@ const PROP_PUSH_QUERY_INTERVAL_MSEC := 50
 const PROP_PUSH_ASSIST_MIN_SPEED := 2.6
 const WORLD_COLLISION_MASK := 2
 const HOLOGRAM_FLAG_ACTION := "place_hologram_flag"
+const MAP_PING_RANGE := 220.0  # middle-click world ping reach
 const HOLOGRAM_FLAG_PLACEMENT_RANGE := 14.0
 const HOLOGRAM_FLAG_FALLBACK_DISTANCE := 4.5
 const HOLOGRAM_FLAG_GROUND_RAY_UP := 2.0
@@ -1434,6 +1435,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _request_hologram_flag_placement():
 			get_viewport().set_input_as_handled()
 		return
+	# Middle-click world ping (all factions). Only while the game owns the cursor
+	# so it doesn't fire over menus / the console / a radial wheel.
+	if event is InputEventMouseButton and event.pressed \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE \
+			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		_request_map_ping()
+		get_viewport().set_input_as_handled()
+		return
 
 	# Hunter 杈撳叆
 	if is_hunter():
@@ -1582,6 +1591,36 @@ func _get_hologram_flag_placement_transform() -> Transform3D:
 	to_camera = to_camera.normalized()
 	var yaw := atan2(-to_camera.x, -to_camera.z)
 	return Transform3D(Basis(Vector3.UP, yaw), target)
+
+
+# Raycast from the camera and broadcast a world ping at the hit point.
+func _request_map_ping() -> void:
+	var camera := get_node_or_null("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+	var ray_origin := global_position + Vector3.UP * 1.45
+	var forward := -global_transform.basis.z.normalized()
+	if camera:
+		ray_origin = camera.global_position
+		forward = -camera.global_transform.basis.z.normalized()
+	var target := ray_origin + forward * MAP_PING_RANGE
+	var world := get_world_3d()
+	if world:
+		var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + forward * MAP_PING_RANGE, WORLD_COLLISION_MASK)
+		query.exclude = [get_rid()]
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		var hit := world.direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			target = hit.get("position", target)
+	_map_ping.rpc(target)
+
+
+# Cosmetic map ping. Runs on every peer; only the pinger and same-team viewers
+# render it (so it doesn't hand enemies free intel).
+@rpc("any_peer", "call_local", "reliable")
+func _map_ping(world_pos: Vector3) -> void:
+	if int(str(name)) != _local_peer_id() and not is_ally_of_local_viewer():
+		return
+	get_tree().call_group("map_ping_hud", "register_ping", world_pos)
 
 
 func _resolve_hologram_flag_ground_position(position: Vector3) -> Vector3:
