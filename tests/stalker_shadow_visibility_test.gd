@@ -332,6 +332,21 @@ func _run() -> void:
 		explicit_shadow_zone.queue_free()
 		await get_tree().process_frame
 
+		# Dead stalker guard: a dead stalker's node lingers at its death spot next to its
+		# tombstone. The shadow system kept firing _refresh_stalker_visibility_view, which
+		# re-showed the mesh — the skin reappeared on the grave. The refresh must now early-return
+		# while dead, so it can't recompute/restore the visual. Prove it with a sentinel mode the
+		# guard must leave untouched.
+		player._is_dead = true
+		player._prop_death_visual_hidden = true
+		player._stalker_visual_mode = "dead_guard_sentinel"
+		player._refresh_stalker_visibility_view(true)
+		_expect(player.get_stalker_visual_mode() == "dead_guard_sentinel", "A dead stalker's visibility refresh must be a no-op (it used to re-show the skin on the tombstone)")
+		player._is_dead = false
+		player._prop_death_visual_hidden = false
+		player._refresh_stalker_visibility_view(true)
+		_expect(player.get_stalker_visual_mode() != "dead_guard_sentinel", "After respawn the stalker visibility refresh should run again")
+
 	player.queue_free()
 	floor.queue_free()
 	roof.queue_free()

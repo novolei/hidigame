@@ -814,6 +814,12 @@ func get_stalker_visibility_alpha() -> float:
 func _refresh_stalker_visibility_view(force: bool = false) -> void:
 	if not is_stalker():
 		return
+	# A dead stalker's node lingers at its death spot right next to its tombstone. The shadow
+	# system keeps emitting visibility-changed every ~0.2s, and the "normal" branch below calls
+	# _restore_stalker_materials() which re-shows the mesh — so the skin reappeared on top of the
+	# grave a moment after death. Stay hidden until respawn clears the death-visual flags.
+	if _is_dead or _prop_death_visual_hidden:
+		return
 	if not shadow_visibility:
 		shadow_visibility = get_node_or_null("ShadowVisibilitySystem")
 
