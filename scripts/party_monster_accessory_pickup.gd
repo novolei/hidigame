@@ -68,6 +68,12 @@ var _visual_motion_elapsed := 0.0
 var _beacon_pulse_time := 0.0
 var _accessory_color := Color(0.85, 0.92, 1.0, 1.0)
 
+# Process-wide cache of each accessory's baked mesh + materials, extracted ONCE
+# from a single throwaway skin build. Every pickup references these shared
+# resources, so showing the real model costs ~the same as the old sphere.
+static var _real_mesh_cache: Dictionary = {}   # accessory_id -> {mesh, materials}
+static var _real_mesh_cache_built := false
+
 
 func _ready() -> void:
 	add_to_group("party_monster_accessory_pickups")
@@ -383,7 +389,12 @@ func _apply_visual() -> void:
 	_visual_root.name = "AccessoryVisualRoot"
 	_visual_root.position = Vector3(0.0, _base_visual_y, 0.0)
 	add_child(_visual_root)
-	_add_fallback_preview(_visual_root, fallback_color)
+	# Real model+texture on clients (shared cached resources); cheap placeholder on
+	# the headless server, which must never build character meshes.
+	if _can_show_real_preview():
+		_accessory_color = _add_cached_real_preview(_visual_root, fallback_color)
+	else:
+		_add_fallback_preview(_visual_root, fallback_color)
 	_update_local_hint_visibility()
 
 
@@ -418,6 +429,93 @@ func _add_real_accessory_preview(parent: Node3D, fallback_color: Color) -> Color
 		preview.call("_build_skin")
 	_normalize_accessory_preview(preview)
 	return _color_from_visible_preview(preview, fallback_color)
+
+
+# Never build character meshes on a dedicated headless server.
+func _can_show_real_preview() -> bool:
+	return DisplayServer.get_name() != "headless"
+
+
+# Show the accessory's real mesh via a single MeshInstance3D backed by the shared
+# cache. Falls back to the primitive placeholder on a cache miss.
+func _add_cached_real_preview(parent: Node3D, fallback_color: Color) -> Color:
+	_ensure_real_mesh_cache()
+	var entry: Dictionary = _real_mesh_cache.get(accessory_id, {}) as Dictionary
+	var mesh := entry.get("mesh", null) as Mesh
+	if mesh == null:
+		_add_fallback_preview(parent, fallback_color)
+		return fallback_color
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "AccessoryRealPreview"
+	mesh_instance.mesh = mesh
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	mesh_instance.visibility_range_end = PREVIEW_VISIBILITY_RANGE
+	mesh_instance.visibility_range_end_margin = PREVIEW_VISIBILITY_MARGIN
+	mesh_instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	var materials: Array = entry.get("materials", []) as Array
+	for surface in range(materials.size()):
+		var material := materials[surface] as Material
+		if material:
+			mesh_instance.set_surface_override_material(surface, material)
+	parent.add_child(mesh_instance)
+	_normalize_accessory_preview(mesh_instance)
+	return _color_from_visible_preview(mesh_instance, fallback_color)
+
+
+# Build the shared accessory mesh cache once: instance the skin a single time,
+# walk it, and keep a reference to every accessory node's mesh + active materials.
+# The throwaway skin is freed immediately; only the (shared, already-loaded)
+# Mesh/Material resources are retained.
+static func _ensure_real_mesh_cache() -> void:
+	if _real_mesh_cache_built:
+		return
+	_real_mesh_cache_built = true   # set first so a failure degrades to fallback, not a retry storm
+	if DisplayServer.get_name() == "headless":
+		return
+	var skin := PARTY_MONSTER_SKIN_SCENE.instantiate() as Node3D
+	if not skin:
+		return
+	if skin.has_method("_build_skin"):
+		skin.call("_build_skin")
+	var wanted := {}   # node_name -> accessory_id
+	for raw_accessory in AccessoryCatalog.all_accessories():
+		var accessory: Dictionary = raw_accessory as Dictionary
+		var node_name := str(accessory.get("node_name", ""))
+		if not node_name.is_empty():
+			wanted[node_name] = str(accessory.get("id", ""))
+	_collect_accessory_meshes(skin, wanted)
+	skin.free()
+
+
+static func _collect_accessory_meshes(node: Node, wanted: Dictionary) -> void:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh:
+		var mesh_instance := node as MeshInstance3D
+		var raw_name := str(mesh_instance.name)
+		# Imported names may carry leading-zero suffixes (Hat01); canonicalize to
+		# the catalog id (Hat1) — the same matching the skin uses for visibility.
+		var key := raw_name if wanted.has(raw_name) else _canonical_accessory_name(raw_name)
+		if wanted.has(key):
+			var materials: Array = []
+			for surface in range(mesh_instance.mesh.get_surface_count()):
+				materials.append(mesh_instance.get_active_material(surface))
+			_real_mesh_cache[str(wanted[key])] = {
+				"mesh": mesh_instance.mesh,
+				"materials": materials,
+			}
+	for child in node.get_children():
+		_collect_accessory_meshes(child, wanted)
+
+
+static func _canonical_accessory_name(node_name: String) -> String:
+	for raw_prefix in AccessoryCatalog.PREFIX_TO_SLOT.keys():
+		var prefix := str(raw_prefix)
+		if not node_name.begins_with(prefix):
+			continue
+		var suffix := node_name.substr(prefix.length())
+		if suffix.is_valid_int():
+			return prefix + str(int(suffix))
+	return node_name
 
 
 func _add_fallback_preview(parent: Node3D, color: Color) -> void:
