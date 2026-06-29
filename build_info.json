@@ -1,10 +1,10 @@
 {
-  "build_id": "85d6a9c4",
-  "content_version": "0.4.17+20260629.85d6a9c4",
-  "version": "0.4.17",
+  "build_id": "5fc627ca",
+  "content_version": "0.4.18+20260629.5fc627ca",
+  "version": "0.4.18",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "85d6a9c4fa677de0298a0349702f2acabfb32195",
-  "built_at": "2026-06-29T14:05:00+08:00",
+  "git_commit": "5fc627ca6efb620067c7cc8ff73103679fbaf1be",
+  "built_at": "2026-06-29T14:35:00+08:00",
   "role": "hotpatch"
 }
