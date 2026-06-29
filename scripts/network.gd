@@ -1042,6 +1042,11 @@ func start_private_host(nickname: String, skin_color_str: String, host_role: int
 	var share_code: String = str(result.get("share_code", ""))
 	var server_label: String = "%s:%d" % [str(result.get("noray_host", "")), int(result.get("noray_port", 0))]
 	_configure_host_player_and_lobby(nickname, skin_color_str, host_role, room_name, lobby_password, character_model, "noray", share_code, server_label)
+	# Noray rooms are found/joined by their share code, so lobby_id is purely the OPTIONAL room
+	# password — leave it empty when the host set none, instead of auto-generating a phantom 4-char
+	# code that would otherwise be demanded as a password. (Mirrors how public rooms already work.)
+	if _normalize_lobby_password(lobby_password).is_empty():
+		lobby_config["lobby_id"] = ""
 	private_connection_share_updated.emit(share_code)
 	return OK
 

@@ -2120,21 +2120,30 @@ func _build_match_details_panel() -> Control:
 	box.add_theme_constant_override("separation", _s(6))
 	scroll.add_child(box)
 
-	box.add_child(_section_label(I18n.t("lobby_id")))
-	var id_row = HBoxContainer.new()
-	id_row.add_theme_constant_override("separation", _s(8))
-	lobby_id_input = _line_edit(current_lobby_id)
-	lobby_id_input.editable = false
-	lobby_id_input.text = current_lobby_id
-	id_row.add_child(lobby_id_input)
-	var copy = _icon_button("res://addons/at-icons/control/clipboard.svg")
-	copy.pressed.connect(func(): DisplayServer.clipboard_set(current_lobby_id))
-	id_row.add_child(copy)
-	box.add_child(id_row)
-
 	var private_connection_mode: String = str(Network.lobby_config.get("private_connection_mode", "direct"))
 	var private_connection_code: String = str(Network.lobby_config.get("private_connection_code", "")).strip_edges()
 	var private_connection_server: String = str(Network.lobby_config.get("private_connection_server", "")).strip_edges()
+
+	if not private_connection_mode.begins_with("noray"):
+		# Direct/LAN/public rooms surface the 4-char LOBBY ID — there it's the join code.
+		box.add_child(_section_label(I18n.t("lobby_id")))
+		var id_row = HBoxContainer.new()
+		id_row.add_theme_constant_override("separation", _s(8))
+		lobby_id_input = _line_edit(current_lobby_id)
+		lobby_id_input.editable = false
+		lobby_id_input.text = current_lobby_id
+		id_row.add_child(lobby_id_input)
+		var copy = _icon_button("res://addons/at-icons/control/clipboard.svg")
+		copy.pressed.connect(func(): DisplayServer.clipboard_set(current_lobby_id))
+		id_row.add_child(copy)
+		box.add_child(id_row)
+	else:
+		# Noray rooms join by the share code (shown below), so there's no LOBBY ID code. lobby_id
+		# is purely the OPTIONAL password — show it to the host only when one was set.
+		lobby_id_input = null
+		if not current_lobby_id.strip_edges().is_empty():
+			box.add_child(_section_label(I18n.t("room_password")))
+			box.add_child(_muted_label(current_lobby_id, 16))
 	if private_connection_mode.begins_with("noray"):
 		box.add_child(_section_label(I18n.t("noray_connection_code")))
 		var noray_code_row: HBoxContainer = HBoxContainer.new()
