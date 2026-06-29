@@ -5735,6 +5735,7 @@ func _ensure_pause_menu() -> void:
 	add_child(game_pause_menu)
 	game_pause_menu.configure("PAUSED  ·  暂停", [
 		{"id": "settings", "label": "设置  ·  SETTINGS"},
+		{"spacer": true},
 		{"id": "lobby", "label": "返回大厅  ·  RETURN TO LOBBY"},
 		{"id": "quit", "label": "退出游戏  ·  QUIT GAME"},
 	])

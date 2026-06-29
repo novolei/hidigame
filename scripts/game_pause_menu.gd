@@ -14,7 +14,7 @@ signal option_selected(id: String)
 const FONT_BOLD := "res://assets/fonts/SairaCondensed-Bold.woff2"
 const ACCENT := Color(0.40, 0.72, 1.0, 1.0)          # cool glow accent
 const COLUMN_BG := Color(0.055, 0.06, 0.075, 0.98)
-const COLUMN_FRACTION := 0.5                          # column width = half the window
+const COLUMN_FRACTION := 0.3                          # column width = 0.3 of the window
 
 var _root: Control = null
 var _backdrop: Control = null
@@ -38,7 +38,7 @@ class _Backdrop extends Control:
 
 	func _draw() -> void:
 		var vp := size
-		var col_w := vp.x * 0.5
+		var col_w := vp.x * GamePauseMenu.COLUMN_FRACTION
 		var col_x := (vp.x - col_w) * 0.5
 		draw_rect(Rect2(Vector2(col_x, 0.0), Vector2(col_w, vp.y)), GamePauseMenu.COLUMN_BG, true)
 		# Faint vertical edge lines for definition.
@@ -90,6 +90,12 @@ func configure(_title: String, options: Array) -> void:
 		child.queue_free()
 	for raw_option in options:
 		var option: Dictionary = raw_option as Dictionary
+		if bool(option.get("spacer", false)):
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(0.0, 30.0)
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_vbox.add_child(gap)
+			continue
 		_vbox.add_child(_make_button(str(option.get("id", "")), str(option.get("label", ""))))
 	_relayout()
 
@@ -155,7 +161,8 @@ func _row_style() -> StyleBoxFlat:
 # Selected/hovered row: subtle dark fill, accent border, soft accent glow.
 func _glow_style(pressed: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.14, 0.19, 0.92) if not pressed else Color(0.18, 0.07, 0.09, 0.95)
+	# Dark-red interior + bright blue glowing border, matching the reference highlight.
+	style.bg_color = Color(0.20, 0.06, 0.08, 0.92) if not pressed else Color(0.26, 0.05, 0.07, 0.96)
 	style.set_corner_radius_all(5)
 	style.set_border_width_all(2)
 	style.border_color = ACCENT

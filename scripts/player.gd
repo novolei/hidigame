@@ -5367,7 +5367,9 @@ func _apply_party_monster_accessories_to_active_skin() -> void:
 	_active_skin_node.call("set_accessory_loadout", _party_monster_accessory_loadout)
 
 
-const ACCESSORY_PICKUP_SFX_PATH := "res://assets/unity_migrated/tanks_complete/Audio/SFX/PickupPowerUp.wav"
+# Under resources/ (not assets/) so the chime ships inside the core_patch hotpatch —
+# assets/** is excluded from incremental updates, which is why it was silent before.
+const ACCESSORY_PICKUP_SFX_PATH := "res://resources/audio/pickup_chime.wav"
 
 
 func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: String = "") -> void:
