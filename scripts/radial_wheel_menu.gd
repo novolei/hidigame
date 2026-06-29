@@ -100,10 +100,15 @@ func is_open() -> bool:
 # Pick the wedge the cursor is currently aiming at (used on key release), or
 # cancel if the cursor is in the dead-zone / on a disabled wedge.
 func select_hovered() -> void:
-	if _hover >= 0 and _hover < _options.size() and bool((_options[_hover] as Dictionary).get("enabled", true)):
+	if has_hovered_option():
 		option_chosen.emit(_hover)
 	else:
 		cancelled.emit()
+
+
+# True when the cursor is aiming at a real, selectable wedge (not the dead-zone).
+func has_hovered_option() -> bool:
+	return _hover >= 0 and _hover < _options.size() and bool((_options[_hover] as Dictionary).get("enabled", true))
 
 
 func set_footer(text: String) -> void:

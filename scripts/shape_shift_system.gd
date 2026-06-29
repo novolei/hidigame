@@ -167,6 +167,18 @@ func get_preset_count() -> int:
 	return PRESET_LIBRARY.size()
 
 
+# Revert a current disguise back to the real model via the hidden human preset
+# (smooth transition + cooldown). No-op while shifting or on cooldown. Returns
+# whether the revert started.
+func revert_to_self() -> bool:
+	if is_shifting or cooldown_remaining > 0.0:
+		return false
+	for i in range(PRESET_LIBRARY.size()):
+		if str(PRESET_LIBRARY[i].get("id", "")) == "human":
+			return try_shift(i)
+	return false
+
+
 func try_shift(preset_index: int) -> bool:
 	if is_shifting:
 		shift_failed.emit("already_shifting")

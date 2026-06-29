@@ -73,8 +73,21 @@ func is_wheel_visible() -> bool:
 # Called when the player releases Q: pick the wedge the cursor is aiming at
 # (or cancel if none).
 func release_select() -> void:
-	if _wheel:
+	if not _wheel:
+		return
+	# Aiming at a wedge -> shift to it. Released with the cursor off every wedge ->
+	# revert to the real model (only while disguised, off cooldown, and not next to
+	# a replicable scene prop); otherwise just close.
+	if _wheel.has_hovered_option():
 		_wheel.select_hovered()
+		return
+	var system := shape_system
+	if system and system.shift_owner and system.shift_owner.has_method("is_disguised") and bool(system.shift_owner.is_disguised()):
+		var near_prop := system.has_method("has_nearby_replicable_prop") and bool(system.has_nearby_replicable_prop())
+		if not near_prop and system.has_method("revert_to_self"):
+			system.revert_to_self()
+	hide_wheel()
+	wheel_closed_confirmed.emit()
 
 
 func _on_option_chosen(index: int) -> void:
