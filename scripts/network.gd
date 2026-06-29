@@ -22,7 +22,7 @@ const PUBLIC_LOBBY_ROOM_POLL_INTERVAL_SEC := 1.5
 const PUBLIC_ROOM_STALE_SECONDS := 20.0
 const PUBLIC_ROOM_READY_TIMEOUT_SEC := 30.0
 const PUBLIC_ROOM_START_GRACE_SECONDS := 45.0
-const PUBLIC_ROOM_EMPTY_TTL_SECONDS := 30.0
+const PUBLIC_ROOM_EMPTY_TTL_SECONDS := 3.0   # destroy an empty room ~3s after the last player leaves
 const PUBLIC_ROOM_LAUNCH_MODE_ENV := "MAOMAO_ROOM_LAUNCH_MODE"
 const PUBLIC_ROOM_LIFECYCLE_LOG_ENV: String = "MAOMAO_ROOM_LIFECYCLE_LOG"
 const PUBLIC_ROOM_LAUNCH_MODE_CHILD := "child"
@@ -1971,7 +1971,6 @@ func _server_assign_public_room_host_if_needed() -> void:
 	if current_host > 0 and players.has(current_host):
 		return
 	var ids := players.keys()
-	ids.sort()
 	if ids.is_empty():
 		lobby_config["host_peer_id"] = 0
 		lobby_config["host_peer_name"] = ""
@@ -1981,7 +1980,9 @@ func _server_assign_public_room_host_if_needed() -> void:
 		})
 		_write_public_room_status()
 		return
-	var next_host := int(ids[0])
+	# Randomly hand the host role to a remaining player (the server decides and
+	# then broadcasts the new lobby_config), so it isn't always the lowest peer id.
+	var next_host := int(ids[randi() % ids.size()])
 	lobby_config["host_peer_id"] = next_host
 	lobby_config["host_peer_name"] = str(players[next_host].get("nick", "Host"))
 	_public_room_lifecycle_log("room_host_transferred", active_public_room_id, {

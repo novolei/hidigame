@@ -2489,6 +2489,15 @@ func _player_row(pid: int, info: Dictionary, group: int) -> Control:
 	row.add_theme_color_override("font_color", Color(0.075, 0.070, 0.085) if pid == local_id else Color.WHITE)
 	row.add_theme_color_override("font_hover_color", Color(0.075, 0.070, 0.085))
 	_apply_control_font(row, _font_button, 18)
+	# Crown the room host (lobby_config.host_peer_id) — works for both the private
+	# listen-server host (peer 1) and a public-room host player.
+	if pid == int(Network.lobby_config.get("host_peer_id", 0)):
+		var crown := load("res://resources/ui/icons/host_crown.svg") as Texture2D
+		if crown:
+			row.icon = crown
+			row.expand_icon = false
+			row.add_theme_color_override("icon_normal_color", Color(1.0, 0.84, 0.26))
+			row.add_theme_color_override("icon_hover_color", Color(0.075, 0.070, 0.085))
 	row.pressed.connect(func():
 		if group >= 0:
 			_select_role_from_ui(group)
