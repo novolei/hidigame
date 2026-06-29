@@ -4958,6 +4958,12 @@ func _update_world_nameplates() -> void:
 		world_nameplate_hud.render([], null)
 		return
 	var local_id := _local_peer_id()
+	# Hunters get a full-map beacon over every bountied prop.
+	var viewer_is_hunter := false
+	if players_container.has_node(str(local_id)):
+		var local_view := players_container.get_node(str(local_id)) as Character
+		if local_view and local_view.has_method("is_hunter"):
+			viewer_is_hunter = local_view.is_hunter()
 	var entries: Array = []
 	for child in players_container.get_children():
 		var p := child as Character
@@ -4982,6 +4988,7 @@ func _update_world_nameplates() -> void:
 			"is_self": peer == local_id,
 			"is_ally": p.is_ally_of_local_viewer(),
 			"bountied": p.is_party_monster_bounty_marked() if p.has_method("is_party_monster_bounty_marked") else false,
+			"bounty_marker": viewer_is_hunter and peer != local_id and (p.is_party_monster_bounty_marked() if p.has_method("is_party_monster_bounty_marked") else false),
 			"ratio": ratio,
 		})
 	world_nameplate_hud.render(entries, camera)

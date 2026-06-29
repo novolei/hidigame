@@ -15,6 +15,7 @@ class_name WorldNameplateHUD
 
 const FONT_PATH := "res://assets/fonts/SairaCondensed-Light.woff2"
 const BOUNTY_ICON_PATH := "res://resources/ui/icons/bounty.svg"
+const CROWN_ICON_PATH := "res://resources/ui/icons/crown.svg"
 const LOW_HEALTH_ICON_PATH := "res://resources/ui/icons/low_health.svg"
 const BASE_VIEWPORT := Vector2(1920.0, 1080.0)
 
@@ -51,6 +52,7 @@ var _reveals: Dictionary = {}   # peer_id -> expire msec
 var _now_msec := 0
 var _name_font: Font = null
 var _bounty_icon: Texture2D = null
+var _crown_icon: Texture2D = null
 var _low_health_icon: Texture2D = null
 
 
@@ -100,6 +102,9 @@ func _draw() -> void:
 	var cam_pos := _camera.global_position
 	for entry in _entries:
 		var world_pos: Vector3 = entry.get("pos", Vector3.ZERO)
+		# Full-map bounty beacon (hunters) — drawn even off-screen / behind camera.
+		if bool(entry.get("bounty_marker", false)):
+			_draw_bounty_beacon(world_pos, cam_pos.distance_to(world_pos), res_scale)
 		if _camera.is_position_behind(world_pos):
 			continue
 		var screen := _camera.unproject_position(world_pos)
@@ -203,6 +208,45 @@ func _get_bounty_icon() -> Texture2D:
 	if not _bounty_icon:
 		_bounty_icon = _load_icon(BOUNTY_ICON_PATH)
 	return _bounty_icon
+
+
+func _get_crown_icon() -> Texture2D:
+	if not _crown_icon:
+		_crown_icon = _load_icon(CROWN_ICON_PATH)
+	return _crown_icon
+
+
+# Hunter-only full-map beacon over a bountied prop: a yellow diamond with a crown
+# and the distance, following the target and clamped to the screen edge so it's
+# always visible (even through walls / off-screen).
+func _draw_bounty_beacon(world_pos: Vector3, dist: float, res_scale: float) -> void:
+	var vp := size if size.x > 2.0 else get_viewport_rect().size
+	var center := vp * 0.5
+	var top := world_pos + Vector3.UP * 1.95
+	var screen := _camera.unproject_position(top)
+	if _camera.is_position_behind(top):
+		screen = center + (screen - center) * -1.0
+	var margin := 56.0 * res_scale
+	screen.x = clampf(screen.x, margin, vp.x - margin)
+	screen.y = clampf(screen.y, margin, vp.y - margin)
+	var s := 22.0 * res_scale
+	var diamond := PackedVector2Array([
+		screen + Vector2(0.0, -s), screen + Vector2(s, 0.0),
+		screen + Vector2(0.0, s), screen + Vector2(-s, 0.0)])
+	draw_colored_polygon(diamond, Color(0.06, 0.08, 0.05, 0.86))
+	var outline := PackedVector2Array(diamond)
+	outline.append(diamond[0])
+	draw_polyline(outline, BOUNTY_COLOR, maxf(2.0, 3.0 * res_scale), true)
+	var crown := _get_crown_icon()
+	if crown:
+		var isz := s * 1.05
+		draw_texture_rect(crown, Rect2(screen - Vector2(isz, isz) * 0.5, Vector2(isz, isz)), false, BOUNTY_COLOR)
+	var font := _get_name_font()
+	var dsize := _scaled(18, res_scale)
+	var dtext := "%.0fm" % dist
+	var dpos := Vector2(screen.x - 60.0 * res_scale, screen.y - s - 8.0 * res_scale)
+	draw_string(font, dpos + Vector2(1.5, 1.5), dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, Color(0.0, 0.0, 0.0, 0.6))
+	draw_string(font, dpos, dtext, HORIZONTAL_ALIGNMENT_CENTER, 120.0 * res_scale, dsize, BOUNTY_COLOR)
 
 
 func _get_low_health_icon() -> Texture2D:
