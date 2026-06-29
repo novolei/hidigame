@@ -46,7 +46,7 @@ class _Backdrop extends Control:
 		draw_rect(Rect2(Vector2(col_x + col_w - 2.0, 0.0), Vector2(2.0, vp.y)), Color(1, 1, 1, 0.06), true)
 		_draw_brand(Vector2(col_x + col_w * 0.5, vp.y * 0.17), minf(col_w * 0.16, 96.0))
 		if font:
-			draw_string(font, Vector2(col_x + 26.0, vp.y - 26.0), "ESC  ·  CLOSE / 关闭", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color(0.82, 0.87, 0.95, 0.5))
+			draw_string(font, Vector2(col_x + 26.0, vp.y - 26.0), I18n.t("pause.esc_close"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 16, Color(0.82, 0.87, 0.95, 0.5))
 
 	# Layered upward chevrons forming the brand "A".
 	func _draw_brand(center: Vector2, s: float) -> void:

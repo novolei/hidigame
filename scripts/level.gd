@@ -5733,12 +5733,6 @@ func _ensure_pause_menu() -> void:
 	game_pause_menu = preload("res://scripts/game_pause_menu.gd").new()
 	game_pause_menu.name = "GamePauseMenu"
 	add_child(game_pause_menu)
-	game_pause_menu.configure("PAUSED  ·  暂停", [
-		{"id": "settings", "label": "设置  ·  SETTINGS"},
-		{"spacer": true},
-		{"id": "lobby", "label": "返回大厅  ·  RETURN TO LOBBY"},
-		{"id": "quit", "label": "退出游戏  ·  QUIT GAME"},
-	])
 	game_pause_menu.option_selected.connect(_on_pause_option_selected)
 	if main_menu and not main_menu.in_game_settings_closed.is_connected(_on_in_game_settings_closed):
 		main_menu.in_game_settings_closed.connect(_on_in_game_settings_closed)
@@ -5754,6 +5748,13 @@ func _open_pause_menu() -> void:
 	_ensure_pause_menu()
 	if not game_pause_menu:
 		return
+	# Localize the labels for the current locale every time the panel opens.
+	game_pause_menu.configure("", [
+		{"id": "settings", "label": I18n.t("menu.settings")},
+		{"spacer": true},
+		{"id": "lobby", "label": I18n.t("pause.return_lobby")},
+		{"id": "quit", "label": I18n.t("pause.quit")},
+	])
 	_pause_menu_active = true
 	game_pause_menu.open()
 	_set_console_player_locked(true)   # reuse the player input lock (mutually exclusive with the console)
