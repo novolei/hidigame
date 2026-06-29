@@ -1950,7 +1950,21 @@ func _sync_party_monster_accessories_from_network() -> void:
 
 func _on_party_monster_accessories_changed(peer_id: int, loadout: Dictionary) -> void:
 	if peer_id == str(name).to_int():
+		var previous := _party_monster_accessory_loadout.duplicate(true)
 		set_party_monster_accessory_loadout(loadout)
+		# Local owner just gained/swapped an accessory -> sprite pickup chime. Driven
+		# by the loadout broadcast (not a server RPC) so it works regardless of the
+		# server build. Initial spawn sync goes through a different path, so this only
+		# fires on real in-match pickups.
+		if int(str(name)) == _local_peer_id() and _loadout_gained_accessory(previous, _party_monster_accessory_loadout):
+			_client_accessory_pickup_sfx()
+
+
+func _loadout_gained_accessory(old_loadout: Dictionary, new_loadout: Dictionary) -> bool:
+	for slot in new_loadout.keys():
+		if str(new_loadout[slot]) != str(old_loadout.get(slot, "")):
+			return true
+	return false
 
 
 func _on_role_changed(peer_id: int, new_role: int) -> void:
@@ -5363,21 +5377,11 @@ func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: St
 	if not replaced_label.is_empty() and replaced_label != label:
 		message = "SWAPPED %s" % label.to_upper()
 	_card_feedback_to_owner(message, Color(1.0, 0.86, 0.25, 1.0), 1.0)
-	_accessory_pickup_sfx_to_owner()
 	get_tree().call_group("match_score_tracker", "record_objective_pickup", int(name))
 
 
-# Route a sprite-style pickup chime to the player who grabbed the accessory
-# (owner client only — server is authoritative for the pickup itself).
-func _accessory_pickup_sfx_to_owner() -> void:
-	var owner_id := get_multiplayer_authority()
-	if _card_can_rpc_to_owner(owner_id):
-		_client_accessory_pickup_sfx.rpc_id(owner_id)
-	elif owner_id == _local_peer_id() or not _has_runtime_multiplayer_peer():
-		_client_accessory_pickup_sfx()
-
-
-@rpc("authority", "call_local", "reliable")
+# Sprite-style pickup chime, played locally on the owner client (see
+# _on_party_monster_accessories_changed — build-independent, no server RPC).
 func _client_accessory_pickup_sfx() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
