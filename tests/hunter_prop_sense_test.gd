@@ -176,6 +176,37 @@ func _run() -> void:
 	_expect(not chameleon.is_hunter_prop_sense_revealed(), "Clearing Q disguise should remove Hunter sense state")
 	_expect(chameleon.get_hunter_prop_sense_outline_count() == 0, "Clearing Q disguise should remove all Hunter sense outlines")
 
+	# A dead hunter must stop sensing. Its node lingers at the death spot right next to its
+	# tombstone, and it used to keep revealing nearby props — a prop walking past the grave still
+	# heard the beep / saw the red flash. Reset the passive cooldown left by the run above so a
+	# fresh scan can trigger, prove a LIVE hunter senses, then kill the hunter and prove it doesn't.
+	if system:
+		system._cooldown_remaining = 0.0
+		system._active_remaining = 0.0
+	chameleon.global_position = Vector3(6.0, 0.0, 0.0)
+	chameleon.apply_prop_disguise({
+		"id": "sense_test_dead_hunter_crate",
+		"name": "Dead Hunter Sense Crate",
+		"mesh": "box",
+		"size": Vector3(1.25, 1.0, 1.25),
+		"offset": Vector3(0.0, 0.52, 0.0),
+		"color": Color(0.45, 0.30, 0.16, 1.0),
+		"q_scene_prop_replica": true,
+		"disguise_source": "nearby_scene_prop_q",
+	})
+	await get_tree().process_frame
+	if system:
+		system.force_scan()
+	await get_tree().process_frame
+	_expect(chameleon.is_hunter_prop_sense_revealed(), "Sanity: a live hunter should sense the disguised prop before the death check")
+	hunter._is_dead = true
+	if system:
+		_expect(not system._is_local_hunter_active(), "A dead hunter should not count as an active sensing hunter")
+		system.force_scan()
+	await get_tree().process_frame
+	_expect(not chameleon.is_hunter_prop_sense_revealed(), "A dead hunter must stop revealing nearby props (no beep/flash next to its tombstone)")
+	hunter._is_dead = false
+
 	hunter.queue_free()
 	chameleon.queue_free()
 	remote_hunter.queue_free()

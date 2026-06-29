@@ -84,6 +84,12 @@ func _is_local_hunter_active() -> bool:
 		return false
 	if not hunter_owner.multiplayer.has_multiplayer_peer():
 		return false
+	# A dead hunter's node lingers at its death spot (right next to its tombstone) in spectator
+	# state. Without this guard it kept scanning and revealing nearby chameleons, so a prop walking
+	# past the grave still heard the beep / saw the red flash. Returning false here makes _process
+	# clear any revealed targets and stop scanning, and the chameleon's cue expires on its timeout.
+	if hunter_owner.has_method("is_dead") and bool(hunter_owner.call("is_dead")):
+		return false
 	return (
 		hunter_owner.has_method("is_hunter")
 		and bool(hunter_owner.call("is_hunter"))
