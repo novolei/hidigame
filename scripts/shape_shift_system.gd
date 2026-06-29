@@ -91,7 +91,7 @@ const PRESET_LIBRARY := [
 # 状态
 # -----------------------------------------------------------------------------
 var shift_owner: CharacterBody3D = null
-var current_preset_index: int = 5  # 默认解除伪装
+var current_preset_index: int = 0  # resolved to the human/revert preset in initialize()
 var is_shifting: bool = false
 var cooldown_remaining: float = 0.0
 var wheel_open: bool = false
@@ -136,7 +136,10 @@ func _process(delta: float) -> void:
 
 func initialize(owner_node: CharacterBody3D) -> void:
 	shift_owner = owner_node
-	# 应用默认 preset
+	# Spawn undisguised: resolve the human/revert preset by id (robust to library
+	# ordering) instead of a hardcoded index, so adding presets can't accidentally
+	# spawn the player already disguised.
+	reset_to_revert_state()
 	_apply_preset_immediate(current_preset_index)
 
 
