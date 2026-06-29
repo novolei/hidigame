@@ -1539,15 +1539,16 @@ func _build_landing_ui() -> void:
 	public_server_button.pressed.connect(_on_public_server_pressed)
 	menu.add_child(public_server_button)
 
-	# "Join Private Server" opens the LAN room browser (create + browse in one page).
-	host_button = _landing_menu_button(I18n.t("menu.join_private_server"), false, true)
+	# Primary private-server entry: opens the browser whose "Create" now HOSTS THROUGH NORAY
+	# (cross-network), not LAN-only. Same-network rooms still appear; Step 2 adds the Noray list.
+	host_button = _landing_menu_button(I18n.t("menu.create_private_server"), false, true)
 	host_button.pressed.connect(_open_private_browser)
 	menu.add_child(host_button)
 
-	# Legacy join-by-code panel is superseded by the LAN browser; kept built but hidden.
+	# Join a private server by pasting its noray:<code> share code. Re-enabled — the earlier
+	# LAN-only update had hidden this, which removed the only way to join a Noray-hosted room.
 	join_button = _landing_menu_button(I18n.t("menu.join_private_server"), show_private_join_panel, true)
 	join_button.pressed.connect(_open_landing_private_join_panel)
-	join_button.visible = false
 	menu.add_child(join_button)
 
 	var spacer := Control.new()
@@ -1690,7 +1691,10 @@ func _open_private_browser() -> void:
 		_private_browser = preload("res://scripts/ui/private_server_browser.gd").new()
 		_private_browser.name = "PrivateServerBrowser"
 		add_child(_private_browser)
-		_private_browser.create_requested.connect(func(room_name, password): lan_create_pressed.emit(room_name, password))
+		# Create hosts THROUGH NORAY (start_private_host) so private rooms reach players across
+		# networks, not just LAN. The room's noray:<code> share code shows in the host lobby. (The
+		# LAN-only path that the previous update wired here is what broke cross-network hosting.)
+		_private_browser.create_requested.connect(func(room_name, password): host_pressed.emit(get_nickname(), get_skin(), selected_role, room_name, password, get_character_model()))
 		_private_browser.join_requested.connect(func(room, password): lan_join_pressed.emit(str(room.get("address", "")), int(room.get("port", 0)), password, str(room.get("room_name", ""))))
 		_private_browser.back_requested.connect(_close_private_browser)
 	move_child(_private_browser, get_child_count() - 1)
