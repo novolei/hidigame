@@ -1768,7 +1768,7 @@ func _is_peer_relevant_to_map_prop_payload(peer_id: int, payload: Array) -> bool
 
 # -----------------------------------------------------------------------------
 # 涓昏彍鍗曞洖璋?# -----------------------------------------------------------------------------
-var _lan_advertiser: LanRoomDiscovery = null
+var _lan_advertiser: Node = null
 
 
 # LAN "Private Server" host: a direct ENet listen-server advertised over the local network.
@@ -1808,7 +1808,7 @@ func _on_lan_join_pressed(address: String, port: int, password: String, room_nam
 
 func _ensure_lan_advertiser() -> void:
 	if _lan_advertiser == null or not is_instance_valid(_lan_advertiser):
-		_lan_advertiser = LanRoomDiscovery.new()
+		_lan_advertiser = preload("res://scripts/network/lan_room_discovery.gd").new()
 		_lan_advertiser.name = "LanAdvertiser"
 		add_child(_lan_advertiser)
 

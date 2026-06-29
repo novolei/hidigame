@@ -79,7 +79,7 @@ var _preview_stage: Node3D = null
 var _carousel_root: Node3D = null
 var _preview_camera: Camera3D = null
 var _countdown_label: Label = null
-var _countdown_ring: CountdownRing = null
+var _countdown_ring: Control = null
 var _name_label: Label = null
 var _index_label: Label = null
 var _hint_label: Label = null
@@ -903,7 +903,7 @@ func _build_edge_vignettes() -> void:
 
 func _build_chrome() -> void:
 	# Countdown ring + number, top center.
-	_countdown_ring = CountdownRing.new()
+	_countdown_ring = preload("res://scripts/ui/countdown_ring.gd").new()
 	_countdown_ring.name = "CountdownRing"
 	_countdown_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_countdown_ring)
@@ -1186,7 +1186,7 @@ func _make_hero_card(is_hero: bool) -> Dictionary:
 	card.add_child(row)
 
 	var badge_size := 58.0 if is_hero else 46.0
-	var hex := HexBadge.new()
+	var hex: Control = preload("res://scripts/ui/hex_badge.gd").new()
 	hex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hex.custom_minimum_size = Vector2(badge_size, badge_size)
 	hex.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1250,7 +1250,7 @@ func _update_hero_panel() -> void:
 	var kit := _role_kit(zh)
 	var accent: Color = kit["color"]
 	if not _hero_card.is_empty():
-		(_hero_card["hex"] as HexBadge).configure(accent, Color(1.0, 1.0, 1.0, 0.95), 3.5, accent)
+		_hero_card["hex"].configure(accent, Color(1.0, 1.0, 1.0, 0.95), 3.5, accent)
 		(_hero_card["icon"] as TextureRect).texture = _skill_icon_texture(str(kit["icon"]))
 		(_hero_card["name"] as Label).text = str(kit["name"])
 		(_hero_card["sub"] as Label).text = str(kit["tag"])
@@ -1266,7 +1266,7 @@ func _update_hero_panel() -> void:
 			var skill: Dictionary = skills[i]
 			root.visible = true
 			var col := _skill_badge_color(i)
-			(sc["hex"] as HexBadge).configure(col, Color(1.0, 1.0, 1.0, 0.9), 2.5, Color(col.r, col.g, col.b, 0.55))
+			sc["hex"].configure(col, Color(1.0, 1.0, 1.0, 0.9), 2.5, Color(col.r, col.g, col.b, 0.55))
 			(sc["icon"] as TextureRect).texture = _skill_icon_texture(str(skill["icon"]))
 			(sc["name"] as Label).text = str(skill["n"])
 			(sc["sub"] as Label).text = str(skill.get("sub", ""))

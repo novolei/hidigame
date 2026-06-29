@@ -38,7 +38,7 @@ var _spinner: TextureRect = null
 var _status_label: Label = null
 var _count_label: Label = null
 
-var _discovery: LanRoomDiscovery = null
+var _discovery: Node = null
 var _rooms: Array = []
 var _selected_uid := ""
 var _elapsed := 0.0
@@ -57,7 +57,7 @@ func _ready() -> void:
 	_body_font = _load_font(BODY_FONT_PATH)
 	var lock_res := load(LOCK_ICON_PATH)
 	_lock_texture = lock_res if lock_res is Texture2D else null
-	_discovery = LanRoomDiscovery.new()
+	_discovery = preload("res://scripts/network/lan_room_discovery.gd").new()
 	_discovery.name = "BrowseDiscovery"
 	add_child(_discovery)
 	_discovery.rooms_updated.connect(_on_rooms_updated)

@@ -58,7 +58,7 @@ var settings_visible := false
 var _in_game_settings := false   # settings opened as a standalone in-game overlay (pause menu)
 var settings_active_tab := SETTINGS_TAB_GENERAL
 var public_lobby_visible := false
-var _private_browser: PrivateServerBrowser = null
+var _private_browser: Control = null
 var landing_action_panel_mode := ""
 var public_lobby_rooms: Array = []
 var selected_public_room_id := ""
@@ -1687,7 +1687,7 @@ func _compact_field_row(label_text: String, field: Control) -> Control:
 
 func _open_private_browser() -> void:
 	if _private_browser == null:
-		_private_browser = PrivateServerBrowser.new()
+		_private_browser = preload("res://scripts/ui/private_server_browser.gd").new()
 		_private_browser.name = "PrivateServerBrowser"
 		add_child(_private_browser)
 		_private_browser.create_requested.connect(func(room_name, password): lan_create_pressed.emit(room_name, password))
