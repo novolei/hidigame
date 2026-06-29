@@ -3558,6 +3558,21 @@ func set_environment_blend_preview_active(active: bool) -> void:
 	_set_character_visual_visible(not active)
 
 
+# Save/restore the camera rig around the C-skill so FOV + zoom distance return to
+# the player's normal view when leaving paint mode (they were being inherited).
+func capture_camouflage_camera_rig_state() -> Dictionary:
+	if _spring_arm_offset and _spring_arm_offset.has_method("capture_camera_rig_state"):
+		return _spring_arm_offset.call("capture_camera_rig_state")
+	return {}
+
+
+func restore_camouflage_camera_rig_state(state: Dictionary) -> void:
+	if state.is_empty():
+		return
+	if _spring_arm_offset and _spring_arm_offset.has_method("apply_camera_rig_state"):
+		_spring_arm_offset.call("apply_camera_rig_state", state, false)
+
+
 func create_environment_prop_preview_node(preset: Dictionary) -> Node3D:
 	var clean := ChameleonPropCatalog.normalize_preset(preset)
 	var preview := _build_prop_disguise_node(clean)
@@ -3632,10 +3647,58 @@ func request_environment_prop_disguise(preset: Dictionary) -> void:
 		return
 	var clean := ChameleonPropCatalog.normalize_preset(preset)
 	clean = _sanitize_environment_prop_disguise_preset(clean)
-	if _has_active_camouflage_multiplayer_peer():
-		apply_prop_disguise.rpc(clean)
+	network_apply_prop_disguise(clean)
+
+
+var _current_prop_disguise_preset: Dictionary = {}
+
+
+# Apply/clear a prop disguise so it reaches EVERY client. In a dedicated-server
+# (star) topology a client's broadcast rpc() only reaches the server, so a direct
+# apply_prop_disguise.rpc() left hunters seeing nothing on PUBLIC servers. Route
+# through the server, which re-broadcasts to all clients (works on private too).
+func network_apply_prop_disguise(preset: Dictionary) -> void:
+	if not _has_active_camouflage_multiplayer_peer():
+		apply_prop_disguise(preset)
+		return
+	if _is_runtime_multiplayer_server():
+		_current_prop_disguise_preset = preset.duplicate(true)
+		apply_prop_disguise.rpc(preset)
 	else:
-		apply_prop_disguise(clean)
+		apply_prop_disguise(preset)                # instant local feedback for the owner
+		_request_prop_disguise.rpc_id(1, preset)   # server relays to everyone else
+
+
+func network_clear_prop_disguise() -> void:
+	if not _has_active_camouflage_multiplayer_peer():
+		clear_prop_disguise()
+		return
+	if _is_runtime_multiplayer_server():
+		_current_prop_disguise_preset.clear()
+		clear_prop_disguise.rpc()
+	else:
+		clear_prop_disguise()
+		_request_clear_prop_disguise.rpc_id(1)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_prop_disguise(preset: Dictionary) -> void:
+	if not _is_runtime_multiplayer_server():
+		return
+	if multiplayer.get_remote_sender_id() != int(str(name)):
+		return
+	_current_prop_disguise_preset = preset.duplicate(true)
+	apply_prop_disguise.rpc(preset)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func _request_clear_prop_disguise() -> void:
+	if not _is_runtime_multiplayer_server():
+		return
+	if multiplayer.get_remote_sender_id() != int(str(name)):
+		return
+	_current_prop_disguise_preset.clear()
+	clear_prop_disguise.rpc()
 
 
 func set_chameleon_sculpt_shell_active(active: bool, restore_transform: Transform3D = Transform3D.IDENTITY) -> void:
@@ -5541,7 +5604,7 @@ func auto_uncloak_disguise() -> void:
 			and bool(chameleon_environment_blend_system.call("is_active")):
 		chameleon_environment_blend_system.call("deactivate")
 	if is_disguised():
-		clear_prop_disguise()
+		network_clear_prop_disguise()
 	if shape_system and shape_system.has_method("reset_to_revert_state"):
 		shape_system.reset_to_revert_state()
 

@@ -250,7 +250,10 @@ func _animate_to_preset(preset: Dictionary, apply_cooldown: bool = true) -> void
 		is_shifting = false
 		return
 
-	if shift_owner.has_method("apply_prop_disguise"):
+	if shift_owner.has_method("network_apply_prop_disguise"):
+		# Server-relayed so hunters see the disguise on public (dedicated) servers too.
+		shift_owner.call("network_apply_prop_disguise", preset)
+	elif shift_owner.has_method("apply_prop_disguise"):
 		shift_owner.apply_prop_disguise.rpc(preset)
 	await shift_owner.get_tree().create_timer(SHIFT_TRANSITION_TIME).timeout
 

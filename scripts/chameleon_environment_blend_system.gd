@@ -28,6 +28,7 @@ var _radial_wheel: Node = null
 var _capture_layer: CanvasLayer = null
 var _cloud_service: Hunyuan3DService = null
 var _white_material: StandardMaterial3D = null
+var _saved_rig_state: Dictionary = {}   # camera FOV/zoom captured at skill start, restored on exit
 
 
 func initialize(owner_node: CharacterBody3D, owner_camera: Camera3D, paint_system: Node = null) -> void:
@@ -85,6 +86,7 @@ func toggle_wheel() -> bool:
 func open_wheel() -> void:
 	if not camouflage_owner:
 		return
+	_save_rig_state()
 	# Auto-uncloak any current disguise (Q prop, or a previously committed C prop)
 	# before choosing a new one, so the player reverts to the real model first.
 	if camouflage_owner.has_method("auto_uncloak_disguise"):
@@ -110,6 +112,7 @@ func deactivate() -> void:
 		if bool(camouflage_system.get("skill_active")):
 			camouflage_system.call("deactivate_skill")
 	_set_owner_locked(false)
+	_restore_rig_state()
 	_set_state(STATE_INACTIVE)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -193,6 +196,10 @@ func _handle_wheel_input(event: InputEvent) -> bool:
 func _handle_preview_input(event: InputEvent) -> bool:
 	if _is_escape(event):
 		deactivate()
+		return true
+	# Free-look during the 4s preview so the player can inspect the prop's colors.
+	if event is InputEventMouseMotion and camouflage_owner and camouflage_owner.has_method("adjust_camouflage_camera_orbit"):
+		camouflage_owner.call("adjust_camouflage_camera_orbit", (event as InputEventMouseMotion).relative)
 		return true
 	return true
 
@@ -294,6 +301,7 @@ func _commit_selected_prop() -> void:
 	_clear_preview()
 	_set_owner_preview_visual(false)
 	_set_owner_locked(false)
+	_restore_rig_state()
 	_set_state(STATE_INACTIVE)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if camouflage_owner and camouflage_owner.has_method("request_environment_prop_disguise"):
@@ -597,6 +605,24 @@ func _set_owner_locked(locked: bool) -> void:
 func _set_owner_preview_visual(active: bool) -> void:
 	if camouflage_owner and camouflage_owner.has_method("set_environment_blend_preview_active"):
 		camouflage_owner.call("set_environment_blend_preview_active", active)
+
+
+func _save_rig_state() -> void:
+	if camouflage_owner and camouflage_owner.has_method("capture_camouflage_camera_rig_state"):
+		_saved_rig_state = camouflage_owner.call("capture_camouflage_camera_rig_state")
+
+
+# Restore the player's normal FOV + zoom distance when leaving the C-skill (keeps
+# the current look direction; only undoes the paint-mode zoom/FOV).
+func _restore_rig_state() -> void:
+	if _saved_rig_state.is_empty():
+		return
+	if camouflage_owner and camouflage_owner.has_method("restore_camouflage_camera_rig_state"):
+		camouflage_owner.call("restore_camouflage_camera_rig_state", {
+			"target_fov": _saved_rig_state.get("target_fov", GameSettings.camera_fov),
+			"target_spring_length": _saved_rig_state.get("target_spring_length", _saved_rig_state.get("spring_length", 5.0)),
+		})
+	_saved_rig_state = {}
 
 
 func _set_state(next_state: String) -> void:
