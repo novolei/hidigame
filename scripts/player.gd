@@ -5370,6 +5370,7 @@ func _apply_party_monster_accessories_to_active_skin() -> void:
 # Under resources/ (not assets/) so the chime ships inside the core_patch hotpatch —
 # assets/** is excluded from incremental updates, which is why it was silent before.
 const ACCESSORY_PICKUP_SFX_PATH := "res://resources/audio/pickup_chime.wav"
+var _last_pickup_sfx_msec: int = 0   # dedupe window so the two triggers don't double-play
 
 
 func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: String = "") -> void:
@@ -5379,22 +5380,45 @@ func send_party_monster_accessory_feedback(accessory_id: String, replaced_id: St
 	if not replaced_label.is_empty() and replaced_label != label:
 		message = "SWAPPED %s" % label.to_upper()
 	_card_feedback_to_owner(message, Color(1.0, 0.86, 0.25, 1.0), 1.0)
+	_pickup_sfx_to_owner()
 	get_tree().call_group("match_score_tracker", "record_objective_pickup", int(name))
 
 
-# Sprite-style pickup chime, played locally on the owner client (see
-# _on_party_monster_accessories_changed — build-independent, no server RPC).
+# Route the chime to the owning client. Mirrors _card_feedback_to_owner (the proven
+# path that shows the EQUIPPED text), so it works in public and private alike now
+# that the server runs current code.
+func _pickup_sfx_to_owner() -> void:
+	var owner_id := get_multiplayer_authority()
+	if _card_can_rpc_to_owner(owner_id):
+		_client_accessory_pickup_sfx.rpc_id(owner_id)
+	elif owner_id == _local_peer_id() or not _has_runtime_multiplayer_peer():
+		_client_accessory_pickup_sfx()
+
+
+# Sprite pickup chime. Triggered from BOTH the owner RPC above and the local
+# loadout-change signal; a short dedupe window prevents a double-play. Plays on the
+# scene root (non-positional) so it can't be affected by the player node's state.
+@rpc("authority", "call_local", "reliable")
 func _client_accessory_pickup_sfx() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
+	var now := Time.get_ticks_msec()
+	if now - _last_pickup_sfx_msec < 350:
+		return
+	_last_pickup_sfx_msec = now
 	var stream := load(ACCESSORY_PICKUP_SFX_PATH)
 	if stream == null:
 		return
 	var sfx := AudioStreamPlayer.new()
 	sfx.stream = stream
-	sfx.volume_db = -3.0
+	sfx.bus = "Master"
+	sfx.volume_db = 0.0
 	sfx.pitch_scale = randf_range(0.98, 1.07)
-	add_child(sfx)
+	var scene := get_tree().current_scene
+	if scene:
+		scene.add_child(sfx)
+	else:
+		add_child(sfx)
 	sfx.finished.connect(sfx.queue_free)
 	sfx.play()
 

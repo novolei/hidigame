@@ -1,5 +1,10 @@
 extends Node
 
+## Carousel behaviour test for the redesigned CharacterSetupOverlay.
+## Verifies: warm-up pool builds, the wheel/step switches the centered skin,
+## rapid duplicate inputs are debounced to a single step, drag-release inertia
+## spins then damps to rest, and the countdown enters its urgency state below 8s.
+
 var failures: Array[String] = []
 
 
@@ -10,69 +15,66 @@ func _init() -> void:
 func _run() -> void:
 	var overlay := CharacterSetupOverlay.new()
 	add_child(overlay)
-	overlay.show_setup(15.0)
-	for i in range(8):
+	overlay.show_setup(20.0)
+	overlay.force_full_warmup_for_test()
+	for i in range(6):
 		await get_tree().process_frame
 
-	_expect(absf(overlay.get_preview_default_scale_multiplier_for_test() - 1.4) < 0.001, "Preview default scale multiplier should be 1.4x")
-	var initial_scale: Vector3 = overlay.get_preview_model_scale_for_test()
-	_expect(initial_scale.length_squared() > 0.0001, "Preview model should have a valid fitted scale")
-	var initial_error: Vector3 = overlay.get_preview_model_platform_anchor_error_for_test()
-	_expect_anchor_near_platform(initial_error, "initial preview")
-	var model_offset: Vector3 = overlay.get_preview_model_position_for_test()
-	_expect(model_offset.z < -0.6, "Party Monster preview should compensate for the mesh origin being forward of visual center")
-	_expect(absf(model_offset.y) < 0.02, "Party Monster preview should not need a root Y lift after mesh grounding")
+	_expect(overlay.is_warmup_complete_for_test(), "Carousel warm-up should complete")
+	var center := overlay.get_center_skin_id_for_test()
+	_expect(center.begins_with("party_monster_"), "Centered slot should hold a Party Monster skin")
+	_expect(overlay.get_visible_slot_count_for_test() >= 3, "Center plus both neighbours should be visible")
 
-	overlay.simulate_preview_wheel_for_test(MOUSE_BUTTON_WHEEL_UP)
+	# Wheel down should slide the carousel to an adjacent skin.
+	var before := overlay.get_center_skin_id_for_test()
 	overlay.simulate_preview_wheel_for_test(MOUSE_BUTTON_WHEEL_DOWN)
+	for i in range(48):
+		await get_tree().process_frame
+	var after := overlay.get_center_skin_id_for_test()
+	_expect(after != before, "Wheel down should switch the centered skin")
+
+	# Debounce: two wheel ticks fired in the same frame must count as a single step.
+	for i in range(30):
+		await get_tree().process_frame
+	var scroll_before := roundi(overlay.get_carousel_scroll_for_test())
+	overlay.simulate_preview_wheel_for_test(MOUSE_BUTTON_WHEEL_DOWN)
+	overlay.simulate_preview_wheel_for_test(MOUSE_BUTTON_WHEEL_DOWN)
+	for i in range(48):
+		await get_tree().process_frame
+	var scroll_after := roundi(overlay.get_carousel_scroll_for_test())
+	_expect(scroll_after - scroll_before == 1, "Rapid duplicate wheel ticks should debounce to one step")
+
+	# Drag-release inertia: keeps rotating, loses speed, then decays to rest.
+	for i in range(24):
+		await get_tree().process_frame
+	var yaw_before := overlay.get_center_yaw_for_test()
+	overlay.release_center_drag_with_velocity_for_test(3.0)
 	await get_tree().process_frame
-	var wheel_scale: Vector3 = overlay.get_preview_model_scale_for_test()
-	_expect(wheel_scale.distance_squared_to(initial_scale) < 0.0001, "Mouse wheel should not change preview scale")
-	var wheel_error: Vector3 = overlay.get_preview_model_platform_anchor_error_for_test()
-	_expect_anchor_near_platform(wheel_error, "wheel preview")
+	var yaw_after := overlay.get_center_yaw_for_test()
+	var velocity_after := overlay.get_center_angular_velocity_for_test()
+	_expect(yaw_after > yaw_before, "Center model should keep spinning briefly after drag release")
+	_expect(velocity_after > 0.0 and velocity_after < 3.0, "Spin inertia should lose speed after release")
+	for i in range(150):
+		await get_tree().process_frame
+	_expect(absf(overlay.get_center_angular_velocity_for_test()) <= 0.05, "Spin inertia should damp to a stop")
 
-	overlay.rotate_preview_yaw_for_test(1.15)
-	var rotated_error: Vector3 = overlay.get_preview_model_platform_anchor_error_for_test()
-	_expect_anchor_near_platform(rotated_error, "rotated preview")
-	_expect_pivot_near_platform_center(overlay.get_preview_pivot_position_for_test(), "rotated preview")
+	# Countdown urgency threshold (8s).
+	overlay.set_remaining(5.0)
+	_expect(overlay.get_countdown_urgency_for_test() > 0.0, "Below 8s should raise countdown urgency")
+	overlay.set_remaining(15.0)
+	_expect(overlay.get_countdown_urgency_for_test() == 0.0, "Above 8s should keep the countdown calm")
 
-	var yaw_before_inertia: float = overlay.get_preview_turntable_yaw_for_test()
-	overlay.release_preview_drag_with_velocity_for_test(3.0)
-	await get_tree().process_frame
-	var yaw_after_inertia: float = overlay.get_preview_turntable_yaw_for_test()
-	var velocity_after_first_frame: float = overlay.get_preview_turntable_angular_velocity_for_test()
-	_expect(yaw_after_inertia > yaw_before_inertia, "Turntable should keep rotating briefly after drag release")
-	_expect(velocity_after_first_frame > 0.0 and velocity_after_first_frame < 3.0, "Turntable inertia should lose speed after release")
-
-	for i in range(12):
-		overlay.advance_preview_spin_for_test(0.1)
-	_expect(absf(overlay.get_preview_turntable_angular_velocity_for_test()) <= 0.02, "Turntable inertia should decay to a stop")
-	var inertia_error: Vector3 = overlay.get_preview_model_platform_anchor_error_for_test()
-	_expect_anchor_near_platform(inertia_error, "inertia preview")
-	_expect_pivot_near_platform_center(overlay.get_preview_pivot_position_for_test(), "inertia preview")
-
+	overlay.hide_setup()
 	overlay.queue_free()
 	await get_tree().process_frame
 
 	if failures.is_empty():
-		print("[CharacterSetupPreviewZoomTest] PASS")
+		print("[CharacterSetupCarouselTest] PASS")
 		get_tree().quit(0)
 	else:
 		for failure in failures:
-			push_error("[CharacterSetupPreviewZoomTest] " + failure)
+			push_error("[CharacterSetupCarouselTest] " + failure)
 		get_tree().quit(1)
-
-
-func _expect_anchor_near_platform(error: Vector3, label: String) -> void:
-	_expect(absf(error.x) < 0.02, "%s should keep visual X center on platform center" % label)
-	_expect(absf(error.y) < 0.02, "%s should keep visual feet on platform surface" % label)
-	_expect(absf(error.z) < 0.02, "%s should keep visual Z center on platform center" % label)
-
-
-func _expect_pivot_near_platform_center(position: Vector3, label: String) -> void:
-	_expect(absf(position.x) < 0.001, "%s pivot should stay on platform X center" % label)
-	_expect(absf(position.y - 0.064) < 0.001, "%s pivot should stay on platform surface" % label)
-	_expect(absf(position.z) < 0.001, "%s pivot should stay on platform Z center" % label)
 
 
 func _expect(condition: bool, message: String) -> void:

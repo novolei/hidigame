@@ -143,7 +143,12 @@ func show_setup(remaining: float) -> void:
 		_preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_fit_to_viewport()
 
-	var start_index := _index_of_skin(_current_network_model_id())
+	# Show a random skin centered on open, but keep a returning player's explicit pick.
+	var current_id := _current_network_model_id()
+	var start_index := _index_of_skin(current_id)
+	if not CharacterSkinCatalog.is_party_monster(current_id) or current_id == CharacterSkinCatalog.party_monster_default_id():
+		if _skin_ids.size() > 1:
+			start_index = randi() % _skin_ids.size()
 	_scroll = float(start_index)
 	_scroll_target = _scroll
 	_last_base = 2147483647
@@ -324,6 +329,7 @@ func _update_carousel_transforms() -> void:
 		_center_yaw = 0.0
 		_center_angular_velocity = 0.0
 		_refresh_animation_focus()
+		_update_skin_text()
 		_network_dirty = true
 
 	for k in range(SLOT_COUNT):
@@ -721,6 +727,7 @@ func _build_preview_world() -> void:
 
 	_carousel_root = Node3D.new()
 	_carousel_root.name = "CarouselRoot"
+	_carousel_root.position = Vector3(0.0, -0.32, 0.0)  # drop the models so the countdown clears their heads
 	_preview_stage.add_child(_carousel_root)
 
 	_shadow_texture = _make_shadow_texture()
@@ -800,8 +807,8 @@ func _add_preview_lights() -> void:
 func _add_preview_camera() -> void:
 	_preview_camera = Camera3D.new()
 	_preview_camera.name = "PreviewCamera"
-	_preview_camera.position = Vector3(0.0, 1.18, 5.7)
-	_preview_camera.rotation_degrees = Vector3(-6.0, 0.0, 0.0)
+	_preview_camera.position = Vector3(0.0, 1.42, 5.7)
+	_preview_camera.rotation_degrees = Vector3(-8.5, 0.0, 0.0)
 	_preview_camera.fov = 34.0
 	_preview_stage.add_child(_preview_camera)
 	_preview_camera.current = true
@@ -932,14 +939,14 @@ func _fit_to_viewport() -> void:
 
 
 func _get_layout_size() -> Vector2:
-	var size := get_viewport_rect().size
+	var layout_size := get_viewport_rect().size
 	var window := get_window()
 	if window != null:
-		size.x = maxf(size.x, float(window.size.x))
-		size.y = maxf(size.y, float(window.size.y))
-	size.x = maxf(size.x, 640.0)
-	size.y = maxf(size.y, 360.0)
-	return size
+		layout_size.x = maxf(layout_size.x, float(window.size.x))
+		layout_size.y = maxf(layout_size.y, float(window.size.y))
+	layout_size.x = maxf(layout_size.x, 640.0)
+	layout_size.y = maxf(layout_size.y, 360.0)
+	return layout_size
 
 
 func _apply_layout(layout: Vector2) -> void:
@@ -958,10 +965,10 @@ func _apply_layout(layout: Vector2) -> void:
 		_edge_right.position = Vector2(layout.x - edge_w, 0.0)
 		_edge_right.size = Vector2(edge_w, layout.y)
 
-	var ring_size := clampf(layout.y * 0.17, 110.0, 168.0)
+	var ring_size := clampf(layout.y * 0.16, 144.0, 184.0)  # min matches the ring texture's native size
 	if _countdown_ring:
 		_countdown_ring.size = Vector2(ring_size, ring_size)
-		_countdown_ring.position = Vector2((layout.x - ring_size) * 0.5, clampf(layout.y * 0.045, 22.0, 60.0))
+		_countdown_ring.position = Vector2((layout.x - ring_size) * 0.5, clampf(layout.y * 0.022, 12.0, 34.0))
 	if _countdown_label:
 		_countdown_label.size = Vector2(ring_size, ring_size)
 		_countdown_label.position = _countdown_ring.position if _countdown_ring else Vector2((layout.x - ring_size) * 0.5, 40.0)
@@ -1100,11 +1107,11 @@ func _make_radial_gradient(inner: Color, outer: Color) -> GradientTexture2D:
 
 
 func _make_shadow_texture() -> Texture2D:
-	var size := 192
-	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	var center := float(size) * 0.5
-	for y in range(size):
-		for x in range(size):
+	var tex_size := 192
+	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
+	var center := float(tex_size) * 0.5
+	for y in range(tex_size):
+		for x in range(tex_size):
 			var dx := (float(x) - center) / center
 			var dy := (float(y) - center) / center
 			var dist := sqrt(dx * dx + dy * dy)
@@ -1115,14 +1122,14 @@ func _make_shadow_texture() -> Texture2D:
 
 
 func _make_ring_texture(color: Color) -> Texture2D:
-	var size := 256
-	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var tex_size := 144  # TextureProgressBar adopts this as its min size, so it doubles as the on-screen ring diameter
+	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
-	var center := float(size) * 0.5
-	var outer := center - 6.0
-	var inner := outer - 14.0
-	for y in range(size):
-		for x in range(size):
+	var center := float(tex_size) * 0.5
+	var outer := center - 4.0
+	var inner := outer - 9.0
+	for y in range(tex_size):
+		for x in range(tex_size):
 			var dx := float(x) - center
 			var dy := float(y) - center
 			var r := sqrt(dx * dx + dy * dy)
@@ -1136,14 +1143,14 @@ func _make_ring_texture(color: Color) -> Texture2D:
 
 
 func _make_spinner_texture() -> Texture2D:
-	var size := 96
-	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var tex_size := 96
+	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
-	var center := float(size) * 0.5
+	var center := float(tex_size) * 0.5
 	var outer := center - 6.0
 	var inner := outer - 12.0
-	for y in range(size):
-		for x in range(size):
+	for y in range(tex_size):
+		for x in range(tex_size):
 			var dx := float(x) - center
 			var dy := float(y) - center
 			var r := sqrt(dx * dx + dy * dy)
