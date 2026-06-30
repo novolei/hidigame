@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://c7lcdl18ryjpm"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
 albedo_color = Color(0.78, 0.9, 1, 1)
@@ -21,29 +21,29 @@ height = 0.38
 [sub_resource type="BoxMesh" id="BoxMesh_prong"]
 size = Vector3(0.055, 0.3, 0.055)
 
-[node name="StalkerGrappleHook" type="Node3D"]
+[node name="StalkerGrappleHook" type="Node3D" unique_id=265592004]
 
-[node name="Tip" type="MeshInstance3D" parent="."]
+[node name="Tip" type="MeshInstance3D" parent="." unique_id=652629205]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -0.16)
+material_override = SubResource("StandardMaterial3D_metal")
 mesh = SubResource("CylinderMesh_tip")
-material_override = SubResource("StandardMaterial3D_metal")
 
-[node name="Core" type="MeshInstance3D" parent="."]
+[node name="Core" type="MeshInstance3D" parent="." unique_id=1953802364]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0.06)
+material_override = SubResource("StandardMaterial3D_metal")
 mesh = SubResource("CylinderMesh_core")
-material_override = SubResource("StandardMaterial3D_metal")
 
-[node name="ProngLeft" type="MeshInstance3D" parent="."]
+[node name="ProngLeft" type="MeshInstance3D" parent="." unique_id=1412649836]
 transform = Transform3D(0.766044, 0, 0.642788, 0, 1, 0, -0.642788, 0, 0.766044, -0.13, 0, 0.13)
-mesh = SubResource("BoxMesh_prong")
 material_override = SubResource("StandardMaterial3D_metal")
+mesh = SubResource("BoxMesh_prong")
 
-[node name="ProngRight" type="MeshInstance3D" parent="."]
+[node name="ProngRight" type="MeshInstance3D" parent="." unique_id=573494149]
 transform = Transform3D(0.766044, 0, -0.642788, 0, 1, 0, 0.642788, 0, 0.766044, 0.13, 0, 0.13)
-mesh = SubResource("BoxMesh_prong")
 material_override = SubResource("StandardMaterial3D_metal")
+mesh = SubResource("BoxMesh_prong")
 
-[node name="ProngTop" type="MeshInstance3D" parent="."]
+[node name="ProngTop" type="MeshInstance3D" parent="." unique_id=589163671]
 transform = Transform3D(1, 0, 0, 0, 0.766044, -0.642788, 0, 0.642788, 0.766044, 0, 0.13, 0.13)
-mesh = SubResource("BoxMesh_prong")
 material_override = SubResource("StandardMaterial3D_metal")
+mesh = SubResource("BoxMesh_prong")

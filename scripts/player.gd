@@ -1568,9 +1568,16 @@ func _handle_chameleon_input(event: InputEvent) -> void:
 func _handle_stalker_input(event: InputEvent) -> void:
 	if prep_phase_locked:
 		return
-	if event.is_action_pressed("stalker_grapple") and stalker_grapple_system:
-		if stalker_grapple_system.request_grapple():
-			get_viewport().set_input_as_handled()
+	if not stalker_grapple_system:
+		return
+	# Hold to aim (shows the green target marker, no cast); release to fire. A
+	# quick tap just casts on release.
+	if event.is_action_pressed("stalker_grapple"):
+		stalker_grapple_system.begin_aim()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_released("stalker_grapple"):
+		stalker_grapple_system.release_aim_and_cast()
+		get_viewport().set_input_as_handled()
 
 
 func _request_hologram_flag_placement() -> bool:
@@ -1792,6 +1799,12 @@ func allows_rollback_movement_drive() -> bool:
 	if _party_monster_trip_action_locked:
 		return false
 	if _camouflage_brush_locked:
+		return false
+	# The Stalker grapple reels the body via direct global_position writes; the
+	# netfox motor root-drive would otherwise stomp them every tick and the
+	# player would never leave the spot. Yield drive while pulling so the legacy
+	# path applies, then resume (the motor re-captures the grappled position).
+	if stalker_grapple_system and is_instance_valid(stalker_grapple_system) and stalker_grapple_system.is_grappling():
 		return false
 	var current_scene: Node = get_tree().get_current_scene()
 	if current_scene and is_on_floor():
@@ -2210,6 +2223,16 @@ func _physics_process(delta):
 	if _is_dead:
 		_process_dead_free_camera(delta)
 		move_and_slide()
+		return
+
+	# Grapple flight: the grapple system drives velocity toward the anchor and we
+	# move_and_slide here so the body actually flies (with collisions/arc) instead
+	# of the old position-lerp. is_grappling() also yields the netfox motor above.
+	if stalker_grapple_system and is_instance_valid(stalker_grapple_system) and stalker_grapple_system.is_grappling():
+		stalker_grapple_system.process_pull_movement(delta)
+		move_and_slide()
+		_animate_body(velocity)
+		_update_safe_ground_position()
 		return
 
 	if match_intro_locked:

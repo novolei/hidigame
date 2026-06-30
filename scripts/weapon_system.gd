@@ -31,6 +31,8 @@ const SCAN_SCULPT_RESET_AMOUNT: float = 0.45
 const VISUAL_RPC_RELEVANCE_RADIUS: float = 48.0
 const GreenBloodImpactScript := preload("res://scripts/green_blood_impact.gd")
 const NetworkInterestScript := preload("res://scripts/network_interest.gd")
+const BulletTracerEffectScript := preload("res://scripts/effects/bullet_tracer_effect.gd")
+const BulletImpactEffectScript := preload("res://scripts/effects/bullet_impact_effect.gd")
 
 const MELEE_DAMAGE: float = 10.0  # 弹药耗尽时切近战
 
@@ -220,13 +222,24 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3, fire_t
 	var feedback_color: Color = Color(0.75, 0.78, 0.86, 1.0)
 	var max_compensated_distance: float = MAX_RANGE
 	var world_damageable_distance: float = INF
+	# Captured at function scope so the environment impact VFX can use the real
+	# surface point/normal even when a lag-compensated player hit overrides the
+	# logical hit_position below.
+	var has_world_hit: bool = false
+	var world_hit_position: Vector3 = Vector3.ZERO
+	var world_hit_normal: Vector3 = -clean_aim_dir
+	var world_collider: Node = null
 
 	if not world_result.is_empty():
-		var world_hit_position: Vector3 = world_result.get("position", hit_position)
+		has_world_hit = true
+		world_hit_position = world_result.get("position", hit_position)
+		world_hit_normal = world_result.get("normal", world_hit_normal)
 		max_compensated_distance = clampf(shooter_pos.distance_to(world_hit_position), 0.0, MAX_RANGE)
 		var raw_world_target: Variant = world_result.get("collider", null)
-		if raw_world_target is Node and _is_damageable_weapon_target(raw_world_target):
-			world_damageable_distance = max_compensated_distance
+		if raw_world_target is Node:
+			world_collider = raw_world_target as Node
+			if _is_damageable_weapon_target(raw_world_target):
+				world_damageable_distance = max_compensated_distance
 
 	var compensated_hit: Dictionary = _find_rewind_player_hit(sender_id, shooter_pos, clean_aim_dir, max_compensated_distance, fire_tick)
 	var compensated_distance: float = float(compensated_hit.get("distance", INF)) if not compensated_hit.is_empty() else INF
@@ -278,6 +291,13 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3, fire_t
 
 	_send_tracer_visual(shooter_pos, hit_position)
 
+	# Surface impact VFX: only when the bullet struck solid geometry/a prop and a
+	# lag-compensated player hit did not take priority. Players use green blood.
+	if has_world_hit and not use_compensated_hit:
+		var world_hit_is_player: bool = world_collider != null and world_collider.is_in_group("players")
+		if not world_hit_is_player:
+			_send_bullet_impact_visual(shooter_pos, world_hit_position, world_hit_normal, clean_aim_dir)
+
 	ammo_changed.emit(current_magazine, total_ammo)
 	_sync_ammo_to_owner()
 	_show_feedback_on_owner(feedback_text, feedback_color, 0.72)
@@ -308,6 +328,28 @@ func _broadcast_green_blood_impact(impact_position: Vector3, impact_normal: Vect
 	if parent == null:
 		parent = self
 	GreenBloodImpactScript.spawn(parent, impact_position, impact_normal, shooter_direction)
+
+
+func _send_bullet_impact_visual(shooter_position: Vector3, impact_position: Vector3, impact_normal: Vector3, shooter_direction: Vector3) -> void:
+	var recipients: PackedInt32Array = _weapon_visual_recipient_ids(shooter_position, impact_position, owner_peer_id)
+	if recipients.is_empty():
+		return
+	Network.record_rpc_event("weapon.bullet_impact", recipients.size(), 60)
+	for peer_id: int in recipients:
+		if peer_id == 1:
+			_broadcast_bullet_impact(impact_position, impact_normal, shooter_direction)
+		else:
+			_broadcast_bullet_impact.rpc_id(peer_id, impact_position, impact_normal, shooter_direction)
+
+
+@rpc("authority", "call_local", "unreliable_ordered")
+func _broadcast_bullet_impact(impact_position: Vector3, impact_normal: Vector3, shooter_direction: Vector3) -> void:
+	if _should_skip_dedicated_server_visuals():
+		return
+	var parent: Node = get_tree().get_current_scene() if get_tree() else null
+	if parent == null:
+		parent = self
+	BulletImpactEffectScript.spawn(parent, impact_position, impact_normal, shooter_direction)
 
 
 func _is_damageable_weapon_target(target) -> bool:
@@ -544,29 +586,13 @@ func _apply_scan_counterplay_to_target(target: Node3D) -> bool:
 
 
 func _show_tracer(start: Vector3, end: Vector3) -> void:
-	# 创建临时 MeshInstance3D 显示弹道
-	if not shooter_node or not is_instance_valid(shooter_node):
+	# High-quality hot tracer + muzzle flash (HOVL-style, see BulletTracerEffect).
+	# Parented to the current scene (top_level) so the world-space beam never
+	# drifts with the moving shooter the way the old shooter-child line did.
+	var parent: Node = get_tree().get_current_scene() if get_tree() else null
+	if parent == null:
 		return
-	var tracer = MeshInstance3D.new()
-	var immediate_mesh = ImmediateMesh.new()
-	immediate_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	immediate_mesh.surface_add_vertex(start)
-	immediate_mesh.surface_add_vertex(end)
-	immediate_mesh.surface_end()
-	tracer.mesh = immediate_mesh
-
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 0.9, 0.3, 1)
-	mat.emission_enabled = true
-	mat.emission = Color(1, 0.7, 0.2)
-	mat.emission_energy_multiplier = 2.0
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	tracer.material_override = mat
-
-	shooter_node.add_child(tracer)
-	await get_tree().create_timer(0.15).timeout
-	if is_instance_valid(tracer):
-		tracer.queue_free()
+	BulletTracerEffectScript.spawn(parent, start, end)
 
 
 func _on_weapon_out_of_ammo():

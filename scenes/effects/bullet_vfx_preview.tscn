@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://clyvuy8h03myr"]
+
+[ext_resource type="Script" uid="uid://biwqrc8k2mljx" path="res://scripts/effects/bullet_vfx_preview.gd" id="1_noxrs"]
+
+[node name="BulletVfxPreview" type="Node3D" unique_id=39254524]
+script = ExtResource("1_noxrs")
