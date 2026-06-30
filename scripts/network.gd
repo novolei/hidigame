@@ -172,7 +172,7 @@ var lobby_config: Dictionary = {
 	"room_name": "Private Match",
 	"steam_lobby_id": "",
 	"host_port": SERVER_PORT,
-	"map": "Warehouse",
+	"map": "Medieval Strategy World",
 	"variant": "Default",
 	"condition": "Normal",
 	"game_show": "None",

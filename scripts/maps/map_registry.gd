@@ -41,6 +41,20 @@ static func _ensure_built() -> void:
 		return
 	_built = true
 
+	var medieval := MapProfile.new()
+	medieval.id = &"medieval_strategy_world"
+	medieval.display_name = "Medieval Strategy World"
+	medieval.scene_path = "res://scenes/level/maps/medieval_strategy_world.tscn"
+	medieval.lighting_mode = MapProfile.Lighting.KEEP
+	medieval.collision_mode = MapProfile.Collision.ADAPT_LAYERS
+	medieval.ground_align_mode = MapProfile.GroundAlign.SPAWN_SURFACE
+	medieval.ground_y = 0.0
+	medieval.add_support_floor = true
+	medieval.support_size = Vector2(140.0, 140.0)
+	medieval.use_warehouse_layout = false
+	medieval.size_category = MapProfile.SizeCategory.LARGE
+	_authored["Medieval Strategy World"] = medieval
+
 	# TPS Demo Level: a visual reactor-interior import with its own authored
 	# colliders but no map root script, so it was never grounded, layer-normalized,
 	# or backed by a fall-through floor. Keep its dramatic embedded lighting,

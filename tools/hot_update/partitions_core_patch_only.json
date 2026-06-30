@@ -17,6 +17,7 @@
         "scripts/**",
         "shaders/*.gdshader",
         "scenes/ui/**",
+        "scenes/effects/stalker_grapple_hook.tscn",
         "resources/**"
       ],
       "exclude_filters": [

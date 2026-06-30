@@ -15,6 +15,7 @@ const WORLD_LAYER: int = 2
 # scene PATHS are checked for load-ability here; heavy city maps are loaded but
 # not instantiated to keep the headless run cheap.
 const CATALOG := {
+	"Medieval Strategy World": "res://scenes/level/maps/medieval_strategy_world.tscn",
 	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
 	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
 	"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
@@ -29,7 +30,7 @@ const CATALOG := {
 }
 
 # Maps that should be fully prepared (instantiated + grounded + support floor).
-const FRAMEWORK_MAPS: Array[String] = ["TPS Demo Level", "Western Town Prop Hunt"]
+const FRAMEWORK_MAPS: Array[String] = ["Medieval Strategy World", "TPS Demo Level", "Western Town Prop Hunt"]
 
 var failures: Array[String] = []
 
@@ -70,6 +71,12 @@ func _test_size_category_player_counts() -> void:
 
 
 func _test_registry_profiles() -> void:
+	var medieval := MapRegistry.profile_for("Medieval Strategy World", CATALOG["Medieval Strategy World"])
+	_expect(medieval != null, "Registry should return a profile for Medieval Strategy World")
+	_expect(MapRegistry.has_authored_profile("Medieval Strategy World"), "Medieval Strategy World should have an authored profile")
+	_expect(medieval.lighting_mode == MapProfile.Lighting.KEEP, "Medieval profile should preserve its authored lighting")
+	_expect(not medieval.use_warehouse_layout, "Medieval profile should use authored spawns, not the warehouse layout")
+
 	var tps := MapRegistry.profile_for("TPS Demo Level", CATALOG["TPS Demo Level"])
 	_expect(tps != null, "Registry should return a profile for TPS Demo Level")
 	_expect(MapRegistry.has_authored_profile("TPS Demo Level"), "TPS Demo Level should have an authored profile")

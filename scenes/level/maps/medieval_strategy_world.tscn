@@ -1,0 +1,227 @@
+[gd_scene format=3 uid="uid://ctxec1dvio5f3"]
+
+[ext_resource type="PackedScene" uid="uid://bviyxrnxobw6p" path="res://scenes/level/maps/medieval_strategy_world_assets/terrain/terrain2.glb" id="1_kpybi"]
+[ext_resource type="Script" uid="uid://dkvkregtbdu54" path="res://addons/proton_scatter/src/scatter.gd" id="3_jtopj"]
+[ext_resource type="Material" uid="uid://v3x0x8lw2g42" path="res://scenes/level/maps/medieval_strategy_world_assets/materials/my_water_mat.tres" id="3_kpybi"]
+[ext_resource type="Script" uid="uid://bn04fvepyk8k4" path="res://addons/proton_scatter/src/stack/modifier_stack.gd" id="4_4q6fm"]
+[ext_resource type="Script" uid="uid://x6fsesnaf5hw" path="res://addons/proton_scatter/src/modifiers/base_modifier.gd" id="5_rhb3l"]
+[ext_resource type="Script" uid="uid://cd7lmgm2c7cul" path="res://addons/proton_scatter/src/modifiers/create_inside_random.gd" id="6_k5pyk"]
+[ext_resource type="Script" uid="uid://8kne4ybfsl88" path="res://addons/proton_scatter/src/modifiers/randomize_transforms.gd" id="7_vybtw"]
+[ext_resource type="Script" uid="uid://cumwjtpq367nl" path="res://addons/proton_scatter/src/modifiers/relax.gd" id="8_twxce"]
+[ext_resource type="Script" uid="uid://m152hgjtccg2" path="res://addons/proton_scatter/src/modifiers/project_on_geometry.gd" id="9_gmcik"]
+[ext_resource type="Script" uid="uid://64wuaw5cx5gd" path="res://addons/proton_scatter/src/scatter_item.gd" id="10_0kyep"]
+[ext_resource type="Texture2D" uid="uid://cs63fkffpogft" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/Textures/colormap.png" id="11_8l0j4"]
+[ext_resource type="Script" uid="uid://d4b4kcpj4fnas" path="res://addons/proton_scatter/src/scatter_shape.gd" id="12_kvotu"]
+[ext_resource type="Script" uid="uid://ta2ratf3y1it" path="res://addons/proton_scatter/src/shapes/path_shape.gd" id="13_tarsg"]
+[ext_resource type="PackedScene" uid="uid://cveyrxs0cpw8c" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_lumbermill_blue.gltf" id="14_o8fc1"]
+[ext_resource type="PackedScene" uid="uid://bagnjdsyxpt4v" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_market_blue.gltf" id="15_xo05s"]
+[ext_resource type="PackedScene" uid="uid://fc3ff3jt70y0" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_mine_blue.gltf" id="16_dss4m"]
+[ext_resource type="PackedScene" uid="uid://b8864tsjxpuhy" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_church_blue.gltf" id="17_pm21f"]
+[ext_resource type="PackedScene" uid="uid://7ncr5ylyw0d1" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_home_A_blue.gltf" id="18_2lf6f"]
+[ext_resource type="PackedScene" uid="uid://cxyowdp4nt6o6" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_home_B_blue.gltf" id="19_7iits"]
+[ext_resource type="PackedScene" uid="uid://b5vmw0ansosgx" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_tavern_blue.gltf" id="20_2lf6f"]
+[ext_resource type="PackedScene" uid="uid://2bewbys6va2i" path="res://scenes/level/maps/medieval_strategy_world_assets/models/kaykit_medieval/buildings/blue/building_windmill_blue.gltf" id="21_7iits"]
+[ext_resource type="Script" uid="uid://cp18xopp6lldb" path="res://scripts/maps/map_controller.gd" id="22_mapctl"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_e6mrt"]
+sky_top_color = Color(0.567769, 0.485975, 0.758958, 1)
+sky_horizon_color = Color(0.775244, 0.648958, 0.673236, 1)
+sky_curve = 0.0284196
+sky_cover_modulate = Color(1, 0.641662, 0.848046, 1)
+ground_bottom_color = Color(0.307865, 0.792524, 0.971336, 1)
+ground_horizon_color = Color(0.776471, 0.647059, 0.67451, 1)
+
+[sub_resource type="Sky" id="Sky_7aibf"]
+sky_material = SubResource("ProceduralSkyMaterial_e6mrt")
+
+[sub_resource type="Environment" id="Environment_w6tuc"]
+background_mode = 2
+sky = SubResource("Sky_7aibf")
+tonemap_mode = 3
+tonemap_exposure = 0.95
+tonemap_white = 1.1
+ssao_enabled = true
+ssao_radius = 2.0
+ssil_enabled = true
+glow_enabled = true
+adjustment_enabled = true
+adjustment_contrast = 1.1
+adjustment_saturation = 1.2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_xgqkh"]
+material = ExtResource("3_kpybi")
+size = Vector2(3000, 3000)
+subdivide_width = 500
+subdivide_depth = 500
+
+[sub_resource type="Resource" id="Resource_kpybi"]
+script = ExtResource("6_k5pyk")
+amount = 1500
+restrict_height = true
+reference_frame = 1
+
+[sub_resource type="Resource" id="Resource_ctatt"]
+script = ExtResource("7_vybtw")
+position = Vector3(0.15, 0.15, 0.15)
+rotation = Vector3(20, 360, 20)
+scale = Vector3(0.1, 0.1, 0.1)
+reference_frame = 2
+
+[sub_resource type="Resource" id="Resource_xgqkh"]
+script = ExtResource("8_twxce")
+offset_step = 0.2
+consecutive_step_multiplier = 0.75
+restrict_height = true
+
+[sub_resource type="Resource" id="Resource_munwf"]
+script = ExtResource("9_gmcik")
+ray_length = 50.0
+ray_offset = 5.0
+align_with_collision_normal = true
+max_slope = 20.0
+
+[sub_resource type="Resource" id="Resource_ts3gi"]
+script = ExtResource("4_4q6fm")
+stack = Array[ExtResource("5_rhb3l")]([SubResource("Resource_kpybi"), SubResource("Resource_ctatt"), SubResource("Resource_xgqkh"), SubResource("Resource_munwf")])
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y5hkx"]
+albedo_texture = ExtResource("11_8l0j4")
+
+[sub_resource type="Curve3D" id="Curve3D_8wgws"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 26.6481, -13.5663, -65.0408, 0, 0, 0, 0, 0, 0, 30.9263, -12.6554, -62.4029, 0, 0, 0, 0, 0, 0, 34.6964, -13.2803, -63.3157, 0, 0, 0, 0, 0, 0, 35.3778, -13.8236, -64.2483, 0, 0, 0, 0, 0, 0, 38.8537, -13.1055, -60.9818, 0, 0, 0, 0, 0, 0, 42.8245, -13.9558, -59.7212, 0, 0, 0, 0, 0, 0, 44.8209, -13.2706, -57.6396, 0, 0, 0, 0, 0, 0, 45.4497, -13.5937, -57.9327, 0, 0, 0, 0, 0, 0, 49.8177, -14.0606, -53.6929, 0, 0, 0, 0, 0, 0, 53.7799, -14.4619, -52.8911, 0, 0, 0, 0, 0, 0, 55.9696, -13.7493, -48.5622, 0, 0, 0, 0, 0, 0, 54.3166, -10.6044, -45.3702, 0, 0, 0, 0, 0, 0, 56.2795, -10.2424, -42.1482, 0, 0, 0, 0, 0, 0, 61.2725, -12.667, -38.5221, 0, 0, 0, 0, 0, 0, 62.0287, -11.5779, -34.5796, 0, 0, 0, 0, 0, 0, 63.8153, -12.6328, -32.8, 0, 0, 0, 0, 0, 0, 63.3487, -11.7508, -29.6571, 0, 0, 0, 0, 0, 0, 60.6684, -9.97713, -30.6282, 0, 0, 0, 0, 0, 0, 60.9948, -9.80074, -26.0693, 0, 0, 0, 0, 0, 0, 62.02, -10.2639, -26.683, 0, 0, 0, 0, 0, 0, 62.1462, -9.81902, -22.3107, 0, 0, 0, 0, 0, 0, 63.2388, -11.018, -20.912, 0, 0, 0, 0, 0, 0, 65.3847, -12.8482, -20.2189, 0, 0, 0, 0, 0, 0, 65.3456, -13.5971, -16.0413, 0, 0, 0, 0, 0, 0, 62.2287, -11.5046, -14.3212, 0, 0, 0, 0, 0, 0, 60.361, -10.5195, -8.70377, 0, 0, 0, 0, 0, 0, 60.7068, -9.89581, -4.93424, 0, 0, 0, 0, 0, 0, 62.249, -11.76, -6.46788, 0, 0, 0, 0, 0, 0, 62.3088, -10.9354, -4.72097, 0, 0, 0, 0, 0, 0, 65.644, -13.0665, -3.32204, 0, 0, 0, 0, 0, 0, 65.3442, -12.4032, 4.12122, 0, 0, 0, 0, 0, 0, 62.4407, -9.90563, 4.38869, 0, 0, 0, 0, 0, 0, 63.7467, -10.2282, 6.03447, 0, 0, 0, 0, 0, 0, 63.6871, -9.82012, 8.87986, 0, 0, 0, 0, 0, 0, 65.3846, -10.3151, 9.58271, 0, 0, 0, 0, 0, 0, 69.2755, -9.92009, 17.6868, 0, 0, 0, 0, 0, 0, 69.9683, -9.88385, 18.9376, 0, 0, 0, 0, 0, 0, 69.8209, -10.6282, 25.0184, 0, 0, 0, 0, 0, 0, 68.5548, -11.5694, 31.4648, 0, 0, 0, 0, 0, 0, 69.0021, -11.8607, 33.8591, 0, 0, 0, 0, 0, 0, 67.1149, -10.4688, 34.3119, 0, 0, 0, 0, 0, 0, 67.2115, -12.372, 38.3259, 0, 0, 0, 0, 0, 0, 65.984, -13.347, 41.6414, 0, 0, 0, 0, 0, 0, 63.9437, -13.2559, 42.2164, 0, 0, 0, 0, 0, 0, 63.5045, -13.6566, 43.7769, 0, 0, 0, 0, 0, 0, 61.1282, -13.6411, 43.6771, 0, 0, 0, 0, 0, 0, 58.5241, -13.309, 49.7103, 0, 0, 0, 0, 0, 0, 48.0788, -12.7343, 56.9349, 0, 0, 0, 0, 0, 0, 47.305, -12.7549, 58.085, 0, 0, 0, 0, 0, 0, 42.5658, -12.8211, 61.2392, 0, 0, 0, 0, 0, 0, 42.0079, -12.9202, 63.5821, 0, 0, 0, 0, 0, 0, 34.724, -12.7508, 70.4919, 0, 0, 0, 0, 0, 0, 31.1334, -12.5507, 68.5164, 0, 0, 0, 0, 0, 0, 29.6551, -12.6658, 72.438, 0, 0, 0, 0, 0, 0, 13.8724, -12.4103, 72.5131, 0, 0, 0, 0, 0, 0, 10.6058, -12.1358, 70.1859, 0, 0, 0, 0, 0, 0, -0.340228, -11.775, 67.257, 0, 0, 0, 0, 0, 0, -12.066, -11.3014, 67.518, 0, 0, 0, 0, 0, 0, -18.7771, -10.8416, 65.1772, 0, 0, 0, 0, 0, 0, -24.7494, -11.0744, 64.28, 0, 0, 0, 0, 0, 0, -26.8921, -10.4128, 59.7166, 0, 0, 0, 0, 0, 0, -28.6534, -10.2132, 59.6045, 0, 0, 0, 0, 0, 0, -29.8872, -10.679, 61.4471, 0, 0, 0, 0, 0, 0, -33.7024, -11.1457, 62.0496, 0, 0, 0, 0, 0, 0, -35.0107, -10.4812, 60.6626, 0, 0, 0, 0, 0, 0, -38.7981, -11.7255, 62.4692, 0, 0, 0, 0, 0, 0, -41.4638, -12.017, 62.0767, 0, 0, 0, 0, 0, 0, -41.3192, -10.0108, 59.0351, 0, 0, 0, 0, 0, 0, -44.6451, -10.4568, 59.175, 0, 0, 0, 0, 0, 0, -50.516, -10.0795, 53.5153, 0, 0, 0, 0, 0, 0, -52.0532, -10.5538, 53.0428, 0, 0, 0, 0, 0, 0, -52.7675, -10.0808, 50.1996, 0, 0, 0, 0, 0, 0, -55.0572, -11.1344, 48.8461, 0, 0, 0, 0, 0, 0, -56.0698, -11.9707, 46.2091, 0, 0, 0, 0, 0, 0, -58.2689, -13.2999, 44.8655, 0, 0, 0, 0, 0, 0, -56.5154, -10.9501, 39.9254, 0, 0, 0, 0, 0, 0, -58.5262, -11.2269, 34.135, 0, 0, 0, 0, 0, 0, -59.6801, -11.9033, 34.0428, 0, 0, 0, 0, 0, 0, -59.3121, -11.3172, 31.998, 0, 0, 0, 0, 0, 0, -61.1011, -12.1049, 28.2503, 0, 0, 0, 0, 0, 0, -58.5903, -9.88195, 27.4506, 0, 0, 0, 0, 0, 0, -60.2842, -10.0805, 26.1769, 0, 0, 0, 0, 0, 0, -61.9927, -9.83425, 22.5942, 0, 0, 0, 0, 0, 0, -62.0894, -10.174, 24.1629, 0, 0, 0, 0, 0, 0, -63.8374, -10.3963, 21.8703, 0, 0, 0, 0, 0, 0, -66.9551, -12.6155, 21.1355, 0, 0, 0, 0, 0, 0, -69.1973, -13.6667, 19.5585, 0, 0, 0, 0, 0, 0, -69.1094, -12.7165, 16.9218, 0, 0, 0, 0, 0, 0, -67.3506, -10.598, 16.61, 0, 0, 0, 0, 0, 0, -67.9608, -10.0251, 13.2414, 0, 0, 0, 0, 0, 0, -69.3419, -10.843, 10.8074, 0, 0, 0, 0, 0, 0, -69.8865, -11.097, 8.1738, 0, 0, 0, 0, 0, 0, -72.3498, -13.4866, 6.11555, 0, 0, 0, 0, 0, 0, -69.6462, -12.7591, 0.729439, 0, 0, 0, 0, 0, 0, -69.3008, -13.245, -2.63356, 0, 0, 0, 0, 0, 0, -68.0446, -12.2146, -1.98779, 0, 0, 0, 0, 0, 0, -67.6841, -11.858, -4.88353, 0, 0, 0, 0, 0, 0, -64.2263, -10.3985, -7.5786, 0, 0, 0, 0, 0, 0, -64.2266, -11.0765, -9.75704, 0, 0, 0, 0, 0, 0, -61.587, -10.1587, -11.487, 0, 0, 0, 0, 0, 0, -61.466, -11.1204, -15.0504, 0, 0, 0, 0, 0, 0, -62.0731, -11.2777, -19.2237, 0, 0, 0, 0, 0, 0, -63.0413, -11.8338, -20.7069, 0, 0, 0, 0, 0, 0, -66.7072, -13.4358, -21.9296, 0, 0, 0, 0, 0, 0, -63.8029, -11.8362, -23.9264, 0, 0, 0, 0, 0, 0, -66.2855, -13.3602, -24.3837, 0, 0, 0, 0, 0, 0, -63.3248, -12.9605, -29.6916, 0, 0, 0, 0, 0, 0, -63.0936, -13.4442, -33.0892, 0, 0, 0, 0, 0, 0, -59.8978, -12.21, -36.582, 0, 0, 0, 0, 0, 0, -61.1413, -13.3653, -38.4311, 0, 0, 0, 0, 0, 0, -57.2443, -12.1053, -40.7661, 0, 0, 0, 0, 0, 0, -55.4135, -10.1624, -38.9678, 0, 0, 0, 0, 0, 0, -52.0809, -10.3244, -41.3899, 0, 0, 0, 0, 0, 0, -52.0222, -11.0158, -42.8352, 0, 0, 0, 0, 0, 0, -47.0306, -9.99297, -45.8348, 0, 0, 0, 0, 0, 0, -47.5287, -10.9973, -50.3707, 0, 0, 0, 0, 0, 0, -44.2758, -10.7588, -52.3777, 0, 0, 0, 0, 0, 0, -44.5613, -11.0424, -53.2938, 0, 0, 0, 0, 0, 0, -39.8621, -10.1162, -53.1978, 0, 0, 0, 0, 0, 0, -36.5831, -10.8907, -56.3538, 0, 0, 0, 0, 0, 0, -35.1666, -12.782, -60.1193, 0, 0, 0, 0, 0, 0, -34.4848, -13.3436, -61.3898, 0, 0, 0, 0, 0, 0, -31.7512, -11.1118, -58.0106, 0, 0, 0, 0, 0, 0, -28.4785, -10.5116, -58.294, 0, 0, 0, 0, 0, 0, -25.8691, -10.5575, -58.9947, 0, 0, 0, 0, 0, 0, -26.2489, -11.7566, -61.0255, 0, 0, 0, 0, 0, 0, -27.5476, -13.6968, -63.6672, 0, 0, 0, 0, 0, 0, -25.4752, -14.0557, -65.3005, 0, 0, 0, 0, 0, 0, -20.7713, -13.8822, -66.3692, 0, 0, 0, 0, 0, 0, -17.7747, -14.1529, -67.7475, 0, 0, 0, 0, 0, 0, -16.1087, -12.7799, -64.3556, 0, 0, 0, 0, 0, 0, -13.99, -11.2968, -62.8175, 0, 0, 0, 0, 0, 0, -12.4965, -10.9771, -62.8336, 0, 0, 0, 0, 0, 0, -11.899, -12.4688, -65.5286, 0, 0, 0, 0, 0, 0, -11.0597, -13.683, -67.7374, 0, 0, 0, 0, 0, 0, -11.7216, -14.2822, -69.1547, 0, 0, 0, 0, 0, 0, -6.91145, -14.3703, -69.7147, 0, 0, 0, 0, 0, 0, -4.61241, -14.0314, -68.4373, 0, 0, 0, 0, 0, 0, -2.44172, -13.5407, -66.9535, 0, 0, 0, 0, 0, 0, 0.280469, -13.5962, -67.3168, 0, 0, 0, 0, 0, 0, 2.81579, -13.5938, -67.4525, 0, 0, 0, 0, 0, 0, 0.446155, -13.0897, -66.2624, 0, 0, 0, 0, 0, 0, -2.55393, -12.7246, -65.2871, 0, 0, 0, 0, 0, 0, -0.348958, -11.3472, -63.3117, 0, 0, 0, 0, 0, 0, 0.344551, -11.0036, -62.5657, 0, 0, 0, 0, 0, 0, 3.02352, -10.9858, -62.5403, 0, 0, 0, 0, 0, 0, 7.48245, -11.7855, -62.9847, 0, 0, 0, 0, 0, 0, 9.77704, -12.6263, -63.3595, 0, 0, 0, 0, 0, 0, 7.19586, -13.4863, -66.4714, 0, 0, 0, 0, 0, 0, 4.47554, -13.6822, -67.6662, 0, 0, 0, 0, 0, 0, 4.60873, -14.1781, -69.5773, 0, 0, 0, 0, 0, 0, 9.02574, -14.2074, -68.6707, 0, 0, 0, 0, 0, 0, 13.6472, -14.4352, -69.3795, 0, 0, 0, 0, 0, 0, 16.3153, -14.5386, -69.7215, 0, 0, 0, 0, 0, 0, 19.2651, -14.2401, -66.2656, 0, 0, 0, 0, 0, 0, 16.5844, -13.3279, -62.667, 0, 0, 0, 0, 0, 0, 16.4142, -11.0206, -59.2575, 0, 0, 0, 0, 0, 0, 19.7995, -11.1773, -59.6509, 0, 0, 0, 0, 0, 0, 24.5266, -11.3388, -59.0057, 0, 0, 0, 0, 0, 0, 26.3275, -11.9207, -60.045, 0, 0, 0, 0, 0, 0, 28.59, -12.3818, -61.644, 0, 0, 0, 0, 0, 0, 25.6655, -13.2433, -63.4921, 0, 0, 0, 0, 0, 0, 24.481, -13.512, -64.271, 0, 0, 0, 0, 0, 0, 26.6168, -13.5729, -65.0593),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+}
+point_count = 164
+
+[sub_resource type="Resource" id="Resource_0jt6o"]
+script = ExtResource("13_tarsg")
+curve = SubResource("Curve3D_8wgws")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vnhyj"]
+albedo_texture = ExtResource("11_8l0j4")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pvk44"]
+albedo_texture = ExtResource("11_8l0j4")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xxfhy"]
+albedo_texture = ExtResource("11_8l0j4")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_e2wrj"]
+albedo_texture = ExtResource("11_8l0j4")
+
+[node name="MedievalStrategyWorldMap" type="Node3D" unique_id=2137622839]
+script = ExtResource("22_mapctl")
+lighting_mode = 0
+ground_align_mode = 1
+support_size = Vector2(140, 140)
+spawn_surface_probe_radius = 24.0
+spawn_surface_probe_rings = 3
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1421367190]
+environment = SubResource("Environment_w6tuc")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1140285077]
+transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433013, -0.144566, -0.256016, 0.136246)
+shadow_enabled = true
+shadow_bias = 0.05
+directional_shadow_max_distance = 200.0
+
+[node name="terrain2" parent="." unique_id=1282510052 instance=ExtResource("1_kpybi")]
+transform = Transform3D(50, 0, 0, 0, 50, 0, 0, 0, 50, 0.335412, -3.51609, 0.613964)
+
+[node name="Sea" type="MeshInstance3D" parent="." unique_id=1950580493]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.15215, 0)
+mesh = SubResource("PlaneMesh_xgqkh")
+
+[node name="ProtonScatter" type="Node3D" parent="." unique_id=26494037]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 31.9293, 0)
+script = ExtResource("3_jtopj")
+render_mode = 2
+modifier_stack = SubResource("Resource_ts3gi")
+Performance/use_chunks = true
+Performance/chunk_dimensions = Vector3(50, 50, 50)
+
+[node name="ScatterItem" type="Node3D" parent="ProtonScatter" unique_id=344994381]
+script = ExtResource("10_0kyep")
+override_material = SubResource("StandardMaterial3D_y5hkx")
+path = "res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/grass-plant.glb"
+
+[node name="ScatterShape" type="Node3D" parent="ProtonScatter" unique_id=1578662990]
+transform = Transform3D(1, 0, -2.98023e-08, 0, 1, 0, 2.98023e-08, 0, 1, 0, 0, 0)
+script = ExtResource("12_kvotu")
+shape = SubResource("Resource_0jt6o")
+
+[node name="ScatterItem2" type="Node3D" parent="ProtonScatter" unique_id=585285751]
+script = ExtResource("10_0kyep")
+override_material = SubResource("StandardMaterial3D_vnhyj")
+path = "res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/grass-patch.glb"
+
+[node name="ScatterItem3" type="Node3D" parent="ProtonScatter" unique_id=375186997]
+script = ExtResource("10_0kyep")
+override_material = SubResource("StandardMaterial3D_pvk44")
+path = "res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/grass.glb"
+
+[node name="ScatterItem4" type="Node3D" parent="ProtonScatter" unique_id=1489681805]
+script = ExtResource("10_0kyep")
+proportion = 5
+override_material = SubResource("StandardMaterial3D_xxfhy")
+path = "res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/palm-straight.glb"
+
+[node name="ScatterItem5" type="Node3D" parent="ProtonScatter" unique_id=1427457778]
+script = ExtResource("10_0kyep")
+proportion = 5
+override_material = SubResource("StandardMaterial3D_e2wrj")
+path = "res://scenes/level/maps/medieval_strategy_world_assets/models/kenney_pirate/palm-bend.glb"
+
+[node name="Buildings" type="Node3D" parent="." unique_id=2000356411]
+
+[node name="building_lumbermill_blue2" parent="Buildings" unique_id=910415861 instance=ExtResource("14_o8fc1")]
+transform = Transform3D(1.91342, 0, -4.6194, 0, 5, 0, 4.6194, 0, 1.91342, 25.7162, 21.9061, 4.96431)
+
+[node name="building_market_blue2" parent="Buildings" unique_id=1238280019 instance=ExtResource("15_xo05s")]
+transform = Transform3D(2.88957, 0, 4.08049, 0, 5, 0, -4.08049, 0, 2.88957, -10.7365, 16.9199, 45.296)
+
+[node name="building_mine_blue2" parent="Buildings" unique_id=1742604842 instance=ExtResource("16_dss4m")]
+transform = Transform3D(1.02462, 0, -4.89389, -0.195632, 4.996, -0.0409588, 4.88998, 0.199874, 1.0238, 27.623, 17.3288, 44.3009)
+
+[node name="building_church_blue2" parent="Buildings" unique_id=1041903350 instance=ExtResource("17_pm21f")]
+transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 6, 6.54322, 21.4572, 0.557521)
+
+[node name="building_home_A_blue2" parent="Buildings" unique_id=1944406559 instance=ExtResource("18_2lf6f")]
+transform = Transform3D(-0.729246, 0.257824, 4.93981, -0.095188, 4.99155, -0.274577, -4.94562, -0.134089, -0.723104, -2.19679, 21.5988, 14.6703)
+
+[node name="building_home_B_blue2" parent="Buildings" unique_id=924404503 instance=ExtResource("19_7iits")]
+transform = Transform3D(-1.69718, 0.247997, -4.6966, 0.0842828, 4.99385, 0.233236, 4.70239, 0, -1.69927, 12.3488, 20.9892, 14.271)
+
+[node name="building_tavern_blue2" parent="Buildings" unique_id=424854720 instance=ExtResource("20_2lf6f")]
+transform = Transform3D(0.604063, 0, 4.96338, 0, 5, 0, -4.96338, 0, 0.604063, -17.2192, 21.3816, 6.20329)
+
+[node name="building_windmill_blue2" parent="Buildings" unique_id=862882824 instance=ExtResource("21_7iits")]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 14.2349, 21.4075, -17.2907)
+
+[node name="PlayerSpawnpoints" type="Node3D" parent="." unique_id=1759111590]
+
+[node name="Spawn1" type="Marker3D" parent="PlayerSpawnpoints" unique_id=930520728]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 22, 0)
+
+[node name="Spawn2" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1003743786]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 22, 10)
+
+[node name="Spawn3" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1638725299]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 22, 10)
+
+[node name="Spawn4" type="Marker3D" parent="PlayerSpawnpoints" unique_id=50423084]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 22, -12)
+
+[node name="Spawn5" type="Marker3D" parent="PlayerSpawnpoints" unique_id=804351318]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 22, -8)
+
+[node name="Spawn6" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1763845592]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 22, 8)
+
+[node name="Spawn7" type="Marker3D" parent="PlayerSpawnpoints" unique_id=189715684]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 22, 16)
+
+[node name="Spawn8" type="Marker3D" parent="PlayerSpawnpoints" unique_id=1112580304]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 22, 24)

@@ -251,6 +251,7 @@ const MAP_PROP_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
 const UNITY_DECOR_SPAWN_BATCH_SIZE: int = 3
 const UNITY_DECOR_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
 const WORLD_COLLISION_MASK: int = 2
+const DEFAULT_MAP_NAME := "Medieval Strategy World"
 const TPS_DEMO_LEVEL_MAP_NAME := "TPS Demo Level"
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
@@ -260,6 +261,7 @@ const FIXED_SHADOW_ZONE_GROUP := "stalker_shadow_zone"
 const RANDOM_DECOR_SHADOW_NOISE_GROUP := "dynamic_shadow_noise"
 const FIXED_SHADOW_COVER_MATERIAL := Color(0.18, 0.14, 0.10, 1.0)
 const TANK_DEMO_MAP_SCENES := {
+	"Medieval Strategy World": "res://scenes/level/maps/medieval_strategy_world.tscn",
 	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
 	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
 	"Tank Demo Moon": "res://scenes/level/maps/tank_demo_moon.tscn",
@@ -477,7 +479,7 @@ func _begin_client_match_loading(map_name: String) -> void:
 func _server_start_loading_phase() -> void:
 	if not _is_multiplayer_server():
 		return
-	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	var selected_map := str(Network.lobby_config.get("map", DEFAULT_MAP_NAME))
 	Network.server_broadcast_match_loading_started(selected_map)
 	await _run_match_loading_sequence(selected_map)
 	if game_state != GameState.LOADING:
@@ -868,7 +870,7 @@ func _apply_selected_map_scene() -> void:
 	if existing:
 		existing.free()
 
-	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	var selected_map := str(Network.lobby_config.get("map", DEFAULT_MAP_NAME))
 	var gdquest_arena := environment.get_node_or_null("GDQuestControllerArena") as Node3D
 	var is_tank_demo_map := TANK_DEMO_MAP_SCENES.has(selected_map)
 	if gdquest_arena:
@@ -908,7 +910,7 @@ func _apply_selected_map_scene_if_stale() -> void:
 	var environment := get_node_or_null("Environment") as Node3D
 	if not environment:
 		return
-	var selected_map := str(Network.lobby_config.get("map", "Warehouse"))
+	var selected_map := str(Network.lobby_config.get("map", DEFAULT_MAP_NAME))
 	var existing := environment.get_node_or_null("TankDemoMapRoot")
 	if TANK_DEMO_MAP_SCENES.has(selected_map):
 		if existing and str(existing.get_meta("selected_map", "")) == selected_map:

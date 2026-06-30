@@ -59,6 +59,9 @@ func prepare() -> void:
 	_prepared = true
 	_apply_lighting_policy()
 	_apply_collision_policy()
+	# ProtonScatter (vegetation) raycasts onto the terrain collider; at _ready the physics space
+	# isn't populated yet, so an authored scatter comes up empty. Rebuild it once physics is live.
+	call_deferred("_rebuild_scatter_nodes")
 	_playable_bounds = _compute_playable_bounds()
 	if ground_align_mode == MapProfile.GroundAlign.BOTTOM:
 		_align_bottom_to_ground()
@@ -131,16 +134,17 @@ func _apply_collision_policy() -> void:
 
 
 func _adapt_collision_layers() -> void:
-	# Re-route already-authored colliders onto the world layer so players and
-	# props (which mask the world layer) collide with the map. Area3D triggers
-	# and explicitly-disabled (layer 0) bodies are left untouched.
+	# Add the world layer to already-authored colliders so players and props (which mask the
+	# world layer) collide with the map. We ADD it rather than replace, so a collider's original
+	# layer survives — e.g. terrain stays on layer 1 where ProtonScatter raycasts its vegetation.
+	# Area3D triggers and explicitly-disabled (layer 0) bodies are left untouched.
 	for node in find_children("*", "CollisionObject3D", true, false):
 		var collision := node as CollisionObject3D
 		if collision == null or collision is Area3D:
 			continue
 		if collision.collision_layer == 0:
 			continue
-		collision.collision_layer = WORLD_LAYER
+		collision.collision_layer |= WORLD_LAYER
 
 
 func _generate_trimesh_collision() -> void:
@@ -172,6 +176,31 @@ func _generate_trimesh_collision() -> void:
 		shape_node.shape = shape
 		body.add_child(shape_node)
 		created += 1
+
+
+# -- Vegetation ---------------------------------------------------------------
+
+# Rebuild ProtonScatter vegetation once physics is live. Scene-authored scatter raycasts onto the
+# terrain collider in its project_on_geometry modifier, but at _ready the physics space isn't
+# populated yet (and the migrated scene ships no baked output), so it comes up empty. One rebuild
+# after a couple of physics frames re-projects the grass/palms onto the now-collidable terrain.
+# Visual-only, so it is skipped on a dedicated headless server.
+func _rebuild_scatter_nodes() -> void:
+	if not is_inside_tree():
+		return
+	if RuntimeMode.is_dedicated_public_server(multiplayer, Network.lobby_config):
+		return
+	# Delay past boot/world init before triggering the rebuild. ProtonScatter runs its
+	# project_on_geometry physics raycasts on a worker thread, which deadlocks against the engine's
+	# physics setup during the first frames; once the world is live the same threaded rebuild runs
+	# safely. The synchronous (dbg_disable_thread) path does not actually run the modifier stack, so
+	# the threaded path is required to generate any output.
+	await get_tree().create_timer(1.0).timeout
+	if not is_inside_tree():
+		return
+	for node in find_children("*", "Node3D", true, false):
+		if node != self and node.has_method("full_rebuild"):
+			node.call("full_rebuild")
 
 
 # -- Grounding ----------------------------------------------------------------

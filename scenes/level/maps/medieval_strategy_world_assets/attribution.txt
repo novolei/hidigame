@@ -1,0 +1,4 @@
+This project includes 3D models and art assets made by third parties.
+
+1. Pirate Kit by Kenney - <https://kenney.nl/assets/pirate-kit> - CC0
+2. Medieval Hexago Pack FREE by KayKit - <https://kaylousberg.itch.io/kaykit-medieval-hexagon> CC0
