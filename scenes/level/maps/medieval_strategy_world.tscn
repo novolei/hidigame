@@ -48,15 +48,6 @@ adjustment_enabled = true
 adjustment_contrast = 1.1
 adjustment_saturation = 1.2
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8esdv"]
-transparency = 1
-albedo_color = Color(0.13, 0.5, 0.62, 0.78)
-metallic = 0.25
-metallic_specular = 0.6
-roughness = 0.08
-rim_enabled = true
-rim = 0.3
-
 [sub_resource type="PlaneMesh" id="PlaneMesh_xgqkh"]
 material = ExtResource("3_kpybi")
 size = Vector2(3000, 3000)
@@ -140,7 +131,6 @@ transform = Transform3D(50, 0, 0, 0, 50, 0, 0, 0, 50, 0.335412, -3.51609, 0.6139
 
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=1950580493]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.15215, 0)
-material_override = SubResource("StandardMaterial3D_8esdv")
 mesh = SubResource("PlaneMesh_xgqkh")
 
 [node name="ProtonScatter" type="Node3D" parent="." unique_id=26494037]
