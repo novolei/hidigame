@@ -47,7 +47,11 @@ static func _ensure_built() -> void:
 	medieval.scene_path = "res://scenes/level/maps/medieval_strategy_world.tscn"
 	medieval.lighting_mode = MapProfile.Lighting.KEEP
 	medieval.collision_mode = MapProfile.Collision.ADAPT_LAYERS
-	medieval.ground_align_mode = MapProfile.GroundAlign.SPAWN_SURFACE
+	# NONE, not SPAWN_SURFACE: the map is authored already grounded (terrain surface ~y=21.5,
+	# spawns ~y=22). The runtime spawn-surface align is a deferred physics-raycast shift that
+	# diverged in the level context and dropped players onto the invisible support floor; keeping
+	# the authored position makes grounding deterministic and identical on every peer.
+	medieval.ground_align_mode = MapProfile.GroundAlign.NONE
 	medieval.ground_y = 0.0
 	medieval.add_support_floor = true
 	medieval.support_size = Vector2(140.0, 140.0)

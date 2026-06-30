@@ -113,7 +113,6 @@ albedo_texture = ExtResource("11_8l0j4")
 [node name="MedievalStrategyWorldMap" type="Node3D" unique_id=2137622839]
 script = ExtResource("22_mapctl")
 lighting_mode = 0
-ground_align_mode = 1
 support_size = Vector2(140, 140)
 spawn_surface_probe_radius = 24.0
 spawn_surface_probe_rings = 3
