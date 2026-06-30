@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://by2bpibocae1w"]
+
+[ext_resource type="Script" uid="uid://c4cvs4k7oa3p2" path="res://tests/vegetation/vegetation_controller_headless_test.gd" id="1_w4sfv"]
+
+[node name="VegetationControllerHeadlessTest" type="Node" unique_id=1308816584]
+script = ExtResource("1_w4sfv")

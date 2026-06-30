@@ -1,9 +1,30 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://blbjff4auimn0"]
 
-[ext_resource type="Script" path="res://scripts/polygon_apocalypse_map.gd" id="1_map"]
+[ext_resource type="Script" uid="uid://d288wivxv4le" path="res://scripts/polygon_apocalypse_map.gd" id="1_map"]
+[ext_resource type="Script" uid="uid://y4rp5nlw8w2d" path="res://scripts/vegetation/vegetation_controller.gd" id="2_odlbd"]
+[ext_resource type="Script" uid="uid://8xai31eiuxai" path="res://scripts/vegetation/vegetation_profile.gd" id="3_pp7y5"]
 
-[node name="PolygonApocalypseCityWarehouseWard" type="Node3D"]
+[sub_resource type="Resource" id="Resource_3xb5h"]
+resource_name = "VegetationProfile_city_standard_warehouse_ward"
+script = ExtResource("3_pp7y5")
+profile_id = "city_standard_warehouse_ward_vegetation"
+generation_seed = 720709566
+grass_instance_count = 9400
+grass_patch_frequency = 0.026
+grass_edge_bias = 0.46
+grass_wind_strength = 0.52
+tree_wind_strength = 0.36
+tree_count = 24
+tree_edge_margin = 0.2
+tree_scene_paths = PackedStringArray("res://assets/unity_migrated/polygon_apocalypse/Models/SM_Env_Tree_01.glb", "res://assets/unity_migrated/polygon_apocalypse/Models/SM_Env_Tree_02.glb", "res://assets/unity_migrated/polygon_apocalypse/Models/SM_Env_Tree_03.glb", "res://assets/unity_migrated/polygon_apocalypse/Models/SM_Env_Tree_04.glb", "res://assets/unity_migrated/polygon_apocalypse/Models/SM_Env_Tree_Pine_Tall_01.glb", "res://assets/unity_migrated/polygon_apocalypse/Models/SM_Generic_Tree_01.glb")
+
+[node name="PolygonApocalypseCityWarehouseWard" type="Node3D" unique_id=484327404]
 script = ExtResource("1_map")
 map_id = "city_standard"
 sector_id = "warehouse_ward"
 collision_budget = 800
+
+[node name="VegetationController" type="Node3D" parent="." unique_id=398803382]
+script = ExtResource("2_odlbd")
+profile = SubResource("Resource_3xb5h")
+install_wait_frames = 18

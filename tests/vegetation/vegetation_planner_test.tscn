@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cjfhkvuitv3tx"]
+
+[ext_resource type="Script" uid="uid://ccn76da8rsn1a" path="res://tests/vegetation/vegetation_planner_test.gd" id="1_ikxmg"]
+
+[node name="VegetationPlannerTest" type="Node" unique_id=1040116504]
+script = ExtResource("1_ikxmg")
