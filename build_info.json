@@ -1,10 +1,10 @@
 {
-  "build_id": "95927f0e",
-  "content_version": "0.4.29+20260630.95927f0e",
-  "version": "0.4.29",
+  "build_id": "PENDING",
+  "content_version": "0.4.30+20260701.PENDING",
+  "version": "0.4.30",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "95927f0ed3631f6c3a87ed90a5658de9a7fa4b8b",
-  "built_at": "2026-06-30T01:10:00+08:00",
-  "role": "hotpatch"
+  "git_commit": "PENDING",
+  "built_at": "2026-07-01T08:30:00+08:00",
+  "role": "baseline"
 }

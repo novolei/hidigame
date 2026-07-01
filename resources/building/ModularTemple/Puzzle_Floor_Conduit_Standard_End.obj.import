@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c8f10pwfsq5vq"
+path="res://.godot/imported/Puzzle_Floor_Conduit_Standard_End.obj-0f6b7f25729cd065a8ad300291049911.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Puzzle_Floor_Conduit_Standard_End.obj-0f6b7f25729cd065a8ad300291049911.mesh"]
+
+source_file="res://resources/building/ModularTemple/Puzzle_Floor_Conduit_Standard_End.obj"
+dest_files=["res://.godot/imported/Puzzle_Floor_Conduit_Standard_End.obj-0f6b7f25729cd065a8ad300291049911.mesh", "res://.godot/imported/Puzzle_Floor_Conduit_Standard_End.obj-0f6b7f25729cd065a8ad300291049911.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

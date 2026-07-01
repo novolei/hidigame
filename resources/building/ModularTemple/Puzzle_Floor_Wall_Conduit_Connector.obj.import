@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dy4dgr4dtj0sn"
+path="res://.godot/imported/Puzzle_Floor_Wall_Conduit_Connector.obj-7d17deff1bb8327b99db34c8fa6fdbbd.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Puzzle_Floor_Wall_Conduit_Connector.obj-7d17deff1bb8327b99db34c8fa6fdbbd.mesh"]
+
+source_file="res://resources/building/ModularTemple/Puzzle_Floor_Wall_Conduit_Connector.obj"
+dest_files=["res://.godot/imported/Puzzle_Floor_Wall_Conduit_Connector.obj-7d17deff1bb8327b99db34c8fa6fdbbd.mesh", "res://.godot/imported/Puzzle_Floor_Wall_Conduit_Connector.obj-7d17deff1bb8327b99db34c8fa6fdbbd.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

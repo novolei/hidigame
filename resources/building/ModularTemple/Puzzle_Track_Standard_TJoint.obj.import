@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b3dv78r2dg5fx"
+path="res://.godot/imported/Puzzle_Track_Standard_TJoint.obj-533d96d9a4ca72766b1208d53121478f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Puzzle_Track_Standard_TJoint.obj-533d96d9a4ca72766b1208d53121478f.mesh"]
+
+source_file="res://resources/building/ModularTemple/Puzzle_Track_Standard_TJoint.obj"
+dest_files=["res://.godot/imported/Puzzle_Track_Standard_TJoint.obj-533d96d9a4ca72766b1208d53121478f.mesh", "res://.godot/imported/Puzzle_Track_Standard_TJoint.obj-533d96d9a4ca72766b1208d53121478f.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

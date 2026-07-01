@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://7unsjn1pulwm"]
+
+[ext_resource type="Script" uid="uid://uv7tinq3lgrt" path="res://scripts/vegetation/vegetation_touch_demo_scene.gd" id="1_q83cy"]
+
+[node name="VegetationTouchLab" type="Node3D" unique_id=1114532871]
+script = ExtResource("1_q83cy")

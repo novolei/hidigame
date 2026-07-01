@@ -41,6 +41,20 @@ static func _ensure_built() -> void:
 		return
 	_built = true
 
+	var sunny := MapProfile.new()
+	sunny.id = &"sunny_island"
+	sunny.display_name = "Sunny Island"
+	sunny.scene_path = "res://scenes/level/maps/procedural_sunny_island.tscn"
+	sunny.lighting_mode = MapProfile.Lighting.KEEP
+	sunny.collision_mode = MapProfile.Collision.ADAPT_LAYERS
+	sunny.ground_align_mode = MapProfile.GroundAlign.NONE
+	sunny.ground_y = -3.0
+	sunny.add_support_floor = true
+	sunny.support_size = Vector2(150.0, 150.0)
+	sunny.use_warehouse_layout = false
+	sunny.size_category = MapProfile.SizeCategory.LARGE
+	_authored["Sunny Island"] = sunny
+
 	var medieval := MapProfile.new()
 	medieval.id = &"medieval_strategy_world"
 	medieval.display_name = "Medieval Strategy World"
@@ -53,7 +67,9 @@ static func _ensure_built() -> void:
 	# the authored position makes grounding deterministic and identical on every peer.
 	medieval.ground_align_mode = MapProfile.GroundAlign.NONE
 	medieval.ground_y = 0.0
-	medieval.add_support_floor = true
+	# No flat support floor: the island is a sloped dome with solid terrain collision. A flat y=0
+	# fall-guard would sit above the down-sloping terrain and trap the player on a flat plane.
+	medieval.add_support_floor = false
 	medieval.support_size = Vector2(140.0, 140.0)
 	medieval.use_warehouse_layout = false
 	medieval.size_category = MapProfile.SizeCategory.LARGE

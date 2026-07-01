@@ -2,17 +2,21 @@ class_name VegetationTouchSampler
 extends Node
 
 const MAX_TOUCH_SLOTS: int = 8
+const MIN_TOUCH_EMIT_INTERVAL: float = 0.065
 
 var _material: ShaderMaterial
-var _touch_radius: float = 2.85
-var _touch_push_strength: float = 1.18
-var _touch_crush_strength: float = 0.34
-var _touch_recovery_speed: float = 1.28
-var _touch_min_move_distance: float = 0.18
-var _active_slots: int = 8
+var _touch_radius: float = 2.65
+var _touch_push_strength: float = 0.72
+var _touch_crush_strength: float = 0.62
+var _touch_recovery_speed: float = 0.92
+var _touch_min_move_distance: float = 0.24
+var _active_slots: int = 6
 var _next_slot: int = 0
 var _active_touch_count: int = 0
 var _previous_positions: Dictionary = {}
+var _last_touch_positions: Dictionary = {}
+var _distance_since_touch: Dictionary = {}
+var _last_emit_times: Dictionary = {}
 
 
 func configure(shader_material: ShaderMaterial, profile: VegetationProfile) -> void:
@@ -71,22 +75,40 @@ func _sample_player_motion(now_seconds: float) -> void:
 		var previous_position: Vector3 = _previous_positions.get(player_id, current_position)
 		var movement: Vector3 = current_position - previous_position
 		var movement_xz := Vector2(movement.x, movement.z)
-		if movement_xz.length() >= _touch_min_move_distance:
-			_emit_touch(current_position, movement_xz, now_seconds)
+		var movement_distance: float = movement_xz.length()
+		if not _last_touch_positions.has(player_id):
+			_last_touch_positions[player_id] = previous_position
+		var accumulated_distance: float = float(_distance_since_touch.get(player_id, 0.0)) + movement_distance
+		_distance_since_touch[player_id] = accumulated_distance
+		var last_emit_time: float = float(_last_emit_times.get(player_id, -1000.0))
+		if accumulated_distance >= _touch_min_move_distance and now_seconds - last_emit_time >= MIN_TOUCH_EMIT_INTERVAL:
+			var touch_start: Vector3 = _last_touch_positions.get(player_id, previous_position)
+			var touch_position: Vector3 = touch_start.lerp(current_position, 0.62)
+			var travel: Vector3 = current_position - touch_start
+			var travel_xz := Vector2(travel.x, travel.z)
+			if travel_xz.length() < 0.001:
+				travel_xz = movement_xz
+			_emit_touch(touch_position, travel_xz, now_seconds, accumulated_distance)
+			_last_emit_times[player_id] = now_seconds
+			_last_touch_positions[player_id] = current_position
+			_distance_since_touch[player_id] = 0.0
 		_previous_positions[player_id] = current_position
 
 	for stored_id in _previous_positions.keys():
 		if not alive_ids.has(stored_id):
 			_previous_positions.erase(stored_id)
+			_last_touch_positions.erase(stored_id)
+			_distance_since_touch.erase(stored_id)
+			_last_emit_times.erase(stored_id)
 
 
-func _emit_touch(world_position: Vector3, movement_xz: Vector2, now_seconds: float) -> void:
+func _emit_touch(world_position: Vector3, movement_xz: Vector2, now_seconds: float, travel_distance: float) -> void:
 	if _material == null:
 		return
 	var direction := Vector2.ZERO
 	if movement_xz.length() > 0.001:
 		direction = movement_xz.normalized()
-	var speed_factor: float = clampf(movement_xz.length() / maxf(_touch_min_move_distance, 0.001), 0.35, 1.65)
+	var speed_factor: float = clampf(travel_distance / maxf(_touch_min_move_distance, 0.001), 0.46, 1.12)
 	var slot: int = _next_slot
 	_next_slot = (_next_slot + 1) % _active_slots
 	_active_touch_count = mini(_active_touch_count + 1, _active_slots)

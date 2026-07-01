@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://ocx5wp6httwo"]
+
+[ext_resource type="Script" uid="uid://dugmj3yjterp1" path="res://scripts/maps/procedural/procedural_sunny_island_map.gd" id="1_a8iv5"]
+
+[node name="ProceduralSunnyIslandMap" type="Node3D" unique_id=828270274]
+script = ExtResource("1_a8iv5")
+lighting_mode = 0
+ground_y = -3.0
+support_size = Vector2(150, 150)

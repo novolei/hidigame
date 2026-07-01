@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bl5tlc13oag4w"
+path="res://.godot/imported/Balcony_Base_Straight.obj-51a0fb4f367c21d4fe6eb0b9029dbea7.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Balcony_Base_Straight.obj-51a0fb4f367c21d4fe6eb0b9029dbea7.mesh"]
+
+source_file="res://resources/building/ModularTemple/Balcony_Base_Straight.obj"
+dest_files=["res://.godot/imported/Balcony_Base_Straight.obj-51a0fb4f367c21d4fe6eb0b9029dbea7.mesh", "res://.godot/imported/Balcony_Base_Straight.obj-51a0fb4f367c21d4fe6eb0b9029dbea7.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

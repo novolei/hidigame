@@ -2206,7 +2206,7 @@ func _build_match_details_panel() -> Control:
 	box.add_child(players_hint_label)
 	box.add_child(_thin_separator())
 
-	map_option = _option(["Medieval Strategy World", "Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "TPS Demo Level", "garden", "Japanese Town Street", "Western Town Prop Hunt", "Polygon Apocalypse Bunker", "Polygon Apocalypse Interior", "Polygon Apocalypse City", "Polygon Apocalypse City URP", "Polygon Apocalypse City: Downtown Escape", "Polygon Apocalypse City: Quarantine Crossing", "Polygon Apocalypse City: Market Row", "Polygon Apocalypse City: Overpass Camp", "Polygon Apocalypse City: Warehouse Ward", "Polygon Apocalypse City URP: Downtown Escape", "Polygon Apocalypse City URP: Quarantine Crossing", "Polygon Apocalypse City URP: Market Row", "Polygon Apocalypse City URP: Overpass Camp", "Polygon Apocalypse City URP: Warehouse Ward"], "map")
+	map_option = _option(["Sunny Island", "Polygon Apocalypse City URP: Warehouse Ward", "Medieval Strategy World", "Warehouse", "Street Block", "Training Yard", "Tank Demo Desert", "Tank Demo Jungle", "Tank Demo Moon", "TPS Demo Level", "garden", "Japanese Town Street", "Western Town Prop Hunt", "Polygon Apocalypse Bunker", "Polygon Apocalypse Interior", "Polygon Apocalypse City", "Polygon Apocalypse City URP", "Polygon Apocalypse City: Downtown Escape", "Polygon Apocalypse City: Quarantine Crossing", "Polygon Apocalypse City: Market Row", "Polygon Apocalypse City: Overpass Camp", "Polygon Apocalypse City: Warehouse Ward", "Polygon Apocalypse City URP: Downtown Escape", "Polygon Apocalypse City URP: Quarantine Crossing", "Polygon Apocalypse City URP: Market Row", "Polygon Apocalypse City URP: Overpass Camp"], "map")
 	variant_option = _option(["Default", "Low Ammo", "Fast Hunt"], "variant")
 	condition_option = _option(["Normal", "Rain", "Night"], "condition")
 	game_show_option = _option(["None", "Airdrop Show", "Chaos Show"], "game_show")
@@ -2594,7 +2594,7 @@ func _update_start_button(players: Dictionary) -> void:
 
 
 func _update_config_controls(config: Dictionary) -> void:
-	_set_option_by_value(map_option, str(config.get("map", "Medieval Strategy World")), 0)
+	_set_option_by_value(map_option, str(config.get("map", "Sunny Island")), 0)
 	_set_option_by_value(variant_option, str(config.get("variant", "Default")), 0)
 	_set_option_by_value(condition_option, str(config.get("condition", "Normal")), 0)
 	_set_option_by_value(game_show_option, str(config.get("game_show", "None")), 0)
@@ -2612,7 +2612,7 @@ func _collect_lobby_config() -> Dictionary:
 	return {
 		"lobby_id": current_lobby_id,
 		"room_name": str(Network.lobby_config.get("room_name", get_room_name())),
-		"map": _get_option_value(map_option, "Medieval Strategy World"),
+		"map": _get_option_value(map_option, "Sunny Island"),
 		"variant": _get_option_value(variant_option, "Default"),
 		"condition": _get_option_value(condition_option, "Normal"),
 		"game_show": _get_option_value(game_show_option, "None"),

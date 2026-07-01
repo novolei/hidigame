@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c5xyjoqs2ntvy"
+path="res://.godot/imported/Wall_Curved_Small_Top.obj-7a52a4d555f295c9056a333dcaff603f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wall_Curved_Small_Top.obj-7a52a4d555f295c9056a333dcaff603f.mesh"]
+
+source_file="res://resources/building/ModularTemple/Wall_Curved_Small_Top.obj"
+dest_files=["res://.godot/imported/Wall_Curved_Small_Top.obj-7a52a4d555f295c9056a333dcaff603f.mesh", "res://.godot/imported/Wall_Curved_Small_Top.obj-7a52a4d555f295c9056a333dcaff603f.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

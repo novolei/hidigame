@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dglukkrlu1erm"
+path="res://.godot/imported/Puzzle_Closed_Conduit_Straight.obj-88fa2922705e3bb283dcec0b95e7127f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Puzzle_Closed_Conduit_Straight.obj-88fa2922705e3bb283dcec0b95e7127f.mesh"]
+
+source_file="res://resources/building/ModularTemple/Puzzle_Closed_Conduit_Straight.obj"
+dest_files=["res://.godot/imported/Puzzle_Closed_Conduit_Straight.obj-88fa2922705e3bb283dcec0b95e7127f.mesh", "res://.godot/imported/Puzzle_Closed_Conduit_Straight.obj-88fa2922705e3bb283dcec0b95e7127f.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

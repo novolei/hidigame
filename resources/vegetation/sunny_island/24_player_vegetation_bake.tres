@@ -1,0 +1,3158 @@
+[gd_resource type="Resource" script_class="VegetationBakeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/vegetation/vegetation_bake_data.gd" id="1_a7e72"]
+
+[resource]
+script = ExtResource("1_a7e72")
+map_id = "sunny_island"
+tier_name = "24_player"
+profile_id = "sunny_island_24_player"
+generation_seed = 231659494
+source_asset_root = "res://assets/nature_megakit/gltf/"
+total_instance_count = 92086
+grass_instance_count = 90000
+flower_instance_count = 2000
+tree_instance_count = 86
+grass_chunks = Array[Dictionary]([{
+"instance_count": 1227,
+"key": "-1:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-1_0.res",
+"origin": Vector3(-8, 0, -8),
+"variant": 0
+}, {
+"instance_count": 149,
+"key": "-1:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-1_1.res",
+"origin": Vector3(-8, 0, -8),
+"variant": 1
+}, {
+"instance_count": 96,
+"key": "-1:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-1_2.res",
+"origin": Vector3(-8, 0, -8),
+"variant": 2
+}, {
+"instance_count": 743,
+"key": "-1:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-2_0.res",
+"origin": Vector3(-8, 0, -24),
+"variant": 0
+}, {
+"instance_count": 80,
+"key": "-1:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-2_1.res",
+"origin": Vector3(-8, 0, -24),
+"variant": 1
+}, {
+"instance_count": 68,
+"key": "-1:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-2_2.res",
+"origin": Vector3(-8, 0, -24),
+"variant": 2
+}, {
+"instance_count": 677,
+"key": "-1:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-3_0.res",
+"origin": Vector3(-8, 0, -40),
+"variant": 0
+}, {
+"instance_count": 96,
+"key": "-1:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-3_1.res",
+"origin": Vector3(-8, 0, -40),
+"variant": 1
+}, {
+"instance_count": 74,
+"key": "-1:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-3_2.res",
+"origin": Vector3(-8, 0, -40),
+"variant": 2
+}, {
+"instance_count": 612,
+"key": "-1:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-4_0.res",
+"origin": Vector3(-8, 0, -56),
+"variant": 0
+}, {
+"instance_count": 69,
+"key": "-1:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-4_1.res",
+"origin": Vector3(-8, 0, -56),
+"variant": 1
+}, {
+"instance_count": 61,
+"key": "-1:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-4_2.res",
+"origin": Vector3(-8, 0, -56),
+"variant": 2
+}, {
+"instance_count": 237,
+"key": "-1:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-5_0.res",
+"origin": Vector3(-8, 0, -72),
+"variant": 0
+}, {
+"instance_count": 41,
+"key": "-1:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-5_1.res",
+"origin": Vector3(-8, 0, -72),
+"variant": 1
+}, {
+"instance_count": 28,
+"key": "-1:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_-5_2.res",
+"origin": Vector3(-8, 0, -72),
+"variant": 2
+}, {
+"instance_count": 930,
+"key": "-1:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_0_0.res",
+"origin": Vector3(-8, 0, 8),
+"variant": 0
+}, {
+"instance_count": 103,
+"key": "-1:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_0_1.res",
+"origin": Vector3(-8, 0, 8),
+"variant": 1
+}, {
+"instance_count": 92,
+"key": "-1:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_0_2.res",
+"origin": Vector3(-8, 0, 8),
+"variant": 2
+}, {
+"instance_count": 789,
+"key": "-1:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_1_0.res",
+"origin": Vector3(-8, 0, 24),
+"variant": 0
+}, {
+"instance_count": 123,
+"key": "-1:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_1_1.res",
+"origin": Vector3(-8, 0, 24),
+"variant": 1
+}, {
+"instance_count": 71,
+"key": "-1:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_1_2.res",
+"origin": Vector3(-8, 0, 24),
+"variant": 2
+}, {
+"instance_count": 422,
+"key": "-1:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_2_0.res",
+"origin": Vector3(-8, 0, 40),
+"variant": 0
+}, {
+"instance_count": 52,
+"key": "-1:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_2_1.res",
+"origin": Vector3(-8, 0, 40),
+"variant": 1
+}, {
+"instance_count": 43,
+"key": "-1:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_2_2.res",
+"origin": Vector3(-8, 0, 40),
+"variant": 2
+}, {
+"instance_count": 461,
+"key": "-1:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_3_0.res",
+"origin": Vector3(-8, 0, 56),
+"variant": 0
+}, {
+"instance_count": 75,
+"key": "-1:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_3_1.res",
+"origin": Vector3(-8, 0, 56),
+"variant": 1
+}, {
+"instance_count": 41,
+"key": "-1:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_3_2.res",
+"origin": Vector3(-8, 0, 56),
+"variant": 2
+}, {
+"instance_count": 188,
+"key": "-1:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_4_0.res",
+"origin": Vector3(-8, 0, 72),
+"variant": 0
+}, {
+"instance_count": 22,
+"key": "-1:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_4_1.res",
+"origin": Vector3(-8, 0, 72),
+"variant": 1
+}, {
+"instance_count": 19,
+"key": "-1:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-1_4_2.res",
+"origin": Vector3(-8, 0, 72),
+"variant": 2
+}, {
+"instance_count": 1197,
+"key": "-2:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-1_0.res",
+"origin": Vector3(-24, 0, -8),
+"variant": 0
+}, {
+"instance_count": 143,
+"key": "-2:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-1_1.res",
+"origin": Vector3(-24, 0, -8),
+"variant": 1
+}, {
+"instance_count": 129,
+"key": "-2:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-1_2.res",
+"origin": Vector3(-24, 0, -8),
+"variant": 2
+}, {
+"instance_count": 671,
+"key": "-2:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-2_0.res",
+"origin": Vector3(-24, 0, -24),
+"variant": 0
+}, {
+"instance_count": 90,
+"key": "-2:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-2_1.res",
+"origin": Vector3(-24, 0, -24),
+"variant": 1
+}, {
+"instance_count": 62,
+"key": "-2:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-2_2.res",
+"origin": Vector3(-24, 0, -24),
+"variant": 2
+}, {
+"instance_count": 747,
+"key": "-2:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-3_0.res",
+"origin": Vector3(-24, 0, -40),
+"variant": 0
+}, {
+"instance_count": 89,
+"key": "-2:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-3_1.res",
+"origin": Vector3(-24, 0, -40),
+"variant": 1
+}, {
+"instance_count": 76,
+"key": "-2:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-3_2.res",
+"origin": Vector3(-24, 0, -40),
+"variant": 2
+}, {
+"instance_count": 867,
+"key": "-2:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-4_0.res",
+"origin": Vector3(-24, 0, -56),
+"variant": 0
+}, {
+"instance_count": 94,
+"key": "-2:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-4_1.res",
+"origin": Vector3(-24, 0, -56),
+"variant": 1
+}, {
+"instance_count": 113,
+"key": "-2:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-4_2.res",
+"origin": Vector3(-24, 0, -56),
+"variant": 2
+}, {
+"instance_count": 451,
+"key": "-2:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-5_0.res",
+"origin": Vector3(-24, 0, -72),
+"variant": 0
+}, {
+"instance_count": 71,
+"key": "-2:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-5_1.res",
+"origin": Vector3(-24, 0, -72),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "-2:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_-5_2.res",
+"origin": Vector3(-24, 0, -72),
+"variant": 2
+}, {
+"instance_count": 1060,
+"key": "-2:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_0_0.res",
+"origin": Vector3(-24, 0, 8),
+"variant": 0
+}, {
+"instance_count": 150,
+"key": "-2:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_0_1.res",
+"origin": Vector3(-24, 0, 8),
+"variant": 1
+}, {
+"instance_count": 105,
+"key": "-2:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_0_2.res",
+"origin": Vector3(-24, 0, 8),
+"variant": 2
+}, {
+"instance_count": 471,
+"key": "-2:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_1_0.res",
+"origin": Vector3(-24, 0, 24),
+"variant": 0
+}, {
+"instance_count": 59,
+"key": "-2:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_1_1.res",
+"origin": Vector3(-24, 0, 24),
+"variant": 1
+}, {
+"instance_count": 49,
+"key": "-2:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_1_2.res",
+"origin": Vector3(-24, 0, 24),
+"variant": 2
+}, {
+"instance_count": 540,
+"key": "-2:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_2_0.res",
+"origin": Vector3(-24, 0, 40),
+"variant": 0
+}, {
+"instance_count": 79,
+"key": "-2:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_2_1.res",
+"origin": Vector3(-24, 0, 40),
+"variant": 1
+}, {
+"instance_count": 49,
+"key": "-2:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_2_2.res",
+"origin": Vector3(-24, 0, 40),
+"variant": 2
+}, {
+"instance_count": 914,
+"key": "-2:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_3_0.res",
+"origin": Vector3(-24, 0, 56),
+"variant": 0
+}, {
+"instance_count": 133,
+"key": "-2:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_3_1.res",
+"origin": Vector3(-24, 0, 56),
+"variant": 1
+}, {
+"instance_count": 100,
+"key": "-2:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_3_2.res",
+"origin": Vector3(-24, 0, 56),
+"variant": 2
+}, {
+"instance_count": 330,
+"key": "-2:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_4_0.res",
+"origin": Vector3(-24, 0, 72),
+"variant": 0
+}, {
+"instance_count": 54,
+"key": "-2:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_4_1.res",
+"origin": Vector3(-24, 0, 72),
+"variant": 1
+}, {
+"instance_count": 41,
+"key": "-2:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-2_4_2.res",
+"origin": Vector3(-24, 0, 72),
+"variant": 2
+}, {
+"instance_count": 1197,
+"key": "-3:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-1_0.res",
+"origin": Vector3(-40, 0, -8),
+"variant": 0
+}, {
+"instance_count": 162,
+"key": "-3:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-1_1.res",
+"origin": Vector3(-40, 0, -8),
+"variant": 1
+}, {
+"instance_count": 112,
+"key": "-3:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-1_2.res",
+"origin": Vector3(-40, 0, -8),
+"variant": 2
+}, {
+"instance_count": 884,
+"key": "-3:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-2_0.res",
+"origin": Vector3(-40, 0, -24),
+"variant": 0
+}, {
+"instance_count": 97,
+"key": "-3:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-2_1.res",
+"origin": Vector3(-40, 0, -24),
+"variant": 1
+}, {
+"instance_count": 74,
+"key": "-3:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-2_2.res",
+"origin": Vector3(-40, 0, -24),
+"variant": 2
+}, {
+"instance_count": 1212,
+"key": "-3:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-3_0.res",
+"origin": Vector3(-40, 0, -40),
+"variant": 0
+}, {
+"instance_count": 151,
+"key": "-3:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-3_1.res",
+"origin": Vector3(-40, 0, -40),
+"variant": 1
+}, {
+"instance_count": 107,
+"key": "-3:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-3_2.res",
+"origin": Vector3(-40, 0, -40),
+"variant": 2
+}, {
+"instance_count": 1192,
+"key": "-3:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-4_0.res",
+"origin": Vector3(-40, 0, -56),
+"variant": 0
+}, {
+"instance_count": 156,
+"key": "-3:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-4_1.res",
+"origin": Vector3(-40, 0, -56),
+"variant": 1
+}, {
+"instance_count": 121,
+"key": "-3:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-4_2.res",
+"origin": Vector3(-40, 0, -56),
+"variant": 2
+}, {
+"instance_count": 466,
+"key": "-3:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-5_0.res",
+"origin": Vector3(-40, 0, -72),
+"variant": 0
+}, {
+"instance_count": 57,
+"key": "-3:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-5_1.res",
+"origin": Vector3(-40, 0, -72),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "-3:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_-5_2.res",
+"origin": Vector3(-40, 0, -72),
+"variant": 2
+}, {
+"instance_count": 1062,
+"key": "-3:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_0_0.res",
+"origin": Vector3(-40, 0, 8),
+"variant": 0
+}, {
+"instance_count": 143,
+"key": "-3:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_0_1.res",
+"origin": Vector3(-40, 0, 8),
+"variant": 1
+}, {
+"instance_count": 104,
+"key": "-3:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_0_2.res",
+"origin": Vector3(-40, 0, 8),
+"variant": 2
+}, {
+"instance_count": 639,
+"key": "-3:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_1_0.res",
+"origin": Vector3(-40, 0, 24),
+"variant": 0
+}, {
+"instance_count": 62,
+"key": "-3:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_1_1.res",
+"origin": Vector3(-40, 0, 24),
+"variant": 1
+}, {
+"instance_count": 51,
+"key": "-3:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_1_2.res",
+"origin": Vector3(-40, 0, 24),
+"variant": 2
+}, {
+"instance_count": 658,
+"key": "-3:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_2_0.res",
+"origin": Vector3(-40, 0, 40),
+"variant": 0
+}, {
+"instance_count": 81,
+"key": "-3:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_2_1.res",
+"origin": Vector3(-40, 0, 40),
+"variant": 1
+}, {
+"instance_count": 52,
+"key": "-3:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_2_2.res",
+"origin": Vector3(-40, 0, 40),
+"variant": 2
+}, {
+"instance_count": 1181,
+"key": "-3:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_3_0.res",
+"origin": Vector3(-40, 0, 56),
+"variant": 0
+}, {
+"instance_count": 158,
+"key": "-3:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_3_1.res",
+"origin": Vector3(-40, 0, 56),
+"variant": 1
+}, {
+"instance_count": 124,
+"key": "-3:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_3_2.res",
+"origin": Vector3(-40, 0, 56),
+"variant": 2
+}, {
+"instance_count": 450,
+"key": "-3:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_4_0.res",
+"origin": Vector3(-40, 0, 72),
+"variant": 0
+}, {
+"instance_count": 51,
+"key": "-3:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_4_1.res",
+"origin": Vector3(-40, 0, 72),
+"variant": 1
+}, {
+"instance_count": 51,
+"key": "-3:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-3_4_2.res",
+"origin": Vector3(-40, 0, 72),
+"variant": 2
+}, {
+"instance_count": 1194,
+"key": "-4:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-1_0.res",
+"origin": Vector3(-56, 0, -8),
+"variant": 0
+}, {
+"instance_count": 156,
+"key": "-4:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-1_1.res",
+"origin": Vector3(-56, 0, -8),
+"variant": 1
+}, {
+"instance_count": 121,
+"key": "-4:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-1_2.res",
+"origin": Vector3(-56, 0, -8),
+"variant": 2
+}, {
+"instance_count": 1175,
+"key": "-4:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-2_0.res",
+"origin": Vector3(-56, 0, -24),
+"variant": 0
+}, {
+"instance_count": 178,
+"key": "-4:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-2_1.res",
+"origin": Vector3(-56, 0, -24),
+"variant": 1
+}, {
+"instance_count": 114,
+"key": "-4:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-2_2.res",
+"origin": Vector3(-56, 0, -24),
+"variant": 2
+}, {
+"instance_count": 1207,
+"key": "-4:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-3_0.res",
+"origin": Vector3(-56, 0, -40),
+"variant": 0
+}, {
+"instance_count": 148,
+"key": "-4:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-3_1.res",
+"origin": Vector3(-56, 0, -40),
+"variant": 1
+}, {
+"instance_count": 119,
+"key": "-4:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-3_2.res",
+"origin": Vector3(-56, 0, -40),
+"variant": 2
+}, {
+"instance_count": 1185,
+"key": "-4:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-4_0.res",
+"origin": Vector3(-56, 0, -56),
+"variant": 0
+}, {
+"instance_count": 153,
+"key": "-4:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-4_1.res",
+"origin": Vector3(-56, 0, -56),
+"variant": 1
+}, {
+"instance_count": 127,
+"key": "-4:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-4_2.res",
+"origin": Vector3(-56, 0, -56),
+"variant": 2
+}, {
+"instance_count": 445,
+"key": "-4:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-5_0.res",
+"origin": Vector3(-56, 0, -72),
+"variant": 0
+}, {
+"instance_count": 53,
+"key": "-4:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-5_1.res",
+"origin": Vector3(-56, 0, -72),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "-4:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_-5_2.res",
+"origin": Vector3(-56, 0, -72),
+"variant": 2
+}, {
+"instance_count": 1214,
+"key": "-4:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_0_0.res",
+"origin": Vector3(-56, 0, 8),
+"variant": 0
+}, {
+"instance_count": 146,
+"key": "-4:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_0_1.res",
+"origin": Vector3(-56, 0, 8),
+"variant": 1
+}, {
+"instance_count": 116,
+"key": "-4:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_0_2.res",
+"origin": Vector3(-56, 0, 8),
+"variant": 2
+}, {
+"instance_count": 975,
+"key": "-4:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_1_0.res",
+"origin": Vector3(-56, 0, 24),
+"variant": 0
+}, {
+"instance_count": 115,
+"key": "-4:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_1_1.res",
+"origin": Vector3(-56, 0, 24),
+"variant": 1
+}, {
+"instance_count": 88,
+"key": "-4:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_1_2.res",
+"origin": Vector3(-56, 0, 24),
+"variant": 2
+}, {
+"instance_count": 1055,
+"key": "-4:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_2_0.res",
+"origin": Vector3(-56, 0, 40),
+"variant": 0
+}, {
+"instance_count": 93,
+"key": "-4:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_2_1.res",
+"origin": Vector3(-56, 0, 40),
+"variant": 1
+}, {
+"instance_count": 98,
+"key": "-4:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_2_2.res",
+"origin": Vector3(-56, 0, 40),
+"variant": 2
+}, {
+"instance_count": 1203,
+"key": "-4:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_3_0.res",
+"origin": Vector3(-56, 0, 56),
+"variant": 0
+}, {
+"instance_count": 165,
+"key": "-4:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_3_1.res",
+"origin": Vector3(-56, 0, 56),
+"variant": 1
+}, {
+"instance_count": 105,
+"key": "-4:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_3_2.res",
+"origin": Vector3(-56, 0, 56),
+"variant": 2
+}, {
+"instance_count": 453,
+"key": "-4:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_4_0.res",
+"origin": Vector3(-56, 0, 72),
+"variant": 0
+}, {
+"instance_count": 50,
+"key": "-4:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_4_1.res",
+"origin": Vector3(-56, 0, 72),
+"variant": 1
+}, {
+"instance_count": 52,
+"key": "-4:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-4_4_2.res",
+"origin": Vector3(-56, 0, 72),
+"variant": 2
+}, {
+"instance_count": 511,
+"key": "-5:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-1_0.res",
+"origin": Vector3(-72, 0, -8),
+"variant": 0
+}, {
+"instance_count": 57,
+"key": "-5:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-1_1.res",
+"origin": Vector3(-72, 0, -8),
+"variant": 1
+}, {
+"instance_count": 52,
+"key": "-5:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-1_2.res",
+"origin": Vector3(-72, 0, -8),
+"variant": 2
+}, {
+"instance_count": 477,
+"key": "-5:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-2_0.res",
+"origin": Vector3(-72, 0, -24),
+"variant": 0
+}, {
+"instance_count": 52,
+"key": "-5:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-2_1.res",
+"origin": Vector3(-72, 0, -24),
+"variant": 1
+}, {
+"instance_count": 37,
+"key": "-5:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-2_2.res",
+"origin": Vector3(-72, 0, -24),
+"variant": 2
+}, {
+"instance_count": 474,
+"key": "-5:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-3_0.res",
+"origin": Vector3(-72, 0, -40),
+"variant": 0
+}, {
+"instance_count": 65,
+"key": "-5:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-3_1.res",
+"origin": Vector3(-72, 0, -40),
+"variant": 1
+}, {
+"instance_count": 55,
+"key": "-5:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-3_2.res",
+"origin": Vector3(-72, 0, -40),
+"variant": 2
+}, {
+"instance_count": 434,
+"key": "-5:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-4_0.res",
+"origin": Vector3(-72, 0, -56),
+"variant": 0
+}, {
+"instance_count": 58,
+"key": "-5:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-4_1.res",
+"origin": Vector3(-72, 0, -56),
+"variant": 1
+}, {
+"instance_count": 33,
+"key": "-5:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-4_2.res",
+"origin": Vector3(-72, 0, -56),
+"variant": 2
+}, {
+"instance_count": 180,
+"key": "-5:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-5_0.res",
+"origin": Vector3(-72, 0, -72),
+"variant": 0
+}, {
+"instance_count": 17,
+"key": "-5:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-5_1.res",
+"origin": Vector3(-72, 0, -72),
+"variant": 1
+}, {
+"instance_count": 23,
+"key": "-5:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_-5_2.res",
+"origin": Vector3(-72, 0, -72),
+"variant": 2
+}, {
+"instance_count": 501,
+"key": "-5:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_0_0.res",
+"origin": Vector3(-72, 0, 8),
+"variant": 0
+}, {
+"instance_count": 56,
+"key": "-5:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_0_1.res",
+"origin": Vector3(-72, 0, 8),
+"variant": 1
+}, {
+"instance_count": 52,
+"key": "-5:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_0_2.res",
+"origin": Vector3(-72, 0, 8),
+"variant": 2
+}, {
+"instance_count": 461,
+"key": "-5:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_1_0.res",
+"origin": Vector3(-72, 0, 24),
+"variant": 0
+}, {
+"instance_count": 54,
+"key": "-5:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_1_1.res",
+"origin": Vector3(-72, 0, 24),
+"variant": 1
+}, {
+"instance_count": 54,
+"key": "-5:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_1_2.res",
+"origin": Vector3(-72, 0, 24),
+"variant": 2
+}, {
+"instance_count": 460,
+"key": "-5:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_2_0.res",
+"origin": Vector3(-72, 0, 40),
+"variant": 0
+}, {
+"instance_count": 57,
+"key": "-5:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_2_1.res",
+"origin": Vector3(-72, 0, 40),
+"variant": 1
+}, {
+"instance_count": 38,
+"key": "-5:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_2_2.res",
+"origin": Vector3(-72, 0, 40),
+"variant": 2
+}, {
+"instance_count": 430,
+"key": "-5:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_3_0.res",
+"origin": Vector3(-72, 0, 56),
+"variant": 0
+}, {
+"instance_count": 49,
+"key": "-5:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_3_1.res",
+"origin": Vector3(-72, 0, 56),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "-5:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_3_2.res",
+"origin": Vector3(-72, 0, 56),
+"variant": 2
+}, {
+"instance_count": 181,
+"key": "-5:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_4_0.res",
+"origin": Vector3(-72, 0, 72),
+"variant": 0
+}, {
+"instance_count": 14,
+"key": "-5:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_4_1.res",
+"origin": Vector3(-72, 0, 72),
+"variant": 1
+}, {
+"instance_count": 17,
+"key": "-5:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_-5_4_2.res",
+"origin": Vector3(-72, 0, 72),
+"variant": 2
+}, {
+"instance_count": 1179,
+"key": "0:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-1_0.res",
+"origin": Vector3(8, 0, -8),
+"variant": 0
+}, {
+"instance_count": 156,
+"key": "0:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-1_1.res",
+"origin": Vector3(8, 0, -8),
+"variant": 1
+}, {
+"instance_count": 129,
+"key": "0:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-1_2.res",
+"origin": Vector3(8, 0, -8),
+"variant": 2
+}, {
+"instance_count": 760,
+"key": "0:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-2_0.res",
+"origin": Vector3(8, 0, -24),
+"variant": 0
+}, {
+"instance_count": 93,
+"key": "0:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-2_1.res",
+"origin": Vector3(8, 0, -24),
+"variant": 1
+}, {
+"instance_count": 77,
+"key": "0:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-2_2.res",
+"origin": Vector3(8, 0, -24),
+"variant": 2
+}, {
+"instance_count": 852,
+"key": "0:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-3_0.res",
+"origin": Vector3(8, 0, -40),
+"variant": 0
+}, {
+"instance_count": 111,
+"key": "0:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-3_1.res",
+"origin": Vector3(8, 0, -40),
+"variant": 1
+}, {
+"instance_count": 72,
+"key": "0:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-3_2.res",
+"origin": Vector3(8, 0, -40),
+"variant": 2
+}, {
+"instance_count": 697,
+"key": "0:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-4_0.res",
+"origin": Vector3(8, 0, -56),
+"variant": 0
+}, {
+"instance_count": 78,
+"key": "0:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-4_1.res",
+"origin": Vector3(8, 0, -56),
+"variant": 1
+}, {
+"instance_count": 64,
+"key": "0:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-4_2.res",
+"origin": Vector3(8, 0, -56),
+"variant": 2
+}, {
+"instance_count": 400,
+"key": "0:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-5_0.res",
+"origin": Vector3(8, 0, -72),
+"variant": 0
+}, {
+"instance_count": 43,
+"key": "0:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-5_1.res",
+"origin": Vector3(8, 0, -72),
+"variant": 1
+}, {
+"instance_count": 28,
+"key": "0:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_-5_2.res",
+"origin": Vector3(8, 0, -72),
+"variant": 2
+}, {
+"instance_count": 710,
+"key": "0:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_0_0.res",
+"origin": Vector3(8, 0, 8),
+"variant": 0
+}, {
+"instance_count": 91,
+"key": "0:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_0_1.res",
+"origin": Vector3(8, 0, 8),
+"variant": 1
+}, {
+"instance_count": 59,
+"key": "0:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_0_2.res",
+"origin": Vector3(8, 0, 8),
+"variant": 2
+}, {
+"instance_count": 836,
+"key": "0:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_1_0.res",
+"origin": Vector3(8, 0, 24),
+"variant": 0
+}, {
+"instance_count": 101,
+"key": "0:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_1_1.res",
+"origin": Vector3(8, 0, 24),
+"variant": 1
+}, {
+"instance_count": 69,
+"key": "0:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_1_2.res",
+"origin": Vector3(8, 0, 24),
+"variant": 2
+}, {
+"instance_count": 440,
+"key": "0:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_2_0.res",
+"origin": Vector3(8, 0, 40),
+"variant": 0
+}, {
+"instance_count": 48,
+"key": "0:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_2_1.res",
+"origin": Vector3(8, 0, 40),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "0:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_2_2.res",
+"origin": Vector3(8, 0, 40),
+"variant": 2
+}, {
+"instance_count": 616,
+"key": "0:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_3_0.res",
+"origin": Vector3(8, 0, 56),
+"variant": 0
+}, {
+"instance_count": 75,
+"key": "0:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_3_1.res",
+"origin": Vector3(8, 0, 56),
+"variant": 1
+}, {
+"instance_count": 70,
+"key": "0:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_3_2.res",
+"origin": Vector3(8, 0, 56),
+"variant": 2
+}, {
+"instance_count": 178,
+"key": "0:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_4_0.res",
+"origin": Vector3(8, 0, 72),
+"variant": 0
+}, {
+"instance_count": 24,
+"key": "0:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_4_1.res",
+"origin": Vector3(8, 0, 72),
+"variant": 1
+}, {
+"instance_count": 19,
+"key": "0:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_0_4_2.res",
+"origin": Vector3(8, 0, 72),
+"variant": 2
+}, {
+"instance_count": 859,
+"key": "1:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-1_0.res",
+"origin": Vector3(24, 0, -8),
+"variant": 0
+}, {
+"instance_count": 102,
+"key": "1:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-1_1.res",
+"origin": Vector3(24, 0, -8),
+"variant": 1
+}, {
+"instance_count": 81,
+"key": "1:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-1_2.res",
+"origin": Vector3(24, 0, -8),
+"variant": 2
+}, {
+"instance_count": 653,
+"key": "1:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-2_0.res",
+"origin": Vector3(24, 0, -24),
+"variant": 0
+}, {
+"instance_count": 95,
+"key": "1:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-2_1.res",
+"origin": Vector3(24, 0, -24),
+"variant": 1
+}, {
+"instance_count": 56,
+"key": "1:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-2_2.res",
+"origin": Vector3(24, 0, -24),
+"variant": 2
+}, {
+"instance_count": 1243,
+"key": "1:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-3_0.res",
+"origin": Vector3(24, 0, -40),
+"variant": 0
+}, {
+"instance_count": 154,
+"key": "1:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-3_1.res",
+"origin": Vector3(24, 0, -40),
+"variant": 1
+}, {
+"instance_count": 84,
+"key": "1:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-3_2.res",
+"origin": Vector3(24, 0, -40),
+"variant": 2
+}, {
+"instance_count": 1245,
+"key": "1:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-4_0.res",
+"origin": Vector3(24, 0, -56),
+"variant": 0
+}, {
+"instance_count": 124,
+"key": "1:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-4_1.res",
+"origin": Vector3(24, 0, -56),
+"variant": 1
+}, {
+"instance_count": 99,
+"key": "1:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-4_2.res",
+"origin": Vector3(24, 0, -56),
+"variant": 2
+}, {
+"instance_count": 455,
+"key": "1:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-5_0.res",
+"origin": Vector3(24, 0, -72),
+"variant": 0
+}, {
+"instance_count": 71,
+"key": "1:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-5_1.res",
+"origin": Vector3(24, 0, -72),
+"variant": 1
+}, {
+"instance_count": 57,
+"key": "1:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_-5_2.res",
+"origin": Vector3(24, 0, -72),
+"variant": 2
+}, {
+"instance_count": 394,
+"key": "1:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_0_0.res",
+"origin": Vector3(24, 0, 8),
+"variant": 0
+}, {
+"instance_count": 47,
+"key": "1:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_0_1.res",
+"origin": Vector3(24, 0, 8),
+"variant": 1
+}, {
+"instance_count": 39,
+"key": "1:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_0_2.res",
+"origin": Vector3(24, 0, 8),
+"variant": 2
+}, {
+"instance_count": 588,
+"key": "1:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_1_0.res",
+"origin": Vector3(24, 0, 24),
+"variant": 0
+}, {
+"instance_count": 64,
+"key": "1:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_1_1.res",
+"origin": Vector3(24, 0, 24),
+"variant": 1
+}, {
+"instance_count": 58,
+"key": "1:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_1_2.res",
+"origin": Vector3(24, 0, 24),
+"variant": 2
+}, {
+"instance_count": 1107,
+"key": "1:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_2_0.res",
+"origin": Vector3(24, 0, 40),
+"variant": 0
+}, {
+"instance_count": 150,
+"key": "1:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_2_1.res",
+"origin": Vector3(24, 0, 40),
+"variant": 1
+}, {
+"instance_count": 116,
+"key": "1:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_2_2.res",
+"origin": Vector3(24, 0, 40),
+"variant": 2
+}, {
+"instance_count": 1190,
+"key": "1:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_3_0.res",
+"origin": Vector3(24, 0, 56),
+"variant": 0
+}, {
+"instance_count": 160,
+"key": "1:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_3_1.res",
+"origin": Vector3(24, 0, 56),
+"variant": 1
+}, {
+"instance_count": 118,
+"key": "1:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_3_2.res",
+"origin": Vector3(24, 0, 56),
+"variant": 2
+}, {
+"instance_count": 350,
+"key": "1:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_4_0.res",
+"origin": Vector3(24, 0, 72),
+"variant": 0
+}, {
+"instance_count": 37,
+"key": "1:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_4_1.res",
+"origin": Vector3(24, 0, 72),
+"variant": 1
+}, {
+"instance_count": 28,
+"key": "1:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_1_4_2.res",
+"origin": Vector3(24, 0, 72),
+"variant": 2
+}, {
+"instance_count": 980,
+"key": "2:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-1_0.res",
+"origin": Vector3(40, 0, -8),
+"variant": 0
+}, {
+"instance_count": 129,
+"key": "2:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-1_1.res",
+"origin": Vector3(40, 0, -8),
+"variant": 1
+}, {
+"instance_count": 92,
+"key": "2:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-1_2.res",
+"origin": Vector3(40, 0, -8),
+"variant": 2
+}, {
+"instance_count": 826,
+"key": "2:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-2_0.res",
+"origin": Vector3(40, 0, -24),
+"variant": 0
+}, {
+"instance_count": 100,
+"key": "2:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-2_1.res",
+"origin": Vector3(40, 0, -24),
+"variant": 1
+}, {
+"instance_count": 104,
+"key": "2:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-2_2.res",
+"origin": Vector3(40, 0, -24),
+"variant": 2
+}, {
+"instance_count": 1209,
+"key": "2:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-3_0.res",
+"origin": Vector3(40, 0, -40),
+"variant": 0
+}, {
+"instance_count": 138,
+"key": "2:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-3_1.res",
+"origin": Vector3(40, 0, -40),
+"variant": 1
+}, {
+"instance_count": 113,
+"key": "2:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-3_2.res",
+"origin": Vector3(40, 0, -40),
+"variant": 2
+}, {
+"instance_count": 1210,
+"key": "2:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-4_0.res",
+"origin": Vector3(40, 0, -56),
+"variant": 0
+}, {
+"instance_count": 143,
+"key": "2:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-4_1.res",
+"origin": Vector3(40, 0, -56),
+"variant": 1
+}, {
+"instance_count": 112,
+"key": "2:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-4_2.res",
+"origin": Vector3(40, 0, -56),
+"variant": 2
+}, {
+"instance_count": 472,
+"key": "2:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-5_0.res",
+"origin": Vector3(40, 0, -72),
+"variant": 0
+}, {
+"instance_count": 56,
+"key": "2:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-5_1.res",
+"origin": Vector3(40, 0, -72),
+"variant": 1
+}, {
+"instance_count": 48,
+"key": "2:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_-5_2.res",
+"origin": Vector3(40, 0, -72),
+"variant": 2
+}, {
+"instance_count": 369,
+"key": "2:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_0_0.res",
+"origin": Vector3(40, 0, 8),
+"variant": 0
+}, {
+"instance_count": 36,
+"key": "2:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_0_1.res",
+"origin": Vector3(40, 0, 8),
+"variant": 1
+}, {
+"instance_count": 38,
+"key": "2:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_0_2.res",
+"origin": Vector3(40, 0, 8),
+"variant": 2
+}, {
+"instance_count": 906,
+"key": "2:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_1_0.res",
+"origin": Vector3(40, 0, 24),
+"variant": 0
+}, {
+"instance_count": 108,
+"key": "2:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_1_1.res",
+"origin": Vector3(40, 0, 24),
+"variant": 1
+}, {
+"instance_count": 80,
+"key": "2:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_1_2.res",
+"origin": Vector3(40, 0, 24),
+"variant": 2
+}, {
+"instance_count": 1034,
+"key": "2:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_2_0.res",
+"origin": Vector3(40, 0, 40),
+"variant": 0
+}, {
+"instance_count": 146,
+"key": "2:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_2_1.res",
+"origin": Vector3(40, 0, 40),
+"variant": 1
+}, {
+"instance_count": 94,
+"key": "2:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_2_2.res",
+"origin": Vector3(40, 0, 40),
+"variant": 2
+}, {
+"instance_count": 1221,
+"key": "2:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_3_0.res",
+"origin": Vector3(40, 0, 56),
+"variant": 0
+}, {
+"instance_count": 143,
+"key": "2:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_3_1.res",
+"origin": Vector3(40, 0, 56),
+"variant": 1
+}, {
+"instance_count": 105,
+"key": "2:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_3_2.res",
+"origin": Vector3(40, 0, 56),
+"variant": 2
+}, {
+"instance_count": 396,
+"key": "2:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_4_0.res",
+"origin": Vector3(40, 0, 72),
+"variant": 0
+}, {
+"instance_count": 56,
+"key": "2:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_4_1.res",
+"origin": Vector3(40, 0, 72),
+"variant": 1
+}, {
+"instance_count": 34,
+"key": "2:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_2_4_2.res",
+"origin": Vector3(40, 0, 72),
+"variant": 2
+}, {
+"instance_count": 1202,
+"key": "3:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-1_0.res",
+"origin": Vector3(56, 0, -8),
+"variant": 0
+}, {
+"instance_count": 156,
+"key": "3:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-1_1.res",
+"origin": Vector3(56, 0, -8),
+"variant": 1
+}, {
+"instance_count": 105,
+"key": "3:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-1_2.res",
+"origin": Vector3(56, 0, -8),
+"variant": 2
+}, {
+"instance_count": 1196,
+"key": "3:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-2_0.res",
+"origin": Vector3(56, 0, -24),
+"variant": 0
+}, {
+"instance_count": 157,
+"key": "3:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-2_1.res",
+"origin": Vector3(56, 0, -24),
+"variant": 1
+}, {
+"instance_count": 118,
+"key": "3:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-2_2.res",
+"origin": Vector3(56, 0, -24),
+"variant": 2
+}, {
+"instance_count": 1202,
+"key": "3:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-3_0.res",
+"origin": Vector3(56, 0, -40),
+"variant": 0
+}, {
+"instance_count": 152,
+"key": "3:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-3_1.res",
+"origin": Vector3(56, 0, -40),
+"variant": 1
+}, {
+"instance_count": 114,
+"key": "3:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-3_2.res",
+"origin": Vector3(56, 0, -40),
+"variant": 2
+}, {
+"instance_count": 1172,
+"key": "3:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-4_0.res",
+"origin": Vector3(56, 0, -56),
+"variant": 0
+}, {
+"instance_count": 143,
+"key": "3:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-4_1.res",
+"origin": Vector3(56, 0, -56),
+"variant": 1
+}, {
+"instance_count": 100,
+"key": "3:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-4_2.res",
+"origin": Vector3(56, 0, -56),
+"variant": 2
+}, {
+"instance_count": 364,
+"key": "3:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-5_0.res",
+"origin": Vector3(56, 0, -72),
+"variant": 0
+}, {
+"instance_count": 49,
+"key": "3:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-5_1.res",
+"origin": Vector3(56, 0, -72),
+"variant": 1
+}, {
+"instance_count": 50,
+"key": "3:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_-5_2.res",
+"origin": Vector3(56, 0, -72),
+"variant": 2
+}, {
+"instance_count": 1037,
+"key": "3:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_0_0.res",
+"origin": Vector3(56, 0, 8),
+"variant": 0
+}, {
+"instance_count": 115,
+"key": "3:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_0_1.res",
+"origin": Vector3(56, 0, 8),
+"variant": 1
+}, {
+"instance_count": 102,
+"key": "3:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_0_2.res",
+"origin": Vector3(56, 0, 8),
+"variant": 2
+}, {
+"instance_count": 1214,
+"key": "3:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_1_0.res",
+"origin": Vector3(56, 0, 24),
+"variant": 0
+}, {
+"instance_count": 140,
+"key": "3:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_1_1.res",
+"origin": Vector3(56, 0, 24),
+"variant": 1
+}, {
+"instance_count": 110,
+"key": "3:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_1_2.res",
+"origin": Vector3(56, 0, 24),
+"variant": 2
+}, {
+"instance_count": 1148,
+"key": "3:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_2_0.res",
+"origin": Vector3(56, 0, 40),
+"variant": 0
+}, {
+"instance_count": 156,
+"key": "3:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_2_1.res",
+"origin": Vector3(56, 0, 40),
+"variant": 1
+}, {
+"instance_count": 127,
+"key": "3:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_2_2.res",
+"origin": Vector3(56, 0, 40),
+"variant": 2
+}, {
+"instance_count": 1170,
+"key": "3:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_3_0.res",
+"origin": Vector3(56, 0, 56),
+"variant": 0
+}, {
+"instance_count": 166,
+"key": "3:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_3_1.res",
+"origin": Vector3(56, 0, 56),
+"variant": 1
+}, {
+"instance_count": 128,
+"key": "3:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_3_2.res",
+"origin": Vector3(56, 0, 56),
+"variant": 2
+}, {
+"instance_count": 281,
+"key": "3:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_4_0.res",
+"origin": Vector3(56, 0, 72),
+"variant": 0
+}, {
+"instance_count": 34,
+"key": "3:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_4_1.res",
+"origin": Vector3(56, 0, 72),
+"variant": 1
+}, {
+"instance_count": 32,
+"key": "3:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_3_4_2.res",
+"origin": Vector3(56, 0, 72),
+"variant": 2
+}, {
+"instance_count": 441,
+"key": "4:-1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-1_0.res",
+"origin": Vector3(72, 0, -8),
+"variant": 0
+}, {
+"instance_count": 73,
+"key": "4:-1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-1_1.res",
+"origin": Vector3(72, 0, -8),
+"variant": 1
+}, {
+"instance_count": 34,
+"key": "4:-1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-1_2.res",
+"origin": Vector3(72, 0, -8),
+"variant": 2
+}, {
+"instance_count": 451,
+"key": "4:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-2_0.res",
+"origin": Vector3(72, 0, -24),
+"variant": 0
+}, {
+"instance_count": 40,
+"key": "4:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-2_1.res",
+"origin": Vector3(72, 0, -24),
+"variant": 1
+}, {
+"instance_count": 38,
+"key": "4:-2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-2_2.res",
+"origin": Vector3(72, 0, -24),
+"variant": 2
+}, {
+"instance_count": 401,
+"key": "4:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-3_0.res",
+"origin": Vector3(72, 0, -40),
+"variant": 0
+}, {
+"instance_count": 58,
+"key": "4:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-3_1.res",
+"origin": Vector3(72, 0, -40),
+"variant": 1
+}, {
+"instance_count": 40,
+"key": "4:-3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-3_2.res",
+"origin": Vector3(72, 0, -40),
+"variant": 2
+}, {
+"instance_count": 340,
+"key": "4:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-4_0.res",
+"origin": Vector3(72, 0, -56),
+"variant": 0
+}, {
+"instance_count": 39,
+"key": "4:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-4_1.res",
+"origin": Vector3(72, 0, -56),
+"variant": 1
+}, {
+"instance_count": 37,
+"key": "4:-4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-4_2.res",
+"origin": Vector3(72, 0, -56),
+"variant": 2
+}, {
+"instance_count": 152,
+"key": "4:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-5_0.res",
+"origin": Vector3(72, 0, -72),
+"variant": 0
+}, {
+"instance_count": 16,
+"key": "4:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-5_1.res",
+"origin": Vector3(72, 0, -72),
+"variant": 1
+}, {
+"instance_count": 15,
+"key": "4:-5:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_-5_2.res",
+"origin": Vector3(72, 0, -72),
+"variant": 2
+}, {
+"instance_count": 436,
+"key": "4:0:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_0_0.res",
+"origin": Vector3(72, 0, 8),
+"variant": 0
+}, {
+"instance_count": 51,
+"key": "4:0:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_0_1.res",
+"origin": Vector3(72, 0, 8),
+"variant": 1
+}, {
+"instance_count": 42,
+"key": "4:0:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_0_2.res",
+"origin": Vector3(72, 0, 8),
+"variant": 2
+}, {
+"instance_count": 460,
+"key": "4:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_1_0.res",
+"origin": Vector3(72, 0, 24),
+"variant": 0
+}, {
+"instance_count": 62,
+"key": "4:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_1_1.res",
+"origin": Vector3(72, 0, 24),
+"variant": 1
+}, {
+"instance_count": 49,
+"key": "4:1:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_1_2.res",
+"origin": Vector3(72, 0, 24),
+"variant": 2
+}, {
+"instance_count": 476,
+"key": "4:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_2_0.res",
+"origin": Vector3(72, 0, 40),
+"variant": 0
+}, {
+"instance_count": 71,
+"key": "4:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_2_1.res",
+"origin": Vector3(72, 0, 40),
+"variant": 1
+}, {
+"instance_count": 56,
+"key": "4:2:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_2_2.res",
+"origin": Vector3(72, 0, 40),
+"variant": 2
+}, {
+"instance_count": 367,
+"key": "4:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_3_0.res",
+"origin": Vector3(72, 0, 56),
+"variant": 0
+}, {
+"instance_count": 54,
+"key": "4:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_3_1.res",
+"origin": Vector3(72, 0, 56),
+"variant": 1
+}, {
+"instance_count": 36,
+"key": "4:3:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_3_2.res",
+"origin": Vector3(72, 0, 56),
+"variant": 2
+}, {
+"instance_count": 86,
+"key": "4:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_4_0.res",
+"origin": Vector3(72, 0, 72),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "4:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_4_1.res",
+"origin": Vector3(72, 0, 72),
+"variant": 1
+}, {
+"instance_count": 9,
+"key": "4:4:2",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_grass_4_4_2.res",
+"origin": Vector3(72, 0, 72),
+"variant": 2
+}])
+flower_chunks = Array[Dictionary]([{
+"instance_count": 14,
+"key": "-1:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_-4_0.res",
+"origin": Vector3(-8, 0, -56),
+"variant": 0
+}, {
+"instance_count": 21,
+"key": "-1:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_-4_1.res",
+"origin": Vector3(-8, 0, -56),
+"variant": 1
+}, {
+"instance_count": 2,
+"key": "-1:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_-5_0.res",
+"origin": Vector3(-8, 0, -72),
+"variant": 0
+}, {
+"instance_count": 7,
+"key": "-1:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_-5_1.res",
+"origin": Vector3(-8, 0, -72),
+"variant": 1
+}, {
+"instance_count": 17,
+"key": "-1:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_2_0.res",
+"origin": Vector3(-8, 0, 40),
+"variant": 0
+}, {
+"instance_count": 11,
+"key": "-1:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_2_1.res",
+"origin": Vector3(-8, 0, 40),
+"variant": 1
+}, {
+"instance_count": 8,
+"key": "-1:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_4_0.res",
+"origin": Vector3(-8, 0, 72),
+"variant": 0
+}, {
+"instance_count": 11,
+"key": "-1:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-1_4_1.res",
+"origin": Vector3(-8, 0, 72),
+"variant": 1
+}, {
+"instance_count": 6,
+"key": "-2:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-3_0.res",
+"origin": Vector3(-24, 0, -40),
+"variant": 0
+}, {
+"instance_count": 9,
+"key": "-2:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-3_1.res",
+"origin": Vector3(-24, 0, -40),
+"variant": 1
+}, {
+"instance_count": 37,
+"key": "-2:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-4_0.res",
+"origin": Vector3(-24, 0, -56),
+"variant": 0
+}, {
+"instance_count": 39,
+"key": "-2:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-4_1.res",
+"origin": Vector3(-24, 0, -56),
+"variant": 1
+}, {
+"instance_count": 9,
+"key": "-2:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-5_0.res",
+"origin": Vector3(-24, 0, -72),
+"variant": 0
+}, {
+"instance_count": 11,
+"key": "-2:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_-5_1.res",
+"origin": Vector3(-24, 0, -72),
+"variant": 1
+}, {
+"instance_count": 2,
+"key": "-2:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_2_0.res",
+"origin": Vector3(-24, 0, 40),
+"variant": 0
+}, {
+"instance_count": 3,
+"key": "-2:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_2_1.res",
+"origin": Vector3(-24, 0, 40),
+"variant": 1
+}, {
+"instance_count": 32,
+"key": "-2:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_3_0.res",
+"origin": Vector3(-24, 0, 56),
+"variant": 0
+}, {
+"instance_count": 43,
+"key": "-2:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_3_1.res",
+"origin": Vector3(-24, 0, 56),
+"variant": 1
+}, {
+"instance_count": 20,
+"key": "-2:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_4_0.res",
+"origin": Vector3(-24, 0, 72),
+"variant": 0
+}, {
+"instance_count": 25,
+"key": "-2:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-2_4_1.res",
+"origin": Vector3(-24, 0, 72),
+"variant": 1
+}, {
+"instance_count": 22,
+"key": "-3:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_-4_0.res",
+"origin": Vector3(-40, 0, -56),
+"variant": 0
+}, {
+"instance_count": 22,
+"key": "-3:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_-4_1.res",
+"origin": Vector3(-40, 0, -56),
+"variant": 1
+}, {
+"instance_count": 10,
+"key": "-3:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_-5_0.res",
+"origin": Vector3(-40, 0, -72),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "-3:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_-5_1.res",
+"origin": Vector3(-40, 0, -72),
+"variant": 1
+}, {
+"instance_count": 5,
+"key": "-3:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_1_0.res",
+"origin": Vector3(-40, 0, 24),
+"variant": 0
+}, {
+"instance_count": 5,
+"key": "-3:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_1_1.res",
+"origin": Vector3(-40, 0, 24),
+"variant": 1
+}, {
+"instance_count": 21,
+"key": "-3:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_2_0.res",
+"origin": Vector3(-40, 0, 40),
+"variant": 0
+}, {
+"instance_count": 16,
+"key": "-3:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_2_1.res",
+"origin": Vector3(-40, 0, 40),
+"variant": 1
+}, {
+"instance_count": 16,
+"key": "-3:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_3_0.res",
+"origin": Vector3(-40, 0, 56),
+"variant": 0
+}, {
+"instance_count": 15,
+"key": "-3:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_3_1.res",
+"origin": Vector3(-40, 0, 56),
+"variant": 1
+}, {
+"instance_count": 2,
+"key": "-3:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_4_0.res",
+"origin": Vector3(-40, 0, 72),
+"variant": 0
+}, {
+"instance_count": 2,
+"key": "-3:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-3_4_1.res",
+"origin": Vector3(-40, 0, 72),
+"variant": 1
+}, {
+"instance_count": 22,
+"key": "-4:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_-3_0.res",
+"origin": Vector3(-56, 0, -40),
+"variant": 0
+}, {
+"instance_count": 28,
+"key": "-4:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_-3_1.res",
+"origin": Vector3(-56, 0, -40),
+"variant": 1
+}, {
+"instance_count": 27,
+"key": "-4:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_-4_0.res",
+"origin": Vector3(-56, 0, -56),
+"variant": 0
+}, {
+"instance_count": 30,
+"key": "-4:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_-4_1.res",
+"origin": Vector3(-56, 0, -56),
+"variant": 1
+}, {
+"instance_count": 2,
+"key": "-4:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_-5_0.res",
+"origin": Vector3(-56, 0, -72),
+"variant": 0
+}, {
+"instance_count": 13,
+"key": "-4:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_1_0.res",
+"origin": Vector3(-56, 0, 24),
+"variant": 0
+}, {
+"instance_count": 9,
+"key": "-4:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_1_1.res",
+"origin": Vector3(-56, 0, 24),
+"variant": 1
+}, {
+"instance_count": 33,
+"key": "-4:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_2_0.res",
+"origin": Vector3(-56, 0, 40),
+"variant": 0
+}, {
+"instance_count": 27,
+"key": "-4:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_2_1.res",
+"origin": Vector3(-56, 0, 40),
+"variant": 1
+}, {
+"instance_count": 38,
+"key": "-4:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_3_0.res",
+"origin": Vector3(-56, 0, 56),
+"variant": 0
+}, {
+"instance_count": 32,
+"key": "-4:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_3_1.res",
+"origin": Vector3(-56, 0, 56),
+"variant": 1
+}, {
+"instance_count": 17,
+"key": "-4:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_4_0.res",
+"origin": Vector3(-56, 0, 72),
+"variant": 0
+}, {
+"instance_count": 22,
+"key": "-4:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-4_4_1.res",
+"origin": Vector3(-56, 0, 72),
+"variant": 1
+}, {
+"instance_count": 6,
+"key": "-5:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_-3_0.res",
+"origin": Vector3(-72, 0, -40),
+"variant": 0
+}, {
+"instance_count": 4,
+"key": "-5:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_-3_1.res",
+"origin": Vector3(-72, 0, -40),
+"variant": 1
+}, {
+"instance_count": 15,
+"key": "-5:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_-4_0.res",
+"origin": Vector3(-72, 0, -56),
+"variant": 0
+}, {
+"instance_count": 18,
+"key": "-5:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_-4_1.res",
+"origin": Vector3(-72, 0, -56),
+"variant": 1
+}, {
+"instance_count": 5,
+"key": "-5:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_2_0.res",
+"origin": Vector3(-72, 0, 40),
+"variant": 0
+}, {
+"instance_count": 4,
+"key": "-5:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_2_1.res",
+"origin": Vector3(-72, 0, 40),
+"variant": 1
+}, {
+"instance_count": 1,
+"key": "-5:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_3_0.res",
+"origin": Vector3(-72, 0, 56),
+"variant": 0
+}, {
+"instance_count": 3,
+"key": "-5:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_3_1.res",
+"origin": Vector3(-72, 0, 56),
+"variant": 1
+}, {
+"instance_count": 3,
+"key": "-5:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_4_0.res",
+"origin": Vector3(-72, 0, 72),
+"variant": 0
+}, {
+"instance_count": 3,
+"key": "-5:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_-5_4_1.res",
+"origin": Vector3(-72, 0, 72),
+"variant": 1
+}, {
+"instance_count": 8,
+"key": "0:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-3_0.res",
+"origin": Vector3(8, 0, -40),
+"variant": 0
+}, {
+"instance_count": 6,
+"key": "0:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-3_1.res",
+"origin": Vector3(8, 0, -40),
+"variant": 1
+}, {
+"instance_count": 19,
+"key": "0:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-4_0.res",
+"origin": Vector3(8, 0, -56),
+"variant": 0
+}, {
+"instance_count": 14,
+"key": "0:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-4_1.res",
+"origin": Vector3(8, 0, -56),
+"variant": 1
+}, {
+"instance_count": 5,
+"key": "0:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-5_0.res",
+"origin": Vector3(8, 0, -72),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "0:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_-5_1.res",
+"origin": Vector3(8, 0, -72),
+"variant": 1
+}, {
+"instance_count": 1,
+"key": "0:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_2_0.res",
+"origin": Vector3(8, 0, 40),
+"variant": 0
+}, {
+"instance_count": 24,
+"key": "0:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_3_0.res",
+"origin": Vector3(8, 0, 56),
+"variant": 0
+}, {
+"instance_count": 21,
+"key": "0:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_0_3_1.res",
+"origin": Vector3(8, 0, 56),
+"variant": 1
+}, {
+"instance_count": 5,
+"key": "1:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-2_0.res",
+"origin": Vector3(24, 0, -24),
+"variant": 0
+}, {
+"instance_count": 4,
+"key": "1:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-2_1.res",
+"origin": Vector3(24, 0, -24),
+"variant": 1
+}, {
+"instance_count": 37,
+"key": "1:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-3_0.res",
+"origin": Vector3(24, 0, -40),
+"variant": 0
+}, {
+"instance_count": 32,
+"key": "1:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-3_1.res",
+"origin": Vector3(24, 0, -40),
+"variant": 1
+}, {
+"instance_count": 34,
+"key": "1:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-4_0.res",
+"origin": Vector3(24, 0, -56),
+"variant": 0
+}, {
+"instance_count": 26,
+"key": "1:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-4_1.res",
+"origin": Vector3(24, 0, -56),
+"variant": 1
+}, {
+"instance_count": 13,
+"key": "1:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-5_0.res",
+"origin": Vector3(24, 0, -72),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "1:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_-5_1.res",
+"origin": Vector3(24, 0, -72),
+"variant": 1
+}, {
+"instance_count": 1,
+"key": "1:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_1_0.res",
+"origin": Vector3(24, 0, 24),
+"variant": 0
+}, {
+"instance_count": 1,
+"key": "1:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_1_1.res",
+"origin": Vector3(24, 0, 24),
+"variant": 1
+}, {
+"instance_count": 23,
+"key": "1:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_2_0.res",
+"origin": Vector3(24, 0, 40),
+"variant": 0
+}, {
+"instance_count": 29,
+"key": "1:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_2_1.res",
+"origin": Vector3(24, 0, 40),
+"variant": 1
+}, {
+"instance_count": 42,
+"key": "1:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_3_0.res",
+"origin": Vector3(24, 0, 56),
+"variant": 0
+}, {
+"instance_count": 33,
+"key": "1:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_3_1.res",
+"origin": Vector3(24, 0, 56),
+"variant": 1
+}, {
+"instance_count": 13,
+"key": "1:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_4_0.res",
+"origin": Vector3(24, 0, 72),
+"variant": 0
+}, {
+"instance_count": 14,
+"key": "1:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_1_4_1.res",
+"origin": Vector3(24, 0, 72),
+"variant": 1
+}, {
+"instance_count": 14,
+"key": "2:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-2_0.res",
+"origin": Vector3(40, 0, -24),
+"variant": 0
+}, {
+"instance_count": 10,
+"key": "2:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-2_1.res",
+"origin": Vector3(40, 0, -24),
+"variant": 1
+}, {
+"instance_count": 24,
+"key": "2:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-3_0.res",
+"origin": Vector3(40, 0, -40),
+"variant": 0
+}, {
+"instance_count": 27,
+"key": "2:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-3_1.res",
+"origin": Vector3(40, 0, -40),
+"variant": 1
+}, {
+"instance_count": 9,
+"key": "2:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-4_0.res",
+"origin": Vector3(40, 0, -56),
+"variant": 0
+}, {
+"instance_count": 12,
+"key": "2:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-4_1.res",
+"origin": Vector3(40, 0, -56),
+"variant": 1
+}, {
+"instance_count": 14,
+"key": "2:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-5_0.res",
+"origin": Vector3(40, 0, -72),
+"variant": 0
+}, {
+"instance_count": 20,
+"key": "2:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_-5_1.res",
+"origin": Vector3(40, 0, -72),
+"variant": 1
+}, {
+"instance_count": 13,
+"key": "2:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_1_0.res",
+"origin": Vector3(40, 0, 24),
+"variant": 0
+}, {
+"instance_count": 12,
+"key": "2:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_1_1.res",
+"origin": Vector3(40, 0, 24),
+"variant": 1
+}, {
+"instance_count": 36,
+"key": "2:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_2_0.res",
+"origin": Vector3(40, 0, 40),
+"variant": 0
+}, {
+"instance_count": 36,
+"key": "2:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_2_1.res",
+"origin": Vector3(40, 0, 40),
+"variant": 1
+}, {
+"instance_count": 37,
+"key": "2:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_3_0.res",
+"origin": Vector3(40, 0, 56),
+"variant": 0
+}, {
+"instance_count": 34,
+"key": "2:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_3_1.res",
+"origin": Vector3(40, 0, 56),
+"variant": 1
+}, {
+"instance_count": 1,
+"key": "2:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_2_4_0.res",
+"origin": Vector3(40, 0, 72),
+"variant": 0
+}, {
+"instance_count": 17,
+"key": "3:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-3_0.res",
+"origin": Vector3(56, 0, -40),
+"variant": 0
+}, {
+"instance_count": 13,
+"key": "3:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-3_1.res",
+"origin": Vector3(56, 0, -40),
+"variant": 1
+}, {
+"instance_count": 13,
+"key": "3:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-4_0.res",
+"origin": Vector3(56, 0, -56),
+"variant": 0
+}, {
+"instance_count": 13,
+"key": "3:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-4_1.res",
+"origin": Vector3(56, 0, -56),
+"variant": 1
+}, {
+"instance_count": 22,
+"key": "3:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-5_0.res",
+"origin": Vector3(56, 0, -72),
+"variant": 0
+}, {
+"instance_count": 12,
+"key": "3:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_-5_1.res",
+"origin": Vector3(56, 0, -72),
+"variant": 1
+}, {
+"instance_count": 11,
+"key": "3:1:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_1_0.res",
+"origin": Vector3(56, 0, 24),
+"variant": 0
+}, {
+"instance_count": 10,
+"key": "3:1:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_1_1.res",
+"origin": Vector3(56, 0, 24),
+"variant": 1
+}, {
+"instance_count": 25,
+"key": "3:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_2_0.res",
+"origin": Vector3(56, 0, 40),
+"variant": 0
+}, {
+"instance_count": 34,
+"key": "3:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_2_1.res",
+"origin": Vector3(56, 0, 40),
+"variant": 1
+}, {
+"instance_count": 31,
+"key": "3:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_3_0.res",
+"origin": Vector3(56, 0, 56),
+"variant": 0
+}, {
+"instance_count": 31,
+"key": "3:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_3_1.res",
+"origin": Vector3(56, 0, 56),
+"variant": 1
+}, {
+"instance_count": 12,
+"key": "3:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_4_0.res",
+"origin": Vector3(56, 0, 72),
+"variant": 0
+}, {
+"instance_count": 13,
+"key": "3:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_3_4_1.res",
+"origin": Vector3(56, 0, 72),
+"variant": 1
+}, {
+"instance_count": 12,
+"key": "4:-2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-2_0.res",
+"origin": Vector3(72, 0, -24),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "4:-2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-2_1.res",
+"origin": Vector3(72, 0, -24),
+"variant": 1
+}, {
+"instance_count": 21,
+"key": "4:-3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-3_0.res",
+"origin": Vector3(72, 0, -40),
+"variant": 0
+}, {
+"instance_count": 21,
+"key": "4:-3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-3_1.res",
+"origin": Vector3(72, 0, -40),
+"variant": 1
+}, {
+"instance_count": 18,
+"key": "4:-4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-4_0.res",
+"origin": Vector3(72, 0, -56),
+"variant": 0
+}, {
+"instance_count": 13,
+"key": "4:-4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-4_1.res",
+"origin": Vector3(72, 0, -56),
+"variant": 1
+}, {
+"instance_count": 10,
+"key": "4:-5:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-5_0.res",
+"origin": Vector3(72, 0, -72),
+"variant": 0
+}, {
+"instance_count": 6,
+"key": "4:-5:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_-5_1.res",
+"origin": Vector3(72, 0, -72),
+"variant": 1
+}, {
+"instance_count": 18,
+"key": "4:2:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_2_0.res",
+"origin": Vector3(72, 0, 40),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "4:2:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_2_1.res",
+"origin": Vector3(72, 0, 40),
+"variant": 1
+}, {
+"instance_count": 22,
+"key": "4:3:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_3_0.res",
+"origin": Vector3(72, 0, 56),
+"variant": 0
+}, {
+"instance_count": 21,
+"key": "4:3:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_3_1.res",
+"origin": Vector3(72, 0, 56),
+"variant": 1
+}, {
+"instance_count": 4,
+"key": "4:4:0",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_4_0.res",
+"origin": Vector3(72, 0, 72),
+"variant": 0
+}, {
+"instance_count": 8,
+"key": "4:4:1",
+"multimesh_path": "res://resources/vegetation/sunny_island/chunks/24_player_flowers_4_4_1.res",
+"origin": Vector3(72, 0, 72),
+"variant": 1
+}])
+tree_placements = Array[Dictionary]([{
+"local_position": Vector2(59.5147, -57.266106),
+"phase": 0.83975315,
+"position": Vector3(59.5147, 0.08860753, -57.266106),
+"prototype": 3,
+"scale": Vector3(1.9254, 1.9254, 1.9254),
+"yaw": -2.475327
+}, {
+"local_position": Vector2(42.92254, -57.618484),
+"phase": 0.35815522,
+"position": Vector3(42.92254, 0.05288994, -57.618484),
+"prototype": 3,
+"scale": Vector3(1.5011557, 1.5011557, 1.5011557),
+"yaw": 1.8108351
+}, {
+"local_position": Vector2(-70.91866, 36.987686),
+"phase": 0.92448586,
+"position": Vector3(-70.91866, 0.088992216, 36.987686),
+"prototype": 3,
+"scale": Vector3(1.722446, 1.722446, 1.722446),
+"yaw": -1.8748393
+}, {
+"local_position": Vector2(-2.9517136, -56.994175),
+"phase": 0.46127653,
+"position": Vector3(-2.9517136, 1.1985164, -56.994175),
+"prototype": 2,
+"scale": Vector3(1.7086984, 1.7086984, 1.7086984),
+"yaw": -1.3791044
+}, {
+"local_position": Vector2(12.466385, 65.844765),
+"phase": 0.85880846,
+"position": Vector3(12.466385, 0.7104688, 65.844765),
+"prototype": 3,
+"scale": Vector3(1.5498109, 1.5498109, 1.5498109),
+"yaw": 1.2021396
+}, {
+"local_position": Vector2(43.547256, -69.298584),
+"phase": 0.030362451,
+"position": Vector3(43.547256, 0.065847024, -69.298584),
+"prototype": 3,
+"scale": Vector3(1.3942878, 1.3942878, 1.3942878),
+"yaw": 2.1417778
+}, {
+"local_position": Vector2(72.12949, 60.03474),
+"phase": 0.49190643,
+"position": Vector3(72.12949, 0.07850253, 60.03474),
+"prototype": 1,
+"scale": Vector3(1.250577, 1.250577, 1.250577),
+"yaw": 0.35430264
+}, {
+"local_position": Vector2(-67.93367, -56.124702),
+"phase": 0.051074367,
+"position": Vector3(-67.93367, 0.11093138, -56.124702),
+"prototype": 2,
+"scale": Vector3(1.9161866, 1.9161866, 1.9161866),
+"yaw": -1.3918573
+}, {
+"local_position": Vector2(12.917007, -64.41814),
+"phase": 0.16475186,
+"position": Vector3(12.917007, 0.1337649, -64.41814),
+"prototype": 0,
+"scale": Vector3(1.3267204, 1.3267204, 1.3267204),
+"yaw": -2.6262221
+}, {
+"local_position": Vector2(65.31525, 4.6630325),
+"phase": 0.43008223,
+"position": Vector3(65.31525, 0.5326671, 4.6630325),
+"prototype": 0,
+"scale": Vector3(1.7128682, 1.7128682, 1.7128682),
+"yaw": 3.119292
+}, {
+"local_position": Vector2(51.916145, 64.75432),
+"phase": 0.96579057,
+"position": Vector3(51.916145, 0.081504524, 64.75432),
+"prototype": 2,
+"scale": Vector3(1.5398058, 1.5398058, 1.5398058),
+"yaw": -1.186753
+}, {
+"local_position": Vector2(-57.14644, -61.457886),
+"phase": 0.3689827,
+"position": Vector3(-57.14644, 0.10633942, -61.457886),
+"prototype": 3,
+"scale": Vector3(1.8310727, 1.8310727, 1.8310727),
+"yaw": -1.8817164
+}, {
+"local_position": Vector2(59.996017, -41.994247),
+"phase": 0.46447322,
+"position": Vector3(59.996017, 0.036090814, -41.994247),
+"prototype": 1,
+"scale": Vector3(1.2886939, 1.2886939, 1.2886939),
+"yaw": 2.9339678
+}, {
+"local_position": Vector2(-67.39883, 57.322945),
+"phase": 0.028854534,
+"position": Vector3(-67.39883, 0.08721014, 57.322945),
+"prototype": 2,
+"scale": Vector3(1.6815083, 1.6815083, 1.6815083),
+"yaw": 2.1647775
+}, {
+"local_position": Vector2(3.597641, -65.59483),
+"phase": 0.91043067,
+"position": Vector3(3.597641, 0.41032472, -65.59483),
+"prototype": 2,
+"scale": Vector3(1.3630432, 1.3630432, 1.3630432),
+"yaw": -1.4551384
+}, {
+"local_position": Vector2(-67.25847, 71.83754),
+"phase": 0.3516432,
+"position": Vector3(-67.25847, 0.09408672, 71.83754),
+"prototype": 2,
+"scale": Vector3(1.3255641, 1.3255641, 1.3255641),
+"yaw": 1.2578804
+}, {
+"local_position": Vector2(62.0893, -66.463745),
+"phase": 0.8605882,
+"position": Vector3(62.0893, 0.07611006, -66.463745),
+"prototype": 2,
+"scale": Vector3(2.033885, 2.033885, 2.033885),
+"yaw": 1.891084
+}, {
+"local_position": Vector2(-67.12488, -24.370064),
+"phase": 0.42592293,
+"position": Vector3(-67.12488, 0.39424998, -24.370064),
+"prototype": 0,
+"scale": Vector3(2.0341892, 2.0341892, 2.0341892),
+"yaw": -3.098038
+}, {
+"local_position": Vector2(-18.475391, 69.56743),
+"phase": 0.43651724,
+"position": Vector3(-18.475391, 0.3150801, 69.56743),
+"prototype": 2,
+"scale": Vector3(1.9017876, 1.9017876, 1.9017876),
+"yaw": -1.8028237
+}, {
+"local_position": Vector2(61.328194, 15.203796),
+"phase": 0.15330058,
+"position": Vector3(61.328194, 0.6056377, 15.203796),
+"prototype": 3,
+"scale": Vector3(1.2873813, 1.2873813, 1.2873813),
+"yaw": -2.8699257
+}, {
+"local_position": Vector2(-24.709717, 62.552765),
+"phase": 0.72017527,
+"position": Vector3(-24.709717, 0.65348583, 62.552765),
+"prototype": 2,
+"scale": Vector3(1.3681357, 1.3681357, 1.3681357),
+"yaw": 1.5254061
+}, {
+"local_position": Vector2(36.02677, 63.443024),
+"phase": 0.41329306,
+"position": Vector3(36.02677, 0.07999501, 63.443024),
+"prototype": 3,
+"scale": Vector3(1.8995074, 1.8995074, 1.8995074),
+"yaw": -1.5958524
+}, {
+"local_position": Vector2(-64.972885, -67.24394),
+"phase": 0.21124692,
+"position": Vector3(-64.972885, 0.12317034, -67.24394),
+"prototype": 1,
+"scale": Vector3(1.584396, 1.584396, 1.584396),
+"yaw": 0.8064642
+}, {
+"local_position": Vector2(-65.40789, -11.078243),
+"phase": 0.99116486,
+"position": Vector3(-65.40789, 0.85792667, -11.078243),
+"prototype": 2,
+"scale": Vector3(1.895169, 1.895169, 1.895169),
+"yaw": -1.9144663
+}, {
+"local_position": Vector2(67.2628, -31.235256),
+"phase": 0.9249633,
+"position": Vector3(67.2628, 0.011138192, -31.235256),
+"prototype": 2,
+"scale": Vector3(1.272067, 1.272067, 1.272067),
+"yaw": 1.167393
+}, {
+"local_position": Vector2(24.424782, -59.32199),
+"phase": 0.26326415,
+"position": Vector3(24.424782, 0.17796479, -59.32199),
+"prototype": 0,
+"scale": Vector3(2.0452094, 2.0452094, 2.0452094),
+"yaw": -1.7954426
+}, {
+"local_position": Vector2(27.445694, 59.694664),
+"phase": 0.5779534,
+"position": Vector3(27.445694, 0.5527351, 59.694664),
+"prototype": 2,
+"scale": Vector3(1.489651, 1.489651, 1.489651),
+"yaw": -2.6381845
+}, {
+"local_position": Vector2(66.131546, 35.164345),
+"phase": 0.17033179,
+"position": Vector3(66.131546, 0.10313981, 35.164345),
+"prototype": 1,
+"scale": Vector3(1.5429226, 1.5429226, 1.5429226),
+"yaw": -1.1614145
+}, {
+"local_position": Vector2(-55.207985, 55.802773),
+"phase": 0.73547053,
+"position": Vector3(-55.207985, 0.09403872, 55.802773),
+"prototype": 0,
+"scale": Vector3(1.5324957, 1.5324957, 1.5324957),
+"yaw": 0.8867266
+}, {
+"local_position": Vector2(-55.99108, -40.172863),
+"phase": 0.34377488,
+"position": Vector3(-55.99108, 0.17642073, -40.172863),
+"prototype": 0,
+"scale": Vector3(1.2418586, 1.2418586, 1.2418586),
+"yaw": 1.9429376
+}, {
+"local_position": Vector2(70.49721, -43.577496),
+"phase": 0.33755833,
+"position": Vector3(70.49721, 0.08251554, -43.577496),
+"prototype": 2,
+"scale": Vector3(1.6358373, 1.6358373, 1.6358373),
+"yaw": 1.1024306
+}, {
+"local_position": Vector2(70.130775, 49.756805),
+"phase": 0.0790621,
+"position": Vector3(70.130775, 0.08499555, 49.756805),
+"prototype": 3,
+"scale": Vector3(1.7087407, 1.7087407, 1.7087407),
+"yaw": -2.2779396
+}, {
+"local_position": Vector2(-30.6109, -56.79846),
+"phase": 0.4054753,
+"position": Vector3(-30.6109, 0.6653942, -56.79846),
+"prototype": 0,
+"scale": Vector3(1.906019, 1.906019, 1.906019),
+"yaw": 2.672025
+}, {
+"local_position": Vector2(-0.24662018, 54.90785),
+"phase": 0.78118473,
+"position": Vector3(-0.24662018, 1.5419705, 54.90785),
+"prototype": 3,
+"scale": Vector3(1.7593406, 1.7593406, 1.7593406),
+"yaw": -1.3378457
+}, {
+"local_position": Vector2(-54.519783, 67.116905),
+"phase": 0.015477011,
+"position": Vector3(-54.519783, 0.070575915, 67.116905),
+"prototype": 3,
+"scale": Vector3(1.423321, 1.423321, 1.423321),
+"yaw": 0.936867
+}, {
+"local_position": Vector2(-39.909325, -71.475494),
+"phase": 0.5991434,
+"position": Vector3(-39.909325, 0.07226814, -71.475494),
+"prototype": 2,
+"scale": Vector3(1.9339596, 1.9339596, 1.9339596),
+"yaw": -0.25426674
+}, {
+"local_position": Vector2(-69.82298, -1.8115463),
+"phase": 0.7291551,
+"position": Vector3(-69.82298, 0.6128156, -1.8115463),
+"prototype": 3,
+"scale": Vector3(1.416841, 1.416841, 1.416841),
+"yaw": 0.24638486
+}, {
+"local_position": Vector2(-30.784698, 55.842693),
+"phase": 0.19477129,
+"position": Vector3(-30.784698, 1.1812276, 55.842693),
+"prototype": 2,
+"scale": Vector3(1.9827509, 1.9827509, 1.9827509),
+"yaw": -1.8064644
+}, {
+"local_position": Vector2(-49.11232, -68.930145),
+"phase": 0.6938551,
+"position": Vector3(-49.11232, 0.095419705, -68.930145),
+"prototype": 0,
+"scale": Vector3(1.6289405, 1.6289405, 1.6289405),
+"yaw": -1.9052423
+}, {
+"local_position": Vector2(60.466064, -13.790649),
+"phase": 0.07425668,
+"position": Vector3(60.466064, 0.6517686, -13.790649),
+"prototype": 1,
+"scale": Vector3(1.997344, 1.997344, 1.997344),
+"yaw": 0.30717397
+}, {
+"local_position": Vector2(-57.897743, 38.317),
+"phase": 0.16016936,
+"position": Vector3(-57.897743, 0.66562825, 38.317),
+"prototype": 1,
+"scale": Vector3(1.5352825, 1.5352825, 1.5352825),
+"yaw": 2.3228729
+}, {
+"local_position": Vector2(58.051857, 42.72377),
+"phase": 0.47569573,
+"position": Vector3(58.051857, 0.23621279, 42.72377),
+"prototype": 1,
+"scale": Vector3(1.6872337, 1.6872337, 1.6872337),
+"yaw": -2.926756
+}, {
+"local_position": Vector2(-13.922604, -66.06461),
+"phase": 0.31516963,
+"position": Vector3(-13.922604, 0.13020612, -66.06461),
+"prototype": 0,
+"scale": Vector3(2.0209818, 2.0209818, 2.0209818),
+"yaw": 0.54544115
+}, {
+"local_position": Vector2(56.06258, -4.631569),
+"phase": 0.6432146,
+"position": Vector3(56.06258, 0.9693768, -4.631569),
+"prototype": 3,
+"scale": Vector3(1.2125561, 1.2125561, 1.2125561),
+"yaw": -0.21312737
+}, {
+"local_position": Vector2(-70.76756, 23.277184),
+"phase": 0.32606012,
+"position": Vector3(-70.76756, 0.16967888, 23.277184),
+"prototype": 0,
+"scale": Vector3(1.5769817, 1.5769817, 1.5769817),
+"yaw": 0.9740069
+}, {
+"local_position": Vector2(0.062057495, 67.07054),
+"phase": 0.14075746,
+"position": Vector3(0.062057495, 0.99991536, 67.07054),
+"prototype": 0,
+"scale": Vector3(1.6885, 1.6885, 1.6885),
+"yaw": -1.3841095
+}, {
+"local_position": Vector2(-65.71512, 14.2719345),
+"phase": 0.22076398,
+"position": Vector3(-65.71512, 0.76415277, 14.2719345),
+"prototype": 3,
+"scale": Vector3(1.3328373, 1.3328373, 1.3328373),
+"yaw": -0.9607971
+}, {
+"local_position": Vector2(57.891598, -24.703533),
+"phase": 0.826973,
+"position": Vector3(57.891598, 0.28419542, -24.703533),
+"prototype": 1,
+"scale": Vector3(1.6168532, 1.6168532, 1.6168532),
+"yaw": -0.073634624
+}, {
+"local_position": Vector2(17.137764, 55.572174),
+"phase": 0.09026456,
+"position": Vector3(17.137764, 1.0484918, 55.572174),
+"prototype": 2,
+"scale": Vector3(1.5890048, 1.5890048, 1.5890048),
+"yaw": 0.71836853
+}, {
+"local_position": Vector2(-58.860077, -19.375935),
+"phase": 0.83515334,
+"position": Vector3(-58.860077, 1.1962674, -19.375935),
+"prototype": 0,
+"scale": Vector3(1.9460533, 1.9460533, 1.9460533),
+"yaw": -1.3431264
+}, {
+"local_position": Vector2(61.004223, 70.16956),
+"phase": 0.5455767,
+"position": Vector3(61.004223, 0.07455871, 70.16956),
+"prototype": 0,
+"scale": Vector3(2.0243664, 2.0243664, 2.0243664),
+"yaw": -1.8799834
+}, {
+"local_position": Vector2(-40.438416, 59.62508),
+"phase": 0.58475786,
+"position": Vector3(-40.438416, 0.1903517, 59.62508),
+"prototype": 1,
+"scale": Vector3(1.7411795, 1.7411795, 1.7411795),
+"yaw": -0.6739354
+}, {
+"local_position": Vector2(-35.943348, 71.42659),
+"phase": 0.5666909,
+"position": Vector3(-35.943348, 0.07014756, 71.42659),
+"prototype": 2,
+"scale": Vector3(1.3738223, 1.3738223, 1.3738223),
+"yaw": 1.5281093
+}, {
+"local_position": Vector2(56.227333, 28.537796),
+"phase": 0.6328023,
+"position": Vector3(56.227333, 0.7130795, 28.537796),
+"prototype": 0,
+"scale": Vector3(1.4649005, 1.4649005, 1.4649005),
+"yaw": 1.2453873
+}, {
+"local_position": Vector2(-69.66843, -38.092827),
+"phase": 0.79295254,
+"position": Vector3(-69.66843, 0.11611175, -38.092827),
+"prototype": 1,
+"scale": Vector3(2.0133793, 2.0133793, 2.0133793),
+"yaw": 1.932925
+}, {
+"local_position": Vector2(27.99694, -71.57038),
+"phase": 0.08340722,
+"position": Vector3(27.99694, 0.08391092, -71.57038),
+"prototype": 2,
+"scale": Vector3(1.2845229, 1.2845229, 1.2845229),
+"yaw": 0.42923522
+}, {
+"local_position": Vector2(-26.73207, -69.07057),
+"phase": 0.0023292948,
+"position": Vector3(-26.73207, 0.21861453, -69.07057),
+"prototype": 3,
+"scale": Vector3(1.9315715, 1.9315715, 1.9315715),
+"yaw": 2.5737827
+}, {
+"local_position": Vector2(62.36506, 58.048347),
+"phase": 0.9027991,
+"position": Vector3(62.36506, 0.07986741, 58.048347),
+"prototype": 0,
+"scale": Vector3(1.9685793, 1.9685793, 1.9685793),
+"yaw": 1.0858119
+}, {
+"local_position": Vector2(6.8725967, -55.846794),
+"phase": 0.68711394,
+"position": Vector3(6.8725967, 1.0711294, -55.846794),
+"prototype": 0,
+"scale": Vector3(1.777937, 1.777937, 1.777937),
+"yaw": 0.39499927
+}, {
+"local_position": Vector2(-59.074863, -1.227272),
+"phase": 0.73101306,
+"position": Vector3(-59.074863, 1.7605819, -1.227272),
+"prototype": 3,
+"scale": Vector3(1.7180622, 1.7180622, 1.7180622),
+"yaw": 2.4951737
+}, {
+"local_position": Vector2(-60.369637, -49.788776),
+"phase": 0.04558393,
+"position": Vector3(-60.369637, 0.10969502, -49.788776),
+"prototype": 1,
+"scale": Vector3(1.5096152, 1.5096152, 1.5096152),
+"yaw": 1.5178659
+}, {
+"local_position": Vector2(69.58978, -53.295815),
+"phase": 0.6819134,
+"position": Vector3(69.58978, 0.10606973, -53.295815),
+"prototype": 2,
+"scale": Vector3(1.4295396, 1.4295396, 1.4295396),
+"yaw": -0.8341205
+}, {
+"local_position": Vector2(70.44716, 20.050064),
+"phase": 0.9863354,
+"position": Vector3(70.44716, 0.1226426, 20.050064),
+"prototype": 3,
+"scale": Vector3(1.970468, 1.970468, 1.970468),
+"yaw": 1.4245107
+}, {
+"local_position": Vector2(67.023026, -4.8640823),
+"phase": 0.38822362,
+"position": Vector3(67.023026, 0.531544, -4.8640823),
+"prototype": 3,
+"scale": Vector3(1.5488492, 1.5488492, 1.5488492),
+"yaw": -2.538919
+}, {
+"local_position": Vector2(-55.333557, 16.350647),
+"phase": 0.06248895,
+"position": Vector3(-55.333557, 2.2414284, 16.350647),
+"prototype": 2,
+"scale": Vector3(1.768153, 1.768153, 1.768153),
+"yaw": 0.30757618
+}, {
+"local_position": Vector2(-12.846916, 59.873302),
+"phase": 0.3028931,
+"position": Vector3(-12.846916, 1.3769245, 59.873302),
+"prototype": 2,
+"scale": Vector3(1.3192312, 1.3192312, 1.3192312),
+"yaw": 1.3415797
+}, {
+"local_position": Vector2(71.999245, -15.906227),
+"phase": 0.934654,
+"position": Vector3(71.999245, 0.17507136, -15.906227),
+"prototype": 2,
+"scale": Vector3(1.3319584, 1.3319584, 1.3319584),
+"yaw": 1.8829415
+}, {
+"local_position": Vector2(29.219704, 70.88391),
+"phase": 0.035470016,
+"position": Vector3(29.219704, 0.09109468, 70.88391),
+"prototype": 1,
+"scale": Vector3(1.427511, 1.427511, 1.427511),
+"yaw": 0.9504969
+}, {
+"local_position": Vector2(-59.12312, 7.898987),
+"phase": 0.98603743,
+"position": Vector3(-59.12312, 1.8352007, 7.898987),
+"prototype": 3,
+"scale": Vector3(1.8739322, 1.8739322, 1.8739322),
+"yaw": 1.26424
+}, {
+"local_position": Vector2(35.190376, -62.563225),
+"phase": 0.33727133,
+"position": Vector3(35.190376, 0.019308485, -62.563225),
+"prototype": 3,
+"scale": Vector3(1.2707791, 1.2707791, 1.2707791),
+"yaw": -1.4783216
+}, {
+"local_position": Vector2(-43.760803, -59.985806),
+"phase": 0.0331013,
+"position": Vector3(-43.760803, 0.11828738, -59.985806),
+"prototype": 3,
+"scale": Vector3(1.5908074, 1.5908074, 1.5908074),
+"yaw": -2.305896
+}, {
+"local_position": Vector2(-20.74619, -60.161976),
+"phase": 0.40374327,
+"position": Vector3(-20.74619, 0.7350208, -60.161976),
+"prototype": 2,
+"scale": Vector3(1.5930824, 1.5930824, 1.5930824),
+"yaw": -1.9878514
+}, {
+"local_position": Vector2(-56.898537, 26.085976),
+"phase": 0.9531308,
+"position": Vector3(-56.898537, 1.4907069, 26.085976),
+"prototype": 3,
+"scale": Vector3(1.6583103, 1.6583103, 1.6583103),
+"yaw": -0.9011829
+}, {
+"local_position": Vector2(70.22438, 69.36277),
+"phase": 0.14079958,
+"position": Vector3(70.22438, 0.07270074, 69.36277),
+"prototype": 0,
+"scale": Vector3(1.9436862, 1.9436862, 1.9436862),
+"yaw": 1.94888
+}, {
+"local_position": Vector2(55.43578, 6.3763885),
+"phase": 0.3797404,
+"position": Vector3(55.43578, 1.0758327, 6.3763885),
+"prototype": 0,
+"scale": Vector3(1.4357387, 1.4357387, 1.4357387),
+"yaw": 1.7797258
+}, {
+"local_position": Vector2(51.114586, 55.306976),
+"phase": 0.61164695,
+"position": Vector3(51.114586, 0.073123194, 55.306976),
+"prototype": 3,
+"scale": Vector3(1.9193304, 1.9193304, 1.9193304),
+"yaw": 0.26940346
+}, {
+"local_position": Vector2(71.325714, -63.691772),
+"phase": 0.48209336,
+"position": Vector3(71.325714, 0.08630199, -63.691772),
+"prototype": 0,
+"scale": Vector3(1.293343, 1.293343, 1.293343),
+"yaw": 0.44538522
+}, {
+"local_position": Vector2(-55.544968, -28.785797),
+"phase": 0.3912152,
+"position": Vector3(-55.544968, 0.9159406, -28.785797),
+"prototype": 0,
+"scale": Vector3(1.2920746, 1.2920746, 1.2920746),
+"yaw": 0.26297665
+}, {
+"local_position": Vector2(-4.916931, -70.00033),
+"phase": 0.99069613,
+"position": Vector3(-4.916931, 0.13471754, -70.00033),
+"prototype": 3,
+"scale": Vector3(1.9302695, 1.9302695, 1.9302695),
+"yaw": -0.057893276
+}, {
+"local_position": Vector2(-59.590637, -40.913105),
+"phase": 0.5387013,
+"position": Vector3(-59.590637, 0.18690957, -40.913105),
+"prototype": 3,
+"scale": Vector3(1.2822896, 1.2822896, 1.2822896),
+"yaw": 1.9056909
+}, {
+"local_position": Vector2(40.811745, 66.0921),
+"phase": 0.33895782,
+"position": Vector3(40.811745, 0.068983965, 66.0921),
+"prototype": 1,
+"scale": Vector3(2.029951, 2.029951, 2.029951),
+"yaw": -0.27939868
+}, {
+"local_position": Vector2(55.65303, -31.741749),
+"phase": 0.82322896,
+"position": Vector3(55.65303, 0.15422651, -31.741749),
+"prototype": 2,
+"scale": Vector3(1.668095, 1.668095, 1.668095),
+"yaw": 2.98437
+}, {
+"local_position": Vector2(-65.97349, 44.87628),
+"phase": 0.31095847,
+"position": Vector3(-65.97349, 0.0929283, 44.87628),
+"prototype": 1,
+"scale": Vector3(1.4330027, 1.4330027, 1.4330027),
+"yaw": -2.6196005
+}, {
+"local_position": Vector2(-52.72104, 63.314743),
+"phase": 0.37050635,
+"position": Vector3(-52.72104, 0.07348557, 63.314743),
+"prototype": 3,
+"scale": Vector3(1.5074764, 1.5074764, 1.5074764),
+"yaw": -2.8399925
+}, {
+"local_position": Vector2(-23.81068, -68.785164),
+"phase": 0.22916652,
+"position": Vector3(-23.81068, 0.24439679, -68.785164),
+"prototype": 3,
+"scale": Vector3(1.30882, 1.30882, 1.30882),
+"yaw": -1.3916758
+}, {
+"local_position": Vector2(-57.47525, -34.800167),
+"phase": 0.8634107,
+"position": Vector3(-57.47525, 0.4154941, -34.800167),
+"prototype": 3,
+"scale": Vector3(1.7896663, 1.7896663, 1.7896663),
+"yaw": 1.8583229
+}])

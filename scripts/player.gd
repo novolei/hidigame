@@ -275,6 +275,12 @@ var _active_skin_node: Node3D = null
 var _robot_visual_root: Node3D = null
 var _robot_animation_player: AnimationPlayer = null
 var _prop_disguise_node: Node3D = null
+# Disguise animation: when disguised as an animated animal (deer/ice-age), drive
+# its AnimationPlayer (walk while the player moves, idle when still) on every peer.
+var _disguise_anim_player: AnimationPlayer = null
+var _disguise_walk_clip: String = ""
+var _disguise_idle_clip: String = ""
+var _disguise_prev_pos: Vector3 = Vector3.ZERO
 var _prop_disguise_tween: Tween = null
 var _is_prop_disguised := false
 var _current_disguise_name := ""
@@ -2314,6 +2320,7 @@ func _process(delta: float) -> void:
 		# netfox-interpolated position. Previously animation only advanced on the
 		# 30Hz throttled tick, so it stuttered while movement stayed smooth.
 		_animate_remote_skin_from_network_motion(delta)
+		_update_prop_disguise_animation(delta)
 		# Throttle only the heavier per-remote bookkeeping (cards / feedback / GPU).
 		_remote_visual_process_elapsed += maxf(delta, 0.0)
 		if _remote_visual_process_elapsed < REMOTE_VISUAL_PROCESS_INTERVAL:
@@ -2333,6 +2340,7 @@ func _process(delta: float) -> void:
 	# Hunter 鎸佺画寮€鐏娴?
 	_process_input_held()
 	_process_prop_disguise_height(delta)
+	_update_prop_disguise_animation(delta)
 
 func _process_remote_visual_frame(delta: float) -> void:
 	# Animation is now driven every frame in _process; this throttled path only
@@ -2956,7 +2964,11 @@ func is_running() -> bool:
 func _check_fall_and_respawn():
 	if _is_dead:
 		return
-	if global_transform.origin.y < -15.0:
+	# Fall-kill Y must sit below the lowest *playable* terrain, not at a flat-map default. Grounded
+	# island maps (e.g. Medieval) are a dome whose beaches dip to ~y=-17 just above the sea, so the
+	# old -15 limit false-triggered a respawn when a player simply walked downhill. -45 clears all
+	# walkable terrain and only catches a genuine off-map fall into the void.
+	if global_transform.origin.y < -45.0:
 		_respawn()
 
 func _respawn():
@@ -5641,6 +5653,7 @@ func apply_prop_disguise(preset: Dictionary) -> void:
 	_prop_disguise_base_position = _prop_disguise_node.position
 	_set_character_visual_visible(false)
 	_is_prop_disguised = true
+	_setup_disguise_animation()
 	_current_disguise_name = str(effective_preset.get("name", "Prop"))
 	_prop_disguise_is_q_scene_replica = bool(effective_preset.get("q_scene_prop_replica", false)) or str(effective_preset.get("disguise_source", "")) == "nearby_scene_prop_q"
 	_apply_prop_disguise_collision(effective_preset)
@@ -6014,6 +6027,75 @@ func _clear_prop_disguise_node() -> void:
 	if _prop_disguise_node and is_instance_valid(_prop_disguise_node):
 		_prop_disguise_node.queue_free()
 	_prop_disguise_node = null
+	_clear_disguise_animation()
+
+
+# --- Disguise animation -----------------------------------------------------
+# When disguised as an animated animal, find its AnimationPlayer and drive a real
+# Walk clip while the player moves / Idle (or a frozen pose) when still, on every
+# peer. Non-animated disguises (boxes, fruit) have no AnimationPlayer → no-op.
+func _setup_disguise_animation() -> void:
+	_clear_disguise_animation()
+	if not _prop_disguise_node or not is_instance_valid(_prop_disguise_node):
+		return
+	_disguise_anim_player = _find_disguise_animation_player(_prop_disguise_node)
+	if _disguise_anim_player == null:
+		return
+	var single := ""
+	var non_reset := 0
+	for clip in _disguise_anim_player.get_animation_list():
+		if clip == "RESET":
+			continue
+		non_reset += 1
+		single = clip
+		var lower := clip.to_lower()
+		if _disguise_walk_clip.is_empty() and (lower.contains("walk") or lower.contains("run")):
+			_disguise_walk_clip = clip
+		if _disguise_idle_clip.is_empty() and lower.contains("idle"):
+			_disguise_idle_clip = clip
+	if _disguise_walk_clip.is_empty() and non_reset >= 1:
+		_disguise_walk_clip = single
+	for clip in [_disguise_walk_clip, _disguise_idle_clip]:
+		if clip.is_empty():
+			continue
+		var anim: Animation = _disguise_anim_player.get_animation(clip)
+		if anim != null:
+			anim.loop_mode = Animation.LOOP_LINEAR
+	_disguise_prev_pos = global_position
+
+
+func _find_disguise_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child in node.get_children():
+		var found: AnimationPlayer = _find_disguise_animation_player(child)
+		if found != null:
+			return found
+	return null
+
+
+func _clear_disguise_animation() -> void:
+	_disguise_anim_player = null
+	_disguise_walk_clip = ""
+	_disguise_idle_clip = ""
+
+
+func _update_prop_disguise_animation(delta: float) -> void:
+	if not _is_prop_disguised or _disguise_anim_player == null or not is_instance_valid(_disguise_anim_player):
+		return
+	var moved: Vector3 = global_position - _disguise_prev_pos
+	_disguise_prev_pos = global_position
+	moved.y = 0.0
+	var moving: bool = (moved.length() / maxf(delta, 0.001)) > 0.4
+	if moving and not _disguise_walk_clip.is_empty():
+		if _disguise_anim_player.current_animation != _disguise_walk_clip:
+			_disguise_anim_player.play(_disguise_walk_clip)
+	elif not moving:
+		if not _disguise_idle_clip.is_empty():
+			if _disguise_anim_player.current_animation != _disguise_idle_clip:
+				_disguise_anim_player.play(_disguise_idle_clip)
+		elif _disguise_anim_player.is_playing():
+			_disguise_anim_player.pause()
 
 
 func _process_party_monster_bounty_feedback(delta: float) -> void:
@@ -8301,6 +8383,21 @@ func _server_die(killer_id: int) -> void:
 		Network.server_set_player_alive(int(name), false)
 
 
+# Server-side penalty applied by AnimalProp._server_die when this hunter shoots a
+# REAL animal (not a disguised player). Dropping to zero kills the hunter with no
+# kill credit (killer_id 0).
+func apply_animal_kill_penalty(amount: float, _species_id: String = "") -> void:
+	if not _is_runtime_multiplayer_server():
+		return
+	if _is_dead or health <= 0.0:
+		return
+	health = max(0.0, health - amount)
+	if health <= 0.0:
+		_server_die(0)
+	else:
+		_sync_health.rpc(health)
+
+
 func _server_revive_from_card_after_delay() -> void:
 	await get_tree().create_timer(5.0).timeout
 	if not is_instance_valid(self):
@@ -8363,7 +8460,9 @@ func _broadcast_death(killer_id: int):
 		_play_prop_death_vanish()
 	else:
 		_play_character_death_vanish()
-	# TODO: 瑙﹀彂姝讳骸 UI
+	# Push a kill-feed entry on every peer (this RPC is call_local + reliable, so
+	# it already fans out to everyone — no extra broadcast needed).
+	KillFeed.report_player_kill(killer_id, int(name))
 
 
 @rpc("any_peer", "call_local", "reliable")

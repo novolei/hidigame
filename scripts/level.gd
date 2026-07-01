@@ -63,6 +63,47 @@ const MATCH_PERFORMANCE_HIDDEN_DECOR_RESOURCE_TOKENS := [
 ]
 const MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE := 28.0
 const MATCH_PERFORMANCE_MAIN_SHADOW_BLUR := 0.2
+const MATCH_PERFORMANCE_MAP_SHADOW_DISTANCE := 160.0
+const MATCH_PERFORMANCE_MAP_SHADOW_BLUR := 0.85
+const MATCH_PERFORMANCE_MAP_SHADOW_LIGHT_NAME_TOKENS := [
+	"sun",
+	"key",
+]
+const MATCH_PERFORMANCE_MAP_SHADOW_EXCLUDED_NAME_TOKENS := [
+	"grass",
+	"flower",
+	"water",
+	"ocean",
+	"stream",
+	"river",
+	"foam",
+	"path",
+	"road",
+	"trail",
+]
+const MATCH_PERFORMANCE_MAP_SHADOW_CASTER_NAME_TOKENS := [
+	"tree",
+	"palm",
+	"pine",
+	"trunk",
+	"rock",
+	"stone",
+	"boulder",
+	"house",
+	"hut",
+	"cabin",
+	"building",
+	"bridge",
+	"fence",
+	"wall",
+	"post",
+	"roof",
+	"dock",
+	"crate",
+	"barrel",
+	"log",
+	"bush",
+]
 const MATCH_PERFORMANCE_LIGHT_FADE_BEGIN := 22.0
 const MATCH_PERFORMANCE_LIGHT_FADE_LENGTH := 8.0
 const MATCH_PERFORMANCE_LIGHT_FADE_SHADOW := 12.0
@@ -251,7 +292,7 @@ const MAP_PROP_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
 const UNITY_DECOR_SPAWN_BATCH_SIZE: int = 3
 const UNITY_DECOR_SPAWN_BATCH_DELAY_SECONDS: float = 1.0 / 60.0
 const WORLD_COLLISION_MASK: int = 2
-const DEFAULT_MAP_NAME := "Medieval Strategy World"
+const DEFAULT_MAP_NAME := "Sunny Island"
 const TPS_DEMO_LEVEL_MAP_NAME := "TPS Demo Level"
 const HOLOGRAM_FLAG_MAX_PLACE_DISTANCE: float = 18.0
 const GROUND_RAY_UP: float = 80.0
@@ -261,6 +302,7 @@ const FIXED_SHADOW_ZONE_GROUP := "stalker_shadow_zone"
 const RANDOM_DECOR_SHADOW_NOISE_GROUP := "dynamic_shadow_noise"
 const FIXED_SHADOW_COVER_MATERIAL := Color(0.18, 0.14, 0.10, 1.0)
 const TANK_DEMO_MAP_SCENES := {
+	"Sunny Island": "res://scenes/level/maps/procedural_sunny_island.tscn",
 	"Medieval Strategy World": "res://scenes/level/maps/medieval_strategy_world.tscn",
 	"Tank Demo Desert": "res://scenes/level/maps/tank_demo_desert.tscn",
 	"Tank Demo Jungle": "res://scenes/level/maps/tank_demo_jungle.tscn",
@@ -901,6 +943,7 @@ func _apply_selected_map_scene() -> void:
 	# place (see scripts/maps/). Only unmigrated maps fall back to the legacy blunt
 	# lighting-strip + TPS-specific collision pass below.
 	if map_root is MapController:
+		(map_root as MapController).prepare()
 		return
 	_sanitize_embedded_map_lighting(map_root)
 	_adapt_embedded_map_collision(map_root, selected_map)
@@ -1102,19 +1145,32 @@ func _apply_match_performance_light_policy(enabled: bool) -> void:
 				"distance_fade_shadow",
 				"directional_shadow_max_distance",
 			]))
-			var keep_main_shadow: bool = _is_main_match_shadow_light(light)
-			light.shadow_enabled = keep_main_shadow
-			light.light_volumetric_fog_energy = 0.0
-			_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAIN_SHADOW_BLUR if keep_main_shadow else 0.0)
-			_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE if keep_main_shadow else 0.0)
-			_set_property_if_present(light, "distance_fade_enabled", true)
-			_set_property_if_present(light, "distance_fade_begin", MATCH_PERFORMANCE_LIGHT_FADE_BEGIN)
-			_set_property_if_present(light, "distance_fade_length", MATCH_PERFORMANCE_LIGHT_FADE_LENGTH)
-			_set_property_if_present(light, "distance_fade_shadow", MATCH_PERFORMANCE_LIGHT_FADE_SHADOW)
+			_apply_match_performance_light_limits(light)
 		return
 	for state in _match_performance_light_states:
 		_restore_property_state(state)
 	_match_performance_light_states.clear()
+
+
+func _apply_match_performance_light_limits(light: Light3D) -> void:
+	var keep_main_shadow: bool = _is_main_match_shadow_light(light)
+	var keep_map_shadow: bool = _is_custom_map_shadow_light(light)
+	var keep_shadow: bool = keep_main_shadow or keep_map_shadow
+	light.shadow_enabled = keep_shadow
+	light.light_volumetric_fog_energy = 0.0
+	if keep_map_shadow:
+		_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAP_SHADOW_BLUR)
+		_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAP_SHADOW_DISTANCE)
+	elif keep_main_shadow:
+		_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAIN_SHADOW_BLUR)
+		_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE)
+	else:
+		_set_property_if_present(light, "shadow_blur", 0.0)
+		_set_property_if_present(light, "directional_shadow_max_distance", 0.0)
+	_set_property_if_present(light, "distance_fade_enabled", true)
+	_set_property_if_present(light, "distance_fade_begin", MATCH_PERFORMANCE_LIGHT_FADE_BEGIN)
+	_set_property_if_present(light, "distance_fade_length", MATCH_PERFORMANCE_LIGHT_FADE_LENGTH)
+	_set_property_if_present(light, "distance_fade_shadow", MATCH_PERFORMANCE_LIGHT_FADE_SHADOW)
 
 
 func _is_main_match_shadow_light(light: Light3D) -> bool:
@@ -1122,6 +1178,28 @@ func _is_main_match_shadow_light(light: Light3D) -> bool:
 		return false
 	var environment_root: Node = get_node_or_null("Environment")
 	return environment_root != null and light.get_parent() == environment_root and String(light.name) == "DirectionalLight3D"
+
+
+func _is_custom_map_shadow_light(light: Light3D) -> bool:
+	if not light is DirectionalLight3D:
+		return false
+	if not _is_inside_lighting_kept_map(light):
+		return false
+	var lower_name: String = String(light.name).to_lower()
+	for token: String in MATCH_PERFORMANCE_MAP_SHADOW_LIGHT_NAME_TOKENS:
+		if lower_name.contains(token):
+			return true
+	return false
+
+
+func _is_inside_lighting_kept_map(node: Node) -> bool:
+	var current: Node = node
+	while current:
+		if current is MapController:
+			var map_controller: MapController = current as MapController
+			return map_controller.lighting_mode == MapProfile.Lighting.KEEP
+		current = current.get_parent()
+	return false
 
 
 func _find_light_nodes() -> Array[Node]:
@@ -1155,15 +1233,7 @@ func _apply_match_performance_lights_in_subtree(root_node: Node) -> void:
 				"distance_fade_shadow",
 				"directional_shadow_max_distance",
 			]))
-		var keep_main_shadow: bool = _is_main_match_shadow_light(light)
-		light.shadow_enabled = keep_main_shadow
-		light.light_volumetric_fog_energy = 0.0
-		_set_property_if_present(light, "shadow_blur", MATCH_PERFORMANCE_MAIN_SHADOW_BLUR if keep_main_shadow else 0.0)
-		_set_property_if_present(light, "directional_shadow_max_distance", MATCH_PERFORMANCE_MAIN_SHADOW_DISTANCE if keep_main_shadow else 0.0)
-		_set_property_if_present(light, "distance_fade_enabled", true)
-		_set_property_if_present(light, "distance_fade_begin", MATCH_PERFORMANCE_LIGHT_FADE_BEGIN)
-		_set_property_if_present(light, "distance_fade_length", MATCH_PERFORMANCE_LIGHT_FADE_LENGTH)
-		_set_property_if_present(light, "distance_fade_shadow", MATCH_PERFORMANCE_LIGHT_FADE_SHADOW)
+		_apply_match_performance_light_limits(light)
 
 
 func _apply_match_performance_geometry_in_subtree(root_node: Node) -> void:
@@ -1187,7 +1257,8 @@ func _apply_match_performance_geometry_in_subtree(root_node: Node) -> void:
 
 
 func _apply_match_performance_geometry_limits(instance: GeometryInstance3D) -> void:
-	_set_property_if_present(instance, "cast_shadow", GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	if not _should_preserve_match_shadow_casting(instance):
+		_set_property_if_present(instance, "cast_shadow", GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	if _is_hidden_match_decor_geometry(instance):
 		instance.visible = false
@@ -1219,6 +1290,60 @@ func _apply_match_performance_geometry_limits(instance: GeometryInstance3D) -> v
 		instance.visibility_range_end = MATCH_PERFORMANCE_DECOR_VISIBILITY_RANGE
 		instance.visibility_range_end_margin = MATCH_PERFORMANCE_DECOR_VISIBILITY_MARGIN
 	instance.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
+
+func _should_preserve_match_shadow_casting(instance: GeometryInstance3D) -> bool:
+	if instance == null:
+		return false
+	if instance is GPUParticles3D or instance is Label3D:
+		return false
+	if instance is MultiMeshInstance3D:
+		return false
+	if not _is_inside_lighting_kept_map(instance):
+		return false
+	if _node_chain_contains_any_token(instance, MATCH_PERFORMANCE_MAP_SHADOW_EXCLUDED_NAME_TOKENS):
+		return false
+	if _node_chain_contains_any_token(instance, MATCH_PERFORMANCE_MAP_SHADOW_CASTER_NAME_TOKENS):
+		return true
+	return _is_imported_lighting_kept_map_geometry(instance)
+
+
+func _node_chain_contains_any_token(node: Node, tokens: Array) -> bool:
+	var current: Node = node
+	while current:
+		var lower_name: String = String(current.name).to_lower()
+		var lower_scene_path: String = String(current.scene_file_path).to_lower()
+		for token_value: Variant in tokens:
+			var token: String = str(token_value)
+			if token.is_empty():
+				continue
+			if lower_name.contains(token) or lower_scene_path.contains(token):
+				return true
+		current = current.get_parent()
+	if node is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = node as MeshInstance3D
+		if mesh_instance.mesh:
+			var mesh_path: String = String(mesh_instance.mesh.resource_path).to_lower()
+			for token_value: Variant in tokens:
+				var token: String = str(token_value)
+				if not token.is_empty() and mesh_path.contains(token):
+					return true
+	return false
+
+
+func _is_imported_lighting_kept_map_geometry(instance: GeometryInstance3D) -> bool:
+	var current: Node = instance
+	while current:
+		var scene_path: String = String(current.scene_file_path).to_lower()
+		if scene_path.contains("assets/nature_megakit/") or scene_path.contains("medieval_strategy_world_assets/"):
+			return true
+		current = current.get_parent()
+	if instance is MeshInstance3D:
+		var mesh_instance: MeshInstance3D = instance as MeshInstance3D
+		if mesh_instance.mesh:
+			var mesh_path: String = String(mesh_instance.mesh.resource_path).to_lower()
+			return mesh_path.contains("assets/nature_megakit/") or mesh_path.contains("medieval_strategy_world_assets/")
+	return false
 
 
 func _collect_match_performance_geometry_nodes(node: Node, result: Array[Node]) -> void:
@@ -1438,7 +1563,12 @@ func _should_limit_benchmark_visibility(instance: GeometryInstance3D) -> bool:
 	if _is_runtime_map_prop_geometry(instance):
 		return true
 	var lower_name := String(instance.name).to_lower()
-	for token in ["ground", "floor", "wall", "border", "gate", "terrain", "map"]:
+	# Tokens marking always-visible playable surface / environment that the match performance policy
+	# must never cull or hide. "landscape", "sea", "water", "island", "ocean" cover migrated maps
+	# whose terrain/water meshes are NOT named "terrain" (e.g. the Medieval island's "Landscape"
+	# terrain mesh) — without them the ground gets visible=false during a match and reads as a
+	# transparent floor (renders fine standalone, vanishes in-game).
+	for token in ["ground", "floor", "wall", "border", "gate", "terrain", "map", "landscape", "sea", "water", "island", "ocean"]:
 		if lower_name.contains(token):
 			return false
 	return true
@@ -2860,6 +2990,7 @@ func _server_start_prep_phase() -> void:
 	_set_preparation_gate_open(false)
 	_server_spawn_map_props()
 	_server_spawn_unity_decorations()
+	_server_spawn_animals()
 	_server_spawn_match_pickups_for_round()
 	_set_match_pickups_active(false)
 	_runtime_debug_log("[Level] SERVER: prep phase starting, remaining: ", prep_remaining, "s, hunters=", Network.get_hunters().size(), " props=", Network.get_props().size())
@@ -3145,6 +3276,147 @@ func _server_publish_map_prop_state(prop: FruitProp, reliable: bool = false) -> 
 		_map_prop_sync_budget.queue_rest(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
 	else:
 		_map_prop_sync_budget.queue_motion(prop.name, prop.global_transform, prop.linear_velocity, prop.angular_velocity, prop.sleeping)
+
+
+# =============================================================================
+# Wandering animals (server). Mirrors the map-prop batch/replication model.
+# Animals are AnimalProp nodes that wander a small area, can be disguised as
+# (replicable_props group), and cost a hunter ANIMAL_KILL_PENALTY HP if shot.
+# =============================================================================
+
+const ANIMAL_MIN_COUNT: int = 4
+const ANIMAL_MAX_COUNT: int = 16
+const ANIMAL_MIN_DISTANCE: float = 6.0
+const ANIMAL_WANDER_RADIUS: float = 7.0
+const ANIMAL_SPAWN_BATCH_SIZE: int = 3
+const ANIMAL_SPAWN_BATCH_DELAY_SECONDS: float = 0.05
+
+var _animal_spawn_queue: Array = []
+var _animal_spawn_container: Node3D = null
+var _animal_spawn_generation: int = 0
+
+
+func _server_spawn_animals() -> void:
+	if not _is_multiplayer_server():
+		return
+	var total: int = max(Network.players.size(), 1)
+	var animal_count: int = clampi(int(round(float(total) * 0.7)) + 2, ANIMAL_MIN_COUNT, ANIMAL_MAX_COUNT)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.randomize()
+	var container: Node3D = _get_or_create_animal_container(true)
+	var used_positions: Array[Vector3] = []
+	var species_list: Array[Dictionary] = AnimalCatalog.random_species(rng, animal_count)
+	var spawn_data: Array = []
+	for i in range(animal_count):
+		var species: Dictionary = species_list[i]
+		var pos: Vector3 = _get_random_map_prop_position(used_positions, ANIMAL_MIN_DISTANCE, rng)
+		var data: Dictionary = {
+			"name": "Animal_%03d_%s" % [i, String(species.get("id", "wolf")).to_upper()],
+			"id": String(species.get("id", "wolf")),
+			"display_name": String(species.get("name", "动物")),
+			"scene": String(species.get("scene", "")),
+			"scale": float(species.get("scale", 1.0)),
+			"speed": float(species.get("speed", 1.8)),
+			"radius": float(species.get("radius", 0.4)),
+			"height": float(species.get("height", 1.0)),
+			"texture": String(species.get("texture", "atlas")),
+			"behavior": String(species.get("behavior", "wander")),
+			"health": AnimalCatalog.ANIMAL_HEALTH,
+			"wander_radius": ANIMAL_WANDER_RADIUS,
+			"position": pos,
+			"anchor": pos,
+			"rotation_y": rng.randf_range(-PI, PI),
+		}
+		spawn_data.append(data)
+		used_positions.append(pos)
+	_runtime_debug_log("[Level] Queueing animals: ", spawn_data.size())
+	_queue_animal_spawn_batches(container, spawn_data, true)
+
+
+func _get_or_create_animal_container(clear_existing: bool = true) -> Node3D:
+	var existing: Node = get_node_or_null("AnimalContainer")
+	if existing:
+		if clear_existing:
+			for child in existing.get_children():
+				child.free()
+		return existing
+	var container: Node3D = Node3D.new()
+	container.name = "AnimalContainer"
+	add_child(container)
+	return container
+
+
+func _queue_animal_spawn_batches(container: Node3D, spawn_data: Array, replicate_to_clients: bool) -> void:
+	_animal_spawn_generation += 1
+	_animal_spawn_queue = spawn_data.duplicate()
+	_animal_spawn_container = container
+	if replicate_to_clients:
+		_rpc_prepare_animals_spawn.rpc()
+	_schedule_animal_spawn_batch(_animal_spawn_generation, replicate_to_clients, true)
+
+
+func _schedule_animal_spawn_batch(generation: int, replicate_to_clients: bool, immediate: bool = false) -> void:
+	if immediate or not is_inside_tree():
+		_process_animal_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		_process_animal_spawn_batch.call_deferred(generation, replicate_to_clients)
+		return
+	var timer: SceneTreeTimer = tree.create_timer(ANIMAL_SPAWN_BATCH_DELAY_SECONDS)
+	timer.timeout.connect(_process_animal_spawn_batch.bind(generation, replicate_to_clients), CONNECT_ONE_SHOT)
+
+
+func _process_animal_spawn_batch(generation: int, replicate_to_clients: bool) -> void:
+	if generation != _animal_spawn_generation:
+		return
+	if _animal_spawn_container == null or not is_instance_valid(_animal_spawn_container):
+		_animal_spawn_queue.clear()
+		return
+	var batch: Array = []
+	var limit: int = mini(ANIMAL_SPAWN_BATCH_SIZE, _animal_spawn_queue.size())
+	for i in range(limit):
+		var data: Dictionary = _animal_spawn_queue.pop_front()
+		_spawn_one_animal(_animal_spawn_container, data)
+		batch.append(data)
+	if replicate_to_clients and not batch.is_empty():
+		_rpc_spawn_animals_batch.rpc(batch, _animal_spawn_queue.is_empty())
+	if _animal_spawn_queue.is_empty():
+		return
+	_schedule_animal_spawn_batch(generation, replicate_to_clients)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_prepare_animals_spawn() -> void:
+	_get_or_create_animal_container(true)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _rpc_spawn_animals_batch(spawn_data: Array, _done: bool = false) -> void:
+	var container: Node3D = _get_or_create_animal_container(false)
+	for data: Variant in spawn_data:
+		_spawn_one_animal(container, data)
+
+
+func _spawn_one_animal(container: Node3D, data: Dictionary) -> void:
+	var node: AnimalProp = AnimalProp.new()
+	node.name = String(data.get("name", "Animal"))
+	node.set_multiplayer_authority(1)
+	container.add_child(node, true)
+	node.apply_data({
+		"id": String(data.get("id", "wolf")),
+		"name": String(data.get("display_name", data.get("name", "动物"))),
+		"scene": String(data.get("scene", "")),
+		"scale": float(data.get("scale", 1.0)),
+		"speed": float(data.get("speed", 1.8)),
+		"radius": float(data.get("radius", 0.4)),
+		"height": float(data.get("height", 1.0)),
+		"health": float(data.get("health", AnimalCatalog.ANIMAL_HEALTH)),
+		"wander_radius": float(data.get("wander_radius", ANIMAL_WANDER_RADIUS)),
+		"position": data.get("position", Vector3.ZERO),
+		"anchor": data.get("anchor", data.get("position", Vector3.ZERO)),
+		"rotation_y": float(data.get("rotation_y", 0.0)),
+	})
 
 
 @rpc("authority", "call_remote", "unreliable_ordered")
@@ -3659,12 +3931,16 @@ func _add_decoration_collision_body(container: Node3D, visual_node: Node3D) -> v
 
 
 func _configure_match_lighting() -> void:
+	# Soft, dreamy, pastel art direction (vs the previous harsh/over-exposed look): gentle warm sun,
+	# very soft shadows, AgX tonemap (smooth highlight rolloff so bright terrain no longer blows out),
+	# generous bloom for the ethereal glow, warm low-contrast/low-saturation grade, and a light
+	# atmospheric haze that fades the distance instead of a cold blue fog.
 	var light := get_node_or_null("Environment/DirectionalLight3D") as DirectionalLight3D
 	if light:
-		light.light_color = Color(1.0, 0.91, 0.78, 1.0)
-		light.light_energy = 0.90
+		light.light_color = Color(1.0, 0.95, 0.88, 1.0)
+		light.light_energy = 0.82
 		light.shadow_enabled = true
-		light.shadow_blur = 1.35
+		light.shadow_blur = 2.5
 		_set_property_if_present(light, "directional_shadow_max_distance", 80.0)
 		_set_property_if_present(light, "directional_shadow_fade_start", 0.80)
 
@@ -3674,22 +3950,44 @@ func _configure_match_lighting() -> void:
 	var environment := world_environment.environment.duplicate() as Environment
 	world_environment.environment = environment
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.64, 0.76, 0.88, 1.0)
-	environment.ambient_light_energy = 0.74
-	environment.ambient_light_sky_contribution = 0.12
+	environment.ambient_light_color = Color(0.82, 0.84, 0.87, 1.0)
+	environment.ambient_light_energy = 0.66
+	environment.ambient_light_sky_contribution = 0.30
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 0.92
-	environment.tonemap_white = 2.2
+	environment.tonemap_mode = Environment.TONE_MAPPER_AGX
+	environment.tonemap_exposure = 1.02
+	environment.tonemap_white = 2.0
 	environment.glow_enabled = true
-	environment.glow_strength = 0.10
-	environment.glow_bloom = 0.025
-	environment.glow_hdr_threshold = 0.72
+	environment.glow_intensity = 0.85
+	environment.glow_strength = 0.32
+	environment.glow_bloom = 0.14
+	environment.glow_hdr_threshold = 0.88
+	# Pastel grade: pull contrast + saturation down so colours read soft instead of "爆".
+	environment.adjustment_enabled = true
+	environment.adjustment_brightness = 1.02
+	environment.adjustment_contrast = 0.90
+	environment.adjustment_saturation = 0.85
 	environment.fog_enabled = true
-	environment.fog_density = 0.0016
-	environment.fog_light_color = Color(0.32, 0.42, 0.55, 1.0)
-	environment.fog_aerial_perspective = 0.18
-	environment.fog_sky_affect = 0.10
+	environment.fog_density = 0.0022
+	environment.fog_light_color = Color(0.82, 0.87, 0.92, 1.0)
+	environment.fog_aerial_perspective = 0.34
+	environment.fog_sky_affect = 0.28
+	# Soft daytime sky (replaces the dark star sky) for the bright, dreamy daytime look. Pale-blue
+	# gradient with a soft hazy horizon so it reads gentle, not harsh. Drives sky-based ambient/fog.
+	environment.background_mode = Environment.BG_SKY
+	var day_sky := Sky.new()
+	var day_sky_mat := ProceduralSkyMaterial.new()
+	day_sky_mat.sky_top_color = Color(0.40, 0.62, 0.86, 1.0)
+	day_sky_mat.sky_horizon_color = Color(0.88, 0.92, 0.95, 1.0)
+	day_sky_mat.sky_curve = 0.12
+	day_sky_mat.sky_energy_multiplier = 1.0
+	day_sky_mat.ground_horizon_color = Color(0.88, 0.92, 0.95, 1.0)
+	day_sky_mat.ground_bottom_color = Color(0.72, 0.78, 0.82, 1.0)
+	day_sky_mat.ground_curve = 0.06
+	day_sky_mat.sun_angle_max = 40.0
+	day_sky_mat.use_debanding = true
+	day_sky.sky_material = day_sky_mat
+	environment.sky = day_sky
 
 
 func _ensure_fixed_shadow_cover() -> void:

@@ -285,6 +285,9 @@ func _server_fire(sender_id: int, aim_dir: Vector3, shooter_pos: Vector3, fire_t
 		elif hit_target.has_method("is_disguised") and hit_target.is_disguised():
 			feedback_text = "DISGUISE HIT -%d" % int(round(damage_dealt))
 			feedback_color = Color(0.18, 1.0, 0.86, 1.0)
+		elif hit_target.is_in_group("killable_animals"):
+			feedback_text = "误杀野生动物 -100HP"
+			feedback_color = Color(1.0, 0.32, 0.22, 1.0)
 		else:
 			feedback_text = "HIT -%d" % int(round(damage_dealt))
 			feedback_color = Color(1.0, 0.86, 0.25, 1.0)
@@ -356,6 +359,12 @@ func _is_damageable_weapon_target(target) -> bool:
 	if not target or not target.has_method("take_damage"):
 		return false
 	if target is Node and (target as Node).is_in_group("players"):
+		return true
+	# Real wandering animals are killable too — but killing one penalizes the
+	# hunter (handled in AnimalProp._server_die). A prop player disguised as an
+	# animal is a Character in the "players" group, so it is caught above and
+	# never triggers the penalty.
+	if target is Node and (target as Node).is_in_group("killable_animals"):
 		return true
 	return target.has_method("is_card_decoy_target") and target.is_card_decoy_target()
 

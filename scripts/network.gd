@@ -172,7 +172,7 @@ var lobby_config: Dictionary = {
 	"room_name": "Private Match",
 	"steam_lobby_id": "",
 	"host_port": SERVER_PORT,
-	"map": "Medieval Strategy World",
+	"map": "Sunny Island",
 	"variant": "Default",
 	"condition": "Normal",
 	"game_show": "None",

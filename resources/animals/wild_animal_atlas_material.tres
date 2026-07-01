@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://dhf8acb5ubf8h"]
+
+[ext_resource type="Texture2D" uid="uid://demhec8mamvw1" path="res://resources/animals/wildanimal_ani/texture/wild_animals_map.png" id="1_fvc6s"]
+
+[resource]
+resource_name = "WildAnimalAtlas"
+albedo_texture = ExtResource("1_fvc6s")
+roughness = 0.9
+texture_filter = 0
