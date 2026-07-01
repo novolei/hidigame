@@ -1,10 +1,10 @@
 {
-  "build_id": "PENDING",
-  "content_version": "0.4.30+20260701.PENDING",
+  "build_id": "b8564bf3",
+  "content_version": "0.4.30+20260701.b8564bf3",
   "version": "0.4.30",
   "protocol_version": 1,
   "channel": "dev",
-  "git_commit": "PENDING",
+  "git_commit": "b8564bf3d49e8d96028657891c73a75f1d29117e",
   "built_at": "2026-07-01T08:30:00+08:00",
   "role": "baseline"
 }
